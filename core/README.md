@@ -28,7 +28,7 @@ Dauerbetrieb ohne Gegenwert.
 src/decode/     Zeile → Telegram | RssiNoise | verworfen   (fertig)
 src/analytics/  Duty-Cycle über gleitendes Stundenfenster  (fertig)
 src/resolve/    Gerätenamen von der CCU                    (Auflösung fertig, HTTP-Abruf folgt)
-src/ingest/     serieller Port, Reconnect, Watchdog        (M2)
+src/ingest/     serieller Port, Reconnect, Watchdog        (fertig)
 src/persist/    SQLite im WAL-Modus, optional InfluxDB     (M3)
 src/api/        REST, WebSocket, MQTT + Web-UI-Kompat      (M5)
 ```
@@ -94,9 +94,39 @@ einer echten RaspberryMatic (241 Einträge, 28.07.2026). **Sie enthält reale
 Gerätenamen und Seriennummern dieser Anlage** — vor einer Veröffentlichung des
 Repos ist sie zu anonymisieren oder durch eine synthetische Liste zu ersetzen.
 
+## Serial-Ingest
+
+`src/ingest/` liest den Zeilenstrom des Sniffers dauerbetriebsfest:
+
+- **LineSplitter** arbeitet auf Bytes (latin1, wirft nie) und kappt Zeilen
+  ohne Ende — eine falsche Baudrate füllt sonst den Speicher statt Zeilen.
+- **BoundedQueue** entkoppelt Leser und Verbraucher; bei Überlauf fallen die
+  ältesten Zeilen weg und werden gezählt (Drop-Oldest, Designdok §7).
+- **Watchdog** nutzt die 750-ms-Rauschzeilen des Sniffers: Stille über der
+  Schwelle heißt tote Strecke → Port schließen, neu verbinden. Für eine fest
+  verdrahtete Pi-UART ist das der einzige brauchbare Fehlerdetektor — sie
+  „trennt" sich nie, sie verstummt nur.
+- **Reconnect** mit exponentiellem Backoff; zurückgesetzt erst bei der ersten
+  gültigen Zeile, nicht beim Öffnen — ein totes /dev/ttyAMA0 lässt sich
+  prächtig öffnen. `connected` folgt derselben Regel (Semantik von
+  `info.connection`).
+- **Produktionsport ohne native Abhängigkeit:** der Sniffer sendet nur, also
+  reicht `stty`-Konfiguration (kann die krummen 58 824 Baud) plus lesender
+  Dateistrom. Port und Uhr sind injizierbar — sämtliche Reconnect-, Stille-
+  und Überlaufszenarien laufen im Test in Millisekunden statt Echtzeit.
+
+```ts
+const ingest = new SerialIngest({
+  openPort: sttyPortOpener('/dev/asksin-hat'),
+  onLine: (l) => { if (l.kind === 'telegram') tracker.addTelegram(l.telegram); },
+  onStateChange: (s) => states.set('info.connection', s.connected),
+});
+ingest.start();
+```
+
 ## Tests
 
-43 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
+64 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
 derzeit **konstruiert**, nicht mitgeschnitten. Sobald M0 vorliegt (Sniffer läuft,
 ein paar Stunden Rohdaten), gehören echte Zeilen dazu — erst die decken die
 Fälle ab, die man sich nicht ausdenkt: Teilzeilen nach einem Reconnect,
