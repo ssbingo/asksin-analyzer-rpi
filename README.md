@@ -19,8 +19,9 @@ laufenden Gerät.
 | Fertigungsdaten (Gerber, BOM, CPL, JLCPCB) | ✅ [`hardware/kicad/fab/`](hardware/kicad/fab/) + Archiv |
 | Firmware | ✅ unveränderter `AskSinSniffer328P` (jp112sdl) |
 | Core: Parser + Duty-Cycle | ✅ fertig ([`core/`](core/)) |
-| Core: Serial-Ingest, SQLite, CCU-Namen, Analyzer | ✅ fertig verdrahtet, 91 Unit-Tests (M2–M4) |
-| Core: API (REST/WS, XS-kompatibel) | 🔨 als Nächstes (M5) |
+| Core: Serial-Ingest, SQLite, CCU-Namen, Analyzer | ✅ fertig verdrahtet (M2–M4) |
+| Core: REST-API inkl. XS-Kompat-Endpunkten | ✅ fertig, 105 Unit-Tests gesamt (M5) |
+| Web-UI (Nachbau, lizenzfrei) | 🔨 als Nächstes (M5.5) |
 | Web-UI (Nachbau, lizenzfrei) | 📋 geplant (M5.5), API-Vertrag steht |
 | ioBroker-Adapter | 📋 geplant (M6) |
 

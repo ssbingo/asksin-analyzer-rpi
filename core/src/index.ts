@@ -4,3 +4,4 @@ export * from './resolve/index.ts';
 export * from './ingest/index.ts';
 export * from './persist/index.ts';
 export * from './service/index.ts';
+export * from './api/index.ts';

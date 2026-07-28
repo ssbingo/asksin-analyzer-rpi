@@ -4,9 +4,10 @@ Der dauerlaufende Analysedienst: liest die serielle Schnittstelle des
 AskSinSniffer328P, decodiert die Telegramme, rechnet Duty-Cycle und Statistik,
 persistiert und stellt API und Web-UI bereit.
 
-Stand: **M4 (Namensauflösung) abgeschlossen.** Die Kette Port → Decoder →
-Statistik → SQLite ist komplett verdrahtet (`Analyzer`), inklusive
-CCU-Abruf der Gerätenamen mit Polling und Datei-Cache. Es folgen API und UI.
+Stand: **M5 (API) abgeschlossen.** Die Kette Port → Decoder → Statistik →
+SQLite ist komplett verdrahtet (`Analyzer`), inklusive CCU-Abruf der
+Gerätenamen; darauf liegt die REST-Schicht mit dem vollständigen
+Kompatibilitäts-Endpunktsatz der originalen Web-UI. Es folgt der UI-Nachbau.
 
 ## Bauen und Prüfen
 
@@ -25,14 +26,14 @@ Dauerbetrieb ohne Gegenwert.
 
 ## Aufbau
 
-```
+```text
 src/decode/     Zeile → Telegram | RssiNoise | verworfen   (fertig)
 src/analytics/  Duty-Cycle über gleitendes Stundenfenster  (fertig)
 src/resolve/    Gerätenamen von der CCU + Abrufdienst      (fertig)
 src/ingest/     serieller Port, Reconnect, Watchdog        (fertig)
 src/persist/    SQLite im WAL-Modus (node:sqlite)          (fertig)
 src/service/    Analyzer: alles verdrahtet + snapshot()    (fertig)
-src/api/        REST, WebSocket, MQTT + Web-UI-Kompat      (M5)
+src/api/        REST: XS-Kompat-Endpunkte + /api/*         (fertig)
 ```
 
 ## Decoder
@@ -180,9 +181,41 @@ await analyzer.stop();                      // stoppt alles, flusht den Rest
 mit abschließendem Flush. `snapshot()` führt je Gerät RSSI-Statistik,
 Duty-Cycle und aufgelösten Namen zusammen — darauf setzt die API von M5 auf.
 
+## API
+
+`ApiServer` (`src/api/`) liegt auf `node:http` — weiterhin ohne
+Laufzeitabhängigkeit — und bindet standardmäßig an `127.0.0.1`. Zwei
+Endpunktfamilien:
+
+**Kompatibilitätssatz der originalen Web-UI**
+([`../docs/webui-und-updates.md`](../docs/webui-und-updates.md), Abschnitt 2):
+`/getLogByLogNumber` (CSV-Polling über die SQLite-rowid als `lognumber`,
+max. 50 je Antwort wie das Original), `/getRSSILog` (Minutenmittel des
+Grundrauschens, `tstamp` in Sekunden), `/getConfig` (alle Felder der
+Info-Ansicht; SD-Karte → 0, SPIFFS → tatsächliche SQLite-Größe),
+`/getAskSinAnalyzerDevListJSON` (mit `charset=` im Content-Type) sowie die
+Kommando-Routen: `/setConfig`, `/reboot` (Callback), `/formatspiffs`
+(Datenbank leeren), `/deletecsv`, `/downloadcsv`, `/download?filename=`
+(Tages-CSV direkt aus der Datenbank), SD-Routen als kompatible Attrappen,
+`/rebootInConfigMode` ehrlich als `501`. Die unveränderte Original-App
+funktioniert damit gegen den Core, sobald ihre Basis-URL hierher zeigt.
+
+**Eigene API** unter `/api/*`: `snapshot` (die volle Analyzer-Sicht) und
+`health`. Ein WebSocket-Live-Feed folgt mit dem UI-Nachbau (M5.5) — die
+Original-App pollt ohnehin nur.
+
+Sicherheit (Designdok §5): mit gesetztem `authToken` verlangen alle
+verändernden Routen `Authorization: Bearer …`; `httpupdate` mit freier URL
+wird bewusst **nicht** nachgebaut.
+
+```ts
+const api = new ApiServer({ analyzer, db, devList, authToken: '…' });
+await api.listen(8080);                     // bindet an 127.0.0.1
+```
+
 ## Tests
 
-91 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
+105 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
 derzeit **konstruiert**, nicht mitgeschnitten. Sobald M0 vorliegt (Sniffer läuft,
 ein paar Stunden Rohdaten), gehören echte Zeilen dazu — erst die decken die
 Fälle ab, die man sich nicht ausdenkt: Teilzeilen nach einem Reconnect,

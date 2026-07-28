@@ -89,6 +89,7 @@ export class DevListService {
   readonly #retryMs: number;
 
   #resolver: DeviceResolver | null = null;
+  #json: string | null = null;
   #source: DevListSource | null = null;
   #fetches = 0;
   #failures = 0;
@@ -109,6 +110,11 @@ export class DevListService {
   /** Der aktuelle Resolver — null, bis Cache oder CCU geliefert haben. */
   get resolver(): DeviceResolver | null {
     return this.#resolver;
+  }
+
+  /** Die Liste als validierter JSON-String (für den Kompat-Endpunkt). */
+  get json(): string | null {
+    return this.#json;
   }
 
   /** Anzeigename; ohne Resolver die Hex-Adresse wie im Sniffer-Log. */
@@ -194,6 +200,7 @@ export class DevListService {
   #uebernehmen(json: string, source: DevListSource): void {
     const resolver = new DeviceResolver(parseDevList(json));
     this.#resolver = resolver;
+    this.#json = json;
     this.#source = source;
     if (source === 'ccu') this.#schreibeCache(json);
     this.#opts.onUpdate?.(resolver, source);
