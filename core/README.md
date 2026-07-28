@@ -27,9 +27,9 @@ Dauerbetrieb ohne Gegenwert.
 ```
 src/decode/     Zeile → Telegram | RssiNoise | verworfen   (fertig)
 src/analytics/  Duty-Cycle über gleitendes Stundenfenster  (fertig)
+src/resolve/    Gerätenamen von der CCU                    (Auflösung fertig, HTTP-Abruf folgt)
 src/ingest/     serieller Port, Reconnect, Watchdog        (M2)
 src/persist/    SQLite im WAL-Modus, optional InfluxDB     (M3)
-src/resolve/    Gerätenamen von der CCU                    (M4)
 src/api/        REST, WebSocket, MQTT + Web-UI-Kompat      (M5)
 ```
 
@@ -80,9 +80,23 @@ seine erlaubte Stundensendezeit von 36 s ausgeschöpft hat. Es ist eine
 **Schätzung** aus Längenbyte und Datenrate, kein Messwert — gegen die
 CCU-Anzeige kalibrieren.
 
+## Namensauflösung
+
+`src/resolve/` verarbeitet die Geräteliste der CCU (`AskSinAnalyzerDevList`):
+Strukturvalidierung, Klassifizierung (Gerät / Rauchmelder-Gruppe / Zentrale /
+Pseudo-Multicast), HmIP-Erkennung nach XS-Konvention und ein `DeviceResolver`,
+der **doppelte Adressen** korrekt behandelt — reale Geräte haben Vorrang vor
+ihren Gruppen. Dazu die Dekodierung der rohen CCU-Antwort (latin1, XML-Hülle,
+HTML-Escapes) als reine Funktionen. Der HTTP-Abruf selbst folgt mit M4.
+
+Die Test-Fixture `test/fixtures/devlist-real.json` ist der unveränderte Export
+einer echten RaspberryMatic (241 Einträge, 28.07.2026). **Sie enthält reale
+Gerätenamen und Seriennummern dieser Anlage** — vor einer Veröffentlichung des
+Repos ist sie zu anonymisieren oder durch eine synthetische Liste zu ersetzen.
+
 ## Tests
 
-29 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
+43 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
 derzeit **konstruiert**, nicht mitgeschnitten. Sobald M0 vorliegt (Sniffer läuft,
 ein paar Stunden Rohdaten), gehören echte Zeilen dazu — erst die decken die
 Fälle ab, die man sich nicht ausdenkt: Teilzeilen nach einem Reconnect,

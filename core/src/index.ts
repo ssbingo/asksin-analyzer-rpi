@@ -1,2 +1,3 @@
 export * from './decode/index.ts';
 export * from './analytics/index.ts';
+export * from './resolve/index.ts';
