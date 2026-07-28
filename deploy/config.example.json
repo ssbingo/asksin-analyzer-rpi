@@ -1,0 +1,19 @@
+{
+  "device": "/dev/asksin-hat",
+  "baud": 58824,
+  "db": "/var/lib/asksin-analyzer/analyzer.db",
+  "http": {
+    "host": "0.0.0.0",
+    "port": 8080,
+    "authToken": ""
+  },
+  "ccu": {
+    "host": "192.168.1.50",
+    "cachePath": "/var/lib/asksin-analyzer/devlist.json"
+  },
+  "retention": {
+    "telegramsDays": 30,
+    "noiseDays": 90,
+    "deviceHoursDays": 365
+  }
+}

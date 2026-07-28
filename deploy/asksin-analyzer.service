@@ -1,0 +1,29 @@
+# systemd-Unit des AskSin-Analyzer-Core.
+# Installation: siehe deploy/README.md
+[Unit]
+Description=AskSin-Analyzer Core (BidCoS-Funkanalyse)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=asksin
+Group=asksin
+# dialout: Zugriff auf die serielle Schnittstelle des Sniffers
+SupplementaryGroups=dialout
+ExecStart=/usr/bin/node /opt/asksin-analyzer/core/bin/analyzerd.ts /etc/asksin-analyzer/config.json
+Restart=always
+RestartSec=3
+
+# Härtung — der Dienst braucht nur sein Datenverzeichnis beschreibbar
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/asksin-analyzer
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target

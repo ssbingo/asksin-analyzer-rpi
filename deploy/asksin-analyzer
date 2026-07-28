@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+#
+# CLI-Wrapper fuer den AskSin-Analyzer (nach dem Vorbild von 'status-led').
+#
+set -euo pipefail
+
+INSTALL_DIR="/opt/asksin-analyzer"
+CONFIG_FILE="/etc/asksin-analyzer/config.json"
+SERVICE="asksin-analyzer.service"
+
+case "${1:-}" in
+    status)
+        systemctl status "$SERVICE" --no-pager
+        ;;
+    logs)
+        journalctl -u "$SERVICE" -f
+        ;;
+    restart)
+        sudo systemctl restart "$SERVICE"
+        echo "Dienst neu gestartet."
+        ;;
+    stop)
+        sudo systemctl stop "$SERVICE"
+        ;;
+    config)
+        sudo "${EDITOR:-nano}" "$CONFIG_FILE"
+        echo "Damit die Aenderung wirkt:  asksin-analyzer restart"
+        ;;
+    update)
+        sudo bash "$INSTALL_DIR/update.sh"
+        ;;
+    health)
+        port="$(grep -o '"port": *[0-9]*' "$CONFIG_FILE" 2>/dev/null | grep -o '[0-9]*' || echo 8080)"
+        curl -s "http://127.0.0.1:${port}/api/health" && echo
+        ;;
+    *)
+        cat <<'HILFE'
+AskSin-Analyzer — Verwaltungsbefehl
+
+  asksin-analyzer status     Dienststatus anzeigen
+  asksin-analyzer logs       Live-Log verfolgen (Strg+C beendet)
+  asksin-analyzer health     Kurzcheck der laufenden API
+  asksin-analyzer config     Konfiguration bearbeiten
+  asksin-analyzer restart    Dienst neu starten
+  asksin-analyzer stop       Dienst anhalten
+  asksin-analyzer update     Auf neue Version aktualisieren
+HILFE
+        ;;
+esac

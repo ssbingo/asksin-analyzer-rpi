@@ -25,6 +25,15 @@ laufenden Gerät.
 | Web-UI (Nachbau, lizenzfrei) | 📋 geplant (M5.5), API-Vertrag steht |
 | ioBroker-Adapter | 📋 geplant (M6) |
 
+## Installation auf dem Raspberry Pi
+
+Ein Aufruf installiert und konfiguriert alles (Details: [`deploy/README.md`](deploy/README.md)):
+
+```bash
+sudo git clone git@github.com:ssbingo/asksin-analyzer-rpi.git /opt/asksin-analyzer
+sudo /opt/asksin-analyzer/install.sh
+```
+
 ## Aufbau des Repositories
 
 ```
@@ -41,6 +50,8 @@ hardware/                 Platine, Bestelllisten, Setup-Skripte
     └── AskSin-Analyzer-V3-fertigung.zip   Upload-Paket
 core/                     Node.js/TypeScript-Analysedienst
 webui/                    Web-UI-Nachbau (Vue 3 + ECharts, MIT)
+deploy/                   systemd-Unit, Beispielkonfig, CLI-Wrapper
+install.sh / update.sh    Ein-Befehl-Installation und -Update auf dem Pi
 docs/
 ├── serial-protocol.md    das serielle Telegrammformat, verifiziert
 ├── raspberry-pi-uart.md  UART-Konfiguration Pi 3/4/5
