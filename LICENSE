@@ -1,0 +1,26 @@
+AskSin-Analyzer — Lizenzübersicht
+=================================
+
+Hardware (hardware/), Dokumentation (docs/) und der Core-Dienst (core/)
+stehen unter der Lizenz
+
+    Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International
+    (CC BY-NC-SA 4.0)
+    https://creativecommons.org/licenses/by-nc-sa/4.0/legalcode.de
+
+© 2026 S. Sternitzke
+
+Diese Lizenzwahl ist keine freie Entscheidung, sondern Folge der
+ShareAlike-Bedingung der Werke, auf denen dieses Projekt aufbaut:
+
+  * AskSinAnalyzer (© jp112sdl) — CC BY-NC-SA 3.0
+  * AskSinPP (© pa-pa) — CC BY-NC-SA 3.0
+  * AskSinAnalyzerXS (© psi-4ward) — CC BY-NC-SA 4.0
+  * AskSinAnalyzerXS-RPi (© der-pw) — CC BY-NC-SA 4.0
+
+Die Firmware des Empfängers ist der UNVERÄNDERTE Sketch AskSinSniffer328P
+aus dem AskSinAnalyzer-Projekt von jp112sdl und verbleibt unter dessen
+Lizenz und Urheberschaft.
+
+Der geplante ioBroker-Adapter entsteht in einem eigenen Repository ohne
+abgeleitete Anteile und wird unter der MIT-Lizenz veröffentlicht.

@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 330" font-family="DejaVu Sans, sans-serif">
+  <rect width="940" height="330" fill="#f8fafc"/>
+  <text x="470" y="32" text-anchor="middle" font-size="16" font-weight="bold" fill="#155e75">Die drei Peripherie-Stecker (JST-PH, Pin 1 jeweils markiert)</text>
+  <!-- J5 OLED -->
+  <rect x="60" y="60" width="250" height="240" rx="12" fill="#ffffff" stroke="#0e7490" stroke-width="2"/>
+  <text x="185" y="90" text-anchor="middle" font-size="14" font-weight="bold" fill="#155e75">J5 — OLED-Display (I²C)</text>
+  <g font-size="12.5" fill="#334155">
+    <rect x="85" y="110" width="30" height="30" rx="5" fill="#f59e0b"/><text x="100" y="130" text-anchor="middle" font-weight="bold">1</text>
+    <text x="130" y="130">GND</text>
+    <rect x="85" y="150" width="30" height="30" rx="5" fill="#e2e8f0" stroke="#94a3b8"/><text x="100" y="170" text-anchor="middle">2</text>
+    <text x="130" y="170">3,3 V (vom Pi)</text>
+    <rect x="85" y="190" width="30" height="30" rx="5" fill="#e2e8f0" stroke="#94a3b8"/><text x="100" y="210" text-anchor="middle">3</text>
+    <text x="130" y="210">SCL (GPIO3)</text>
+    <rect x="85" y="230" width="30" height="30" rx="5" fill="#e2e8f0" stroke="#94a3b8"/><text x="100" y="250" text-anchor="middle">4</text>
+    <text x="130" y="250">SDA (GPIO2)</text>
+  </g>
+  <text x="185" y="288" text-anchor="middle" font-size="10.5" fill="#64748b">SSD1306 128×32, Adresse 0x3C</text>
+  <!-- J6 Taster -->
+  <rect x="345" y="60" width="250" height="240" rx="12" fill="#ffffff" stroke="#0e7490" stroke-width="2"/>
+  <text x="470" y="90" text-anchor="middle" font-size="14" font-weight="bold" fill="#155e75">J6 — Taster</text>
+  <g font-size="12.5" fill="#334155">
+    <rect x="370" y="110" width="30" height="30" rx="5" fill="#f59e0b"/><text x="385" y="130" text-anchor="middle" font-weight="bold">1</text>
+    <text x="415" y="130">Signal (GPIO17)</text>
+    <rect x="370" y="150" width="30" height="30" rx="5" fill="#e2e8f0" stroke="#94a3b8"/><text x="385" y="170" text-anchor="middle">2</text>
+    <text x="415" y="170">GND</text>
+  </g>
+  <text x="470" y="230" text-anchor="middle" font-size="11" fill="#64748b">interner Pull-up im Pi,</text>
+  <text x="470" y="246" text-anchor="middle" font-size="11" fill="#64748b">gedrückt = LOW —</text>
+  <text x="470" y="262" text-anchor="middle" font-size="11" fill="#64748b">kein Widerstand nötig</text>
+  <!-- J7 WS2812 -->
+  <rect x="630" y="60" width="250" height="240" rx="12" fill="#ffffff" stroke="#0e7490" stroke-width="2"/>
+  <text x="755" y="90" text-anchor="middle" font-size="14" font-weight="bold" fill="#155e75">J7 — WS2812-LED</text>
+  <g font-size="12.5" fill="#334155">
+    <rect x="655" y="110" width="30" height="30" rx="5" fill="#f59e0b"/><text x="670" y="130" text-anchor="middle" font-weight="bold">1</text>
+    <text x="700" y="130">3,3 V (vom Pi)</text>
+    <rect x="655" y="150" width="30" height="30" rx="5" fill="#e2e8f0" stroke="#94a3b8"/><text x="670" y="170" text-anchor="middle">2</text>
+    <text x="700" y="170">Daten (DIN)</text>
+    <rect x="655" y="190" width="30" height="30" rx="5" fill="#e2e8f0" stroke="#94a3b8"/><text x="670" y="210" text-anchor="middle">3</text>
+    <text x="700" y="210">GND</text>
+  </g>
+  <text x="755" y="252" text-anchor="middle" font-size="11" fill="#64748b">Vorwiderstand R4 (390 Ω)</text>
+  <text x="755" y="268" text-anchor="middle" font-size="11" fill="#64748b">sitzt schon auf der Platine</text>
+</svg>

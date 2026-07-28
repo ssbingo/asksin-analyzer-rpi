@@ -1,0 +1,34 @@
+# udev-Regeln für den AskSin-Analyzer
+#
+# Ziel: ein fester Gerätename /dev/asksin, unabhängig davon, ob die Platine
+# über USB oder über den GPIO-Header angebunden ist und in welcher Reihenfolge
+# der Kernel die Schnittstellen aufzählt. Das Designdokument verlangt genau
+# das in Abschnitt 3.3 („udev-Alias für den seriellen Port, damit die Zuordnung
+# bootfest ist").
+#
+# Installation:
+#   sudo cp 99-asksin-analyzer.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload && sudo udevadm trigger
+#
+# Prüfen:
+#   ls -l /dev/asksin
+#   udevadm info -a -n /dev/asksin | head -30
+
+# --- USB-Betrieb (Hardware ab V3) --------------------------------------------
+# CP2102N von Silicon Labs. Der Bestücker kann dem Chip eine eigene
+# Seriennummer einbrennen; dann greift die erste Regel und mehrere Platinen am
+# selben Rechner bleiben unterscheidbar.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", \
+  ATTRS{serial}=="ASKSIN-0001", SYMLINK+="asksin", GROUP="dialout", MODE="0660"
+
+# Ohne programmierte Seriennummer: erster gefundener CP2102N. Nur sinnvoll,
+# solange genau ein solcher Adapter am Rechner hängt — sonst die Regel oben
+# verwenden und die Seriennummer eintragen.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", \
+  SYMLINK+="asksin-usb", GROUP="dialout", MODE="0660"
+
+# --- HAT-Betrieb über den GPIO-Header ----------------------------------------
+# Der SoC-eigene UART. Voraussetzung ist die Konfiguration aus
+# docs/raspberry-pi-uart.md, danach heißt er auf Pi 3, 4 und 5 gleich.
+SUBSYSTEM=="tty", KERNEL=="ttyAMA0", SYMLINK+="asksin-hat", \
+  GROUP="dialout", MODE="0660"

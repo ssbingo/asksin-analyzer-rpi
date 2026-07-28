@@ -1,0 +1,29 @@
+{
+  "name": "@asksin-analyzer/core",
+  "version": "0.0.1",
+  "description": "Core-Dienst des AskSin-Analyzers: Serial-Ingest, BidCoS-Decoder, Analytics, API",
+  "license": "CC-BY-NC-SA-4.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22.6.0"
+  },
+  "exports": {
+    ".": "./dist/src/index.js",
+    "./decode": "./dist/src/decode/index.js",
+    "./analytics": "./dist/src/analytics/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "test": "node --test 'test/**/*.test.ts'",
+    "test:watch": "node --test --watch 'test/**/*.test.ts'",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.9.0"
+  }
+}

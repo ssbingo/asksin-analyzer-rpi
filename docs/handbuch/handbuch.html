@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>AskSin-Analyzer — Handbuch</title>
+<style>
+  :root {
+    --petrol: #0e7490; --petrol-dunkel: #155e75; --petrol-hell: #ecfeff;
+    --tinte: #1f2937; --grau: #64748b; --linie: #e2e8f0;
+    --gruen: #15803d; --gruen-hell: #f0fdf4;
+    --amber: #b45309; --amber-hell: #fffbeb;
+    --rot: #b91c1c;   --rot-hell: #fef2f2;
+    --code-bg: #0f172a; --code-fg: #e2e8f0;
+  }
+  * { box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  @page { size: A4; margin: 16mm 15mm 18mm 15mm; }
+  html { font-size: 10.6pt; }
+  body { font-family: "DejaVu Sans", sans-serif; color: var(--tinte); line-height: 1.55; margin: 0; }
+  h1, h2, h3 { font-family: "DejaVu Sans", sans-serif; line-height: 1.25; }
+  h1.kapitel { break-before: page; color: var(--petrol-dunkel); font-size: 21pt; margin: 0 0 2mm 0; padding-top: 2mm; }
+  h1.kapitel .knr { display:inline-block; background: var(--petrol); color:#fff; border-radius: 7px;
+        padding: 1px 10px 3px; margin-right: 8px; font-size: 17pt; vertical-align: 2px; }
+  .kapitelband { height: 3.5px; background: linear-gradient(90deg, var(--petrol), #67e8f9); border-radius: 2px; margin-bottom: 6mm; }
+  h2 { color: var(--petrol-dunkel); font-size: 14.5pt; margin: 7mm 0 2.5mm; border-bottom: 1.5px solid var(--linie); padding-bottom: 1.5mm; }
+  h3 { color: var(--tinte); font-size: 12pt; margin: 5mm 0 2mm; }
+  p { margin: 2.2mm 0; }
+  .klein { font-size: 9pt; color: var(--grau); }
+  strong { color: #0f172a; }
+  a { color: var(--petrol); text-decoration: none; }
+
+  /* Boxen */
+  .box { border-radius: 9px; padding: 3.2mm 4mm 3.2mm 4.5mm; margin: 3.5mm 0; break-inside: avoid;
+         border-left: 4.5px solid; }
+  .box .titel { font-weight: bold; display:block; margin-bottom: 1mm; }
+  .hinweis { background: var(--petrol-hell); border-color: var(--petrol); }
+  .hinweis .titel { color: var(--petrol-dunkel); }
+  .tipp { background: var(--gruen-hell); border-color: var(--gruen); }
+  .tipp .titel { color: var(--gruen); }
+  .achtung { background: var(--amber-hell); border-color: #d97706; }
+  .achtung .titel { color: var(--amber); }
+  .gefahr { background: var(--rot-hell); border-color: #dc2626; }
+  .gefahr .titel { color: var(--rot); }
+
+  /* Code */
+  pre { background: var(--code-bg); color: var(--code-fg); border-radius: 9px; padding: 3mm 4mm;
+        font-family: "DejaVu Sans Mono", monospace; font-size: 9.2pt; line-height: 1.5;
+        overflow-x: hidden; white-space: pre-wrap; break-inside: avoid; }
+  pre .c { color: #7dd3fc; }      /* Kommentar */
+  pre .p { color: #86efac; }      /* Prompt/Ausgabe */
+  code { font-family: "DejaVu Sans Mono", monospace; font-size: 0.92em; background: #eef2f7;
+         border-radius: 4px; padding: 0.5px 4px; color: #0f172a; }
+  pre code { background: none; padding: 0; color: inherit; }
+
+  /* Tabellen */
+  table { border-collapse: collapse; width: 100%; margin: 3mm 0; font-size: 9.6pt; break-inside: avoid; }
+  th { background: var(--petrol); color: #fff; text-align: left; padding: 1.8mm 2.5mm; }
+  td { border-bottom: 1px solid var(--linie); padding: 1.6mm 2.5mm; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  table.schmal { width: auto; min-width: 60%; }
+
+  /* Schritte */
+  ol.schritte { counter-reset: s; list-style: none; margin: 3mm 0; padding: 0; }
+  ol.schritte > li { counter-increment: s; position: relative; padding: 0 0 2.5mm 11mm; margin: 0 0 1.5mm; }
+  ol.schritte > li::before { content: counter(s); position: absolute; left: 0; top: 0.4mm;
+      width: 7.2mm; height: 7.2mm; border-radius: 50%; background: var(--petrol); color:#fff;
+      font-weight: bold; text-align: center; line-height: 7.2mm; font-size: 10pt; }
+
+  /* Bilder */
+  figure { margin: 4mm 0; text-align: center; break-inside: avoid; }
+  figure img { max-width: 100%; border-radius: 8px; }
+  figure.rahmen img { border: 1px solid var(--linie); }
+  figcaption { font-size: 9pt; color: var(--grau); margin-top: 1.5mm; }
+
+  /* Deckblatt */
+  .deckblatt { height: 257mm; border-radius: 14px; overflow: hidden; position: relative;
+      background: linear-gradient(150deg, #083344 0%, #0e7490 55%, #155e75 100%); color: #fff; }
+  .deckblatt .inner { padding: 22mm 18mm; }
+  .deckblatt h1 { font-size: 34pt; margin: 4mm 0 2mm; color:#fff; }
+  .deckblatt .unter { font-size: 14pt; color: #a5f3fc; margin-bottom: 10mm; }
+  .deckblatt .badge { display:inline-block; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.35);
+      border-radius: 999px; padding: 1mm 5mm; margin: 0 2mm 2mm 0; font-size: 10pt; }
+  .deckblatt img.held { width: 100%; border-radius: 10px; margin-top: 8mm; background:#fff; }
+  .deckblatt .fuss { position: absolute; bottom: 12mm; left: 18mm; right: 18mm;
+      display: flex; justify-content: space-between; font-size: 10pt; color: #cffafe; }
+
+  /* Inhaltsverzeichnis */
+  .toc { break-before: page; }
+  .toc h1 { color: var(--petrol-dunkel); font-size: 21pt; }
+  .toc ol { list-style: none; padding: 0; margin: 5mm 0; column-count: 1; }
+  .toc li { padding: 1.6mm 0; border-bottom: 1px dotted var(--linie); font-size: 11.5pt; }
+  .toc .nr { display:inline-block; width: 9mm; color: var(--petrol); font-weight: bold; }
+  .toc .u { padding-left: 12mm; font-size: 10pt; color: var(--grau); border-bottom: none; }
+
+  .zwei-spalten { column-count: 2; column-gap: 8mm; }
+  .kv { display: inline-block; background: #eef2f7; border-radius: 5px; padding: 0 4px; font-family: "DejaVu Sans Mono", monospace; font-size: 0.9em; }
+  .telegramm span { font-family: "DejaVu Sans Mono", monospace; font-weight: bold; padding: 1px 2px; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<!-- ==================================================== DECKBLATT -->
+<div class="deckblatt">
+  <div class="inner">
+    <div class="badge">Homematic · BidCoS · 868&nbsp;MHz</div>
+    <div class="badge">Raspberry&nbsp;Pi&nbsp;4</div>
+    <div class="badge">Selbstbau</div>
+    <h1>AskSin-Analyzer</h1>
+    <div class="unter">Das Handbuch — vom leeren Platinen-Layout bis zum laufenden Funkanalyzer</div>
+    <img class="held" src="img/platine-schraeg.png" alt="Die Analyzer-Platine V4">
+    <div class="fuss">
+      <span>Ausgabe 1 · Juli 2026 · deutsch</span>
+      <span>Hardware V4 · Lizenz CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+    </div>
+  </div>
+</div>
+
+<!-- ==================================================== ÜBER DIESES HANDBUCH -->
+<div class="toc">
+<h1>Über dieses Handbuch</h1>
+<p>Dieses Handbuch richtet sich an <strong>Einsteigerinnen und Einsteiger</strong>.
+Du brauchst keine Elektronik-Ausbildung — aber einen Lötkolben, etwas Geduld und
+die Bereitschaft, Befehle in ein Terminal zu tippen. Jeder Schritt ist
+vollständig beschrieben: Was du tust, warum du es tust, und woran du erkennst,
+dass es geklappt hat.</p>
+
+<h3>So liest du dieses Handbuch</h3>
+<div class="hinweis box"><span class="titel">ℹ Hinweis</span>
+Blaue Kästen liefern Hintergrundwissen. Man kann sie überspringen — sie machen
+aber vieles verständlicher.</div>
+<div class="tipp box"><span class="titel">✓ Tipp</span>
+Grüne Kästen sparen Zeit oder Nerven.</div>
+<div class="achtung box"><span class="titel">⚠ Achtung</span>
+Gelbe Kästen markieren Stellen, an denen häufig etwas schiefgeht.</div>
+<div class="gefahr box"><span class="titel">✋ Stopp</span>
+Rote Kästen markieren Handgriffe, die Hardware zerstören können. Bitte immer lesen.</div>
+
+<p>Befehle für das Terminal sehen so aus — sie werden Zeile für Zeile eingegeben
+und mit <code>Enter</code> abgeschickt. Zeilen, die mit <span class="kv">#</span> beginnen,
+sind Kommentare und werden nicht eingetippt:</p>
+<pre><span class="c"># Das ist ein Kommentar — nur zur Erklärung</span>
+sudo apt update</pre>
+
+<h1 style="margin-top:10mm">Inhalt</h1>
+<ol>
+  <li><span class="nr">1</span> Was ist der AskSin-Analyzer?</li>
+  <li><span class="nr">2</span> Wie das System funktioniert</li>
+  <li><span class="nr">3</span> Einkaufsliste: Material und Werkzeug</li>
+  <li><span class="nr">4</span> Die Platine verstehen</li>
+  <li><span class="nr">5</span> Die Platine fertigen lassen</li>
+  <li><span class="nr">6</span> Handbestückung: die restlichen Bauteile auflöten</li>
+  <li><span class="nr">7</span> Fuses setzen und Bootloader brennen</li>
+  <li><span class="nr">8</span> Die Firmware aufspielen</li>
+  <li><span class="nr">9</span> Den Raspberry Pi einrichten</li>
+  <li><span class="nr">10</span> Zusammenbau und Montage im Schrank</li>
+  <li><span class="nr">11</span> Firmware-Updates im laufenden Betrieb</li>
+  <li><span class="nr">12</span> Die Software auf dem Pi</li>
+  <li><span class="nr">13</span> Fehlersuche</li>
+  <li><span class="nr">14</span> Anhang: Belegungen, Glossar, Quellen</li>
+</ol>
+</div>
+
+<!-- ==================================================== KAPITEL 1 -->
+<h1 class="kapitel"><span class="knr">1</span>Was ist der AskSin-Analyzer?</h1>
+<div class="kapitelband"></div>
+
+<p>Wer ein Homematic-Funksystem betreibt, kennt das Gefühl: Ein Fensterkontakt
+meldet sich nur sporadisch, ein Heizkörperthermostat reagiert verzögert, und
+niemand weiß, <em>warum</em>. Der Funkverkehr ist unsichtbar — man sieht nur,
+ob etwas ankommt oder nicht.</p>
+
+<p>Der AskSin-Analyzer macht diesen Funkverkehr sichtbar. Er ist ein
+<strong>passiver Mithörer</strong>: Er empfängt jedes BidCoS-Telegramm im
+868-MHz-Band — auch die der Nachbarn —, sendet aber selbst niemals. Aus dem
+Mitgehörten entstehen drei Dinge:</p>
+
+<table>
+<tr><th>Was</th><th>Wozu</th></tr>
+<tr><td><strong>Duty-Cycle je Gerät</strong></td><td>Jeder Sender darf pro Stunde nur 1&nbsp;% der Zeit senden (36&nbsp;Sekunden). Wer dagegen verstößt — etwa ein defektes Gerät in einer Sendeschleife — legt zeitweise das ganze Funknetz lahm. Der Analyzer zeigt, wer wie viel sendet.</td></tr>
+<tr><td><strong>Empfangspegel (RSSI)</strong></td><td>Wie laut kommt jedes Gerät an? Werte um −50&nbsp;dBm sind sehr gut, ab etwa −95&nbsp;dBm wird es kritisch. So findet man Funklöcher und schlecht platzierte Geräte.</td></tr>
+<tr><td><strong>Telegrammraten und Stille</strong></td><td>Sendet ein Gerät plötzlich gar nicht mehr? Oder viel häufiger als sonst? Beides ist ein Frühwarnsignal.</td></tr>
+</table>
+
+<div class="hinweis box"><span class="titel">ℹ Woher kommt der Name?</span>
+<strong>AskSin</strong> ist der inoffizielle Name des Homematic-Funkprotokolls
+(BidCoS). Die Arduino-Bibliothek <em>AskSinPP</em> von „pa-pa" bildet es nach —
+auf ihr baut die Firmware unseres Empfängers auf. Das Projekt steht auf den
+Schultern von <strong>jp112sdl</strong> (AskSinAnalyzer), <strong>psi-4ward</strong>
+(AskSinAnalyzerXS) und <strong>der-pw</strong> (Raspberry-Pi-Aufsteckplatine).</div>
+
+<h2>Was dieses Projekt anders macht</h2>
+<p>Die bekannten AskSinAnalyzer-Varianten laufen auf einem ESP32 mit Display.
+Unser Aufbau zielt auf <strong>Dauerbetrieb im Verteilerschrank</strong>:</p>
+<ul>
+  <li>Die Empfängerplatine sitzt direkt auf dem Raspberry&nbsp;Pi — kein zweites Netzteil, kein WLAN.</li>
+  <li>Der Pi wird über <strong>PoE</strong> (Power over Ethernet) versorgt: ein Kabel für Strom und Netzwerk.</li>
+  <li>Alle Telegramme landen in einer <strong>Datenbank</strong> auf dem Pi und sind über eine Web-Oberfläche auswertbar.</li>
+  <li>Mehrere Analyzer an verschiedenen Stellen im Haus sind vorgesehen — so wird aus Empfangspegel-Unterschieden eine Funk-Landkarte.</li>
+  <li>Die Platine trägt zusätzlich die Anschlüsse für ein <strong>Status-OLED, einen Taster und eine Status-LED</strong> (das Status-LED-Projekt), damit im Schrank alles an einem Aufsatz hängt.</li>
+</ul>
+
+<div class="tipp box"><span class="titel">✓ Für HmIP-Nutzer</span>
+Homematic&nbsp;IP-Telegramme werden mitempfangen und gezählt (Adresse, Länge,
+Pegel) — ihr Inhalt ist aber nicht entschlüsselbar. Der volle Nutzen entsteht
+in Netzen mit klassischen Homematic-Geräten.</div>
+
+<!-- ==================================================== KAPITEL 2 -->
+<h1 class="kapitel"><span class="knr">2</span>Wie das System funktioniert</h1>
+<div class="kapitelband"></div>
+
+<figure>
+  <img src="img/architektur.svg" alt="Systemarchitektur">
+  <figcaption>Der Weg eines Telegramms: vom Funkgerät bis in den Browser.</figcaption>
+</figure>
+
+<h2>Die Arbeitsteilung</h2>
+<p>Das System besteht aus zwei Rechnern, die sich die Arbeit teilen — und genau
+diese Teilung macht es zuverlässig:</p>
+
+<ol class="schritte">
+<li><strong>Der Funkempfänger (CC1101)</strong> lauscht auf 868,3&nbsp;MHz im
+sogenannten promiskuitiven Modus: Er nimmt <em>alle</em> BidCoS-Telegramme an,
+egal an wen sie adressiert sind, und misst zu jedem den Empfangspegel.</li>
+<li><strong>Der Mikrocontroller (ATmega328P)</strong> — derselbe Chip wie auf
+einem Arduino — holt jedes Telegramm in Echtzeit vom Funkchip ab und gibt es
+als eine Textzeile über die serielle Schnittstelle aus. Mehr tut er nicht.
+Diese Beschränkung ist Absicht: Funkempfang ist zeitkritisch, und ein Chip,
+der nur eine Aufgabe hat, verpasst nichts.</li>
+<li><strong>Der Raspberry Pi</strong> liest die Textzeilen, zerlegt sie
+(„Parser"), rechnet Duty-Cycle und Statistiken, speichert alles in einer
+SQLite-Datenbank und stellt die Web-Oberfläche bereit. Linux ist nicht
+echtzeitfähig — muss es hier auch nicht sein, denn die Zeilen kommen gemütlich
+mit 58&nbsp;824 Baud an.</li>
+</ol>
+
+<h2>Eine Telegrammzeile lesen</h2>
+<p>Alles, was zwischen Mikrocontroller und Pi fließt, ist lesbarer Text. Eine
+typische Zeile:</p>
+
+<p class="telegramm" style="text-align:center; font-size: 13pt;">
+<span style="background:#e2e8f0">:</span><span style="background:#fecaca">5A</span><span style="background:#fde68a">0E</span><span style="background:#bbf7d0">01</span><span style="background:#c7d2fe">00</span><span style="background:#fbcfe8">70</span><span style="background:#a5f3fc">1A2B3C</span><span style="background:#d9f99d">000000</span><span style="background:#e9d5ff">0102030405</span><span style="background:#e2e8f0">;</span>
+</p>
+
+<table>
+<tr><th>Feld</th><th>Beispiel</th><th>Bedeutung</th></tr>
+<tr><td style="background:#fecaca">RSSI</td><td><code>5A</code></td><td>Empfangspegel als Betrag: hex 5A = 90 → <strong>−90&nbsp;dBm</strong></td></tr>
+<tr><td style="background:#fde68a">Länge</td><td><code>0E</code></td><td>Telegrammlänge laut BidCoS: 14 Byte</td></tr>
+<tr><td style="background:#bbf7d0">Zähler</td><td><code>01</code></td><td>Laufende Nummer des Senders — Lücken = verpasste Telegramme</td></tr>
+<tr><td style="background:#c7d2fe">Flags</td><td><code>00</code></td><td>Steuerbits (z.&nbsp;B. „Antwort erwartet", „Burst")</td></tr>
+<tr><td style="background:#fbcfe8">Typ</td><td><code>70</code></td><td>Telegrammtyp — 0x70 ist <em>WEATHER</em>, ein Wetterdatentelegramm</td></tr>
+<tr><td style="background:#a5f3fc">Absender</td><td><code>1A2B3C</code></td><td>Geräteadresse des Senders (3 Byte)</td></tr>
+<tr><td style="background:#d9f99d">Empfänger</td><td><code>000000</code></td><td>Zieladresse — 000000 ist Rundruf an alle</td></tr>
+<tr><td style="background:#e9d5ff">Nutzdaten</td><td><code>0102…</code></td><td>Der Inhalt, z.&nbsp;B. Temperatur und Luftfeuchte</td></tr>
+</table>
+
+<p>Zusätzlich schickt der Empfänger alle 750&nbsp;ms eine Kurzzeile wie
+<code>:5B;</code> — das ist das <strong>Grundrauschen</strong> des Kanals, also der
+Pegel, wenn gerade niemand sendet. Steigt es dauerhaft, stört etwas — etwa ein
+schlecht entstörtes Netzteil.</p>
+
+<div class="hinweis box"><span class="titel">ℹ Warum 58 824 Baud und nicht 57 600?</span>
+Die Firmware stellt nominell 57&nbsp;600 Baud ein. Ein Mikrocontroller mit
+8-MHz-Takt kann diese Rate aber nicht exakt erzeugen — die Teilerrechnung geht
+nicht auf, real sendet er mit <strong>58&nbsp;823,5 Baud</strong> (+2,1&nbsp;%).
+Das ist kein Defekt unseres Aufbaus, sondern Mathematik: 8&nbsp;000&nbsp;000 ÷ 136 =
+58&nbsp;823,5. Statt die Firmware zu verändern, stellt der Pi seinen Port einfach
+auf <strong>58&nbsp;824 Baud</strong> — sein Baudratenteiler ist fein genug, um diese
+krumme Rate exakt zu treffen. Ergebnis: praktisch 0&nbsp;% Fehler, und die
+Original-Firmware bleibt unverändert. <strong>Merke: Überall auf der Pi-Seite
+gehört 58&nbsp;824 hin. Das ist kein Tippfehler.</strong></div>
+
+<!-- ==================================================== KAPITEL 3 -->
+<h1 class="kapitel"><span class="knr">3</span>Einkaufsliste: Material und Werkzeug</h1>
+<div class="kapitelband"></div>
+
+<p>Alles, was du für <strong>einen</strong> Analyzer brauchst. Die Platine und ihre
+SMD-Bestückung kommen aus der Fertigung (Kapitel&nbsp;5), der Rest wird bestellt
+und selbst aufgelötet.</p>
+
+<h2>3.1 Basis</h2>
+<table>
+<tr><th>Menge</th><th>Teil</th><th>Bemerkung</th></tr>
+<tr><td>1</td><td>Raspberry Pi 4</td><td>Modell B, RAM-Größe egal — der Analyzer selbst braucht wenig</td></tr>
+<tr><td>1</td><td>PoE-HAT mit <strong>durchgeschleiftem</strong> 40-Pin-Header</td><td>z.&nbsp;B. Waveshare PoE HAT (B). Wichtig ist der Stapelheader obendrauf — der offizielle Raspberry-Pi-PoE+-HAT hat keinen!</td></tr>
+<tr><td>1</td><td>microSD-Karte, ab 16 GB</td><td>für Raspberry Pi OS</td></tr>
+<tr><td>1</td><td>Analyzer-Platine V4, SMD-bestückt</td><td>Fertigung nach Kapitel 5</td></tr>
+</table>
+
+<h2>3.2 Bauteile für die Handbestückung (Reichelt)</h2>
+<p>Die geprüften Artikelnummern — Details und Alternativen stehen in
+<code>hardware/bestellliste-reichelt.md</code> im Projektordner:</p>
+<table>
+<tr><th>Pos.</th><th>Menge</th><th>Reichelt-Artikel</th><th>Was es ist</th></tr>
+<tr><td>J1</td><td>1</td><td><code>MPE 094-2-040</code></td><td>Buchsenleiste 2×20 — die Verbindung zum Pi</td></tr>
+<tr><td>J2</td><td>1</td><td><code>ECON SL6G2</code></td><td>Stiftleiste 2×3 — der Programmieranschluss</td></tr>
+<tr><td>Y1</td><td>1</td><td><code>CST 8,00</code></td><td>Keramikresonator 8 MHz — der Taktgeber</td></tr>
+<tr><td>J5–J7</td><td>je 1</td><td><code>JST PH4P ST</code>, <code>JST PH2P ST</code>, <code>JST PH3P ST</code></td><td>Stecker für OLED, Taster, LED</td></tr>
+<tr><td>—</td><td>je 1</td><td><code>JST PH4P BU</code>, <code>PH2P BU</code>, <code>PH3P BU</code></td><td>die passenden Buchsengehäuse</td></tr>
+<tr><td>—</td><td>≥ 15</td><td><code>JST PH CKB</code></td><td>Crimpkontakte (9 gebraucht + Reserve!)</td></tr>
+</table>
+
+<div class="achtung box"><span class="titel">⚠ Mengen kontrollieren</span>
+Crimpkontakte gehen beim Quetschen gern kaputt — nimm großzügig Reserve. Und:
+Zum Crimpen braucht es eine <strong>Crimpzange für JST-PH</strong> oder fertig
+konfektionierte PH-Kabel.</div>
+
+<h2>3.3 Bauteile aus anderen Quellen</h2>
+<table>
+<tr><th>Menge</th><th>Teil</th><th>Quelle / Bezeichnung</th></tr>
+<tr><td>1</td><td><strong>Funkmodul Ebyte E07-900M10S</strong></td><td>cdebyte.com, Antratek, AliExpress. <strong>Genau diese Bezeichnung!</strong> Das ähnlich heißende <em>E07-900MM10S</em> ist kleiner und hat keinen Antennenanschluss.</td></tr>
+<tr><td>1</td><td>Antenne 868 MHz mit SMA-Anschluss</td><td>z. B. Stabantenne 3 dBi</td></tr>
+<tr><td>1</td><td>IPEX-auf-SMA-Kabel („Pigtail")</td><td>Muss <strong>U.FL/IPEX-1</strong> sein — MHF2/3/4 sehen ähnlich aus, passen aber nicht. Länge zum Gehäuse einplanen (15–20 cm üblich).</td></tr>
+<tr><td>4 + 2</td><td>Abstandsbolzen M2,5 + Schrauben</td><td>Befestigung der Platine (4 vorn, 2 stützen hinten)</td></tr>
+<tr><td>1</td><td>Kabelbinder, schmal (≤ 2 mm)</td><td>Zugentlastung für das Antennenkabel</td></tr>
+</table>
+
+<div class="gefahr box"><span class="titel">✋ SMA ist nicht RP-SMA</span>
+Es gibt zwei fast identisch aussehende Steckerfamilien: <strong>SMA</strong> und
+<strong>RP-SMA</strong> (reverse polarity). Die Gewinde passen ineinander, aber
+innen trifft Buchse auf Buchse — es entsteht <em>keine</em> Verbindung. Antenne,
+Kabel und Einbaubuchse müssen alle derselben Familie angehören. Vor dem Kauf
+prüfen: SMA-Stecker (male) hat einen Stift in der Mitte, RP-SMA-Stecker hat ein
+Loch.</div>
+
+<h2>3.4 Werkzeug</h2>
+<div class="zwei-spalten">
+<ul>
+<li><strong>Lötkolben</strong> mit feiner Spitze (0,8–1,5 mm), geregelt, ~330 °C</li>
+<li>Lötzinn 0,5 mm mit Flussmittelseele (bleifrei oder verbleit)</li>
+<li><strong>Flussmittel</strong> (Stift oder Gel) — macht die Halblöcher des Funkmoduls einfach</li>
+<li>Entlötlitze für Korrekturen</li>
+<li>Seitenschneider, Pinzette</li>
+<li><strong>USBasp-Programmer</strong> mit 10-poligem Kabel — für Fuses, Bootloader, Firmware (Kapitel 7/8)</li>
+<li>6 Stück Steckbrücken-Kabel Buchse–Buchse (USBasp → J2)</li>
+<li>Multimeter für die Prüfschritte</li>
+<li>Lupe oder Handykamera zum Kontrollieren der Lötstellen</li>
+</ul>
+</div>
+
+<div class="tipp box"><span class="titel">✓ USBasp gibt es fertig</span>
+Ein USBasp kostet unter 10 €. Achte darauf, dass er einen
+<strong>Spannungs-Jumper 5 V / 3,3 V</strong> hat — warum das wichtig ist, erklärt
+Kapitel 7.</div>
+
+<!-- ==================================================== KAPITEL 4 -->
+<h1 class="kapitel"><span class="knr">4</span>Die Platine verstehen</h1>
+<div class="kapitelband"></div>
+
+<p>Man kann die Platine bestücken, ohne sie zu verstehen — aber mit diesem
+Kapitel weißt du bei jedem Bauteil, <em>was</em> du gerade auflötest und warum
+es da sitzt.</p>
+
+<figure class="rahmen">
+  <img src="img/platine-oben.png" alt="Platine von oben">
+  <figcaption>Die Platine von oben. Links der schmale <strong>Arm</strong> mit der 2×20-Buchse (J1),
+  rechts der <strong>Körper</strong> mit allen Bauteilen.</figcaption>
+</figure>
+
+<h2>4.1 Warum diese L-Form?</h2>
+<p>Der Arm wird auf den durchgeschleiften Header des PoE-HAT gesteckt — die
+Platine „steht" also über dem Pi. Der Körper ragt zur Seite heraus. Das hat
+zwei Gründe:</p>
+<ul>
+<li><strong>Der Lüfter des PoE-HAT bleibt frei.</strong> Eine durchgehende Platine
+direkt über dem Lüfter würde ihm die Luft nehmen — bei einem Gerät im
+Dauerbetrieb keine Kleinigkeit.</li>
+<li><strong>Der Funkempfänger kommt aus dem Störnebel.</strong> Direkt über dem Pi
+stören HDMI, USB 3 und zwei Schaltregler den 868-MHz-Empfang messbar. Seitlich
+daneben ist Ruhe.</li>
+</ul>
+
+<h2>4.2 Die Funktionsblöcke</h2>
+<table>
+<tr><th>Block</th><th>Bauteile</th><th>Aufgabe</th></tr>
+<tr><td><strong>Stromversorgung</strong></td><td>U1, C1, C2, L1</td><td>Aus den 5 V des Pi macht der Regler U1 saubere 3,3 V. Die Ferritperle L1 hält hochfrequenten Schmutz vom Funkteil fern, C1/C2 puffern.</td></tr>
+<tr><td><strong>Mikrocontroller</strong></td><td>U2, Y1, C3, C4, C9</td><td>Der ATmega328P mit seinem 8-MHz-Taktgeber Y1. C3/C4 stützen die Versorgung direkt am Chip, C9 beruhigt die Messreferenz.</td></tr>
+<tr><td><strong>Funkmodul</strong></td><td>U3, C5</td><td>Das Ebyte-Modul mit dem CC1101-Empfänger. Die Antenne verlässt es über die kleine IPEX-Buchse — auf der Platine selbst gibt es keine einzige Hochfrequenz-Leitung.</td></tr>
+<tr><td><strong>Reset-Strecke</strong></td><td>C8, R2, S1, TP1</td><td>Über GPIO4 des Pi kann der Mikrocontroller neu gestartet werden (für Firmware-Updates, Kapitel 11). C8 koppelt nur den Impuls, R2 hält die Leitung in Ruhe oben, S1 ist der Taster für den Handreset.</td></tr>
+<tr><td><strong>SPI-Verteilung</strong></td><td>R3</td><td>Mikrocontroller, Funkmodul und Programmieranschluss teilen sich den SPI-Bus. R3 sorgt dafür, dass das Funkmodul still ist, während programmiert wird.</td></tr>
+<tr><td><strong>Status-LED</strong></td><td>R1, D1</td><td>Blitzt bei jedem empfangenen Telegramm kurz auf.</td></tr>
+<tr><td><strong>Peripherie</strong></td><td>J5, J6, J7, R4, (R5)</td><td>Stecker für OLED-Display, Taster und WS2812-LED des Status-LED-Projekts. R4 ist der Vorwiderstand der LED-Datenleitung.</td></tr>
+<tr><td><strong>Prüfpunkte</strong></td><td>TP1–TP8</td><td>Kleine Messpads für Multimeter und Fehlersuche (Belegung im Anhang).</td></tr>
+</table>
+
+<div class="hinweis box"><span class="titel">ℹ R4 oder R5 — nie beide</span>
+Die WS2812-LED kann vom Pi über zwei verschiedene Pins angesteuert werden:
+<strong>GPIO18</strong> (PWM, der Normalfall → R4 bestückt) oder
+<strong>GPIO10</strong> (SPI-Variante → stattdessen R5 bestücken). R5 bleibt in der
+Standardbestückung leer — die leeren Pads sind kein Fehler.</div>
+
+<figure class="rahmen">
+  <img src="img/platine-unten.png" alt="Platine von unten">
+  <figcaption>Die Unterseite: nur Leiterbahnen und Masseflächen — bestückt wird ausschließlich oben.</figcaption>
+</figure>
+
+<h2>4.3 Der Schaltplan</h2>
+<figure class="rahmen">
+  <img src="img/schaltplan-1.png" alt="Schaltplan">
+  <figcaption>Der vollständige Schaltplan (auch als PDF im Fertigungspaket: <code>doku/schaltplan.pdf</code>).</figcaption>
+</figure>
+
+<!-- ==================================================== KAPITEL 5 -->
+<h1 class="kapitel"><span class="knr">5</span>Die Platine fertigen lassen</h1>
+<div class="kapitelband"></div>
+
+<p>Die Platine wird industriell gefertigt und die kleinteiligen SMD-Bauteile
+gleich mitbestückt — das ist günstiger und zuverlässiger, als 0805-Widerstände
+von Hand zu löten. Beschrieben ist der Weg über JLCPCB; andere Fertiger
+funktionieren analog.</p>
+
+<h2>5.1 Was du hochlädst</h2>
+<p>Alles Nötige steckt in einer Datei im Projektordner:</p>
+<pre>hardware/kicad/AskSin-Analyzer-V3-fertigung.zip
+├── gerber/        ← die Platine selbst (für den Fertiger)
+├── bestueckung/   ← jlcpcb_bom.csv + jlcpcb_cpl.csv (für die Bestückung)
+└── doku/          ← Schaltplan und Layout als PDF (für dich)</pre>
+
+<h2>5.2 Bestellung Schritt für Schritt</h2>
+<ol class="schritte">
+<li>Auf <strong>jlcpcb.com</strong> ein Konto anlegen und <em>„Add gerber file"</em>
+wählen. Die komplette ZIP hochladen — das Portal findet die Gerber-Dateien im
+Unterordner selbst. (Falls nicht: nur den Inhalt von <code>gerber/</code> als
+eigene ZIP hochladen.)</li>
+<li>Die Vorschau prüfen: L-förmiger Umriss, 118 × 46 mm. Erkennt das Portal
+<strong>4 Lagen</strong> und <strong>1,6 mm</strong> Dicke, passt alles — beide Werte
+stehen im mitgelieferten Jobfile.</li>
+<li>Optionen: Standardwerte genügen. Lötstopplack-Farbe nach Geschmack;
+„Remove Order Number" darf aktiv sein.</li>
+<li><strong>„PCB Assembly"</strong> aktivieren: Bestückung <em>Top Side</em>,
+„Economic" reicht. Stückzahl wählen (bestückt werden meist mindestens 2).</li>
+<li>Im Assembly-Schritt <code>bestueckung/jlcpcb_bom.csv</code> als BOM und
+<code>bestueckung/jlcpcb_cpl.csv</code> als CPL-Datei hochladen.</li>
+<li>Die Bauteilzuordnung durchsehen: Alle Positionen sollten automatisch auf
+lagernde Teile zeigen — die Nummern sind in der BOM hinterlegt (Tabelle unten).
+Drei Positionen sind „Extended" und kosten eine kleine Einrichtungsgebühr.</li>
+<li>Die <strong>Bestückungsvorschau</strong> kontrollieren — Kapitel 5.4.</li>
+<li>Bestellen. Geliefert wird die Platine mit allen SMD-Teilen außer dem
+Funkmodul.</li>
+</ol>
+
+<h2>5.3 Was bestückt wird — und was nicht</h2>
+<table>
+<tr><th>Ref</th><th>Bauteil</th><th>LCSC-Nr.</th><th>Status</th></tr>
+<tr><td>U1</td><td>Spannungsregler XC6206P332MR-G <span class="klein">(pinkompatibler Ersatz für MCP1754S)</span></td><td>C5446</td><td>Basic</td></tr>
+<tr><td>U2</td><td>ATmega328P-AU</td><td>C14877</td><td>Extended</td></tr>
+<tr><td>S1</td><td>Taster Omron B3U-1000P-B</td><td>C231330</td><td>Extended</td></tr>
+<tr><td>L1</td><td>Ferrit BLM21PG300SN1D</td><td>C16903</td><td>Extended</td></tr>
+<tr><td>D1</td><td>LED rot 0805</td><td>C84256</td><td>Basic</td></tr>
+<tr><td>R1 / R4 / R2,R3</td><td>330 Ω / 390 Ω / 10 kΩ</td><td>C17630 / C17655 / C17414</td><td>Basic</td></tr>
+<tr><td>C1,C2</td><td>10 µF 25 V</td><td>C15850</td><td>Basic</td></tr>
+<tr><td>C3–C5,C8,C9</td><td>100 nF 50 V</td><td>C49678</td><td>Basic</td></tr>
+</table>
+
+<p><strong>Nicht bestückt werden:</strong> das Funkmodul U3 (führt JLCPCB nicht),
+R5 (absichtlich leer) sowie alle bedrahteten Teile — J1, J2, J5–J7 und Y1.
+Die kommen in Kapitel 6 von Hand drauf.</p>
+
+<h2>5.4 Die Bestückungsvorschau richtig prüfen</h2>
+<div class="achtung box"><span class="titel">⚠ Zwei Minuten, die eine Charge retten</span>
+Vor dem Bezahlen zeigt das Portal jede Bauteilposition grafisch an. Prüfe:
+<ul style="margin:1mm 0">
+<li><strong>D1 (LED):</strong> Der grüne Polaritätspunkt muss zur Markierung auf dem
+Bestückungsdruck zeigen. Eine falsch gedrehte LED bleibt dunkel.</li>
+<li><strong>U1 und U2:</strong> Pin-1-Markierung des Chips auf Pin-1-Punkt des Drucks.</li>
+<li><strong>S1:</strong> Der Taster hat eine Zentriernase — sie gehört in das kleine
+Loch im Footprint. Das Portal richtet das normalerweise selbst.</li>
+</ul>
+JLCPCB korrigiert bekannte Drehungs-Abweichungen automatisch und meldet
+Unklarheiten — im Zweifel deren Hinweis lesen statt wegklicken.</div>
+
+<!-- ==================================================== KAPITEL 6 -->
+<h1 class="kapitel"><span class="knr">6</span>Handbestückung: die restlichen Bauteile auflöten</h1>
+<div class="kapitelband"></div>
+
+<p>Aus der Fertigung kommt die Platine mit allen Kleinteilen. Von Hand fehlen
+noch sechs Positionen — in dieser Reihenfolge:</p>
+
+<table>
+<tr><th>#</th><th>Ref</th><th>Bauteil</th><th>Schwierigkeit</th></tr>
+<tr><td>1</td><td>U3</td><td>Funkmodul E07-900M10S</td><td>mittel — Halblöcher, siehe 6.2</td></tr>
+<tr><td>2</td><td>Y1</td><td>Keramikresonator 8 MHz</td><td>leicht</td></tr>
+<tr><td>3</td><td>J2</td><td>ISP-Stiftleiste 2×3</td><td>leicht</td></tr>
+<tr><td>4</td><td>J5, J6, J7</td><td>JST-PH-Stecker</td><td>leicht</td></tr>
+<tr><td>5</td><td>J1</td><td>Buchsenleiste 2×20</td><td>leicht, aber 40 Lötstellen</td></tr>
+</table>
+
+<div class="hinweis box"><span class="titel">ℹ Warum das Modul zuerst?</span>
+Solange die Platine flach ist, liegt sie stabil auf dem Tisch. Die hohen
+Steckverbinder kommen deshalb zuletzt — allen voran J1, auf dem die Platine
+sonst wackelt.</div>
+
+<h2>6.1 Vorbereitung</h2>
+<ol class="schritte">
+<li>Arbeitsplatz: helle Beleuchtung, feuerfeste Unterlage, Lötkolben auf
+ca. 330 °C.</li>
+<li>Kurz erden (Heizkörper anfassen genügt) — die Chips auf der Platine sind
+schon verlötet und damit robust, aber Gewohnheit schadet nie.</li>
+<li>Platine ansehen: Der weiße Aufdruck („Bestückungsdruck") zeigt zu jedem
+Bauteil Position und Referenz. Bei Steckern markiert ein Punkt bzw. das
+eckige Pad <strong>Pin 1</strong>.</li>
+</ol>
+
+<h2>6.2 Das Funkmodul (U3) — Löten an Halblöchern</h2>
+<p>Das E07-Modul hat keine Beinchen, sondern <strong>Halblöcher</strong>
+(halbrunde, metallisierte Kerben an den Kanten — englisch „castellated holes").
+Das lötet sich leichter, als es aussieht:</p>
+
+<ol class="schritte">
+<li><strong>Ausrichten:</strong> Das Modul so auf seinen Umriss legen, dass die
+IPEX-Antennenbuchse zur rechten Platinenkante zeigt (Aufdruck beachten). Die
+22 Halblöcher liegen dann genau auf den 22 verlängerten Pads.</li>
+<li><strong>Ein Eckpad heften:</strong> Ein Pad auf der Platine (nicht am Modul)
+verzinnen, Modul mit der Pinzette exakt ausrichten, Lötzinn kurz wieder
+aufschmelzen — das Modul sitzt. Position von allen Seiten prüfen, notfalls
+nochmal lösen.</li>
+<li><strong>Gegenüberliegende Ecke heften.</strong> Erst wenn beide Ecken stimmen,
+weiterlöten.</li>
+<li><strong>Alle Halblöcher durchlöten:</strong> Flussmittel auf die Kante geben.
+Die Spitze berührt gleichzeitig das Halbloch und das Platinenpad, dann wenig
+Zinn zugeben — es zieht sich von selbst in die Kerbe und bildet eine kleine
+Hohlkehle. Pro Verbindung 1–2 Sekunden.</li>
+<li><strong>Kontrolle mit Lupe:</strong> Jede Kerbe glänzend gefüllt, keine Brücke
+zwischen Nachbarpads. Brücken mit Entlötlitze entfernen.</li>
+</ol>
+
+<div class="gefahr box"><span class="titel">✋ Das Modul verträgt maximal 3,6 V</span>
+Das Funkmodul hängt an der 3,3-V-Schiene und stirbt bei 5 V. Auf der fertigen
+Platine ist das sichergestellt — kritisch wird es nur beim Programmieren mit
+falsch gejumpertem USBasp (Kapitel 7) oder bei Experimenten mit externer
+Versorgung.</div>
+
+<h2>6.3 Resonator, Stecker, Buchsenleiste</h2>
+<ol class="schritte">
+<li><strong>Y1 (Resonator):</strong> Drei Beine, keine Polung — kann nicht falsch
+herum. Einstecken, umdrehen, verlöten, Beine kürzen.</li>
+<li><strong>J2 (ISP):</strong> Kurze Seite der Stifte in die Platine, lange Seite
+nach oben. Erst einen Pin löten, Sitz prüfen (senkrecht?), dann die
+restlichen fünf.</li>
+<li><strong>J5–J7 (JST):</strong> Die Nase der Stecker zeigt laut
+Bestückungsdruck zur Platinenkante — so lassen sich die Kabel später nach
+außen führen. Gleiches Vorgehen: heften, prüfen, fertig löten.</li>
+<li><strong>J1 (2×20-Buchse):</strong> Auf der <strong>Oberseite</strong> des Arms
+bestücken (die Buchse zeigt nach unten auf den PoE-HAT? Nein — nach
+<em>unten</em> gesteckt wird die Platine; die Buchsenleiste sitzt auf der
+<strong>Unterseite</strong> des Arms). Zum Ausrichten hilft es, die Buchse locker
+auf die Stifte des PoE-HAT zu stecken, die Platine aufzulegen und dann im
+aufgesteckten Zustand zwei Eckpins zu löten. So sitzt sie garantiert gerade.
+Danach abziehen und die restlichen 38 Pins löten.</li>
+</ol>
+
+<div class="tipp box"><span class="titel">✓ 40 Pins ohne Frust</span>
+Die Massepins der Buchsenleiste (6, 9, 14, 20, 25, 30, 34, 39) hängen an
+großen Kupferflächen und brauchen etwas länger, bis das Zinn fließt. Die
+Platine hat dafür thermische Entlastungen — wenn ein Pin trotzdem zäh ist:
+Spitze 2–3 Sekunden vorheizen lassen, dann Zinn zugeben. Nicht mit Gewalt und
+viel Zinn „zukleistern".</div>
+
+<h2>6.4 Endkontrolle vor dem ersten Strom</h2>
+<table>
+<tr><th>Prüfung</th><th>Multimeter</th><th>Sollwert</th></tr>
+<tr><td>Kurzschluss 5 V ↔ Masse?</td><td>Widerstand zwischen TP3 (+5V) und TP4 (GND)</td><td>deutlich &gt; 1 kΩ, nicht 0 Ω</td></tr>
+<tr><td>Kurzschluss 3,3 V ↔ Masse?</td><td>Widerstand zwischen TP2 (+3V3) und TP4</td><td>&gt; 1 kΩ, nicht 0 Ω</td></tr>
+<tr><td>Modul richtig herum?</td><td>Sichtprüfung</td><td>IPEX-Buchse zeigt zur rechten Kante</td></tr>
+<tr><td>Lötbrücken an U3?</td><td>Lupe</td><td>alle 22 Kerben einzeln, keine Verbindungen quer</td></tr>
+</table>
+
+<!-- ==================================================== KAPITEL 7 -->
+<h1 class="kapitel"><span class="knr">7</span>Fuses setzen und Bootloader brennen</h1>
+<div class="kapitelband"></div>
+
+<p>Ein fabrikneuer ATmega328P ist ein unbeschriebenes Blatt: Er läuft auf einem
+langsamen internen Notversorgungs-Takt und weiß nichts von unserem
+8-MHz-Resonator. Bevor er Firmware ausführen kann, müssen einmalig zwei Dinge
+passieren — und beide gehen über den ISP-Anschluss J2:</p>
+<ul>
+<li><strong>Fuses setzen</strong> — drei Konfigurationsbytes, die dem Chip u. a.
+sagen, welchen Takt er benutzt.</li>
+<li><strong>Bootloader brennen</strong> — ein Mini-Programm, das später
+Firmware-Updates über die serielle Schnittstelle entgegennimmt, ganz ohne
+Programmiergerät.</li>
+</ul>
+
+<div class="hinweis box"><span class="titel">ℹ Was sind „Fuses"?</span>
+Der Name führt in die Irre: Es brennt nichts durch. Fuses sind drei
+Speicherbytes (<em>low</em>, <em>high</em>, <em>extended</em>), die beim Start des
+Chips gelesen werden — eine Art BIOS-Einstellung. Sie überleben jedes
+Firmware-Update und lassen sich nur über ISP ändern. Falsche Fuse-Werte können
+den Chip „aussperren" (z. B. auf einen nicht vorhandenen Takt stellen) — mit
+unseren Werten passiert das nicht, sie passen exakt zur Platine.</div>
+
+<h2>7.1 Den USBasp vorbereiten</h2>
+<div class="gefahr box"><span class="titel">✋ Zuerst der Spannungs-Jumper!</span>
+Fast jeder USBasp hat einen Jumper (oft „JP21" oder „VCC"), der wählt, ob er
+das Zielgerät mit <strong>5 V oder 3,3 V</strong> versorgt. Er MUSS auf
+<strong>3,3 V</strong> stehen. Mit 5 V stirbt das Funkmodul (Maximum 3,6 V) —
+und zwar sofort und endgültig. Kein Jumper vorhanden? Dann Pin 2 (VCC) einfach
+nicht verbinden und die Platine währenddessen über den aufgesteckten Pi
+versorgen.</div>
+
+<figure>
+  <img src="img/isp.svg" alt="USBasp-Verkabelung">
+  <figcaption>Die sechs Verbindungen zwischen USBasp (10-polig) und J2 (6-polig).</figcaption>
+</figure>
+
+<ol class="schritte">
+<li>Jumper am USBasp auf 3,3 V stellen (Foto der Verkäuferseite hilft beim
+Finden).</li>
+<li>Die sechs Leitungen nach dem Bild verbinden. Pin 1 von J2 ist das
+<strong>eckige</strong> Pad; am USBasp-Kabel markiert die rote Ader Pin 1.</li>
+<li>USBasp in einen USB-Port stecken. Die Platine braucht jetzt keine weitere
+Versorgung — sie läuft über den Programmer.</li>
+</ol>
+
+<h2>7.2 avrdude installieren</h2>
+<p><code>avrdude</code> ist das Standardwerkzeug zum Programmieren von
+AVR-Chips. Auf einem Linux-Rechner (auch dem Pi selbst):</p>
+<pre>sudo apt update
+sudo apt install avrdude</pre>
+<p>Erster Verbindungstest — er liest nur die Signatur des Chips:</p>
+<pre>avrdude -c usbasp -p m328p -B 8</pre>
+<p>Erwartete Ausgabe (gekürzt):</p>
+<pre><span class="p">avrdude: device initialized and ready to accept instructions
+avrdude: Device signature = 0x1e950f (probably m328p)
+avrdude done.  Thank you.</span></pre>
+
+<div class="achtung box"><span class="titel">⚠ Das <code>-B 8</code> nicht vergessen</span>
+Ein fabrikneuer 328P taktet mit nur 1 MHz. <code>-B 8</code> bremst den
+Programmiertakt so weit, dass der Chip mitkommt. Ohne diese Option meldet
+avrdude <code>target doesn't answer</code> — der häufigste Anfängerstolperer
+überhaupt. Nach dem Setzen der Fuses (8 MHz) ist <code>-B 8</code> nicht mehr
+nötig, schadet aber auch nie.</div>
+
+<h2>7.3 Die Fuses setzen</h2>
+<p>Unsere Werte — sie stellen den Chip auf den externen 8-MHz-Resonator,
+aktivieren die Spannungsüberwachung und reservieren Platz für den Bootloader:</p>
+
+<table class="schmal">
+<tr><th>Fuse</th><th>Wert</th><th>Bewirkt</th></tr>
+<tr><td>low (lfuse)</td><td><code>0xFF</code></td><td>externer Taktgeber 8–16 MHz, kein Teiler — der Chip läuft mit vollen 8 MHz vom Resonator Y1</td></tr>
+<tr><td>high (hfuse)</td><td><code>0xDE</code></td><td>Bootloader-Bereich 512 Byte, Start im Bootloader</td></tr>
+<tr><td>extended (efuse)</td><td><code>0xFD</code></td><td>Brown-out bei 2,7 V — der Chip stoppt sauber, statt bei Unterspannung Amok zu laufen</td></tr>
+</table>
+
+<pre>avrdude -c usbasp -p m328p -B 8 \
+        -U lfuse:w:0xFF:m -U hfuse:w:0xDE:m -U efuse:w:0xFD:m</pre>
+
+<p>avrdude schreibt jede Fuse und liest sie zur Kontrolle zurück
+(<code>… verified</code>).</p>
+
+<div class="hinweis box"><span class="titel">ℹ efuse liest sich als 0x05 zurück?</span>
+Manche avrdude-Versionen zeigen die extended Fuse als <code>0x05</code> statt
+<code>0xFD</code> an. Das ist kein Fehler: Nur die unteren 3 Bit existieren
+physisch, der Rest ist undefiniert und wird mal als 1, mal als 0 gelesen.
+0x05 und 0xFD sind derselbe Wert.</div>
+
+<h2>7.4 Den Bootloader brennen</h2>
+<p>Wir verwenden <strong>Optiboot</strong> aus dem MiniCore-Projekt — die Variante
+für ATmega328P, externe 8 MHz, serielle Schnittstelle UART0, 57 600 Baud.
+Zwei Wege führen zum Ziel; nimm den, der dir näher liegt.</p>
+
+<h3>Weg A — Arduino IDE mit MiniCore (empfohlen für Einsteiger)</h3>
+<p>Die Arduino IDE setzt Fuses <em>und</em> Bootloader in einem Rutsch — wer Weg A
+geht, kann Abschnitt 7.3 sogar überspringen.</p>
+<ol class="schritte">
+<li>Arduino IDE installieren (arduino.cc, Version 2.x).</li>
+<li><em>Datei → Einstellungen → Zusätzliche Boardverwalter-URLs</em> eintragen:<br>
+<code>https://mcudude.github.io/MiniCore/package_MCUdude_MiniCore_index.json</code></li>
+<li><em>Werkzeuge → Board → Boardverwalter</em>: nach „MiniCore" suchen,
+installieren.</li>
+<li>Unter <em>Werkzeuge</em> exakt einstellen:
+<table class="schmal">
+<tr><th>Einstellung</th><th>Wert</th></tr>
+<tr><td>Board</td><td>MiniCore → <strong>ATmega328</strong></td></tr>
+<tr><td>Variant</td><td><strong>328P / 328PA</strong></td></tr>
+<tr><td>Clock</td><td><strong>External 8 MHz</strong></td></tr>
+<tr><td>BOD</td><td><strong>2.7 V</strong></td></tr>
+<tr><td>Bootloader</td><td><strong>Yes (UART0)</strong></td></tr>
+<tr><td>Programmer</td><td><strong>USBasp</strong></td></tr>
+</table></li>
+<li><em>Werkzeuge → Bootloader brennen</em>. Nach wenigen Sekunden meldet die
+IDE Erfolg — Fuses und Bootloader sind drauf.</li>
+</ol>
+
+<h3>Weg B — Kommandozeile</h3>
+<ol class="schritte">
+<li>Bootloader-Datei aus dem MiniCore-Repository holen (github.com/MCUdude/MiniCore,
+Ordner <code>avr/bootloaders/optiboot_flash/bootloaders/atmega328p/</code>):
+die Datei für <strong>8000000L, UART0, 57600 Baud</strong> — Dateiname nach dem Muster
+<code>optiboot_flash_atmega328p_UART0_57600_8000000L.hex</code>.</li>
+<li>Fuses setzen wie in 7.3 (falls noch nicht geschehen).</li>
+<li>Bootloader schreiben:
+<pre>avrdude -c usbasp -p m328p \
+        -U flash:w:optiboot_flash_atmega328p_UART0_57600_8000000L.hex:i</pre></li>
+</ol>
+
+<div class="tipp box"><span class="titel">✓ Woran erkenne ich den Erfolg?</span>
+Nach Fuses + Bootloader startet der Chip mit dem Resonator. Ein schneller
+Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
+<code>-B 8</code> — antwortet flott. Vorher (1-MHz-Takt) ging das nur gebremst.</div>
+
+<h2>7.5 Wenn es klemmt</h2>
+<table>
+<tr><th>Meldung</th><th>Ursache</th><th>Abhilfe</th></tr>
+<tr><td><code>target doesn't answer</code></td><td>Programmiertakt zu schnell oder Verkabelung</td><td><code>-B 8</code> (oder <code>-B 32</code>) verwenden; alle 6 Leitungen gegen das Bild prüfen — MISO/MOSI vertauscht ist Klassiker</td></tr>
+<tr><td><code>cannot find USB device</code></td><td>USBasp nicht erkannt / Rechte</td><td>anderes Kabel/Port; unter Linux ggf. mit <code>sudo</code> testen, dauerhaft besser eine udev-Regel</td></tr>
+<tr><td><code>invalid device signature 0x000000</code></td><td>Chip bekommt keinen Strom oder RESET klemmt</td><td>Jumper 3,3 V? Steckt Pin 2? Taster S1 versehentlich gedrückt/verklemmt?</td></tr>
+<tr><td>Signatur ≠ 0x1e950f</td><td>Kontaktproblem</td><td>Leitungen kürzen (&lt; 20 cm), erneut versuchen</td></tr>
+</table>
+
+<!-- ==================================================== KAPITEL 8 -->
+<h1 class="kapitel"><span class="knr">8</span>Die Firmware aufspielen</h1>
+<div class="kapitelband"></div>
+
+<p>Die Firmware ist der unveränderte <strong>AskSinSniffer328P</strong>-Sketch von
+jp112sdl — bewährt, tausendfach im Einsatz, und genau deshalb übernehmen wir
+ihn Byte für Byte statt einen eigenen zu pflegen.</p>
+
+<h2>8.1 Quellen besorgen</h2>
+<ol class="schritte">
+<li>Das Repository <code>github.com/jp112sdl/AskSinAnalyzer</code> als ZIP
+herunterladen und entpacken. Der Sketch liegt im Ordner
+<code>AskSinSniffer328P/</code>.</li>
+<li>Drei Bibliotheken werden gebraucht:
+<table>
+<tr><th>Bibliothek</th><th>Woher</th></tr>
+<tr><td><strong>AskSinPP</strong></td><td>github.com/pa-pa/AskSinPP → „Code → Download ZIP" → in der Arduino IDE über <em>Sketch → Bibliothek einbinden → .ZIP-Bibliothek hinzufügen</em></td></tr>
+<tr><td><strong>EnableInterrupt</strong></td><td>Arduino-Bibliotheksverwalter (Suche: „EnableInterrupt")</td></tr>
+<tr><td><strong>Low-Power</strong></td><td>Bibliotheksverwalter (Suche: „Low-Power", Autor Rocket Scream)</td></tr>
+</table></li>
+</ol>
+
+<h2>8.2 Kompilieren und flashen (Arduino IDE)</h2>
+<ol class="schritte">
+<li><code>AskSinSniffer328P.ino</code> in der IDE öffnen.</li>
+<li>Board-Einstellungen wie in Kapitel 7.4/Weg A (MiniCore, ATmega328,
+External 8 MHz, USBasp als Programmer).</li>
+<li><em>Sketch → Hochladen mit Programmer</em> wählen (nicht der normale
+Upload-Pfeil!). Die IDE kompiliert und überträgt über den USBasp.</li>
+<li>Nach ~30 Sekunden: <em>„Hochladen abgeschlossen"</em>.</li>
+</ol>
+
+<div class="hinweis box"><span class="titel">ℹ „Hochladen" vs. „Hochladen mit Programmer"</span>
+Der normale Upload-Knopf nutzt den Bootloader über die serielle Schnittstelle —
+die hängt bei uns aber am Pi, nicht am PC. Solange die Platine am USBasp
+steckt, ist <em>Hochladen mit Programmer</em> der richtige Weg. (Er lässt den
+Bootloader übrigens unversehrt — MiniCore-Uploads über ISP erhalten ihn.)
+Später, wenn die Platine auf dem Pi sitzt, laufen Updates über den Bootloader —
+Kapitel 11.</div>
+
+<h2>8.3 Alternative: PlatformIO</h2>
+<p>Wer lieber auf der Kommandozeile arbeitet: Dem Sketch liegt eine
+<code>platformio.ini</code> bei.</p>
+<pre><span class="c"># einmalig: PlatformIO-CLI installieren (python3 vorausgesetzt)</span>
+pip install platformio
+cd AskSinAnalyzer/AskSinSniffer328P
+<span class="c"># kompilieren und über USBasp brennen</span>
+pio run
+pio run -t program</pre>
+
+<h2>8.4 Der erste Lebenszeichen-Test</h2>
+<p>Noch am USBasp (der versorgt die Platine mit 3,3 V) muss jetzt die
+<strong>LED D1 beim Empfang blitzen</strong>, sobald ein Homematic-Gerät in der Nähe
+sendet — zum Provozieren reicht es, einen Fensterkontakt zu öffnen. Kein
+Blitzen ist noch kein Beinbruch: Ohne Antenne ist die Reichweite winzig.
+Der belastbare Test folgt in Kapitel 9 am Pi.</p>
+
+<!-- ==================================================== KAPITEL 9 -->
+<h1 class="kapitel"><span class="knr">9</span>Den Raspberry Pi einrichten</h1>
+<div class="kapitelband"></div>
+
+<p>Der Pi braucht drei Dinge: ein Betriebssystem, eine freigeschaltete serielle
+Schnittstelle und die Berechtigungen für unseren Dienst. Für die serielle
+Schnittstelle liegt ein Skript bei, das alles Nötige selbst erledigt.</p>
+
+<h2>9.1 Betriebssystem</h2>
+<ol class="schritte">
+<li>Mit dem <strong>Raspberry Pi Imager</strong> (raspberrypi.com/software)
+<em>Raspberry Pi OS Lite (64-bit)</em>, Basis „Bookworm", auf die SD-Karte
+schreiben.</li>
+<li>Im Imager unter dem Zahnrad gleich Hostname (z. B.
+<code>analyzer-keller</code>), Benutzer, SSH und ggf. WLAN setzen — dann läuft
+alles ohne Monitor („headless").</li>
+<li>SD-Karte einstecken, Pi ans Netzwerk, booten, per SSH anmelden.</li>
+</ol>
+
+<h2>9.2 Projekt holen und UART einrichten</h2>
+<pre>sudo apt update && sudo apt install -y git gpiod avrdude
+git clone https://github.com/ssbingo/asksin-analyzer-rpi.git
+cd asksin-analyzer-rpi
+
+<span class="c"># erst schauen, was das Skript ändern würde:</span>
+sudo hardware/setup-uart.sh --check
+<span class="c"># dann anwenden:</span>
+sudo hardware/setup-uart.sh</pre>
+
+<p>Das Skript erkennt das Pi-Modell und erledigt:</p>
+<ul>
+<li>Pi 3/4: <code>enable_uart=1</code> + <code>dtoverlay=disable-bt</code> — das
+Bluetooth-Modem räumt die „gute" Hardware-UART, die miniUART mit ihrer
+schwankenden Baudrate wird umgangen. (Pi 5: <code>dtparam=uart0=on</code>.)</li>
+<li>Die serielle <strong>Konsole</strong> wird abgeschaltet — sonst schreibt das
+Login-Programm in genau die Schnittstelle, aus der wir lesen.</li>
+<li>Warnung, falls <code>w1-gpio</code> (1-Wire) aktiv ist — das würde GPIO4
+belegen, unsere Reset-Leitung.</li>
+</ul>
+
+<pre><span class="c"># udev-Regel: fester Gerätename /dev/asksin-hat</span>
+sudo cp hardware/99-asksin-analyzer.rules /etc/udev/rules.d/
+sudo udevadm control --reload
+
+<span class="c"># Benutzerrechte für seriellen Port und GPIO</span>
+sudo usermod -aG dialout,gpio $USER
+
+sudo reboot</pre>
+
+<h2>9.3 Platine aufstecken und lauschen</h2>
+<ol class="schritte">
+<li>Pi <strong>stromlos</strong> machen. Analyzer-Platine auf den Header des
+PoE-HAT stecken (Kapitel 10 zeigt die Mechanik im Detail), Antenne über das
+IPEX-Kabel anschließen.</li>
+<li>Strom an, per SSH anmelden, dann:</li>
+</ol>
+<pre>stty -F /dev/ttyAMA0 <strong>58824</strong> raw -echo
+cat -v /dev/ttyAMA0</pre>
+<p>Jetzt sollte etwa alle Dreiviertelsekunde eine Rauschzeile erscheinen und —
+sobald ein Homematic-Gerät sendet — eine lange Telegrammzeile:</p>
+<pre><span class="p">:5B;
+:5A;
+:460B2AA011ABCDEF1234560201;
+:5B;</span></pre>
+<p>Beenden mit <code>Strg+C</code>. <strong>Damit ist die Hardware komplett
+nachgewiesen:</strong> Funkempfang, Dekodierung, serielle Strecke — alles läuft.</p>
+
+<div class="achtung box"><span class="titel">⚠ Nur Datenmüll statt Zeilen?</span>
+Zeichen wie <code>M-^?xM-^E</code> statt lesbarer Hexzeilen = falsche Baudrate.
+Prüfe, ob wirklich <strong>58824</strong> gesetzt ist — 57600 liefert genau dieses
+Bild (die 2,1 % Abweichung aus Kapitel 2 in Aktion).</div>
+
+<!-- ==================================================== KAPITEL 10 -->
+<h1 class="kapitel"><span class="knr">10</span>Zusammenbau und Montage im Schrank</h1>
+<div class="kapitelband"></div>
+
+<figure>
+  <img src="img/stapel.svg" alt="Montagestapel">
+  <figcaption>Pi, PoE-HAT und Analyzer im Schnitt: Der Arm sitzt auf dem Header, der Körper schwebt daneben und wird abgestützt.</figcaption>
+</figure>
+
+<h2>10.1 Der Stapel</h2>
+<ol class="schritte">
+<li>Raspberry Pi auf die Montageplatte schrauben (Abstandsbolzen M2,5).</li>
+<li>PoE-HAT aufstecken und mit seinen Bolzen sichern. Netzwerkkabel vom
+PoE-Switch einstecken — der Pi bootet jetzt bei jedem Stecken; für die Montage
+lieber stromlos lassen.</li>
+<li>Analyzer-Platine mit der 2×20-Buchse auf den durchgeschleiften Header des
+PoE-HAT stecken. Die beiden Bohrungen MH1/MH2 im Arm fluchten mit den
+HAT-Bolzen — verschrauben.</li>
+<li>Unter MH3/MH4 (rechte Körperkante) zwei Abstandsbolzen gegen die
+Montageplatte setzen — der auskragende Körper liegt damit fest auf.</li>
+</ol>
+
+<h2>10.2 Antenne</h2>
+<ol class="schritte">
+<li>IPEX-Stecker des Kabels senkrecht auf die Buchse des Funkmoduls setzen und
+mit sanftem Daumendruck einrasten („Klick"). Nicht hebeln — die Buchse hält
+rund 30 Steckzyklen.</li>
+<li>Das Kabel durch die Löcher <strong>KB1/KB2</strong> mit einem Kabelbinder auf
+der Platine festzurren — der IPEX-Stecker sieht so nie Zugkraft.</li>
+<li>SMA-Ende in die Gehäusedurchführung schrauben, außen die Antenne
+aufsetzen. Metallschrank + Antenne <em>innen</em> funktioniert nicht — 868 MHz
+kommt da kaum heraus.</li>
+</ol>
+
+<h2>10.3 OLED, Taster, Status-LED anschließen</h2>
+<figure>
+  <img src="img/anschluesse.svg" alt="Belegung J5, J6, J7">
+</figure>
+<p>Die drei JST-Kabel nach diesen Belegungen crimpen (oder fertige Kabel
+entsprechend umpinnen). Die Nase der Stecker verhindert Verpolen — was passt,
+passt richtig. Softwareseitig gehören Display, Taster und LED zum
+<strong>Status-LED-Projekt</strong>; dessen Installation (I²C aktivieren,
+<code>dtparam=i2c_arm=on</code>, Dienst einrichten) beschreibt dessen eigene
+Anleitung.</p>
+
+<!-- ==================================================== KAPITEL 11 -->
+<h1 class="kapitel"><span class="knr">11</span>Firmware-Updates im laufenden Betrieb</h1>
+<div class="kapitelband"></div>
+
+<p>Dank Bootloader (Kapitel 7) braucht ein Firmware-Update später weder
+Ausbau noch USBasp — der Pi erledigt es selbst über die serielle Schnittstelle.
+Nur eines fehlt der Pi-UART: die Reset-Leitung, mit der avrdude den Chip
+normalerweise in den Bootloader schickt. Dafür hat die Platine die
+<strong>GPIO4-Reset-Strecke</strong>: Ein kurzer Low-Impuls auf GPIO4 wird über den
+Kondensator C8 als Reset-Puls an den Mikrocontroller weitergereicht.</p>
+
+<h2>11.1 Das Update</h2>
+<pre><span class="c"># 1. Falls der Analyse-Dienst läuft: anhalten (er belegt den Port)</span>
+sudo systemctl stop asksin-core 2>/dev/null || true
+
+<span class="c"># 2. avrdude starten — es wartet auf den Bootloader …</span>
+avrdude -c arduino -p m328p -P /dev/ttyAMA0 -b 58824 -D \
+        -U flash:w:AskSinSniffer328P.hex:i &
+
+<span class="c"># 3. … und sofort den Reset-Impuls geben:</span>
+sleep 0.2
+timeout 0.3 gpioset -c gpiochip0 4=0 || true    <span class="c"># libgpiod 2.x (Bookworm)</span>
+<span class="c"># bei älteren Systemen (libgpiod 1.x) stattdessen:</span>
+<span class="c">#   gpioset --mode=time --usec=300000 gpiochip0 4=0</span>
+
+wait
+<span class="c"># 4. Dienst wieder starten</span>
+sudo systemctl start asksin-core 2>/dev/null || true</pre>
+
+<p>Der Ablauf dahinter: Die fallende Flanke auf GPIO4 läuft durch C8 und zieht
+RESET für etwa eine Millisekunde auf Masse. Der Chip startet neu, der
+Bootloader lauscht eine Sekunde lang auf der seriellen Schnittstelle — und
+genau dort wartet schon avrdude mit der neuen Firmware.</p>
+
+<div class="hinweis box"><span class="titel">ℹ Unkaputtbar</span>
+Ein Update über den Bootloader kann den Bootloader selbst nicht überschreiben
+— die Fuses schützen seinen Speicherbereich. Schlägt ein Update fehl
+(Stromausfall, Tippfehler), einfach wiederholen. Nur der allererste
+Bootloader-Brennvorgang braucht den USBasp.</div>
+
+<div class="achtung box"><span class="titel">⚠ Woher kommt die .hex-Datei?</span>
+Die Arduino IDE legt sie beim Kompilieren ab: <em>Sketch → Kompilierte Binärdatei
+exportieren</em> erzeugt sie direkt im Sketch-Ordner
+(<code>AskSinSniffer328P.ino.hex</code> — die Variante <em>ohne</em>
+„with_bootloader" im Namen verwenden). Mit PlatformIO liegt sie nach
+<code>pio run</code> unter <code>.pio/build/…/firmware.hex</code>.</div>
+
+<!-- ==================================================== KAPITEL 12 -->
+<h1 class="kapitel"><span class="knr">12</span>Die Software auf dem Pi</h1>
+<div class="kapitelband"></div>
+
+<div class="achtung box"><span class="titel">⚠ Stand der Entwicklung</span>
+Die Hardware dieses Projekts ist fertig — die Auswertesoftware entsteht gerade.
+Dieses Kapitel beschreibt, was heute schon läuft und was als Nächstes kommt.
+Es wird mit jeder Handbuch-Ausgabe aktualisiert.</div>
+
+<h2>12.1 Die Architektur</h2>
+<p>Die Software ist bewusst zweigeteilt:</p>
+<table>
+<tr><th>Teil</th><th>Aufgabe</th><th>Lizenz</th></tr>
+<tr><td><strong>Core-Dienst</strong> (Node.js, läuft auf dem Pi)</td><td>Liest die serielle Schnittstelle, zerlegt die Telegramme, rechnet Duty-Cycle und Statistiken, speichert in SQLite, stellt REST/WebSocket-API und die Web-Oberfläche bereit</td><td>CC BY-NC-SA</td></tr>
+<tr><td><strong>ioBroker-Adapter</strong></td><td>Verbindet sich mit dem Core und spiegelt die Ergebnisse als ioBroker-States — enthält selbst keinerlei Analyse-Logik</td><td>MIT, veröffentlichbar</td></tr>
+</table>
+<p>Diese Trennung hat zwei Gründe: Der Core läuft unabhängig von
+ioBroker-Neustarts durch — und der Adapter bleibt frei von den
+Lizenzauflagen der Analyzer-Vorprojekte.</p>
+
+<h2>12.2 Was heute schon fertig ist</h2>
+<ul>
+<li><strong>Der Telegramm-Parser</strong> — zerlegt jede Zeile in ihre Felder,
+verwirft Übertragungsfehler nachvollziehbar (mit Zähler je Fehlerart) und ist
+mit 29 automatischen Tests abgesichert.</li>
+<li><strong>Die Duty-Cycle-Berechnung</strong> — pro Sender über ein gleitendes
+Stundenfenster, formelgleich mit dem etablierten AskSinAnalyzerXS, damit die
+Werte vergleichbar bleiben.</li>
+</ul>
+<p>Wer es ausprobieren möchte (auf einem Rechner mit Node.js ≥ 22):</p>
+<pre>cd core
+npm install
+npm run check      <span class="c"># Typprüfung + alle 29 Tests</span></pre>
+
+<h2>12.3 Die nächsten Schritte</h2>
+<table class="schmal">
+<tr><th>Baustein</th><th>Inhalt</th></tr>
+<tr><td>Serial-Ingest</td><td>Port öffnen (58 824 Baud!), Zeilen lesen, bei Störung automatisch neu verbinden</td></tr>
+<tr><td>Persistenz</td><td>SQLite-Datenbank mit Ringpuffer-Logik — läuft jahrelang, ohne die SD-Karte zu fluten</td></tr>
+<tr><td>API + Web-UI</td><td>REST/WebSocket und eine Weboberfläche mit Live-Telegrammliste, Duty-Cycle-Ranking und RSSI-Verlauf. Die Oberfläche wird dem originalen AskSinAnalyzer nachempfunden, aber lizenzfrei neu gebaut</td></tr>
+<tr><td>Multi-Standort</td><td>Jeder Analyzer meldet seinen Standort mit — aus den Pegel-Unterschieden mehrerer Geräte entsteht die Funk-Landkarte des Hauses</td></tr>
+<tr><td>ioBroker-Adapter</td><td>Kommt zuletzt, wenn die API stabil ist</td></tr>
+</table>
+
+<!-- ==================================================== KAPITEL 13 -->
+<h1 class="kapitel"><span class="knr">13</span>Fehlersuche</h1>
+<div class="kapitelband"></div>
+
+<table>
+<tr><th>Symptom</th><th>Wahrscheinliche Ursache</th><th>So prüfst/behebst du es</th></tr>
+<tr><td>Keine Ausgabe an <code>/dev/ttyAMA0</code></td><td>UART nicht eingerichtet oder Konsole aktiv</td><td><code>sudo hardware/setup-uart.sh --check</code> ausführen; nach Änderungen neu starten. Existiert <code>/dev/ttyAMA0</code> überhaupt? (<code>ls -l /dev/ttyAMA*</code>)</td></tr>
+<tr><td>Nur wirre Zeichen statt <code>:…;</code>-Zeilen</td><td>Baudrate 57600 statt <strong>58824</strong></td><td><code>stty -F /dev/ttyAMA0 58824 raw -echo</code> — Kapitel 2 erklärt, warum</td></tr>
+<tr><td>Rauschzeilen kommen, aber nie Telegramme</td><td>Antenne fehlt/lose, oder kein BidCoS-Verkehr</td><td>IPEX-Stecker eingerastet? Ein Homematic-Gerät bewusst auslösen (Fensterkontakt). Prüfen, ob Geräte klassisches Homematic (nicht nur HmIP) sind</td></tr>
+<tr><td>Gar keine Rauschzeilen (auch nach 2 s nichts)</td><td>Firmware fehlt oder Chip startet nicht</td><td>Blitzt D1 beim Einschalten kurz? Kapitel 7/8 wiederholen; an TP2 3,3 V gegen TP4 messen</td></tr>
+<tr><td><code>avrdude: target doesn't answer</code></td><td>Programmiertakt zu hoch / Verkabelung</td><td><code>-B 8</code> ergänzen; MISO↔MOSI prüfen (Kapitel 7.5)</td></tr>
+<tr><td>Bootloader-Update schlägt fehl (<code>not in sync</code>)</td><td>Reset-Impuls kam zu früh/spät oder Dienst belegt Port</td><td>Reihenfolge aus Kapitel 11 exakt einhalten; <code>sudo fuser /dev/ttyAMA0</code> zeigt Belegungen</td></tr>
+<tr><td>Empfang schlecht (RSSI ständig unter −95 dBm)</td><td>Antenne im Metallschrank oder Störer</td><td>Antenne nach außen verlegen; Grundrauschen beobachten: steigt es ohne Telegramme, stört eine Quelle in der Nähe (Netzteile!)</td></tr>
+<tr><td>Funkmodul wird heiß</td><td>Es hat irgendwann 5 V gesehen</td><td>Sofort stromlos machen. Modul ist vermutlich defekt — auslöten, neues Modul, künftig Jumper-Regel aus Kapitel 7 beachten</td></tr>
+<tr><td>OLED bleibt dunkel</td><td>I²C nicht aktiv oder Kabelbelegung</td><td><code>sudo raspi-config</code> → I²C aktivieren; <code>i2cdetect -y 1</code> muss <code>3c</code> zeigen; J5-Belegung gegen Kapitel 10.3 prüfen</td></tr>
+<tr><td>1-Wire-Sensoren funktionieren nicht mehr</td><td><code>w1-gpio</code> kollidiert mit GPIO4 (Reset)</td><td>In <code>config.txt</code>: <code>dtoverlay=w1-gpio,gpiopin=17</code> o. ä. — nicht GPIO4</td></tr>
+</table>
+
+<!-- ==================================================== KAPITEL 14 -->
+<h1 class="kapitel"><span class="knr">14</span>Anhang</h1>
+<div class="kapitelband"></div>
+
+<h2>14.1 Belegung des Pi-Headers (genutzte Pins)</h2>
+<table class="schmal">
+<tr><th>Pi-Pin</th><th>Signal</th><th>Verwendung</th></tr>
+<tr><td>1</td><td>3V3</td><td>durchgereicht an OLED (J5) und LED (J7)</td></tr>
+<tr><td>2, 4</td><td>5V</td><td>Versorgung der Platine</td></tr>
+<tr><td>3, 5</td><td>GPIO2/3 (I²C)</td><td>durchgereicht ans OLED — von der Platine unangetastet</td></tr>
+<tr><td>7</td><td>GPIO4</td><td>Reset-Impuls für Firmware-Updates</td></tr>
+<tr><td>8</td><td>GPIO14 (TXD)</td><td>Pi sendet → Mikrocontroller</td></tr>
+<tr><td>10</td><td>GPIO15 (RXD)</td><td>Mikrocontroller sendet → Pi (der Telegrammstrom)</td></tr>
+<tr><td>11</td><td>GPIO17</td><td>Taster (J6)</td></tr>
+<tr><td>12</td><td>GPIO18</td><td>WS2812-Daten über R4 (J7)</td></tr>
+<tr><td>19</td><td>GPIO10</td><td>WS2812-Alternative über R5 (unbestückt)</td></tr>
+<tr><td>6, 9, 14, 20, 25, 30, 34, 39</td><td>GND</td><td>Masse</td></tr>
+</table>
+
+<h2>14.2 Prüfpunkte</h2>
+<table class="schmal">
+<tr><th>Pad</th><th>Signal</th><th>Sollwert im Betrieb</th></tr>
+<tr><td>TP1</td><td>RESET</td><td>3,3 V (Ruhe)</td></tr>
+<tr><td>TP2</td><td>+3,3 V</td><td>3,25–3,35 V</td></tr>
+<tr><td>TP3</td><td>+5 V</td><td>4,8–5,2 V</td></tr>
+<tr><td>TP4</td><td>GND</td><td>Bezugspunkt</td></tr>
+<tr><td>TP5</td><td>TXD (328P → Pi)</td><td>~3,3 V, zuckt bei jedem Telegramm</td></tr>
+<tr><td>TP6</td><td>RXD (Pi → 328P)</td><td>~3,3 V Ruhe</td></tr>
+<tr><td>TP7</td><td>GDO0</td><td>Interrupt vom Funkchip</td></tr>
+<tr><td>TP8</td><td>CS</td><td>SPI-Auswahl Funkmodul</td></tr>
+</table>
+
+<h2>14.3 Glossar</h2>
+<table>
+<tr><th>Begriff</th><th>Bedeutung</th></tr>
+<tr><td>BidCoS</td><td>„Bidirectional Communication Standard" — das Funkprotokoll klassischer Homematic-Geräte</td></tr>
+<tr><td>Bootloader</td><td>Mini-Programm im Chip, das neue Firmware über die serielle Schnittstelle annimmt</td></tr>
+<tr><td>Duty-Cycle</td><td>Sendezeit-Anteil eines Geräts; gesetzlich auf 1 % pro Stunde begrenzt</td></tr>
+<tr><td>Fuses</td><td>Konfigurationsbytes des AVR-Chips (Takt, Bootloader, Schutz) — nur über ISP änderbar</td></tr>
+<tr><td>Halblöcher</td><td>halbrunde Lötkerben an Modulkanten („castellated holes")</td></tr>
+<tr><td>IPEX / U.FL</td><td>Miniatur-Antennensteckverbinder auf Funkmodulen</td></tr>
+<tr><td>ISP</td><td>„In-System Programming" — Programmieren des Chips direkt auf der Platine (J2)</td></tr>
+<tr><td>LDO</td><td>Spannungsregler (hier: 5 V → 3,3 V)</td></tr>
+<tr><td>PoE</td><td>Power over Ethernet — Strom über das Netzwerkkabel</td></tr>
+<tr><td>RSSI</td><td>Empfangspegel in dBm; näher an 0 = stärker</td></tr>
+<tr><td>UART</td><td>serielle Schnittstelle (zwei Drähte: senden, empfangen)</td></tr>
+</table>
+
+<h2>14.4 Quellen und Dank</h2>
+<p>Dieses Projekt wäre ohne die Vorarbeit dieser Autoren nicht denkbar:</p>
+<ul>
+<li><strong>jp112sdl</strong> — AskSinAnalyzer und die Sniffer-Firmware
+(github.com/jp112sdl/AskSinAnalyzer)</li>
+<li><strong>pa-pa</strong> — die AskSinPP-Bibliothek (github.com/pa-pa/AskSinPP)</li>
+<li><strong>psi-4ward</strong> — AskSinAnalyzerXS (github.com/psi-4ward/AskSinAnalyzerXS)</li>
+<li><strong>der-pw</strong> — die ursprüngliche Raspberry-Pi-Aufsteckplatine
+(github.com/der-pw/AskSinAnalyzerXS-RPi)</li>
+</ul>
+<p>Hardware, Firmware-Anteile und dieses Handbuch stehen unter
+<strong>CC BY-NC-SA 4.0</strong> (Namensnennung, nicht-kommerziell, Weitergabe
+unter gleichen Bedingungen).</p>
+
+<p class="klein" style="margin-top:10mm; text-align:center">
+AskSin-Analyzer · Handbuch Ausgabe 1 · Juli 2026 · erzeugt aus
+<code>docs/handbuch/handbuch.html</code></p>
+
+</body>
+</html>

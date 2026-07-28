@@ -1,0 +1,17 @@
+# Fremdprojekte — Quellen und Klonbefehle: README.md, Abschnitt „Referenzprojekte"
+reference/
+AskSinAnalyzerXS-RPi-main/
+
+# Node
+core/node_modules/
+core/dist/
+*.tsbuildinfo
+
+# Bau-Zwischenstände
+__pycache__/
+*.pristine.kicad_pcb
+hardware/kicad/board.dsn
+hardware/kicad/board.ses
+*.kicad_sch-bak
+*-backups/
+fp-info-cache
