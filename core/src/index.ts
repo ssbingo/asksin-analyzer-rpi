@@ -2,3 +2,4 @@ export * from './decode/index.ts';
 export * from './analytics/index.ts';
 export * from './resolve/index.ts';
 export * from './ingest/index.ts';
+export * from './persist/index.ts';

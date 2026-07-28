@@ -10,3 +10,5 @@ export {
   telegramDutyCyclePercent,
 } from './dutyCycle.ts';
 export type { DeviceDutyCycle, DutyCycleOptions } from './dutyCycle.ts';
+export { LiveStats } from './liveStats.ts';
+export type { DeviceRssi, NoiseFloor } from './liveStats.ts';

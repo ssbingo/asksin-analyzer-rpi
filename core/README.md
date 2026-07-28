@@ -29,7 +29,7 @@ src/decode/     Zeile → Telegram | RssiNoise | verworfen   (fertig)
 src/analytics/  Duty-Cycle über gleitendes Stundenfenster  (fertig)
 src/resolve/    Gerätenamen von der CCU                    (Auflösung fertig, HTTP-Abruf folgt)
 src/ingest/     serieller Port, Reconnect, Watchdog        (fertig)
-src/persist/    SQLite im WAL-Modus, optional InfluxDB     (M3)
+src/persist/    SQLite im WAL-Modus (node:sqlite)          (fertig)
 src/api/        REST, WebSocket, MQTT + Web-UI-Kompat      (M5)
 ```
 
@@ -124,9 +124,31 @@ const ingest = new SerialIngest({
 ingest.start();
 ```
 
+## Persistenz
+
+`src/persist/` nutzt das **eingebaute `node:sqlite`** (Node ≥ 22) — der Core
+bleibt damit komplett ohne Laufzeitabhängigkeiten. WAL-Modus,
+`synchronous=NORMAL`, Schema-Migration über `user_version`.
+
+Drei Tabellen: `telegrams` (jedes Telegramm einzeln), `noise_minutes`
+(Grundrauschen als Minutenaggregat — Einzelproben wären 115 000 Zeilen/Tag)
+und `device_hours` (Stundensummen je Absender inkl. geschätzter Sendezeit für
+Langzeit-Duty-Cycle).
+
+Der **Recorder** schreibt gebündelt: eine Transaktion je Batch statt ein
+fsync je Zeile — das schont die SD-Karte. Aggregat-Schreiben ist
+delta-basiert mit additivem Upsert; ein Neustart mitten in der Stunde addiert
+korrekt weiter, statt Teilsummen zu überschreiben. `cleanup()` setzt die
+Retention je Tabelle durch und dampft das WAL ein.
+
+`LiveStats` (in `src/analytics/`) liefert die restlichen Kennzahlen des
+State-Baums: Grundrauschen (letzter Wert + EWMA), Telegramme der letzten
+60 Sekunden und RSSI je Gerät (last/min/max/EWMA/lastSeen) — rein aus den
+Zeilen-Zeitstempeln gerechnet, ohne eigene Uhr.
+
 ## Tests
 
-64 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
+79 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
 derzeit **konstruiert**, nicht mitgeschnitten. Sobald M0 vorliegt (Sniffer läuft,
 ein paar Stunden Rohdaten), gehören echte Zeilen dazu — erst die decken die
 Fälle ab, die man sich nicht ausdenkt: Teilzeilen nach einem Reconnect,
