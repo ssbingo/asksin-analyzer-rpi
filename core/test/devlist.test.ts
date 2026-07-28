@@ -14,16 +14,17 @@ import {
 } from '../src/resolve/ccuResponse.ts';
 
 /**
- * Die Fixture ist der unveränderte Export einer echten RaspberryMatic
- * (28.07.2026). Sie enthält genau die Fälle, an denen ein naiver Resolver
- * scheitert: doppelte Adressen, Gruppen-Einträge, die Zentrale zweimal,
- * Umlaute, Eigenbau-Geräte mit winzigen Adressen.
+ * Die Fixture ist eine synthetische Beispielanlage, deren STRUKTUR 1:1 dem
+ * Export einer echten RaspberryMatic entspricht (verifiziert 28.07.2026):
+ * gleiche Eintragszahl, doppelte Adressen, Gruppen-Einträge, die Zentrale
+ * zweimal, Umlaute, Eigenbau-Geräte mit winzigen Adressen. Namen und
+ * Seriennummern sind erfunden.
  */
 const list = parseDevList(
-  readFileSync(new URL('./fixtures/devlist-real.json', import.meta.url), 'utf8'),
+  readFileSync(new URL('./fixtures/devlist-beispielanlage.json', import.meta.url), 'utf8'),
 );
 
-test('die echte Liste wird vollständig geparst', () => {
+test('die Beispielanlage wird vollständig geparst', () => {
   assert.equal(list.devices.length, 241);
   assert.equal(list.created_at, 1785246272);
 });
@@ -45,7 +46,7 @@ test('doppelte Adressen überschreiben einander nicht', () => {
   assert.equal(resolver.addressCount, 237);
 
   // Rauchmelder + seine Gruppe unter derselben Adresse:
-  const einträge = resolver.entries(2753497);
+  const einträge = resolver.entries(2600001);
   assert.equal(einträge.length, 2);
   assert.deepEqual(
     einträge.map((e) => e.serial).sort(),
@@ -55,11 +56,11 @@ test('doppelte Adressen überschreiben einander nicht', () => {
 
 test('der maßgebliche Eintrag ist das reale Gerät, nicht die Gruppe', () => {
   const resolver = new DeviceResolver(list);
-  const primär = resolver.resolve(2753497);
+  const primär = resolver.resolve(2600001);
   assert.equal(primär?.name, 'RM_Arbeitszimmer');
   assert.equal(primär?.kind, 'device');
   // Die Gruppe bleibt als zweiter Eintrag erreichbar:
-  assert.equal(resolver.entries(2753497)[1]?.kind, 'team');
+  assert.equal(resolver.entries(2600001)[1]?.kind, 'team');
 });
 
 test('die Zentrale steht zweimal in der Liste und wird als central erkannt', () => {
@@ -69,22 +70,22 @@ test('die Zentrale steht zweimal in der Liste und wird als central erkannt', () 
   assert.ok(einträge.every((e) => e.kind === 'central'));
   assert.ok(einträge.every((e) => e.isHmIp));
   // BidCoS-Zentrale ebenso:
-  assert.equal(resolver.resolve(2576523)?.kind, 'central');
+  assert.equal(resolver.resolve(2500001)?.kind, 'central');
 });
 
 test('Umlaute überleben die Verarbeitung', () => {
   const resolver = new DeviceResolver(list);
-  assert.equal(resolver.nameOf(6448069), 'BWM_Wäschekeller (Licht)');
-  assert.equal(resolver.nameOf(2569418), 'FSA_Küche (Theke)');
+  assert.equal(resolver.nameOf(6600001), 'BWM_Wäschekeller (Licht)');
+  assert.equal(resolver.nameOf(6600002), 'FSA_Küche (Theke)');
 });
 
 test('HmIP-Erkennung nach XS-Konvention', () => {
   assert.equal(isHmIpSerial('0030DDA9B00001'), true);   // 14 Zeichen
   assert.equal(isHmIpSerial('HmIP-RF'), true);
-  assert.equal(isHmIpSerial('LEQ0520001'), false);      // klassisch, 10 Zeichen
+  assert.equal(isHmIpSerial('LEQ0311847'), false);      // klassisch, 10 Zeichen
   const resolver = new DeviceResolver(list);
-  assert.equal(resolver.resolve(11467962)?.isHmIp, true);   // BWM_Zufahrt
-  assert.equal(resolver.resolve(2952772)?.isHmIp, false);   // BWM_Bad OG
+  assert.equal(resolver.resolve(11000001)?.isHmIp, true);   // BWM_Zufahrt (HmIP)
+  assert.equal(resolver.resolve(2900001)?.isHmIp, false);   // BWM_Bad OG
 });
 
 test('Pseudo-Einträge des CCU-Scripts werden erkannt', () => {

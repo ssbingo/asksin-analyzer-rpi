@@ -30,8 +30,7 @@ laufenden Gerät.
 Ein Aufruf installiert und konfiguriert alles (Details: [`deploy/README.md`](deploy/README.md)):
 
 ```bash
-sudo git clone git@github.com:ssbingo/asksin-analyzer-rpi.git /opt/asksin-analyzer
-sudo /opt/asksin-analyzer/install.sh
+curl -fsSL https://raw.githubusercontent.com/ssbingo/asksin-analyzer-rpi/main/install.sh | sudo bash
 ```
 
 ## Aufbau des Repositories

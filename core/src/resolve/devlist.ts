@@ -6,8 +6,9 @@
  * Abschnitt 7). Dieses Modul verarbeitet den JSON-Inhalt; den HTTP-Abruf
  * übernimmt später der Ingest-Teil von M4.
  *
- * Die Eigenheiten hier sind keine Theorie, sondern stammen aus einer echten
- * Anlage (Fixture `test/fixtures/devlist-real.json`, 241 Einträge):
+ * Die Eigenheiten hier sind keine Theorie, sondern sind gegen eine echte
+ * Anlage verifiziert (die Fixture `test/fixtures/devlist-beispielanlage.json`
+ * bildet deren Struktur mit erfundenen Namen/Seriennummern exakt nach):
  *
  *  - **Adressen sind nicht eindeutig.** Rauchmelder-Gruppen erscheinen als
  *    zweiter Eintrag unter der Adresse ihres Leitgeräts, erkennbar am

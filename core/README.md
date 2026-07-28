@@ -100,10 +100,11 @@ Namen aus dem Cache, auch wenn die CCU gerade nicht erreichbar ist; bei
 Abruf-Fehlern bleibt der letzte Stand nutzbar. HTTP und Uhr sind injizierbar —
 die Tests speisen die echte Drahtform ein und schieben die Zeit von Hand.
 
-Die Test-Fixture `test/fixtures/devlist-real.json` ist der unveränderte Export
-einer echten RaspberryMatic (241 Einträge, 28.07.2026). **Sie enthält reale
-Gerätenamen und Seriennummern dieser Anlage** — vor einer Veröffentlichung des
-Repos ist sie zu anonymisieren oder durch eine synthetische Liste zu ersetzen.
+Die Test-Fixture `test/fixtures/devlist-beispielanlage.json` ist eine
+**synthetische Beispielanlage**, deren Struktur exakt dem Export einer echten
+RaspberryMatic entspricht (verifiziert 28.07.2026): 241 Einträge, 237
+Adressen, doppelte Zentrale, Rauchmelder-Teams, Umlaute, HmIP-Seriennummern,
+Pseudo-Multicasts. Namen und Seriennummern sind erfunden.
 
 ## Serial-Ingest
 
