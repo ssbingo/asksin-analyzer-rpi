@@ -63,6 +63,8 @@ esac
 # --- System-Pakete ------------------------------------------------------------
 c_info "Installiere System-Pakete (apt)..."
 export DEBIAN_FRONTEND=noninteractive
+# npm soll nicht bei jedem Lauf fuer seine eigene neue Version werben:
+export npm_config_update_notifier=false
 apt-get update -qq
 # gpiod: 328P-Reset ueber GPIO4; avrdude: spaeteres Firmware-Flashen
 apt-get install -y -qq git curl ca-certificates gpiod avrdude

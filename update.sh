@@ -8,6 +8,7 @@ set -euo pipefail
 
 INSTALL_DIR="/opt/asksin-analyzer"
 BRANCH="main"
+export npm_config_update_notifier=false
 
 c_info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 c_ok()   { printf '\033[1;32m  ok\033[0m %s\n' "$*"; }
