@@ -4,8 +4,9 @@ Der dauerlaufende Analysedienst: liest die serielle Schnittstelle des
 AskSinSniffer328P, decodiert die Telegramme, rechnet Duty-Cycle und Statistik,
 persistiert und stellt API und Web-UI bereit.
 
-Stand: **M1 (Parser-MVP)**. Decoder und Duty-Cycle-Rechnung stehen und sind
-getestet; Serial-Ingest, Persistenz, API und UI folgen.
+Stand: **M4 (Namensauflösung) abgeschlossen.** Die Kette Port → Decoder →
+Statistik → SQLite ist komplett verdrahtet (`Analyzer`), inklusive
+CCU-Abruf der Gerätenamen mit Polling und Datei-Cache. Es folgen API und UI.
 
 ## Bauen und Prüfen
 
@@ -27,9 +28,10 @@ Dauerbetrieb ohne Gegenwert.
 ```
 src/decode/     Zeile → Telegram | RssiNoise | verworfen   (fertig)
 src/analytics/  Duty-Cycle über gleitendes Stundenfenster  (fertig)
-src/resolve/    Gerätenamen von der CCU                    (Auflösung fertig, HTTP-Abruf folgt)
+src/resolve/    Gerätenamen von der CCU + Abrufdienst      (fertig)
 src/ingest/     serieller Port, Reconnect, Watchdog        (fertig)
 src/persist/    SQLite im WAL-Modus (node:sqlite)          (fertig)
+src/service/    Analyzer: alles verdrahtet + snapshot()    (fertig)
 src/api/        REST, WebSocket, MQTT + Web-UI-Kompat      (M5)
 ```
 
@@ -87,7 +89,14 @@ Strukturvalidierung, Klassifizierung (Gerät / Rauchmelder-Gruppe / Zentrale /
 Pseudo-Multicast), HmIP-Erkennung nach XS-Konvention und ein `DeviceResolver`,
 der **doppelte Adressen** korrekt behandelt — reale Geräte haben Vorrang vor
 ihren Gruppen. Dazu die Dekodierung der rohen CCU-Antwort (latin1, XML-Hülle,
-HTML-Escapes) als reine Funktionen. Der HTTP-Abruf selbst folgt mit M4.
+HTML-Escapes) als reine Funktionen.
+
+Den Abruf übernimmt der **DevListService**: zyklisch (Vorgabe stündlich,
+nach Fehlern alle 5 Minuten) von `http://<ccu>:8181/a.exe`, mit atomarem
+Datei-Cache (tmp + rename). Nach einem Neustart zeigt der Analyzer sofort
+Namen aus dem Cache, auch wenn die CCU gerade nicht erreichbar ist; bei
+Abruf-Fehlern bleibt der letzte Stand nutzbar. HTTP und Uhr sind injizierbar —
+die Tests speisen die echte Drahtform ein und schieben die Zeit von Hand.
 
 Die Test-Fixture `test/fixtures/devlist-real.json` ist der unveränderte Export
 einer echten RaspberryMatic (241 Einträge, 28.07.2026). **Sie enthält reale
@@ -146,9 +155,34 @@ State-Baums: Grundrauschen (letzter Wert + EWMA), Telegramme der letzten
 60 Sekunden und RSSI je Gerät (last/min/max/EWMA/lastSeen) — rein aus den
 Zeilen-Zeitstempeln gerechnet, ohne eigene Uhr.
 
+## Dienst-Komposition
+
+`src/service/analyzer.ts` verdrahtet alles zur laufenden Kette:
+
+```ts
+const db = openDatabase('/var/lib/asksin/analyzer.db');
+const analyzer = new Analyzer({
+  openPort: sttyPortOpener(),               // /dev/asksin-hat, 58 824 Baud
+  db,
+  devList: new DevListService({
+    host: 'ccu.local',
+    cachePath: '/var/lib/asksin/devlist.json',
+  }),
+});
+analyzer.start();
+// …
+const s = analyzer.snapshot();              // die eine Leseschnittstelle (→ M5)
+await analyzer.stop();                      // stoppt alles, flusht den Rest
+```
+
+`start()` fährt Ingest, DevList-Abruf, Flush-Takt (5 s) und Aufräumtakt
+(täglich: Retention + WAL-Checkpoint) hoch; `stop()` alles wieder herunter,
+mit abschließendem Flush. `snapshot()` führt je Gerät RSSI-Statistik,
+Duty-Cycle und aufgelösten Namen zusammen — darauf setzt die API von M5 auf.
+
 ## Tests
 
-79 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
+91 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
 derzeit **konstruiert**, nicht mitgeschnitten. Sobald M0 vorliegt (Sniffer läuft,
 ein paar Stunden Rohdaten), gehören echte Zeilen dazu — erst die decken die
 Fälle ab, die man sich nicht ausdenkt: Teilzeilen nach einem Reconnect,

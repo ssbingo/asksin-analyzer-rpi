@@ -18,8 +18,9 @@ laufenden Gerät.
 | **Hardware V4** (L-Platine, Pi-Aufsatz) | ✅ fertig entworfen, DRC 0 Verstöße, **in Produktion** |
 | Fertigungsdaten (Gerber, BOM, CPL, JLCPCB) | ✅ [`hardware/kicad/fab/`](hardware/kicad/fab/) + Archiv |
 | Firmware | ✅ unveränderter `AskSinSniffer328P` (jp112sdl) |
-| Core: Parser + Duty-Cycle | ✅ fertig, 29 Unit-Tests ([`core/`](core/)) |
-| Core: Serial-Ingest, SQLite, API | 🔨 in Entwicklung (M2–M5) |
+| Core: Parser + Duty-Cycle | ✅ fertig ([`core/`](core/)) |
+| Core: Serial-Ingest, SQLite, CCU-Namen, Analyzer | ✅ fertig verdrahtet, 91 Unit-Tests (M2–M4) |
+| Core: API (REST/WS, XS-kompatibel) | 🔨 als Nächstes (M5) |
 | Web-UI (Nachbau, lizenzfrei) | 📋 geplant (M5.5), API-Vertrag steht |
 | ioBroker-Adapter | 📋 geplant (M6) |
 

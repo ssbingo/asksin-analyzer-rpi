@@ -16,3 +16,14 @@ export {
   extractRet,
   unescapeHtml,
 } from './ccuResponse.ts';
+export {
+  DevListService,
+  buildDevListUrl,
+  httpFetchBytes,
+} from './fetcher.ts';
+export type {
+  DevListServiceOptions,
+  DevListSource,
+  DevListStats,
+  FetchBytes,
+} from './fetcher.ts';
