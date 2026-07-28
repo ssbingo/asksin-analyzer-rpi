@@ -40,6 +40,7 @@ async function aufbau(t: TestContext, extra: {
   authToken?: string;
   maxLogBatch?: number;
   onReboot?: () => void;
+  uiDir?: string;
 } = {}): Promise<Aufbau> {
   const time = new FakeTime();
   const ports: FakePort[] = [];
@@ -74,6 +75,7 @@ async function aufbau(t: TestContext, extra: {
     ...(extra.authToken === undefined ? {} : { authToken: extra.authToken }),
     ...(extra.maxLogBatch === undefined ? {} : { maxLogBatch: extra.maxLogBatch }),
     ...(extra.onReboot === undefined ? {} : { onReboot: extra.onReboot }),
+    ...(extra.uiDir === undefined ? {} : { uiDir: extra.uiDir }),
     time,
     onSetConfig: (c) => {
       gesetzt.push(c);
@@ -282,6 +284,100 @@ test('setConfig: Felder auch aus dem POST-Body (urlencoded)', async (t) => {
 });
 
 // ---------------------------------------------------------------- eigene API
+
+test('/api/telegrams: neueste zuerst laden, dann inkrementell über afterId', async (t) => {
+  const a = await aufbau(t, { mitDevList: true });
+  await a.einspeisen(TELEGRAMM, BURST, HMIP);
+
+  const erste = (await (
+    await fetch(`${a.base}/api/telegrams?limit=2`)
+  ).json()) as { telegrams: Array<Record<string, unknown>>; lastId: number };
+  assert.equal(erste.telegrams.length, 2, 'limit greift');
+  assert.deepEqual(
+    erste.telegrams.map((x) => x['id']),
+    [2, 3],
+    'die NEUESTEN, in aufsteigender Reihenfolge',
+  );
+  assert.equal(erste.lastId, 3);
+
+  const nach = (await (
+    await fetch(`${a.base}/api/telegrams?afterId=1`)
+  ).json()) as { telegrams: Array<Record<string, unknown>> };
+  assert.equal(nach.telegrams.length, 2);
+  const b = nach.telegrams[0]!;
+  assert.equal(b['typeName'], 'CONFIG');
+  assert.deepEqual(b['flagNames'], ['BURST']);
+  assert.equal(b['fromHex'], '111111');
+  assert.equal(b['fromName'], '111111', 'unbekannte Adresse bleibt Hex');
+  assert.equal(nach.telegrams[1]!['isHmIp'], true);
+
+  const t1 = (await (
+    await fetch(`${a.base}/api/telegrams?afterId=0&limit=1`)
+  ).json()) as { telegrams: Array<Record<string, unknown>> };
+  assert.equal(
+    t1.telegrams[0]!['fromName'],
+    'Wäschekeller Fenster',
+    'Namen kommen aufgelöst an',
+  );
+});
+
+test('/api/noise: Minutenaggregat mit Mittelwert und ms-Zeitstempel', async (t) => {
+  const a = await aufbau(t);
+  await a.einspeisen(':5B;\n', ':50;\n');     // −91, −80
+
+  const { noise } = (await (
+    await fetch(`${a.base}/api/noise?minutes=100`)
+  ).json()) as { noise: Array<Record<string, number>> };
+  assert.equal(noise.length, 1);
+  const m = noise[0]!;
+  assert.equal(m['ts'], Math.floor(T0 / 60_000) * 60_000);
+  assert.equal(m['samples'], 2);
+  assert.equal(m['min'], -91);
+  assert.equal(m['max'], -80);
+  assert.equal(m['avg'], -85.5);
+});
+
+// ---------------------------------------------------------------- statisches UI
+
+test('uiDir: Dateien, Asset-Caching, SPA-Fallback und Traversal-Schutz', async (t) => {
+  const { mkdtempSync, mkdirSync, rmSync, writeFileSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const dir = mkdtempSync(join(tmpdir(), 'asksin-ui-'));
+  t.after(() => {
+    rmSync(dir, { recursive: true, force: true });
+  });
+  writeFileSync(join(dir, 'index.html'), '<h1>AskSin-Analyzer</h1>');
+  mkdirSync(join(dir, 'assets'));
+  writeFileSync(join(dir, 'assets', 'app-abc123.js'), 'console.log(1)');
+
+  const a = await aufbau(t, { uiDir: dir });
+
+  const start = await fetch(`${a.base}/`);
+  assert.equal(start.status, 200);
+  assert.match(await start.text(), /AskSin-Analyzer/);
+  assert.match(start.headers.get('content-type') ?? '', /text\/html/);
+
+  const asset = await fetch(`${a.base}/assets/app-abc123.js`);
+  assert.match(asset.headers.get('content-type') ?? '', /javascript/);
+  assert.match(asset.headers.get('cache-control') ?? '', /immutable/);
+
+  const spa = await fetch(`${a.base}/liste`);
+  assert.equal(spa.status, 200);
+  assert.match(await spa.text(), /AskSin-Analyzer/, 'SPA-Fallback auf index.html');
+
+  assert.equal((await fetch(`${a.base}/fehlt.js`)).status, 404, 'mit Endung kein Fallback');
+  assert.equal(
+    (await fetch(`${a.base}/..%2F..%2Fetc%2Fpasswd`)).status,
+    404,
+    'kein Ausbruch aus der Wurzel',
+  );
+  assert.equal(
+    (await fetch(`${a.base}/api/gibtsnicht`)).status,
+    404,
+    '/api/* fällt nie auf die SPA zurück',
+  );
+});
 
 test('/api/snapshot und /api/health: die Sicht des Analyzers über HTTP', async (t) => {
   const a = await aufbau(t, { mitDevList: true });

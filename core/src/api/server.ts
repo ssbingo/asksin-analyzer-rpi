@@ -18,12 +18,16 @@
  * antworten kompatibel mit `OK`, gemeldet wird `sdcardavailable: 0`.
  */
 
+import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { hostname, networkInterfaces } from 'node:os';
+import { extname, join, normalize, resolve, sep } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 
+import { decodeFlags } from '../decode/flags.ts';
+import { decodeMsgType, isHmIpType } from '../decode/msgTypes.ts';
 import { systemTime } from '../ingest/time.ts';
 import type { TimeSource } from '../ingest/time.ts';
 import type { DevListService } from '../resolve/fetcher.ts';
@@ -61,10 +65,25 @@ export interface ApiServerOptions {
   onSetConfig?: (changes: Record<string, string>) => void;
   /** Max. Telegramme je `/getLogByLogNumber`-Antwort. Vorgabe 50 (Original). */
   maxLogBatch?: number;
+  /** Verzeichnis des gebauten Web-UI (webui/dist). Ohne Angabe: kein UI. */
+  uiDir?: string;
 }
 
 const SET_CONFIG_FELDER = ['ccuip', 'hostname', 'ntp', 'ip', 'netmask', 'gw'];
 const MAX_BODY_BYTES = 65_536;
+
+const MIME: Record<string, string> = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.map': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.ico': 'image/x-icon',
+  '.woff2': 'font/woff2',
+  '.txt': 'text/plain; charset=utf-8',
+};
 
 /** Erste externe IPv4-Schnittstelle — für die Info-Ansicht der App. */
 function ersteSchnittstelle(): { ip: string; netmask: string; mac: string } {
@@ -172,6 +191,14 @@ export class ApiServer {
           return this.#json(res, 200, this.#opts.analyzer.snapshot(this.#time.now()));
         case '/api/health':
           return this.#json(res, 200, this.#health());
+        case '/api/telegrams':
+          return this.#apiTelegrams(url, res);
+        case '/api/noise':
+          return this.#apiNoise(url, res);
+      }
+      // Alles Übrige: das gebaute Web-UI (mit SPA-Fallback).
+      if (this.#opts.uiDir !== undefined && !pfad.startsWith('/api/')) {
+        return this.#statisch(pfad, res);
       }
     }
 
@@ -244,6 +271,107 @@ export class ApiServer {
       )
       .all(Math.ceil(fromSec / 60)) as unknown as NoiseMinuteRow[];
     this.#json(res, 200, rows.map(toRssiLogEntry));
+  }
+
+  /**
+   * JSON-Telegramme für den UI-Nachbau: mit aufgelösten Namen, Klarnamen der
+   * Flags/Typen und `id` (rowid) für inkrementelles Nachladen. Ohne `afterId`
+   * kommen die neuesten `limit` Zeilen, mit `afterId` alles Neuere daran.
+   */
+  #apiTelegrams(url: URL, res: ServerResponse): void {
+    const afterRoh = url.searchParams.get('afterId');
+    // Fehlender Parameter ≠ afterId=0: ohne Parameter die neuesten Zeilen,
+    // mit afterId=0 ausdrücklich von ganz vorn.
+    const afterId = afterRoh === null ? null : Math.max(0, Number(afterRoh) || 0);
+    const limit = Math.min(
+      1000,
+      Math.max(1, Number(url.searchParams.get('limit') ?? 200) || 200),
+    );
+    const db = this.#opts.db;
+    const felder =
+      'rowid AS id, ts, rssi, len, cnt, flags, type, from_addr, to_addr, payload';
+    const rows = (
+      afterId !== null
+        ? db
+            .prepare(
+              `SELECT ${felder} FROM telegrams WHERE rowid > ? ORDER BY rowid LIMIT ?`,
+            )
+            .all(afterId, limit)
+        : db
+            .prepare(`SELECT ${felder} FROM telegrams ORDER BY rowid DESC LIMIT ?`)
+            .all(limit)
+            .reverse()
+    ) as unknown as Array<{
+      id: number;
+      ts: number;
+      rssi: number;
+      len: number;
+      cnt: number;
+      flags: number;
+      type: number;
+      from_addr: number;
+      to_addr: number;
+      payload: string;
+    }>;
+    const nameOf = (addr: number): string =>
+      this.#opts.devList?.nameOf(addr) ??
+      addr.toString(16).toUpperCase().padStart(6, '0');
+    const hex6 = (addr: number): string =>
+      addr.toString(16).toUpperCase().padStart(6, '0');
+    const telegrams = rows.map((r) => ({
+      id: r.id,
+      ts: r.ts,
+      rssi: r.rssi,
+      len: r.len,
+      cnt: r.cnt,
+      flags: r.flags,
+      flagNames: decodeFlags(r.flags),
+      type: r.type,
+      typeName: decodeMsgType(r.type),
+      isHmIp: isHmIpType(r.type),
+      fromAddr: r.from_addr,
+      fromHex: hex6(r.from_addr),
+      fromName: nameOf(r.from_addr),
+      toAddr: r.to_addr,
+      toHex: hex6(r.to_addr),
+      toName: nameOf(r.to_addr),
+      payload: r.payload,
+    }));
+    this.#json(res, 200, {
+      telegrams,
+      lastId: telegrams.at(-1)?.id ?? afterId ?? 0,
+    });
+  }
+
+  /** Grundrauschen als Minutenaggregat für den Zeitchart der eigenen UI. */
+  #apiNoise(url: URL, res: ServerResponse): void {
+    const minuten = Math.min(
+      100_000,
+      Math.max(1, Number(url.searchParams.get('minutes') ?? 180) || 180),
+    );
+    const ab = Math.floor(this.#time.now() / 60_000) - minuten;
+    const rows = this.#opts.db
+      .prepare(
+        `SELECT minute, samples, min_rssi, max_rssi, sum_rssi
+         FROM noise_minutes WHERE minute >= ? ORDER BY minute`,
+      )
+      .all(ab) as unknown as Array<{
+      minute: number;
+      samples: number;
+      min_rssi: number;
+      max_rssi: number;
+      sum_rssi: number;
+    }>;
+    this.#json(res, 200, {
+      noise: rows.map((r) => ({
+        minute: r.minute,
+        ts: r.minute * 60_000,
+        samples: r.samples,
+        min: r.min_rssi,
+        max: r.max_rssi,
+        avg: Math.round((r.sum_rssi / r.samples) * 10) / 10,
+      })),
+    });
   }
 
   #tagesCsv(res: ServerResponse, yyyymmdd: string): void {
@@ -341,6 +469,59 @@ export class ApiServer {
       persistErrors: s.persistErrors,
       devListSource: s.devList?.source ?? null,
     };
+  }
+
+  // ---- statisches Web-UI ----------------------------------------------
+
+  /**
+   * Liefert Dateien aus `uiDir`; unbekannte Pfade ohne Dateiendung fallen auf
+   * `index.html` zurück (SPA-Routing). Pfade außerhalb der Wurzel sind tabu.
+   */
+  #statisch(pfad: string, res: ServerResponse): void {
+    const wurzel = resolve(this.#opts.uiDir!);
+    let dekodiert: string;
+    try {
+      dekodiert = decodeURIComponent(pfad);
+    } catch {
+      return this.#text(res, 400, 'Kaputte URL-Kodierung');
+    }
+    const ziel = normalize(join(wurzel, dekodiert === '/' ? 'index.html' : dekodiert.slice(1)));
+    if (ziel !== wurzel && !ziel.startsWith(wurzel + sep)) {
+      return this.#text(res, 404, 'Nicht gefunden');
+    }
+    const datei = this.#leseDatei(ziel);
+    if (datei !== null) {
+      // Vite-Assets tragen einen Inhalts-Hash im Namen → dauerhaft cachebar.
+      const cache = dekodiert.startsWith('/assets/')
+        ? 'public, max-age=31536000, immutable'
+        : 'no-cache';
+      res.writeHead(200, {
+        'Content-Type': MIME[extname(ziel)] ?? 'application/octet-stream',
+        'Cache-Control': cache,
+      });
+      res.end(datei);
+      return;
+    }
+    if (extname(dekodiert) === '') {
+      const index = this.#leseDatei(join(wurzel, 'index.html'));
+      if (index !== null) {
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache',
+        });
+        res.end(index);
+        return;
+      }
+    }
+    this.#text(res, 404, 'Nicht gefunden');
+  }
+
+  #leseDatei(pfad: string): Buffer | null {
+    try {
+      return readFileSync(pfad);
+    } catch {
+      return null;
+    }
   }
 
   // ---- Hilfen ----------------------------------------------------------

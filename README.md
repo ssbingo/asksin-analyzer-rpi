@@ -20,8 +20,8 @@ laufenden Gerät.
 | Firmware | ✅ unveränderter `AskSinSniffer328P` (jp112sdl) |
 | Core: Parser + Duty-Cycle | ✅ fertig ([`core/`](core/)) |
 | Core: Serial-Ingest, SQLite, CCU-Namen, Analyzer | ✅ fertig verdrahtet (M2–M4) |
-| Core: REST-API inkl. XS-Kompat-Endpunkten | ✅ fertig, 105 Unit-Tests gesamt (M5) |
-| Web-UI (Nachbau, lizenzfrei) | 🔨 als Nächstes (M5.5) |
+| Core: REST-API inkl. XS-Kompat-Endpunkten | ✅ fertig, 108 Unit-Tests gesamt (M5) |
+| Web-UI (Nachbau, eigener Code, MIT) | ✅ fertig: Vue 3 + ECharts, vom Core ausgeliefert (M5.5) |
 | Web-UI (Nachbau, lizenzfrei) | 📋 geplant (M5.5), API-Vertrag steht |
 | ioBroker-Adapter | 📋 geplant (M6) |
 
@@ -40,6 +40,7 @@ hardware/                 Platine, Bestelllisten, Setup-Skripte
     ├── fab/              Gerber, Bohrdaten, BOM, CPL, PDFs
     └── AskSin-Analyzer-V3-fertigung.zip   Upload-Paket
 core/                     Node.js/TypeScript-Analysedienst
+webui/                    Web-UI-Nachbau (Vue 3 + ECharts, MIT)
 docs/
 ├── serial-protocol.md    das serielle Telegrammformat, verifiziert
 ├── raspberry-pi-uart.md  UART-Konfiguration Pi 3/4/5
@@ -142,6 +143,8 @@ cd .. && git clone https://github.com/der-pw/AskSinAnalyzerXS-RPi.git AskSinAnal
 | Komponente | Lizenz | Urheber |
 | --- | --- | --- |
 | Hardware, Doku, Core (dieses Repo) | **CC BY-NC-SA 4.0** | © 2026 S. Sternitzke |
+| Web-UI (`webui/`, eigener Nachbau ohne Fremdcode) | **MIT** | © 2026 S. Sternitzke |
+| Apache ECharts (Diagramme der Web-UI) | Apache-2.0 | Apache Software Foundation |
 | Firmware `AskSinSniffer328P` (unverändert übernommen) | CC BY-NC-SA 3.0 | jp112sdl |
 | AskSinPP (Bibliothek der Firmware) | CC BY-NC-SA 3.0 | pa-pa |
 | AskSinAnalyzerXS (Referenz für Parser/Formeln) | CC BY-NC-SA 4.0 | psi-4ward |

@@ -4,10 +4,11 @@ Der dauerlaufende Analysedienst: liest die serielle Schnittstelle des
 AskSinSniffer328P, decodiert die Telegramme, rechnet Duty-Cycle und Statistik,
 persistiert und stellt API und Web-UI bereit.
 
-Stand: **M5 (API) abgeschlossen.** Die Kette Port → Decoder → Statistik →
-SQLite ist komplett verdrahtet (`Analyzer`), inklusive CCU-Abruf der
-Gerätenamen; darauf liegt die REST-Schicht mit dem vollständigen
-Kompatibilitäts-Endpunktsatz der originalen Web-UI. Es folgt der UI-Nachbau.
+Stand: **M5.5 (Web-UI) abgeschlossen.** Die Kette Port → Decoder → Statistik →
+SQLite ist komplett verdrahtet (`Analyzer`), darauf liegt die REST-Schicht mit
+dem Kompatibilitäts-Endpunktsatz der originalen Web-UI plus eigener JSON-API —
+und der Core liefert den UI-Nachbau ([`../webui/`](../webui/)) gleich selbst
+aus. Es folgen der ioBroker-Adapter und die Update-Pfade.
 
 ## Bauen und Prüfen
 
@@ -200,22 +201,30 @@ Kommando-Routen: `/setConfig`, `/reboot` (Callback), `/formatspiffs`
 `/rebootInConfigMode` ehrlich als `501`. Die unveränderte Original-App
 funktioniert damit gegen den Core, sobald ihre Basis-URL hierher zeigt.
 
-**Eigene API** unter `/api/*`: `snapshot` (die volle Analyzer-Sicht) und
-`health`. Ein WebSocket-Live-Feed folgt mit dem UI-Nachbau (M5.5) — die
-Original-App pollt ohnehin nur.
+**Eigene API** unter `/api/*` (für den UI-Nachbau und den Adapter):
+`snapshot` (die volle Analyzer-Sicht), `health`, `telegrams` (JSON mit
+aufgelösten Namen und Klarnamen für Flags/Typen, inkrementell über `afterId`)
+und `noise` (Minutenaggregat fürs Zeitchart). Mit gesetzter Option `uiDir`
+liefert der Server zusätzlich das gebaute Web-UI aus — mit SPA-Fallback,
+Immutable-Caching für gehashte Assets und Traversal-Schutz; ein zweiter
+Webserver ist nicht nötig.
 
 Sicherheit (Designdok §5): mit gesetztem `authToken` verlangen alle
 verändernden Routen `Authorization: Bearer …`; `httpupdate` mit freier URL
 wird bewusst **nicht** nachgebaut.
 
 ```ts
-const api = new ApiServer({ analyzer, db, devList, authToken: '…' });
+const api = new ApiServer({
+  analyzer, db, devList,
+  uiDir: '../webui/dist',
+  authToken: '…',
+});
 await api.listen(8080);                     // bindet an 127.0.0.1
 ```
 
 ## Tests
 
-105 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
+108 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
 derzeit **konstruiert**, nicht mitgeschnitten. Sobald M0 vorliegt (Sniffer läuft,
 ein paar Stunden Rohdaten), gehören echte Zeilen dazu — erst die decken die
 Fälle ab, die man sich nicht ausdenkt: Teilzeilen nach einem Reconnect,
