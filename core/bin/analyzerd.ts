@@ -15,8 +15,8 @@
  */
 
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { hostname } from 'node:os';
+import { existsSync, mkdirSync, readFileSync, rmSync, statfsSync, writeFileSync } from 'node:fs';
+import { freemem, hostname, loadavg, networkInterfaces, totalmem } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -29,6 +29,8 @@ import { DEFAULT_BAUD, DEFAULT_DEVICE, sttyPortOpener } from '../src/ingest/stty
 import { openDatabase } from '../src/persist/db.ts';
 import { DevListService } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
+import { StatusAnzeige } from '../src/status/anzeige.ts';
+import type { StatusDaten } from '../src/status/zustand.ts';
 import { flashFirmware, siehtNachIntelHexAus } from '../src/update/firmware.ts';
 
 const execFileAsync = promisify(execFile);
@@ -71,6 +73,13 @@ interface Konfiguration {
    *  eingetragen; die eigene Instanz wird automatisch ergänzt. */
   verbund?: {
     peers?: Array<{ name?: string; url: string; token?: string }>;
+  };
+  /** Status-LED und OLED (M11) — Zubehör an J5–J7 der Platine V4.
+   *  LED: SPI-Variante (R5 statt R4 bestücken). Vorgabe: alles aus. */
+  statusanzeige?: {
+    led?: 'ws2812-spi' | 'aus';
+    oled?: boolean;
+    helligkeit?: number;
   };
 }
 
@@ -591,6 +600,75 @@ const netzwerkHooks: NetzwerkHooks = {
   },
 };
 
+// ---- Status-LED und OLED (M11) ------------------------------------------
+
+function eigeneIp(): string {
+  for (const eintraege of Object.values(networkInterfaces())) {
+    for (const e of eintraege ?? []) {
+      if (!e.internal && e.family === 'IPv4') return e.address;
+    }
+  }
+  return '';
+}
+
+function statusDaten(): StatusDaten {
+  const s = analyzer.snapshot();
+  let maxDuty: { name: string; percent: number } | null = null;
+  for (const g of s.devices) {
+    if (maxDuty === null || g.dutyCyclePercent > maxDuty.percent) {
+      maxDuty = { name: g.name, percent: g.dutyCyclePercent };
+    }
+  }
+  let tempC: number | null = null;
+  try {
+    tempC =
+      Number(readFileSync('/sys/class/thermal/thermal_zone0/temp', 'utf8')) / 1000;
+  } catch {
+    /* kein Temperatursensor (Dev-Rechner) */
+  }
+  let diskFreiProzent: number | null = null;
+  try {
+    const fs = statfsSync(datenDir);
+    diskFreiProzent = (fs.bavail / fs.blocks) * 100;
+  } catch {
+    /* egal */
+  }
+  return {
+    standort,
+    version: paketVersion(),
+    ip: eigeneIp(),
+    connected: s.ingest.connected,
+    demo: demoAktiv,
+    updateVerfuegbar,
+    persistErrors: s.persistErrors,
+    telegramsPerMinute: s.telegramsPerMinute,
+    noiseFloor: s.noiseFloor.ewma,
+    deviceCount: s.devices.length,
+    maxDutyCycle: maxDuty,
+    system: {
+      cpuLast: loadavg()[0] ?? 0,
+      tempC,
+      ramFreiProzent: (freemem() / totalmem()) * 100,
+      diskFreiProzent,
+    },
+  };
+}
+
+const anzeigeKonfig = konfig.statusanzeige ?? {};
+const statusAnzeige =
+  (anzeigeKonfig.led !== undefined && anzeigeKonfig.led !== 'aus') ||
+  anzeigeKonfig.oled === true
+    ? new StatusAnzeige({
+        led: anzeigeKonfig.led ?? 'aus',
+        oled: anzeigeKonfig.oled === true,
+        ...(anzeigeKonfig.helligkeit === undefined
+          ? {}
+          : { helligkeit: anzeigeKonfig.helligkeit }),
+        daten: statusDaten,
+        onError: (kontext, err) => log(`Statusanzeige (${kontext}): ${String(err)}`),
+      })
+    : null;
+
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
 const api = new ApiServer({
   analyzer,
@@ -633,6 +711,10 @@ const api = new ApiServer({
 });
 
 analyzer.start();
+if (statusAnzeige !== null) {
+  await statusAnzeige.start();
+  log('Statusanzeige aktiv (LED/OLED an J5–J7)');
+}
 const { host, port } = await api.listen(konfig.http.port, konfig.http.host);
 log(`AskSin-Analyzer ${paketVersion()} — API auf http://${host}:${port}`);
 if (existsSync(uiDir)) log(`Web-UI: ${uiDir}`);
@@ -647,6 +729,7 @@ async function herunterfahren(code: number): Promise<void> {
   log('Fahre herunter …');
   try {
     await api.close();
+    await statusAnzeige?.stop();    // LED dunkel, OLED aus
     await analyzer.stop();          // letzter Flush passiert hier
     db.close();
     log('Sauber beendet');

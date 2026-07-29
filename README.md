@@ -25,7 +25,7 @@ laufenden Gerät.
 | Demo-Modus (simulierte Anlage) | ✅ fertig, Schalter in den Einstellungen (v0.0.3) |
 | Update-Pfade (Core-Self-Update, 328P-Flash) | ✅ fertig (M7.5, v0.0.4) |
 | Netzwerkeinstellungen über die Web-UI | ✅ gebaut (M7.6) — Praxistest auf dem Pi ausstehend |
-| Status-LED + OLED integriert | 📋 geplant (M11, [`docs/status-led-oled.md`](docs/status-led-oled.md)) |
+| Status-LED + OLED integriert | ✅ Software fertig (M11) — Hardware-Test steht aus ([`docs/status-led-oled.md`](docs/status-led-oled.md)) |
 | Einkaufsführer Zubehör (README + Handbuch) | 📋 geplant (M12, [`docs/einkaufsfuehrer.md`](docs/einkaufsfuehrer.md)) |
 | Verbund: 5 Analyzer als Gesamtsystem | ✅ Kern fertig: Dashboard, Matrix+Dedup, Flotten-Update (M9.1–M9.4); offen: Langzeitdaten M9.5 ([`docs/verbund.md`](docs/verbund.md)) |
 | ioBroker-Adapter | 📋 geplant (M6, mehrinstanzfähig) |

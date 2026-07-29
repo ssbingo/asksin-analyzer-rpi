@@ -30,6 +30,7 @@ NODE_MAJOR_MIN=24
 REBOOT_NEEDED=0
 NEUES_TOKEN=""
 VERBUND_MASTER=0
+STATUSANZEIGE=0
 
 c_info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 c_ok()    { printf '\033[1;32m  ok\033[0m %s\n' "$*"; }
@@ -133,10 +134,13 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 
 # --- Konfigurations-Assistent -------------------------------------------------
 schreibe_konfig() {
-    local ccu="$1" port="$2" host="$3" token="$4" standort="$5"
+    local ccu="$1" port="$2" host="$3" token="$4" standort="$5" statusanzeige="$6"
+    local led="aus" oled="false"
+    if [ "$statusanzeige" = "1" ]; then led="ws2812-spi"; oled="true"; fi
     cat > "$CONFIG_FILE" <<EOF
 {
   "standort": "$standort",
+  "statusanzeige": { "led": "$led", "oled": $oled, "helligkeit": 40 },
   "device": "/dev/asksin-hat",
   "baud": 58824,
   "db": "$DATA_DIR/analyzer.db",
@@ -182,12 +186,30 @@ if [ "$KONFIGURIEREN" -eq 1 ]; then
         esac
         a="$(ask_tty '  Soll DIESER Analyzer die Verbund-Gesamtuebersicht fuehren (Master)? (j/N): ')"
         case "${a,,}" in j|ja|y|yes) VERBUND_MASTER=1 ;; *) VERBUND_MASTER=0 ;; esac
+        a="$(ask_tty '  Status-LED und OLED-Anzeige (Zubehoer an J5-J7) einrichten? (j/N): ')"
+        case "${a,,}" in j|ja|y|yes) STATUSANZEIGE=1 ;; *) STATUSANZEIGE=0 ;; esac
     else
         c_warn "Kein Terminal - schreibe Vorgabe-Konfiguration (nur 127.0.0.1, ohne CCU)."
         CCU=""; PORT=8080; HOST="127.0.0.1"; TOKEN=""; STANDORT="$(hostname)"
     fi
-    schreibe_konfig "$CCU" "$PORT" "$HOST" "$TOKEN" "$STANDORT"
+    schreibe_konfig "$CCU" "$PORT" "$HOST" "$TOKEN" "$STANDORT" "$STATUSANZEIGE"
     c_ok "Konfiguration geschrieben: $CONFIG_FILE"
+fi
+
+# --- Status-LED / OLED (M11) --------------------------------------------------
+if [ "$STATUSANZEIGE" -eq 1 ]; then
+    c_info "Richte Status-LED/OLED ein (I2C + SPI + Werkzeuge)..."
+    apt-get install -y -qq i2c-tools spi-tools
+    if command -v raspi-config >/dev/null 2>&1; then
+        raspi-config nonint do_i2c 0 || c_warn "I2C konnte nicht aktiviert werden."
+        raspi-config nonint do_spi 0 || c_warn "SPI konnte nicht aktiviert werden."
+        REBOOT_NEEDED=1
+    else
+        c_warn "raspi-config fehlt - I2C/SPI ggf. manuell aktivieren."
+    fi
+    c_ok "Status-LED/OLED vorbereitet."
+    c_warn "WICHTIG: Fuer die LED an J7 muss auf der Platine R5 (0 Ohm)"
+    c_warn "bestueckt sein statt R4 - die SPI-Variante (GPIO10)."
 fi
 
 # --- udev-Regel (fester Geraetename /dev/asksin-hat) --------------------------

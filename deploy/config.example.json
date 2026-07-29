@@ -1,5 +1,6 @@
 {
   "standort": "Keller",
+  "statusanzeige": { "led": "aus", "oled": false, "helligkeit": 40 },
   "device": "/dev/asksin-hat",
   "baud": 58824,
   "db": "/var/lib/asksin-analyzer/analyzer.db",

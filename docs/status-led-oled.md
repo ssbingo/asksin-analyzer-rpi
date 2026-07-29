@@ -46,8 +46,17 @@ Sache des eigenständigen Status-LED-OLED-Projekts.
 
 ## Einordnung
 
-Phase **M11**, nach dem Verbund-Kern (M9.3/M9.4) oder parallel dazu, sobald
-die Platinen verfügbar sind (J5–J7 sind Hardware-Anschlüsse der V4).
+Phase **M11**. **Software umgesetzt am 29.07.2026** (`core/src/status/`):
+eigener SSD1306-Treiber mit 5×7-Schrift (visuell gegen gerenderte
+Framebuffer verifiziert, inkl. Umlauten), WS2812-SPI-Kodierung
+(1→110/0→100 bei 2,4 MHz), Prioritätsleiter der LED
+(Duty-Cycle-Alarm > getrennt > Persistenzfehler > Demo > Update > ok),
+vier OLED-Seiten mit Taster-Blättern (gpiomon, v2/v1) — alles über
+injizierbare Kommandos (`i2ctransfer`, `spi-config`) und damit ohne
+Hardware getestet. Installer-Frage aktiviert I²C/SPI und die Konfiguration.
+
+**Offen: der Hardware-Test**, sobald Platine + Zubehör vorliegen.
 Akzeptanz: (a) LED spiegelt die Analyzer-Zustände live, (b) OLED zeigt die
 Seiten und der Taster blättert, (c) Installation rein über die
 Installer-Frage, (d) Deaktiviert (Vorgabe) verhält sich alles wie bisher.
+Wichtig für die LED: **R5 (0 Ω) statt R4 bestücken** (SPI-Variante GPIO10).

@@ -8,3 +8,4 @@ export * from './api/index.ts';
 export * from './demo/index.ts';
 export * from './update/index.ts';
 export * from './verbund/index.ts';
+export * from './status/index.ts';
