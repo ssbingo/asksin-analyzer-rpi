@@ -1,7 +1,11 @@
-export { VerbundDienst, httpFetchJson } from './verbund.ts';
+export { VerbundDienst, httpFetchJson, httpPost } from './verbund.ts';
 export type {
   FetchJson,
+  FlottenSchritt,
+  FlottenSchrittStatus,
+  FlottenStatus,
   MatrixGeraet,
+  PostAufruf,
   PeerKonfig,
   PeerZustand,
   VerbundMatrix,

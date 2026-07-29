@@ -86,6 +86,9 @@ export interface ApiServerOptions {
     /** {aktion:'hinzufuegen'|'entfernen', url, name?, token?} — wirft bei
      *  ungültigen Angaben; Änderung ist sofort wirksam und persistiert. */
     peersAendern?(auftrag: Record<string, unknown>): void;
+    /** Flotten-Update (M9.4): Start (false = läuft bereits) und Status. */
+    starteFlottenUpdate?(): boolean;
+    flottenStatus?(): unknown;
   };
   /** Netzwerkeinstellungen (M7.6). Ohne Hooks: 501 auf /api/netzwerk*. */
   netzwerk?: NetzwerkHooks;
@@ -310,6 +313,13 @@ export class ApiServer {
           }
           return this.#json(res, 200, verbund.peers());
         }
+        case '/api/verbund/flottenupdate': {
+          const verbund = this.#opts.verbund;
+          if (verbund?.flottenStatus === undefined) {
+            return this.#text(res, 501, 'Kein Flotten-Update');
+          }
+          return this.#json(res, 200, verbund.flottenStatus() ?? { running: false });
+        }
         case '/api/netzwerk': {
           const netz = this.#opts.netzwerk;
           if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
@@ -354,6 +364,19 @@ export class ApiServer {
           if (!angenommen) return this.#text(res, 409, 'Ein Netzwerk-Auftrag läuft bereits');
           res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('Auftrag angenommen — Probezeit läuft, Status unter /api/netzwerk/status');
+          return;
+        }
+        case '/api/verbund/flottenupdate': {
+          if (!this.#autorisiert(req, res)) return;
+          const verbund = this.#opts.verbund;
+          if (verbund?.starteFlottenUpdate === undefined) {
+            return this.#text(res, 501, 'Kein Flotten-Update');
+          }
+          if (!verbund.starteFlottenUpdate()) {
+            return this.#text(res, 409, 'Flotten-Update läuft bereits');
+          }
+          res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('Flotten-Update gestartet — Status unter /api/verbund/flottenupdate');
           return;
         }
         case '/api/verbund/peers': {

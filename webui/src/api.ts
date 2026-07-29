@@ -294,6 +294,26 @@ export async function aenderePeer(auftrag: {
   if (!res.ok) throw new Error(await res.text());
 }
 
+export interface FlottenSchritt {
+  name: string;
+  url: string;
+  status: 'wartet' | 'läuft' | 'aktualisiert' | 'aktuell' | 'fehler' | 'übersprungen' | 'angestoßen';
+  detail: string | null;
+}
+
+export interface FlottenStatus {
+  running: boolean;
+  startedAt?: number;
+  updatedAt?: number;
+  ok?: boolean | null;
+  schritte?: FlottenSchritt[];
+}
+
+export const holeFlottenStatus = (): Promise<FlottenStatus> =>
+  hole('/api/verbund/flottenupdate');
+export const starteFlottenUpdate = (): Promise<Response> =>
+  sende('/api/verbund/flottenupdate');
+
 export const holeVerbundMatrix = (): Promise<VerbundMatrix> =>
   hole('/api/verbund/matrix');
 export const holeVerbundTelegramme = (): Promise<{

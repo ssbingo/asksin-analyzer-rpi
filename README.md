@@ -27,7 +27,7 @@ laufenden Gerät.
 | Netzwerkeinstellungen über die Web-UI | ✅ gebaut (M7.6) — Praxistest auf dem Pi ausstehend |
 | Status-LED + OLED integriert | 📋 geplant (M11, [`docs/status-led-oled.md`](docs/status-led-oled.md)) |
 | Einkaufsführer Zubehör (README + Handbuch) | 📋 geplant (M12, [`docs/einkaufsfuehrer.md`](docs/einkaufsfuehrer.md)) |
-| Verbund: 5 Analyzer als Gesamtsystem | 🔨 in Arbeit — M9.1 ✅, M9.2 Dashboard ✅, M9.3 Matrix+Dedup ✅ ([`docs/verbund.md`](docs/verbund.md)) |
+| Verbund: 5 Analyzer als Gesamtsystem | ✅ Kern fertig: Dashboard, Matrix+Dedup, Flotten-Update (M9.1–M9.4); offen: Langzeitdaten M9.5 ([`docs/verbund.md`](docs/verbund.md)) |
 | ioBroker-Adapter | 📋 geplant (M6, mehrinstanzfähig) |
 
 ## Installation auf dem Raspberry Pi

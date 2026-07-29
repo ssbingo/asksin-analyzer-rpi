@@ -222,6 +222,136 @@ test('Dedup: wiederholtes Abrufen derselben Telegramme bleibt idempotent', async
   assert.equal(telegramme[0]!.gehoertVon.length, 1);
 });
 
+/** Fetch-Attrappe mit Drehbuch je URL: Antworten werden der Reihe nach
+ *  verbraucht, die letzte wiederholt sich. */
+function drehbuchFetch(drehbuecher: Record<string, unknown[]>) {
+  return (url: string): Promise<unknown> => {
+    const d = drehbuecher[url];
+    if (d === undefined || d.length === 0) {
+      return Promise.reject(new Error(`ECONNREFUSED ${url}`));
+    }
+    const a = d.length > 1 ? d.shift()! : d[0]!;
+    if (a instanceof Error) return Promise.reject(a);
+    return Promise.resolve(a);
+  };
+}
+
+async function flotteDurchlaufen(v: VerbundDienst, time: FakeTime): Promise<void> {
+  assert.equal(v.starteFlottenUpdate(), true);
+  for (let i = 0; i < 100 && v.flottenStatus()!.running; i++) {
+    await time.advance(50);
+  }
+  await v.flottenLauf;
+}
+
+test('Flotten-Update: nacheinander, Health-Gate, eigener Analyzer zuletzt', async () => {
+  const time = new FakeTime();
+  let selbstUpdates = 0;
+  const posts: string[] = [];
+  const fetch = drehbuchFetch({
+    'http://og:1/api/update/versions': [{ updateVerfuegbar: true }],
+    'http://og:1/api/update/status': [
+      { running: true, step: 'baue-ui' },
+      new Error('Neustart'),                    // Peer startet gerade neu
+      { running: false, step: 'fertig', ok: true },
+    ],
+    'http://og:1/api/health': [
+      new Error('noch nicht da'),
+      { ok: true, version: '0.0.5' },
+    ],
+    'http://dg:1/api/update/versions': [{ updateVerfuegbar: false }],
+  });
+  const v = new VerbundDienst({
+    peers: [
+      { name: 'Keller', url: 'http://keller:1' },   // Selbst (erster Eintrag)
+      { name: 'OG', url: 'http://og:1' },
+      { name: 'DG', url: 'http://dg:1' },
+    ],
+    fetchJson: fetch,
+    post: (url) => {
+      posts.push(url);
+      return Promise.resolve(202);
+    },
+    time,
+    selbstUpdate: () => {
+      selbstUpdates++;
+      return true;
+    },
+    flotte: { pollMs: 50, updateTimeoutMs: 10_000, healthTimeoutMs: 5_000 },
+  });
+
+  await flotteDurchlaufen(v, time);
+  const f = v.flottenStatus()!;
+  assert.equal(f.ok, true);
+  assert.deepEqual(
+    f.schritte.map((s) => [s.name, s.status]),
+    [
+      ['OG', 'aktualisiert'],
+      ['DG', 'aktuell'],
+      ['Keller (dieser Analyzer)', 'angestoßen'],
+    ],
+  );
+  assert.match(f.schritte[0]!.detail ?? '', /0\.0\.5/);
+  assert.deepEqual(posts, ['http://og:1/api/update/core'], 'nur wo Update nötig war');
+  assert.equal(selbstUpdates, 1, 'Selbst-Update kommt zum Schluss');
+});
+
+test('Flotten-Update: Fehler bricht ab — kein Domino, kein Selbst-Update', async () => {
+  const time = new FakeTime();
+  let selbstUpdates = 0;
+  const fetch = drehbuchFetch({
+    'http://og:1/api/update/versions': [{ updateVerfuegbar: true }],
+    'http://og:1/api/update/status': [
+      { running: false, step: 'rollback', ok: false },   // Peer rollte zurück
+    ],
+    'http://dg:1/api/update/versions': [{ updateVerfuegbar: true }],
+  });
+  const v = new VerbundDienst({
+    peers: [
+      { name: 'Keller', url: 'http://keller:1' },
+      { name: 'OG', url: 'http://og:1' },
+      { name: 'DG', url: 'http://dg:1' },
+    ],
+    fetchJson: fetch,
+    post: () => Promise.resolve(202),
+    time,
+    selbstUpdate: () => {
+      selbstUpdates++;
+      return true;
+    },
+    flotte: { pollMs: 50, updateTimeoutMs: 10_000, healthTimeoutMs: 5_000 },
+  });
+
+  await flotteDurchlaufen(v, time);
+  const f = v.flottenStatus()!;
+  assert.equal(f.ok, false);
+  assert.deepEqual(
+    f.schritte.map((s) => s.status),
+    ['fehler', 'übersprungen', 'übersprungen'],
+  );
+  assert.match(f.schritte[0]!.detail ?? '', /zurückgerollt/);
+  assert.equal(selbstUpdates, 0, 'der Master bleibt auf dem alten Stand');
+
+  // Nach dem Ende darf ein neuer Lauf starten:
+  assert.equal(v.starteFlottenUpdate(), true);
+});
+
+test('Flotten-Update: Doppelstart wird abgewiesen', async () => {
+  const time = new FakeTime();
+  const v = new VerbundDienst({
+    peers: [{ name: 'Keller', url: 'http://keller:1' }],
+    fetchJson: drehbuchFetch({}),
+    post: () => Promise.resolve(202),
+    time,
+    selbstUpdate: () => true,
+    flotte: { pollMs: 50, updateTimeoutMs: 1000, healthTimeoutMs: 1000 },
+  });
+  assert.equal(v.starteFlottenUpdate(), true);
+  assert.equal(v.starteFlottenUpdate(), false, 'läuft bereits');
+  for (let i = 0; i < 20 && v.flottenStatus()!.running; i++) await time.advance(50);
+  await v.flottenLauf;
+});
+
 test('Verbund: kurzer Cache verhindert Peer-Gehämmer', async () => {
   const time = new FakeTime();
   const f = fakeFetch(gesunderPeer('http://keller:8080', 'Keller', time.now()));

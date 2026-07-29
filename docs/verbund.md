@@ -119,6 +119,6 @@ mit drei RSSI-Werten.
 3. **M9.2 + M7.6** ✅ — Verbund-Dashboard **und** Netzwerkeinstellungen über
    die Web-UI ([`netzwerkeinstellungen.md`](netzwerkeinstellungen.md)) —
    gemeinsam umgesetzt, gleiche Mechanik (Auftragsdatei/Path-Unit/Status)
-4. **M9.3** ✅ — Empfangsmatrix + Dedup-Telegrammliste; **M9.4** — Flotten-Update
+4. **M9.3** ✅ Empfangsmatrix + Dedup-Telegrammliste; **M9.4** ✅ Flotten-Update
 5. **M6** — Adapter (profitiert von fertiger Standort-Identität)
 6. **M9.5** — Langzeitdaten; M9.6 nur bei Bedarf

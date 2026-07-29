@@ -357,7 +357,12 @@ function allePeers(): PeerKonfig[] {
   return liste;
 }
 
-const verbund = new VerbundDienst({ peers: allePeers() });
+const verbund = new VerbundDienst({
+  peers: allePeers(),
+  // Flotten-Update (M9.4): der eigene Analyzer kommt zum Schluss und
+  // nutzt denselben Mechanismus wie der Update-Knopf der Info-Seite.
+  selbstUpdate: () => updateHooks.startCoreUpdate(),
+});
 if (verbund.peerAnzahl > 1) {
   log(`Verbund: ${verbund.peerAnzahl - 1} Peer(s) + eigener Standort`);
 }
@@ -369,6 +374,8 @@ const verbundHooks = {
   matrix: () => verbund.matrix(),
   matrixCsv: () => verbund.matrixCsv(),
   telegramme: () => verbund.telegramme(),
+  starteFlottenUpdate: () => verbund.starteFlottenUpdate(),
+  flottenStatus: () => verbund.flottenStatus(),
   /** Peer-Liste für die UI — Tokens werden NIE herausgegeben. */
   peers: () => ({
     peers: [

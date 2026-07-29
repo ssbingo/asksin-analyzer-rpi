@@ -1,13 +1,26 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { holeVerbund, holeVerbundMatrix, holeVerbundTelegramme } from '../api.ts';
-import type { VerbundMatrix, VerbundTelegramm, VerbundUebersicht } from '../api.ts';
+import {
+  holeFlottenStatus,
+  holeVerbund,
+  holeVerbundMatrix,
+  holeVerbundTelegramme,
+  starteFlottenUpdate,
+} from '../api.ts';
+import type {
+  FlottenStatus,
+  VerbundMatrix,
+  VerbundTelegramm,
+  VerbundUebersicht,
+} from '../api.ts';
 import { dbm, rssiKlasse, uhrzeit } from '../format.ts';
 import { nutzeTakt } from '../takt.ts';
 
 const uebersicht = ref<VerbundUebersicht | null>(null);
 const matrix = ref<VerbundMatrix | null>(null);
 const telegramme = ref<VerbundTelegramm[]>([]);
+const flotte = ref<FlottenStatus | null>(null);
+const flottenMeldung = ref('');
 const filter = ref('');
 const keineRolle = ref(false);
 
@@ -22,10 +35,45 @@ nutzeTakt(async () => {
     }
     throw err;
   }
-  const [m, t] = await Promise.all([holeVerbundMatrix(), holeVerbundTelegramme()]);
+  const [m, t, f] = await Promise.all([
+    holeVerbundMatrix(),
+    holeVerbundTelegramme(),
+    holeFlottenStatus().catch(() => null),
+  ]);
   matrix.value = m;
   telegramme.value = t.telegramme;
+  if (f !== null) flotte.value = f;
 }, 5000);
+
+const updateFaellig = computed(() =>
+  (uebersicht.value?.peers ?? []).some((p) => p.updateVerfuegbar === true),
+);
+
+async function flotteStarten(): Promise<void> {
+  if (
+    !window.confirm(
+      'Alle Analyzer nacheinander aktualisieren?\n\n' +
+        'Jeder Analyzer wird erst nach erfolgreichem Gesundheits-Check des ' +
+        'vorherigen aktualisiert; bei einem Fehler stoppt der Lauf. Dieser ' +
+        'Analyzer (Master) kommt zum Schluss — die Seite verbindet sich danach neu.',
+    )
+  )
+    return;
+  flottenMeldung.value = '';
+  try {
+    await starteFlottenUpdate();
+    flotte.value = { running: true };
+  } catch (err) {
+    flottenMeldung.value = err instanceof Error ? err.message : String(err);
+  }
+}
+
+function schrittKlasse(status: string): string {
+  if (status === 'fehler') return 'schwach';
+  if (status === 'aktualisiert' || status === 'aktuell' || status === 'angestoßen') return 'gut';
+  if (status === 'läuft') return 'mittel';
+  return 'gedimmt';
+}
 
 const gefiltert = computed(() => {
   const f = filter.value.trim().toLowerCase();
@@ -102,6 +150,41 @@ const gefiltert = computed(() => {
     <div class="fussnote">
       Alle 5 Sekunden aktualisiert; Peer-Abfragen sind serverseitig kurz
       gecacht. Ein ausgefallener Standort stört die Übersicht nicht.
+    </div>
+
+    <div class="panel" v-if="uebersicht.peers.length > 1 || flotte?.schritte !== undefined">
+      <div class="zeile" style="justify-content: space-between">
+        <h3 style="margin: 0">Flotten-Update</h3>
+        <button
+          class="primaer"
+          :disabled="flotte?.running === true"
+          @click="flotteStarten"
+        >
+          Alle Analyzer aktualisieren …
+          <template v-if="updateFaellig"> 🔔</template>
+        </button>
+      </div>
+      <div class="meldung fehler" v-if="flottenMeldung !== ''">{{ flottenMeldung }}</div>
+      <table class="daten" style="max-width: 44rem; margin-top: 0.8rem" v-if="flotte?.schritte !== undefined">
+        <tbody>
+          <tr v-for="s in flotte.schritte" :key="s.url">
+            <td>{{ s.name }}</td>
+            <td :class="schrittKlasse(s.status)">
+              {{ s.status === 'läuft' ? '⟳ läuft …' : s.status }}
+            </td>
+            <td class="gedimmt">{{ s.detail ?? '' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="meldung" :class="flotte.ok === true ? 'ok' : 'fehler'"
+           v-if="flotte !== null && flotte.running === false && flotte.ok !== null && flotte.ok !== undefined">
+        {{ flotte.ok ? 'Flotten-Update abgeschlossen.' : 'Flotten-Update abgebrochen — Details in der Liste; der betroffene Analyzer hat automatisch zurückgerollt.' }}
+      </div>
+      <div class="fussnote">
+        Nacheinander mit Gesundheits-Prüfung nach jedem Schritt; bei einem
+        Fehler stoppt der Lauf. Peers mit Token-Pflicht brauchen ihr
+        hinterlegtes Token (Einstellungen → Verbund).
+      </div>
     </div>
 
     <div class="panel" v-if="matrix !== null && matrix.geraete.length > 0">

@@ -36,6 +36,18 @@ export const httpFetchJson: FetchJson = async (url, token) => {
   return res.json();
 };
 
+/** POST ohne Body (Kommandos wie /api/update/core) — liefert den HTTP-Status. */
+export type PostAufruf = (url: string, token?: string) => Promise<number>;
+
+export const httpPost: PostAufruf = async (url, token) => {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: token === undefined ? {} : { authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(8000),
+  });
+  return res.status;
+};
+
 export interface PeerZustand {
   name: string;
   url: string;
@@ -65,6 +77,7 @@ export interface VerbundUebersicht {
 export interface VerbundOptions {
   peers: PeerKonfig[];
   fetchJson?: FetchJson;
+  post?: PostAufruf;
   time?: TimeSource;
   cacheMs?: number;
   driftWarnMs?: number;
@@ -72,6 +85,36 @@ export interface VerbundOptions {
   dedupFensterMs?: number;
   /** Zusammengeführte Telegramme im Speicher (Obergrenze). */
   maxTelegramme?: number;
+  /** Stößt das Update des EIGENEN Analyzers an (kommt beim Flotten-Update
+   *  zum Schluss — der Master sägt nicht mitten im Lauf am eigenen Ast). */
+  selbstUpdate?: () => boolean | Promise<boolean>;
+  /** Wartezeiten des Flotten-Updates (in Tests verkürzt). */
+  flotte?: { pollMs?: number; updateTimeoutMs?: number; healthTimeoutMs?: number };
+}
+
+export type FlottenSchrittStatus =
+  | 'wartet'
+  | 'läuft'
+  | 'aktualisiert'
+  | 'aktuell'
+  | 'fehler'
+  | 'übersprungen'
+  | 'angestoßen';
+
+export interface FlottenSchritt {
+  name: string;
+  url: string;
+  status: FlottenSchrittStatus;
+  detail: string | null;
+}
+
+export interface FlottenStatus {
+  running: boolean;
+  startedAt: number;
+  updatedAt: number;
+  /** null solange der Lauf nicht beendet ist. */
+  ok: boolean | null;
+  schritte: FlottenSchritt[];
 }
 
 /** Ein Gerät in der Empfangsmatrix: RSSI (EWMA) je Standort. */
@@ -133,6 +176,12 @@ export class VerbundDienst {
   readonly #telegramme = new Map<string, VerbundTelegramm[]>();
   #letzterTelegrammPull = 0;
   #telegrammPull: Promise<void> | null = null;
+  readonly #post: PostAufruf;
+  readonly #selbstUpdate: (() => boolean | Promise<boolean>) | undefined;
+  readonly #flotteKonfig: { pollMs: number; updateTimeoutMs: number; healthTimeoutMs: number };
+  #flotte: FlottenStatus | null = null;
+  /** Läuft der Flotten-Lauf gerade? (Promise für Tests einsehbar.) */
+  flottenLauf: Promise<void> | null = null;
 
   constructor(options: VerbundOptions) {
     this.#peers = options.peers;
@@ -142,6 +191,13 @@ export class VerbundDienst {
     this.#driftWarnMs = options.driftWarnMs ?? 1000;
     this.#dedupFensterMs = options.dedupFensterMs ?? 1500;
     this.#maxTelegramme = options.maxTelegramme ?? 500;
+    this.#post = options.post ?? httpPost;
+    this.#selbstUpdate = options.selbstUpdate;
+    this.#flotteKonfig = {
+      pollMs: options.flotte?.pollMs ?? 3000,
+      updateTimeoutMs: options.flotte?.updateTimeoutMs ?? 10 * 60_000,
+      healthTimeoutMs: options.flotte?.healthTimeoutMs ?? 2 * 60_000,
+    };
   }
 
   get peerAnzahl(): number {
@@ -426,6 +482,166 @@ export class VerbundDienst {
         const rest = this.#telegramme.get(key)!.filter((k) => k !== alt);
         if (rest.length === 0) this.#telegramme.delete(key);
         else this.#telegramme.set(key, rest);
+      }
+    }
+  }
+
+  // ---- Flotten-Update (M9.4) -------------------------------------------
+
+  flottenStatus(): FlottenStatus | null {
+    return this.#flotte;
+  }
+
+  /**
+   * Rollt Updates NACHEINANDER aus: je Peer aktualisieren, auf „gesund"
+   * warten, erst dann der nächste. Scheitert ein Schritt, wird abgebrochen
+   * (kein Domino-Ausfall) — der betroffene Peer hat lokal ohnehin schon
+   * zurückgerollt. Der eigene Analyzer kommt zum Schluss.
+   * Rückgabe false = ein Lauf ist bereits aktiv.
+   */
+  starteFlottenUpdate(): boolean {
+    if (this.#flotte?.running === true) return false;
+    const jetzt = this.#time.now();
+    const [selbst, ...ferne] = this.#peers;
+    const schritte: FlottenSchritt[] = [
+      ...ferne.map((p) => ({
+        name: this.#standortName(p),
+        url: p.url,
+        status: 'wartet' as FlottenSchrittStatus,
+        detail: null,
+      })),
+      {
+        name: `${this.#standortName(selbst!)} (dieser Analyzer)`,
+        url: selbst!.url,
+        status: 'wartet',
+        detail: null,
+      },
+    ];
+    this.#flotte = {
+      running: true,
+      startedAt: jetzt,
+      updatedAt: jetzt,
+      ok: null,
+      schritte,
+    };
+    this.flottenLauf = this.#flottenLauf(ferne, selbst!).catch(() => {});
+    return true;
+  }
+
+  #schritt(index: number, status: FlottenSchrittStatus, detail?: string): void {
+    const f = this.#flotte!;
+    f.schritte[index]!.status = status;
+    f.schritte[index]!.detail = detail ?? null;
+    f.updatedAt = this.#time.now();
+  }
+
+  async #flottenLauf(ferne: PeerKonfig[], selbst: PeerKonfig): Promise<void> {
+    const f = this.#flotte!;
+    let abbruch = false;
+
+    for (let i = 0; i < ferne.length; i++) {
+      const peer = ferne[i]!;
+      if (abbruch) {
+        this.#schritt(i, 'übersprungen', 'wegen vorherigem Fehler');
+        continue;
+      }
+      this.#schritt(i, 'läuft');
+      try {
+        const ergebnis = await this.#peerAktualisieren(peer);
+        this.#schritt(i, ergebnis.status, ergebnis.detail);
+        if (ergebnis.status === 'fehler') abbruch = true;
+      } catch (err) {
+        this.#schritt(i, 'fehler', String(err));
+        abbruch = true;
+      }
+    }
+
+    const selbstIndex = ferne.length;
+    if (abbruch) {
+      this.#schritt(selbstIndex, 'übersprungen', 'wegen vorherigem Fehler');
+    } else if (this.#selbstUpdate === undefined) {
+      this.#schritt(selbstIndex, 'übersprungen', 'kein Selbst-Update konfiguriert');
+    } else {
+      const gestartet = await this.#selbstUpdate();
+      this.#schritt(
+        selbstIndex,
+        gestartet ? 'angestoßen' : 'fehler',
+        gestartet
+          ? 'Dienst startet gleich neu — die Seite verbindet sich wieder'
+          : 'Update läuft bereits',
+      );
+    }
+
+    f.running = false;
+    f.ok = !abbruch && f.schritte.every((s) => s.status !== 'fehler');
+    f.updatedAt = this.#time.now();
+  }
+
+  async #peerAktualisieren(
+    peer: PeerKonfig,
+  ): Promise<{ status: FlottenSchrittStatus; detail?: string }> {
+    const basis = peer.url.replace(/\/+$/, '');
+    const k = this.#flotteKonfig;
+
+    const versionen = (await this.#fetch(
+      `${basis}/api/update/versions`,
+      peer.token,
+    )) as Record<string, unknown>;
+    if (versionen['updateVerfuegbar'] !== true) {
+      return { status: 'aktuell' };
+    }
+
+    const httpStatus = await this.#post(`${basis}/api/update/core`, peer.token);
+    if (httpStatus === 401) {
+      return { status: 'fehler', detail: 'Auth-Token fehlt oder falsch (Einstellungen → Verbund)' };
+    }
+    if (httpStatus !== 202 && httpStatus !== 409) {
+      return { status: 'fehler', detail: `Update-Start: HTTP ${httpStatus}` };
+    }
+
+    // Warten, bis der Peer sein Update abgeschlossen hat (Statusdatei
+    // übersteht dessen Neustart; während des Neustarts scheitern Abrufe —
+    // das ist erwartbar und wird still toleriert):
+    const updateFrist = this.#time.now() + k.updateTimeoutMs;
+    for (;;) {
+      await this.#time.delay(k.pollMs);
+      if (this.#time.now() > updateFrist) {
+        return { status: 'fehler', detail: 'Zeitüberschreitung beim Update' };
+      }
+      try {
+        const s = (await this.#fetch(
+          `${basis}/api/update/status`,
+          peer.token,
+        )) as Record<string, unknown>;
+        if (s['running'] !== true) {
+          if (s['ok'] === true) break;
+          return {
+            status: 'fehler',
+            detail: `Update fehlgeschlagen (${String(s['step'] ?? '?')}) — Peer hat zurückgerollt`,
+          };
+        }
+      } catch {
+        /* Peer startet gerade neu */
+      }
+    }
+
+    // Health-Gate: erst weiter, wenn der Peer wieder gesund antwortet.
+    const healthFrist = this.#time.now() + k.healthTimeoutMs;
+    for (;;) {
+      await this.#time.delay(k.pollMs);
+      if (this.#time.now() > healthFrist) {
+        return { status: 'fehler', detail: 'Peer nach Update nicht gesund — Abbruch' };
+      }
+      try {
+        const h = (await this.#fetch(`${basis}/api/health`, peer.token)) as Record<
+          string,
+          unknown
+        >;
+        if (h['ok'] === true) {
+          return { status: 'aktualisiert', detail: `Version ${String(h['version'] ?? '?')}` };
+        }
+      } catch {
+        /* noch nicht wieder da */
       }
     }
   }
