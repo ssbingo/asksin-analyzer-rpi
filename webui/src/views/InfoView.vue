@@ -38,7 +38,9 @@ async function updateSuchen(): Promise<void> {
   sucht.value = true;
   updateMeldung.value = '';
   try {
-    versionen.value = await holeUpdateVersionen();
+    const v = await holeUpdateVersionen();
+    versionen.value = v;
+    if (v.fehler !== undefined) updateMeldung.value = v.fehler;
   } catch (err) {
     updateMeldung.value = err instanceof Error ? err.message : String(err);
   } finally {
@@ -164,8 +166,8 @@ async function firmwareFlashen(): Promise<void> {
     <h3 style="margin-top: 0">Software-Update</h3>
     <div class="zeile">
       <button :disabled="sucht" @click="updateSuchen">Nach Update suchen</button>
-      <template v-if="versionen !== null">
-        <span class="gedimmt">installiert: {{ versionen.version }} ({{ versionen.commit }})</span>
+      <template v-if="versionen !== null && versionen.fehler === undefined">
+        <span class="gedimmt">installiert: {{ versionen.version }} ({{ versionen.commit ?? '?' }})</span>
         <span v-if="versionen.updateVerfuegbar" class="mittel">
           Update verfügbar ({{ versionen.verfuegbarCommit }})
         </span>
@@ -183,7 +185,7 @@ async function firmwareFlashen(): Promise<void> {
       Update läuft — Schritt: {{ updateStatus.step ?? '…' }}. Der Dienst startet
       dabei neu; diese Seite verbindet sich automatisch wieder.
     </div>
-    <div class="meldung" :class="updateMeldung.includes('fehlgeschlagen') || updateMeldung.includes('Nicht erlaubt') ? 'fehler' : 'ok'" v-if="updateMeldung !== ''">
+    <div class="meldung" :class="updateMeldung.includes('fehlgeschlagen') || updateMeldung.includes('Nicht erlaubt') || updateMeldung.includes('git') ? 'fehler' : 'ok'" v-if="updateMeldung !== ''">
       {{ updateMeldung }}
     </div>
     <div class="fussnote">

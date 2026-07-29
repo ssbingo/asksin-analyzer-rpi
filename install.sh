@@ -114,6 +114,11 @@ npm ci --no-audit --no-fund --loglevel=error
 npx --no-install vite build --logLevel error
 c_ok "Web-UI gebaut ($INSTALL_DIR/webui/dist)."
 
+# git-Kommandos des Dienstbenutzers im root-eigenen Repo erlauben:
+git config --system --get-all safe.directory 2>/dev/null \
+    | grep -qx "$INSTALL_DIR" \
+    || git config --system --add safe.directory "$INSTALL_DIR"
+
 # --- Dienstbenutzer und Verzeichnisse -----------------------------------------
 if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
     useradd -r -s /usr/sbin/nologin "$SERVICE_USER"

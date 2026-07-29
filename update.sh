@@ -60,6 +60,11 @@ port() {
 # Units und Wrapper auf den Stand aus /opt bringen — idempotent; laeuft auch
 # im „bereits aktuell"-Fall, damit neue Unit-Dateien nie liegenbleiben.
 installiere_dateien() {
+    # git-Kommandos des Dienstbenutzers im root-eigenen Repo erlauben
+    # (sonst „dubious ownership" und /api/update/versions scheitert):
+    git config --system --get-all safe.directory 2>/dev/null \
+        | grep -qx "$INSTALL_DIR" \
+        || git config --system --add safe.directory "$INSTALL_DIR"
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer.service" /etc/systemd/system/asksin-analyzer.service
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.service" /etc/systemd/system/
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.path" /etc/systemd/system/

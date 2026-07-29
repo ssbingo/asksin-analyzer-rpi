@@ -184,9 +184,11 @@ export async function sende(
 
 export interface UpdateVersionen {
   version: string;
-  commit: string;
+  commit: string | null;
   verfuegbarCommit: string | null;
   updateVerfuegbar: boolean;
+  /** Lesbarer Grund, wenn die Versionsermittlung scheitert. */
+  fehler?: string;
 }
 
 export interface UpdateStatus {

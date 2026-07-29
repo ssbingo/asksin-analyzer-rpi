@@ -196,7 +196,25 @@ async function gitKurz(...args: string[]): Promise<string> {
 
 const updateHooks: UpdateHooks = {
   versions: async () => {
-    const commit = await gitKurz('rev-parse', '--short', 'HEAD');
+    let commit: string;
+    try {
+      commit = await gitKurz('rev-parse', '--short', 'HEAD');
+    } catch (err) {
+      // Häufigster Fall: git verweigert das root-eigene Repo („dubious
+      // ownership"). installer/update.sh setzen safe.directory — hier
+      // trotzdem lesbar melden statt mit 500 zu antworten.
+      return {
+        version: paketVersion(),
+        commit: null,
+        verfuegbarCommit: null,
+        updateVerfuegbar: false,
+        demo: demoAktiv,
+        fehler:
+          'git nicht nutzbar — auf dem Pi einmalig ausführen: ' +
+          'sudo git config --system --add safe.directory /opt/asksin-analyzer ' +
+          `(${String(err).split('\n')[0] ?? ''})`,
+      };
+    }
     let verfuegbar: string | null = null;
     try {
       const ref = await gitKurz('ls-remote', 'origin', 'main');
