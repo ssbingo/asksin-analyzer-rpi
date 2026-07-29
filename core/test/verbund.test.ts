@@ -18,7 +18,12 @@ function fakeFetch(antworten: Record<string, unknown>) {
   };
 }
 
-function gesunderPeer(basis: string, standort: string, now: number) {
+function gesunderPeer(
+  basis: string,
+  standort: string,
+  now: number,
+  extra: { devices?: unknown[]; telegrams?: unknown[] } = {},
+) {
   return {
     [`${basis}/api/health`]: {
       ok: true, version: '0.0.4', now, connected: true, demo: false,
@@ -27,11 +32,21 @@ function gesunderPeer(basis: string, standort: string, now: number) {
     [`${basis}/api/snapshot`]: {
       telegramsPerMinute: 12,
       noiseFloor: { last: -91, ewma: -90.5, samples: 100 },
-      devices: [
+      devices: extra.devices ?? [
         { name: 'BWM_Flur', dutyCyclePercent: 3.5 },
         { name: 'Defekt_X', dutyCyclePercent: 91.2 },
       ],
     },
+    [`${basis}/api/telegrams?limit=100`]: { telegrams: extra.telegrams ?? [] },
+  };
+}
+
+function telegramm(ts: number, cnt: number, rssi: number, name = 'Wetter_Terrasse') {
+  return {
+    id: cnt, ts, rssi, len: 14, cnt, flags: 0, flagNames: [],
+    type: 0x70, typeName: 'WEATHER', isHmIp: false,
+    fromAddr: 0x300001, fromHex: '300001', fromName: name,
+    toAddr: 0, toHex: '000000', toName: 'Broadcast', payload: '01',
   };
 }
 
@@ -82,6 +97,129 @@ test('Verbund: Zeitdrift wird gegen die eigene Uhr gemessen', async () => {
   const u = await v.uebersicht();
   assert.equal(u.peers[0]!.zeitdriftMs, 2500);
   assert.equal(u.driftWarnMs, 1000, 'Schwelle fürs Dedup-Fenster (M9.3)');
+});
+
+test('Matrix: Gerät × Standort mit RSSI, bester Standort, CSV', async () => {
+  const time = new FakeTime();
+  const f = fakeFetch({
+    ...gesunderPeer('http://keller:8080', 'Keller', time.now(), {
+      devices: [
+        { addr: 0x300001, address: '300001', name: 'Wetter_Terrasse',
+          rssi: { ewma: -72.5 }, dutyCyclePercent: 1 },
+        { addr: 0x310001, address: '310001', name: 'Thermostat_Büro',
+          rssi: { ewma: -60 }, dutyCyclePercent: 1 },
+      ],
+    }),
+    ...gesunderPeer('http://og:8080', 'OG', time.now(), {
+      devices: [
+        // Derselbe Sensor, dort besser zu hören — aber ohne Namensauflösung:
+        { addr: 0x300001, address: '300001', name: '300001',
+          rssi: { ewma: -55.1 }, dutyCyclePercent: 1 },
+      ],
+    }),
+  });
+  const v = new VerbundDienst({
+    peers: [{ url: 'http://keller:8080' }, { url: 'http://og:8080' }],
+    fetchJson: f.fetch,
+    time,
+  });
+
+  const m = await v.matrix();
+  assert.deepEqual(m.standorte, ['Keller', 'OG']);
+  assert.equal(m.geraete.length, 2);
+
+  const wetter = m.geraete.find((g) => g.addr === 0x300001)!;
+  assert.equal(wetter.name, 'Wetter_Terrasse', 'aufgelöster Name gewinnt');
+  assert.equal(wetter.rssi['Keller'], -72.5);
+  assert.equal(wetter.rssi['OG'], -55.1);
+  assert.equal(wetter.beste, 'OG', 'bester Empfang markiert');
+
+  const thermo = m.geraete.find((g) => g.addr === 0x310001)!;
+  assert.equal(thermo.rssi['OG'], null, 'dort nicht gehört');
+  assert.equal(thermo.beste, 'Keller');
+
+  const csv = await v.matrixCsv();
+  const zeilen = csv.split('\n');
+  assert.equal(zeilen[0], 'Geraet;Adresse;Keller;OG');
+  assert.ok(zeilen.some((z) => z === 'Wetter_Terrasse;300001;-72.5;-55.1'));
+  assert.ok(zeilen.some((z) => z === 'Thermostat_Büro;310001;-60;'));
+});
+
+test('Dedup: ein Telegramm, drei Standorte — EIN Eintrag mit drei RSSI', async () => {
+  const time = new FakeTime();
+  const t0 = time.now();
+  const f = fakeFetch({
+    ...gesunderPeer('http://a:1', 'Keller', t0, {
+      telegrams: [telegramm(t0, 7, -62)],
+    }),
+    ...gesunderPeer('http://b:1', 'OG', t0, {
+      telegrams: [telegramm(t0 + 900, 7, -81, '300001')],   // 0,9 s später, Hex-Name
+    }),
+    ...gesunderPeer('http://c:1', 'DG', t0, {
+      telegrams: [telegramm(t0 + 1400, 7, -95)],
+    }),
+  });
+  const v = new VerbundDienst({
+    peers: [{ url: 'http://a:1' }, { url: 'http://b:1' }, { url: 'http://c:1' }],
+    fetchJson: f.fetch,
+    time,
+  });
+
+  const { telegramme } = await v.telegramme();
+  assert.equal(telegramme.length, 1, 'Akzeptanzkriterium aus docs/verbund.md');
+  const t = telegramme[0]!;
+  assert.equal(t.ts, t0, 'frühester Empfang zählt');
+  assert.equal(t.fromName, 'Wetter_Terrasse', 'aufgelöster Name gewinnt');
+  assert.deepEqual(
+    t.gehoertVon,
+    [
+      { standort: 'Keller', rssi: -62 },
+      { standort: 'OG', rssi: -81 },
+      { standort: 'DG', rssi: -95 },
+    ],
+    'nach RSSI sortiert',
+  );
+});
+
+test('Dedup: außerhalb des Fensters bzw. anderer Zähler = getrennte Einträge', async () => {
+  const time = new FakeTime();
+  const t0 = time.now();
+  const f = fakeFetch({
+    ...gesunderPeer('http://a:1', 'Keller', t0, {
+      telegrams: [telegramm(t0, 7, -62), telegramm(t0 + 5000, 8, -63)],
+    }),
+    ...gesunderPeer('http://b:1', 'OG', t0, {
+      telegrams: [telegramm(t0 + 2000, 7, -81)],   // gleicher cnt, aber 2 s später
+    }),
+  });
+  const v = new VerbundDienst({
+    peers: [{ url: 'http://a:1' }, { url: 'http://b:1' }],
+    fetchJson: f.fetch,
+    time,
+  });
+  const { telegramme } = await v.telegramme();
+  assert.equal(telegramme.length, 3, 'Fenster ±1,5 s trennt sauber');
+});
+
+test('Dedup: wiederholtes Abrufen derselben Telegramme bleibt idempotent', async () => {
+  const time = new FakeTime();
+  const t0 = time.now();
+  const antworten = {
+    ...gesunderPeer('http://a:1', 'Keller', t0, {
+      telegrams: [telegramm(t0, 7, -62)],
+    }),
+  };
+  const f = fakeFetch(antworten);
+  const v = new VerbundDienst({
+    peers: [{ url: 'http://a:1' }],
+    fetchJson: f.fetch,
+    time,
+  });
+  await v.telegramme();
+  await time.advance(2500);                    // Drossel ablaufen lassen
+  const { telegramme } = await v.telegramme(); // holt DIESELBEN 100 erneut
+  assert.equal(telegramme.length, 1, 'kein Duplikat trotz erneutem Abruf');
+  assert.equal(telegramme[0]!.gehoertVon.length, 1);
 });
 
 test('Verbund: kurzer Cache verhindert Peer-Gehämmer', async () => {

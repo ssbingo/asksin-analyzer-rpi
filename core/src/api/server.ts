@@ -75,8 +75,13 @@ export interface ApiServerOptions {
   uiDir?: string;
   /** Update-Mechanik (liefert analyzerd). Ohne Hooks: 501 auf /api/update/*. */
   update?: UpdateHooks;
-  /** Verbund-Rolle (M9.2): Übersicht aller Peers. Ohne: 501 auf /api/verbund. */
-  verbund?: { uebersicht(): Promise<unknown> };
+  /** Verbund-Rolle (M9.2/M9.3). Ohne: 501 auf /api/verbund*. */
+  verbund?: {
+    uebersicht(): Promise<unknown>;
+    matrix?(): Promise<unknown>;
+    matrixCsv?(): Promise<string>;
+    telegramme?(): Promise<unknown>;
+  };
   /** Netzwerkeinstellungen (M7.6). Ohne Hooks: 501 auf /api/netzwerk*. */
   netzwerk?: NetzwerkHooks;
 }
@@ -266,6 +271,32 @@ export class ApiServer {
             return this.#text(res, 501, 'Keine Verbund-Rolle konfiguriert');
           }
           return this.#json(res, 200, await verbund.uebersicht());
+        }
+        case '/api/verbund/matrix': {
+          const verbund = this.#opts.verbund;
+          if (verbund?.matrix === undefined) {
+            return this.#text(res, 501, 'Keine Verbund-Rolle konfiguriert');
+          }
+          return this.#json(res, 200, await verbund.matrix());
+        }
+        case '/api/verbund/matrix.csv': {
+          const verbund = this.#opts.verbund;
+          if (verbund?.matrixCsv === undefined) {
+            return this.#text(res, 501, 'Keine Verbund-Rolle konfiguriert');
+          }
+          res.writeHead(200, {
+            'Content-Type': 'text/csv; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="empfangsmatrix.csv"',
+          });
+          res.end(await verbund.matrixCsv());
+          return;
+        }
+        case '/api/verbund/telegramme': {
+          const verbund = this.#opts.verbund;
+          if (verbund?.telegramme === undefined) {
+            return this.#text(res, 501, 'Keine Verbund-Rolle konfiguriert');
+          }
+          return this.#json(res, 200, await verbund.telegramme());
         }
         case '/api/netzwerk': {
           const netz = this.#opts.netzwerk;

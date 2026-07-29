@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { holeVerbund } from '../api.ts';
-import type { VerbundUebersicht } from '../api.ts';
-import { dbm } from '../format.ts';
+import { computed, ref } from 'vue';
+import { holeVerbund, holeVerbundMatrix, holeVerbundTelegramme } from '../api.ts';
+import type { VerbundMatrix, VerbundTelegramm, VerbundUebersicht } from '../api.ts';
+import { dbm, rssiKlasse, uhrzeit } from '../format.ts';
 import { nutzeTakt } from '../takt.ts';
 
 const uebersicht = ref<VerbundUebersicht | null>(null);
+const matrix = ref<VerbundMatrix | null>(null);
+const telegramme = ref<VerbundTelegramm[]>([]);
+const filter = ref('');
 const keineRolle = ref(false);
 
 nutzeTakt(async () => {
@@ -19,7 +22,21 @@ nutzeTakt(async () => {
     }
     throw err;
   }
+  const [m, t] = await Promise.all([holeVerbundMatrix(), holeVerbundTelegramme()]);
+  matrix.value = m;
+  telegramme.value = t.telegramme;
 }, 5000);
+
+const gefiltert = computed(() => {
+  const f = filter.value.trim().toLowerCase();
+  if (f === '') return telegramme.value.slice(0, 100);
+  return telegramme.value
+    .filter((t) =>
+      [t.fromName, t.toName, t.fromHex, t.typeName]
+        .some((s) => s.toLowerCase().includes(f)),
+    )
+    .slice(0, 100);
+});
 </script>
 
 <template>
@@ -94,6 +111,81 @@ nutzeTakt(async () => {
     <div class="fussnote">
       Alle 5 Sekunden aktualisiert; Peer-Abfragen sind serverseitig kurz
       gecacht. Ein ausgefallener Standort stört die Übersicht nicht.
+    </div>
+
+    <div class="panel" v-if="matrix !== null && matrix.geraete.length > 0">
+      <div class="zeile" style="justify-content: space-between">
+        <h3 style="margin: 0">Empfangsmatrix — Gerät × Standort (RSSI, geglättet)</h3>
+        <a class="knopf" href="/api/verbund/matrix.csv">CSV herunterladen</a>
+      </div>
+      <div class="scrollbar" style="margin-top: 0.8rem">
+        <table class="daten">
+          <thead>
+            <tr>
+              <th>Gerät</th><th>Adresse</th>
+              <th class="num" v-for="s in matrix.standorte" :key="s">{{ s }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="g in matrix.geraete" :key="g.addr">
+              <td>{{ g.name }}</td>
+              <td class="gedimmt">{{ g.address }}</td>
+              <td class="num" v-for="s in matrix.standorte" :key="s"
+                  :class="g.rssi[s] === null ? 'gedimmt' : rssiKlasse(g.rssi[s]!)">
+                <template v-if="g.rssi[s] !== null">
+                  {{ g.rssi[s] }}<span v-if="g.beste === s" title="bester Empfang"> ★</span>
+                </template>
+                <template v-else>—</template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="fussnote">
+        ★ = bester Empfang. „—" heißt: an diesem Standort seit Dienststart
+        nicht gehört — das ist die Funkloch-Karte des Hauses.
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="zeile" style="margin-bottom: 0.8rem">
+        <h3 style="margin: 0; flex: 0 0 auto">Telegramme (zusammengeführt)</h3>
+        <input type="search" v-model="filter" placeholder="Filtern nach Name, Adresse oder Typ …" />
+      </div>
+      <div class="scrollbar">
+        <table class="daten">
+          <thead>
+            <tr>
+              <th>Zeit</th><th>Von</th><th>An</th><th>Typ</th>
+              <th>gehört von</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="t in gefiltert" :key="`${t.fromAddr}-${t.cnt}-${t.ts}`">
+              <td class="gedimmt">{{ uhrzeit(t.ts) }}</td>
+              <td>
+                {{ t.fromName }}
+                <span class="gedimmt" v-if="t.fromName !== t.fromHex">({{ t.fromHex }})</span>
+              </td>
+              <td>{{ t.toName }}</td>
+              <td><span class="chip" :class="{ hmip: t.isHmIp }">{{ t.typeName }}</span></td>
+              <td>
+                <span class="chip" v-for="g in t.gehoertVon" :key="g.standort"
+                      :class="rssiKlasse(g.rssi)">
+                  {{ g.standort }} ({{ g.rssi }})
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="fussnote" v-if="telegramme.length === 0">
+        Noch keine Telegramme zusammengeführt — die Liste füllt sich von selbst.
+      </div>
+      <div class="fussnote" v-else>
+        Gleicher Absender + Zähler + Typ + Länge innerhalb ±1,5 s = ein
+        Telegramm; die Chips zeigen jeden Standort mit seinem Empfangspegel.
+      </div>
     </div>
   </template>
 </template>

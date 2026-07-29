@@ -179,6 +179,9 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   color: var(--muted);
 }
 .chip.hmip { color: var(--akzent); border-color: var(--akzent); }
+.chip.gut { color: var(--gut); border-color: color-mix(in srgb, var(--gut) 55%, transparent); }
+.chip.mittel { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 55%, transparent); }
+.chip.schwach { color: var(--schlecht); border-color: color-mix(in srgb, var(--schlecht) 55%, transparent); }
 
 /* ---- Formulare und Knöpfe ---- */
 

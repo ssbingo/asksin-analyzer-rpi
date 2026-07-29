@@ -239,6 +239,41 @@ export interface VerbundUebersicht {
 
 export const holeVerbund = (): Promise<VerbundUebersicht> => hole('/api/verbund');
 
+export interface MatrixGeraet {
+  addr: number;
+  address: string;
+  name: string;
+  rssi: Record<string, number | null>;
+  beste: string | null;
+}
+
+export interface VerbundMatrix {
+  ts: number;
+  standorte: string[];
+  geraete: MatrixGeraet[];
+}
+
+export interface VerbundTelegramm {
+  ts: number;
+  fromAddr: number;
+  fromHex: string;
+  fromName: string;
+  toName: string;
+  typeName: string;
+  isHmIp: boolean;
+  len: number;
+  cnt: number;
+  flagNames: string[];
+  gehoertVon: Array<{ standort: string; rssi: number }>;
+}
+
+export const holeVerbundMatrix = (): Promise<VerbundMatrix> =>
+  hole('/api/verbund/matrix');
+export const holeVerbundTelegramme = (): Promise<{
+  ts: number;
+  telegramme: VerbundTelegramm[];
+}> => hole('/api/verbund/telegramme');
+
 // ---- Netzwerkeinstellungen (M7.6) ---------------------------------------
 
 export interface NetzwerkZustand {
