@@ -14,10 +14,11 @@
  * mit `Restart=always` neu.
  */
 
-import { existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
 import { ApiServer } from '../src/api/server.ts';
+import { demoDevListFetch, demoPortOpener } from '../src/demo/port.ts';
 import { DEFAULT_BAUD, DEFAULT_DEVICE, sttyPortOpener } from '../src/ingest/sttyPort.ts';
 import { openDatabase } from '../src/persist/db.ts';
 import { DevListService } from '../src/resolve/fetcher.ts';
@@ -49,6 +50,9 @@ interface Konfiguration {
     noiseDays: number;
     deviceHoursDays: number;
   };
+  /** Dauerhaft simulierte Daten — üblicherweise steuert das die Flag-Datei
+   *  im Datenverzeichnis (Schalter „Demo" in den Einstellungen). */
+  demo?: boolean;
 }
 
 const VORGABEN: Konfiguration = {
@@ -100,11 +104,29 @@ function paketVersion(): string {
 const konfig = ladeKonfiguration(process.argv[2] ?? '/etc/asksin-analyzer/config.json');
 
 mkdirSync(dirname(konfig.db), { recursive: true });
-const db = openDatabase(konfig.db);
-log(`Datenbank: ${konfig.db}`);
 
-const devList =
-  konfig.ccu.host === ''
+// Demo-Modus: Schalter in der Weboberfläche → Flag-Datei im Datenverzeichnis
+// (dorthin darf der Dienst schreiben; /etc ist per systemd schreibgeschützt).
+// Ein Umschalten beendet den Prozess kontrolliert, systemd startet neu.
+const demoFlag = join(dirname(konfig.db), 'demo-modus');
+const demoAktiv = konfig.demo === true || existsSync(demoFlag);
+
+// Eigene Datenbank für die Simulation — echte Aufzeichnungen bleiben sauber.
+const dbPfad = demoAktiv
+  ? join(dirname(konfig.db), 'analyzer-demo.db')
+  : konfig.db;
+const db = openDatabase(dbPfad);
+log(`Datenbank: ${dbPfad}`);
+if (demoAktiv) log('DEMO-MODUS aktiv — alle Daten sind simuliert');
+
+const devList = demoAktiv
+  ? new DevListService({
+      host: 'demo',
+      fetchBytes: demoDevListFetch(),
+      onUpdate: (resolver, quelle) =>
+        log(`Geräteliste (Demo): ${resolver.size} Einträge (${quelle})`),
+    })
+  : konfig.ccu.host === ''
     ? undefined
     : new DevListService({
         host: konfig.ccu.host,
@@ -118,10 +140,14 @@ if (devList === undefined) {
 }
 
 const analyzer = new Analyzer({
-  openPort: sttyPortOpener(konfig.device, konfig.baud),
+  openPort: demoAktiv
+    ? demoPortOpener()
+    : sttyPortOpener(konfig.device, konfig.baud),
   db,
   ...(devList === undefined ? {} : { devList }),
-  retention: konfig.retention,
+  retention: demoAktiv
+    ? { telegramsDays: 2, noiseDays: 7, deviceHoursDays: 30 }
+    : konfig.retention,
   onStateChange: (s) => {
     if (s.connected) log('Sniffer verbunden — gültige Daten auf der Leitung');
     else
@@ -139,12 +165,27 @@ const api = new ApiServer({
   db,
   ...(devList === undefined ? {} : { devList }),
   version: paketVersion(),
-  config: { ccuip: konfig.ccu.host },
+  config: { ccuip: konfig.ccu.host, demo: demoAktiv },
   ...(konfig.http.authToken === '' ? {} : { authToken: konfig.http.authToken }),
   ...(existsSync(uiDir) ? { uiDir } : {}),
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');
     void herunterfahren(0);
+  },
+  onSetConfig: (aenderungen) => {
+    const demo = aenderungen['demo'];
+    if (demo === undefined) return;
+    const gewuenscht = demo === '1' || demo === 'true';
+    if (gewuenscht === demoAktiv) return;
+    if (!gewuenscht && konfig.demo === true) {
+      log('Demo ist in der Konfigurationsdatei fest eingeschaltet — dort ändern');
+      return;
+    }
+    if (gewuenscht) writeFileSync(demoFlag, 'aktiv\n');
+    else rmSync(demoFlag, { force: true });
+    log(`Demo-Modus ${gewuenscht ? 'ein' : 'aus'}geschaltet — Dienst startet neu`);
+    // Antwort erst rausgehen lassen, dann kontrolliert beenden:
+    setTimeout(() => void herunterfahren(0), 300);
   },
 });
 

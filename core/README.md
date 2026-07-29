@@ -223,9 +223,26 @@ const api = new ApiServer({
 await api.listen(8080);                     // bindet an 127.0.0.1
 ```
 
+## Demo-Modus
+
+`src/demo/` simuliert einen kompletten Haushalt am untersten Ende der Kette:
+ein `demoPortOpener` erzeugt exakt die Zeilen des echten Sniffers
+(Telegramme, 750-ms-Rauschzeilen, Bootmeldung, seltene Störimpulse), ein
+`demoDevListFetch` liefert die passende Geräteliste im originalen
+CCU-Drahtformat. Parser, Statistik, SQLite, API und Web-UI laufen dabei
+unverändert — die Simulation testet also die echte Kette. Ein absichtlich
+„defektes" Gerät sendet Dauerburst und führt die Duty-Cycle-Liste mit
+Warnfarbe an.
+
+Eingeschaltet wird der Modus über den Schalter **Einstellungen → Demo-Modus**
+der Weboberfläche (Flag-Datei im Datenverzeichnis, Dienst startet neu) oder
+`"demo": true` in der Konfiguration. Die Simulation schreibt in eine eigene
+Datenbank `analyzer-demo.db` mit kurzer Retention — echte Aufzeichnungen
+bleiben unberührt.
+
 ## Tests
 
-108 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
+111 Tests, alle ohne Hardware. Die Fixtures in `test/fixtures/lines.ts` sind
 derzeit **konstruiert**, nicht mitgeschnitten. Sobald M0 vorliegt (Sniffer läuft,
 ein paar Stunden Rohdaten), gehören echte Zeilen dazu — erst die decken die
 Fälle ab, die man sich nicht ausdenkt: Teilzeilen nach einem Reconnect,

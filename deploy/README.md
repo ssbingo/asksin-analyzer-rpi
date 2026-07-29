@@ -38,6 +38,10 @@ Danach läuft die Weboberfläche auf `http://<pi>:8080`. Ohne gesteckten
 Sniffer-HAT meldet sie „Sniffer getrennt" und der Dienst versucht es mit
 Backoff weiter — der HAT kann jederzeit später dazukommen.
 
+**Ohne Hardware ausprobieren:** Der Schalter *Einstellungen → Demo-Modus*
+startet den Dienst mit einer simulierten Anlage (~15 Geräte, eigene
+Demo-Datenbank) — läuft ganz ohne Homematic-Zentrale und ohne Platine.
+
 ## Dateien und Pfade
 
 | Pfad | Inhalt |

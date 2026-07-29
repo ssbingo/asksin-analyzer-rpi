@@ -47,6 +47,9 @@ export interface ApiConfig {
   ntp?: string;
   rssiAlarmThreshold?: number;
   rssiAlarmCount?: number;
+  /** Läuft die Instanz mit simulierten Daten? Reine Anzeige — das
+   *  Umschalten übernimmt der Dienst über `/setConfig` (Feld `demo`). */
+  demo?: boolean;
 }
 
 export interface ApiServerOptions {
@@ -69,7 +72,7 @@ export interface ApiServerOptions {
   uiDir?: string;
 }
 
-const SET_CONFIG_FELDER = ['ccuip', 'hostname', 'ntp', 'ip', 'netmask', 'gw'];
+const SET_CONFIG_FELDER = ['ccuip', 'hostname', 'ntp', 'ip', 'netmask', 'gw', 'demo'];
 const MAX_BODY_BYTES = 65_536;
 
 const MIME: Record<string, string> = {
@@ -430,6 +433,7 @@ export class ApiServer {
       ccuhttps: 0,
       backend: 0,
       backendurl: '',
+      demo: this.#config.demo === true ? 1 : 0,
     };
   }
 
@@ -468,6 +472,7 @@ export class ApiServer {
       droppedLines: s.ingest.droppedLines,
       persistErrors: s.persistErrors,
       devListSource: s.devList?.source ?? null,
+      demo: this.#config.demo === true,
     };
   }
 

@@ -70,6 +70,17 @@ nav.haupt a:hover { color: var(--text); }
 }
 .status-punkt.verbunden::before { background: var(--gut); }
 
+.demo-badge {
+  padding: 0.1rem 0.55rem;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--warn) 18%, transparent);
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 /* ---- Seiteninhalt ---- */
 
 main.inhalt { padding: 1.25rem; max-width: 1200px; margin: 0 auto; }

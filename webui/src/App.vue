@@ -5,12 +5,14 @@ import { nutzeTakt } from './takt.ts';
 
 const verbunden = ref(false);
 const erreichbar = ref(false);
+const demo = ref(false);
 
 nutzeTakt(async () => {
   try {
     const h = await holeHealth();
     erreichbar.value = true;
     verbunden.value = h.connected;
+    demo.value = h.demo;
   } catch {
     erreichbar.value = false;
     verbunden.value = false;
@@ -28,6 +30,7 @@ nutzeTakt(async () => {
       <RouterLink to="/settings">Einstellungen</RouterLink>
       <RouterLink to="/info">Info</RouterLink>
     </nav>
+    <span v-if="demo" class="demo-badge">DEMO</span>
     <span class="status-punkt" :class="{ verbunden }">
       {{ !erreichbar ? 'Core nicht erreichbar' : verbunden ? 'Sniffer verbunden' : 'Sniffer getrennt' }}
     </span>

@@ -5,6 +5,7 @@ import { authToken, holeKonfiguration, sende, setzeAuthToken } from '../api.ts';
 const ccuip = ref('');
 const ntp = ref('');
 const token = ref(authToken());
+const demoAktiv = ref(false);
 const meldung = ref<{ art: 'ok' | 'fehler'; text: string } | null>(null);
 const beschaeftigt = ref(false);
 
@@ -13,6 +14,7 @@ onMounted(async () => {
     const c = await holeKonfiguration();
     ccuip.value = c.ccuip;
     ntp.value = c.ntp;
+    demoAktiv.value = c.demo === 1;
   } catch {
     meldung.value = { art: 'fehler', text: 'Konfiguration nicht abrufbar — Core erreichbar?' };
   }
@@ -48,6 +50,21 @@ const neustart = (): Promise<void> | undefined =>
   window.confirm('Core-Dienst neu starten?')
     ? aktion('Neustart ausgelöst', () => sende('/reboot'))
     : undefined;
+
+const demoUmschalten = (): Promise<void> | undefined => {
+  const frage = demoAktiv.value
+    ? 'Demo-Modus ausschalten? Der Dienst startet neu und liest wieder die echte Hardware.'
+    : 'Demo-Modus einschalten? Der Dienst startet neu und zeigt simulierte Daten ' +
+      '(eigene Demo-Datenbank — echte Aufzeichnungen bleiben unberührt).';
+  if (!window.confirm(frage)) return undefined;
+  return aktion(
+    'Umgeschaltet — der Dienst startet neu, die Seite verbindet sich gleich wieder',
+    async () => {
+      await sende('/setConfig', { demo: demoAktiv.value ? '0' : '1' });
+      demoAktiv.value = !demoAktiv.value;
+    },
+  );
+};
 </script>
 
 <template>
@@ -79,6 +96,24 @@ const neustart = (): Promise<void> | undefined =>
       <input type="password" v-model="token" autocomplete="off" />
     </label>
     <button :disabled="beschaeftigt" @click="tokenSpeichern">Token speichern</button>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top: 0">Demo-Modus</h3>
+    <p style="margin-top: 0">
+      Simulierte Anlage mit rund 15 Geräten — läuft ohne Homematic-Zentrale
+      und ohne gesteckte Platine durch die komplette echte Kette (Parser,
+      Statistik, Datenbank). Ideal zum Ausprobieren und Vorführen.
+      Zustand: <strong :class="demoAktiv ? 'mittel' : 'gedimmt'">
+        {{ demoAktiv ? 'aktiv' : 'aus' }}</strong>
+    </p>
+    <button :disabled="beschaeftigt" @click="demoUmschalten">
+      {{ demoAktiv ? 'Demo-Modus ausschalten …' : 'Demo-Modus einschalten …' }}
+    </button>
+    <div class="fussnote">
+      Beim Umschalten startet der Dienst neu. Die Simulation schreibt in eine
+      eigene Demo-Datenbank; echte Aufzeichnungen bleiben unberührt.
+    </div>
   </div>
 
   <div class="panel">

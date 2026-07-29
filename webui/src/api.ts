@@ -99,6 +99,7 @@ export interface Health {
   droppedLines: number;
   persistErrors: number;
   devListSource: 'ccu' | 'cache' | null;
+  demo: boolean;
 }
 
 /** /getConfig — die Felder, die die UI tatsächlich anzeigt. */
@@ -116,6 +117,7 @@ export interface Konfiguration {
   boottime: number;
   spiffssizekb: number;
   spiffsusedkb: number;
+  demo: number;
   [weitere: string]: unknown;
 }
 
