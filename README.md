@@ -98,8 +98,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.0.1** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.5** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.5** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.6** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.6** |
 
 Die **Firmware wird bewusst nicht eigenständig versioniert**: Sie ist
 byte-identisch der `AskSinSniffer328P` von jp112sdl (Stand des
@@ -109,6 +109,30 @@ werden, beginnt ab dann `firmware-v0.0.1`. Der ioBroker-Adapter bekommt ein
 eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.0.6 — 29.07.2026
+
+Status-LED und OLED (M11): die Funktionen des Status-LED-OLED-Projekts,
+vollständig integriert. Hardware unverändert (0.0.1).
+
+**Core/Web-UI 0.0.6**
+- **Status-LED** (WS2812 an J7 über SPI — R5 statt R4 bestücken):
+  Prioritätsleiter Duty-Cycle-Alarm (rot schnell) > getrennt (rot) >
+  Persistenzfehler (gelb) > Demo (orange) > Update (blau atmend) > ok
+  (grün); eigene SPI-Bit-Kodierung, keine native Bibliothek
+- **OLED** (SSD1306 an J5): eigener Treiber mit 5×7-Schrift (visuell
+  verifiziert, inkl. Umlauten), vier Seiten (Standort/IP, Funkwerte,
+  Duty-Cycle-Spitze, System), Taster an J6 blättert
+- **Statusseite im WebUI**: LED-Punkt in Echtfarbe mit Grund,
+  Systemwerte, Störungs-Diagnose und pixelgenaue OLED-Live-Vorschau
+  mit Blättern-Knopf auf der Übersicht
+- **Nachträglich aktivierbar ohne Konsole**: Einstellungen →
+  Status-LED & OLED (LED/OLED/Helligkeit), sofort wirksam; die
+  Backup-Funktion der Vorlage wird bewusst nicht übernommen
+- **NTP aufgeräumt**: Konfiguration nur noch in den
+  Netzwerkeinstellungen; Vorgabe de.pool.ntp.org, Anzeige des
+  tatsächlich verwendeten Servers samt Sync-Status
+- 140 Unit-Tests
 
 ### v0.0.5 — 29.07.2026
 
