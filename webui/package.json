@@ -1,6 +1,6 @@
 {
   "name": "@asksin-analyzer/webui",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Web-UI des AskSin-Analyzers — funktionaler Nachbau mit eigenem Code (Vue 3 + ECharts)",
   "license": "MIT",
   "private": true,

@@ -98,8 +98,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.0.1** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.6** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.6** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.7** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.7** |
 
 Die **Firmware wird bewusst nicht eigenständig versioniert**: Sie ist
 byte-identisch der `AskSinSniffer328P` von jp112sdl (Stand des
@@ -109,6 +109,24 @@ werden, beginnt ab dann `firmware-v0.0.1`. Der ioBroker-Adapter bekommt ein
 eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.0.7 — 29.07.2026
+
+Langzeitdaten (M9.5) — der Verbund ist komplett. Hardware unverändert (0.0.1).
+
+**Core/Web-UI 0.0.7**
+- **Langzeitdaten nach InfluxDB v2**: jeder Analyzer schreibt dezentral
+  mit `standort`-Tag per Line Protocol (ohne Client-Bibliothek);
+  Measurements `analyzer` (Verbindung, Telegramme/min, Grundrauschen,
+  Geräte) und `geraet` (RSSI, Duty-Cycle je Funkgerät) — Grafana wertet
+  zentral über alle Standorte aus
+- Konfiguration über Einstellungen → Langzeitdaten (URL, Org, Bucket,
+  Token — wird nie angezeigt, Intervall), sofort wirksam; Influx-Ausfälle
+  stören den Analyzer nicht, die lokale SQLite bleibt primär
+- ioBroker-Adapter neu aufgebaut mit @iobroker/create-adapter
+  (Tests, Workflows, ESLint/Prettier, i18n in 11 Sprachen,
+  Verbund-States, Icon) — eigenes Repo ioBroker.asksinanalyzer-rpi
+- 143 Unit-Tests
 
 ### v0.0.6 — 29.07.2026
 
