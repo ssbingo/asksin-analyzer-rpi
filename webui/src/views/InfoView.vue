@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import { holeHealth, holeKonfiguration, holeSnapshot } from '../api.ts';
-import type { Health, Konfiguration, Snapshot } from '../api.ts';
+import { onUnmounted, ref } from 'vue';
+import {
+  flasheFirmware,
+  holeHealth,
+  holeKonfiguration,
+  holeSnapshot,
+  holeUpdateStatus,
+  holeUpdateVersionen,
+  starteCoreUpdate,
+} from '../api.ts';
+import type { Health, Konfiguration, Snapshot, UpdateStatus, UpdateVersionen } from '../api.ts';
 import { datumZeit, dauer } from '../format.ts';
 import { nutzeTakt } from '../takt.ts';
 
@@ -15,6 +23,90 @@ nutzeTakt(async () => {
   snapshot.value = s;
   if (konfig.value === null) konfig.value = await holeKonfiguration();
 }, 5000);
+
+// ---- Software-Update -----------------------------------------------------
+
+const versionen = ref<UpdateVersionen | null>(null);
+const updateStatus = ref<UpdateStatus | null>(null);
+const updateMeldung = ref('');
+const sucht = ref(false);
+let statusTakt: number | undefined;
+
+onUnmounted(() => window.clearInterval(statusTakt));
+
+async function updateSuchen(): Promise<void> {
+  sucht.value = true;
+  updateMeldung.value = '';
+  try {
+    versionen.value = await holeUpdateVersionen();
+  } catch (err) {
+    updateMeldung.value = err instanceof Error ? err.message : String(err);
+  } finally {
+    sucht.value = false;
+  }
+}
+
+function statusVerfolgen(): void {
+  window.clearInterval(statusTakt);
+  statusTakt = window.setInterval(() => {
+    void (async () => {
+      try {
+        const s = await holeUpdateStatus();
+        updateStatus.value = s;
+        if (!s.running && s.step !== undefined) {
+          window.clearInterval(statusTakt);
+          updateMeldung.value =
+            s.ok === true
+              ? s.step === 'aktuell'
+                ? 'Bereits aktuell.'
+                : `Update fertig (${s.from} → ${s.to}).`
+              : 'Update fehlgeschlagen — auf den vorherigen Stand zurückgerollt.';
+          versionen.value = null;
+        }
+      } catch {
+        // Dienst startet gerade neu — weiter versuchen.
+      }
+    })();
+  }, 2000);
+}
+
+async function updateInstallieren(): Promise<void> {
+  if (!window.confirm('Update installieren? Der Dienst startet dabei neu; bei Problemen wird automatisch zurückgerollt.')) return;
+  updateMeldung.value = '';
+  try {
+    await starteCoreUpdate();
+    updateStatus.value = { running: true, step: 'angestoßen' };
+    statusVerfolgen();
+  } catch (err) {
+    updateMeldung.value = err instanceof Error ? err.message : String(err);
+  }
+}
+
+// ---- Sniffer-Firmware ----------------------------------------------------
+
+const hexDatei = ref<File | null>(null);
+const flashLog = ref('');
+const flasht = ref(false);
+
+function dateiGewaehlt(e: Event): void {
+  hexDatei.value = (e.target as HTMLInputElement).files?.[0] ?? null;
+}
+
+async function firmwareFlashen(): Promise<void> {
+  const datei = hexDatei.value;
+  if (datei === null) return;
+  if (!window.confirm(`„${datei.name}" auf den 328P flashen? Die Aufzeichnung pausiert währenddessen.`)) return;
+  flasht.value = true;
+  flashLog.value = 'Flashe …';
+  try {
+    const erg = await flasheFirmware(datei);
+    flashLog.value = (erg.ok ? '✔ Erfolgreich\n\n' : '✖ Fehlgeschlagen\n\n') + erg.log;
+  } catch (err) {
+    flashLog.value = `✖ ${err instanceof Error ? err.message : String(err)}`;
+  } finally {
+    flasht.value = false;
+  }
+}
 </script>
 
 <template>
@@ -65,6 +157,54 @@ nutzeTakt(async () => {
           </tr>
         </tbody>
       </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top: 0">Software-Update</h3>
+    <div class="zeile">
+      <button :disabled="sucht" @click="updateSuchen">Nach Update suchen</button>
+      <template v-if="versionen !== null">
+        <span class="gedimmt">installiert: {{ versionen.version }} ({{ versionen.commit }})</span>
+        <span v-if="versionen.updateVerfuegbar" class="mittel">
+          Update verfügbar ({{ versionen.verfuegbarCommit }})
+        </span>
+        <span v-else-if="versionen.verfuegbarCommit !== null" class="gut">aktuell</span>
+        <span v-else class="gedimmt">Gegenstelle nicht erreichbar</span>
+        <button
+          v-if="versionen.updateVerfuegbar"
+          class="primaer"
+          :disabled="updateStatus?.running === true"
+          @click="updateInstallieren"
+        >Update installieren …</button>
+      </template>
+    </div>
+    <div class="meldung ok" v-if="updateStatus?.running === true">
+      Update läuft — Schritt: {{ updateStatus.step ?? '…' }}. Der Dienst startet
+      dabei neu; diese Seite verbindet sich automatisch wieder.
+    </div>
+    <div class="meldung" :class="updateMeldung.includes('fehlgeschlagen') || updateMeldung.includes('Nicht erlaubt') ? 'fehler' : 'ok'" v-if="updateMeldung !== ''">
+      {{ updateMeldung }}
+    </div>
+    <div class="fussnote">
+      Atomar mit automatischem Rollback: Kommt der Dienst nach dem Update nicht
+      gesund hoch, wird der vorherige Stand wiederhergestellt.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top: 0">Sniffer-Firmware (328P)</h3>
+    <div class="zeile">
+      <input type="file" accept=".hex" @change="dateiGewaehlt" />
+      <button :disabled="flasht || hexDatei === null" @click="firmwareFlashen">
+        Firmware flashen …
+      </button>
+    </div>
+    <pre v-if="flashLog !== ''" style="white-space: pre-wrap; font-size: 0.8rem; color: var(--muted); margin-bottom: 0">{{ flashLog }}</pre>
+    <div class="fussnote">
+      Intel-HEX-Datei (z. B. AskSinSniffer328P.hex). Die Aufzeichnung pausiert
+      während des Flashens; der Reset läuft am HAT über GPIO4, am USB-Port
+      über DTR. Im Demo-Modus nicht verfügbar.
     </div>
   </div>
 

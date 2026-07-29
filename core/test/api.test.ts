@@ -41,6 +41,7 @@ async function aufbau(t: TestContext, extra: {
   maxLogBatch?: number;
   onReboot?: () => void;
   uiDir?: string;
+  update?: import('../src/api/server.ts').UpdateHooks;
 } = {}): Promise<Aufbau> {
   const time = new FakeTime();
   const ports: FakePort[] = [];
@@ -76,6 +77,7 @@ async function aufbau(t: TestContext, extra: {
     ...(extra.maxLogBatch === undefined ? {} : { maxLogBatch: extra.maxLogBatch }),
     ...(extra.onReboot === undefined ? {} : { onReboot: extra.onReboot }),
     ...(extra.uiDir === undefined ? {} : { uiDir: extra.uiDir }),
+    ...(extra.update === undefined ? {} : { update: extra.update }),
     time,
     onSetConfig: (c) => {
       gesetzt.push(c);
@@ -335,6 +337,78 @@ test('/api/noise: Minutenaggregat mit Mittelwert und ms-Zeitstempel', async (t) 
   assert.equal(m['min'], -91);
   assert.equal(m['max'], -80);
   assert.equal(m['avg'], -85.5);
+});
+
+// ---------------------------------------------------------------- Update-API
+
+test('/api/update/*: ohne Hooks 501, mit Hooks voller Ablauf', async (t) => {
+  const ohne = await aufbau(t);
+  assert.equal((await fetch(`${ohne.base}/api/update/versions`)).status, 501);
+
+  let starts = 0;
+  let geflasht: Buffer | null = null;
+  const mit = await aufbau(t, {
+    update: {
+      versions: () => Promise.resolve({ version: '0.0.3', commit: 'abc1234' }),
+      startCoreUpdate: () => {
+        starts++;
+        return starts === 1;                  // zweiter Start: läuft bereits
+      },
+      updateStatus: () => (starts === 0 ? null : { running: true, step: 'hole' }),
+      flashFirmware: (hex) => {
+        geflasht = hex;
+        return Promise.resolve({ ok: true, log: 'avrdude done' });
+      },
+    },
+  });
+
+  const v = (await (await fetch(`${mit.base}/api/update/versions`)).json()) as Record<string, unknown>;
+  assert.equal(v['commit'], 'abc1234');
+
+  const leer = (await (await fetch(`${mit.base}/api/update/status`)).json()) as Record<string, unknown>;
+  assert.equal(leer['running'], false, 'ohne Statusdatei: nicht laufend');
+
+  assert.equal((await fetch(`${mit.base}/api/update/core`, { method: 'POST' })).status, 202);
+  assert.equal(
+    (await fetch(`${mit.base}/api/update/core`, { method: 'POST' })).status,
+    409,
+    'Doppelstart wird abgewiesen',
+  );
+  const s = (await (await fetch(`${mit.base}/api/update/status`)).json()) as Record<string, unknown>;
+  assert.equal(s['step'], 'hole');
+
+  const hex = ':100000000C9435000C945D000C945D000C945D0024\n:00000001FF\n';
+  const antwort = await fetch(`${mit.base}/api/update/firmware`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream' },
+    body: hex,
+  });
+  assert.equal(antwort.status, 200);
+  assert.equal(((await antwort.json()) as { ok: boolean }).ok, true);
+  assert.equal(geflasht!.toString('latin1'), hex, 'Bytes kommen unverändert an');
+});
+
+test('/api/update/*: mit gesetztem Token ist ALLES auth-pflichtig', async (t) => {
+  const a = await aufbau(t, {
+    authToken: 'geheim',
+    update: {
+      versions: () => Promise.resolve({}),
+      startCoreUpdate: () => true,
+      updateStatus: () => null,
+      flashFirmware: () => Promise.resolve({ ok: true, log: '' }),
+    },
+  });
+  assert.equal((await fetch(`${a.base}/api/update/versions`)).status, 401);
+  assert.equal((await fetch(`${a.base}/api/update/status`)).status, 401);
+  assert.equal((await fetch(`${a.base}/api/update/core`, { method: 'POST' })).status, 401);
+  assert.equal(
+    (
+      await fetch(`${a.base}/api/update/versions`, {
+        headers: { authorization: 'Bearer geheim' },
+      })
+    ).status,
+    200,
+  );
 });
 
 // ---------------------------------------------------------------- statisches UI

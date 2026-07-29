@@ -70,10 +70,31 @@ export interface ApiServerOptions {
   maxLogBatch?: number;
   /** Verzeichnis des gebauten Web-UI (webui/dist). Ohne Angabe: kein UI. */
   uiDir?: string;
+  /** Update-Mechanik (liefert analyzerd). Ohne Hooks: 501 auf /api/update/*. */
+  update?: UpdateHooks;
+}
+
+/**
+ * Die Update-Mechanik ist Sache des Deployments (git, systemd, avrdude) —
+ * der Server kennt nur diese Schnittstelle. Alle /api/update/*-Routen
+ * verlangen bei gesetztem Token Authentifizierung (Designdok §5); ein
+ * `httpupdate` mit freier URL wird bewusst nicht angeboten.
+ */
+export interface UpdateHooks {
+  /** Installierte und verfügbare Version (z. B. Git-Commits). */
+  versions(): Promise<unknown>;
+  /** Stößt das Core-Update an; false = läuft bereits. */
+  startCoreUpdate(): boolean | Promise<boolean>;
+  /** Letzter/laufender Update-Status (Statusdatei) oder null. */
+  updateStatus(): unknown;
+  /** Flasht die hochgeladene Firmware; Ergebnis mit Log. */
+  flashFirmware(hex: Buffer): Promise<{ ok: boolean; log: string }>;
 }
 
 const SET_CONFIG_FELDER = ['ccuip', 'hostname', 'ntp', 'ip', 'netmask', 'gw', 'demo'];
 const MAX_BODY_BYTES = 65_536;
+/** Intel-HEX für 32 KiB Flash ist ~90 KiB — 256 KiB lassen reichlich Luft. */
+const MAX_FIRMWARE_BYTES = 262_144;
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -198,6 +219,18 @@ export class ApiServer {
           return this.#apiTelegrams(url, res);
         case '/api/noise':
           return this.#apiNoise(url, res);
+        case '/api/update/versions': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.update;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Update-Mechanismus');
+          return this.#json(res, 200, await hooks.versions());
+        }
+        case '/api/update/status': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.update;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Update-Mechanismus');
+          return this.#json(res, 200, hooks.updateStatus() ?? { running: false });
+        }
       }
       // Alles Übrige: das gebaute Web-UI (mit SPA-Fallback).
       if (this.#opts.uiDir !== undefined && !pfad.startsWith('/api/')) {
@@ -208,6 +241,25 @@ export class ApiServer {
     // ---- Kompatibilitätssatz: Kommandos (POST, ggf. mit Auth) -----------
     if (methode === 'POST') {
       switch (pfad) {
+        case '/api/update/core': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.update;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Update-Mechanismus');
+          const gestartet = await hooks.startCoreUpdate();
+          if (!gestartet) return this.#text(res, 409, 'Update läuft bereits');
+          res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('Update angestoßen — Fortschritt unter /api/update/status');
+          return;
+        }
+        case '/api/update/firmware': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.update;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Update-Mechanismus');
+          const hex = await this.#leseBodyRoh(req, MAX_FIRMWARE_BYTES);
+          if (hex === null) return this.#text(res, 413, 'Firmware-Datei zu groß');
+          const ergebnis = await hooks.flashFirmware(hex);
+          return this.#json(res, ergebnis.ok ? 200 : 500, ergebnis);
+        }
         case '/setConfig':
           if (!this.#autorisiert(req, res)) return;
           return this.#setConfig(req, url, res);
@@ -539,6 +591,26 @@ export class ApiServer {
     res.writeHead(401, { 'WWW-Authenticate': 'Bearer' });
     res.end('Auth-Token erforderlich');
     return false;
+  }
+
+  /** Binären Body lesen; null bei Überschreitung des Limits (→ 413). */
+  #leseBodyRoh(req: IncomingMessage, limit: number): Promise<Buffer | null> {
+    return new Promise((resolve, reject) => {
+      const teile: Buffer[] = [];
+      let bytes = 0;
+      let zuGross = false;
+      req.on('data', (chunk: Buffer) => {
+        bytes += chunk.length;
+        if (bytes > limit) {
+          zuGross = true;
+          req.resume();                        // Rest verwerfen, aber lesen
+          return;
+        }
+        teile.push(chunk);
+      });
+      req.on('end', () => resolve(zuGross ? null : Buffer.concat(teile)));
+      req.on('error', reject);
+    });
   }
 
   #leseBody(req: IncomingMessage): Promise<string> {

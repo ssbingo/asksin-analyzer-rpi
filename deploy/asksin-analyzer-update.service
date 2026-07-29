@@ -1,0 +1,9 @@
+# Wird von asksin-analyzer-update.path gestartet; update.sh entfernt die
+# Trigger-Datei selbst und schreibt seinen Fortschritt nach
+# /var/lib/asksin-analyzer/update-status.json.
+[Unit]
+Description=AskSin-Analyzer: Update ausfuehren
+
+[Service]
+Type=oneshot
+ExecStart=/opt/asksin-analyzer/update.sh --hintergrund

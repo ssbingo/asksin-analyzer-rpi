@@ -1,5 +1,5 @@
 export { ApiServer } from './server.ts';
-export type { ApiConfig, ApiServerOptions } from './server.ts';
+export type { ApiConfig, ApiServerOptions, UpdateHooks } from './server.ts';
 export {
   dayOf,
   dayRange,

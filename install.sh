@@ -119,7 +119,9 @@ if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
     useradd -r -s /usr/sbin/nologin "$SERVICE_USER"
     c_ok "Benutzer '$SERVICE_USER' angelegt."
 fi
+# dialout: serieller Port; gpio: 328P-Reset ueber GPIO4 beim Firmware-Flash
 usermod -aG dialout "$SERVICE_USER"
+getent group gpio >/dev/null 2>&1 && usermod -aG gpio "$SERVICE_USER"
 mkdir -p "$DATA_DIR" "$CONFIG_DIR"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 
@@ -193,13 +195,16 @@ case "${a,,}" in
         ;;
 esac
 
-# --- systemd-Dienst -----------------------------------------------------------
-c_info "Richte systemd-Dienst ein..."
+# --- systemd-Dienst + Update-Ausloeser ----------------------------------------
+c_info "Richte systemd-Dienste ein..."
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer.service" "$SERVICE_FILE"
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.service" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.path" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable asksin-analyzer.service >/dev/null 2>&1 || true
+systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
 systemctl restart asksin-analyzer.service
-c_ok "Dienst aktiviert und gestartet."
+c_ok "Dienst aktiviert und gestartet (Updates aus der Weboberflaeche moeglich)."
 
 # --- CLI-Wrapper --------------------------------------------------------------
 install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" "$WRAPPER"

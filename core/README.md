@@ -223,6 +223,31 @@ const api = new ApiServer({
 await api.listen(8080);                     // bindet an 127.0.0.1
 ```
 
+## Update-Pfade (M7.5)
+
+Alles reine API — damit das Flotten-Update des Verbunds (M9.4) sie später
+fernsteuern kann. Bei gesetztem Token sind **alle** `/api/update/*`-Routen
+auth-pflichtig; ein `httpupdate` mit freier URL wird bewusst nicht angeboten.
+
+- `GET /api/update/versions` — installierte Version/Commit + verfügbarer
+  Commit (`git ls-remote`)
+- `POST /api/update/core` — stößt das Update an: analyzerd legt eine
+  Trigger-Datei ins Datenverzeichnis, die **systemd-Path-Unit** startet
+  `update.sh` als root (der Dienst selbst braucht kein sudo, die
+  `NoNewPrivileges`-Härtung bleibt intakt)
+- `GET /api/update/status` — Fortschritt aus der Statusdatei, übersteht den
+  Dienst-Neustart
+- `POST /api/update/firmware` — Intel-HEX im Body: Ingest pausiert, Port
+  wird frei, Reset (HAT → GPIO4 über libgpiod v2/v1, USB → DTR durch
+  avrdude), `avrdude` mit **58 824 Baud**, danach Ingest weiter
+  (`src/update/firmware.ts`, Kommandos injizierbar und damit ohne
+  Hardware getestet)
+
+`update.sh` ist atomar und rückrollbar: neues UI wird nach `dist-neu`
+gebaut und erst bei Erfolg getauscht; nach dem Neustart läuft ein
+Health-Check — scheitert er, stellt das Skript Git-Stand **und** UI
+wieder her.
+
 ## Demo-Modus
 
 `src/demo/` simuliert einen kompletten Haushalt am untersten Ende der Kette:

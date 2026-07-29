@@ -132,8 +132,16 @@ export function setzeAuthToken(token: string): void {
   else localStorage.setItem(TOKEN_SCHLUESSEL, token);
 }
 
+function authKopf(): Record<string, string> {
+  const token = authToken();
+  return token === '' ? {} : { authorization: `Bearer ${token}` };
+}
+
 async function hole<T>(pfad: string): Promise<T> {
-  const res = await fetch(pfad);
+  const res = await fetch(pfad, { headers: authKopf() });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
   if (!res.ok) throw new Error(`${pfad}: HTTP ${res.status}`);
   return res.json() as Promise<T>;
 }
@@ -157,14 +165,12 @@ export async function sende(
   pfad: string,
   params?: Record<string, string>,
 ): Promise<Response> {
-  const headers: Record<string, string> = {
-    'content-type': 'application/x-www-form-urlencoded',
-  };
-  const token = authToken();
-  if (token !== '') headers['authorization'] = `Bearer ${token}`;
   const res = await fetch(pfad, {
     method: 'POST',
-    headers,
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      ...authKopf(),
+    },
     body: params === undefined ? '' : new URLSearchParams(params).toString(),
   });
   if (res.status === 401) {
@@ -172,4 +178,44 @@ export async function sende(
   }
   if (!res.ok) throw new Error(`${pfad}: HTTP ${res.status}`);
   return res;
+}
+
+// ---- Update-Pfade (M7.5) -------------------------------------------------
+
+export interface UpdateVersionen {
+  version: string;
+  commit: string;
+  verfuegbarCommit: string | null;
+  updateVerfuegbar: boolean;
+}
+
+export interface UpdateStatus {
+  running: boolean;
+  step?: string;
+  ok?: boolean | null;
+  from?: string;
+  to?: string;
+  updatedAt?: number;
+}
+
+export const holeUpdateVersionen = (): Promise<UpdateVersionen> =>
+  hole('/api/update/versions');
+export const holeUpdateStatus = (): Promise<UpdateStatus> =>
+  hole('/api/update/status');
+export const starteCoreUpdate = (): Promise<Response> =>
+  sende('/api/update/core');
+
+export async function flasheFirmware(
+  datei: File,
+): Promise<{ ok: boolean; log: string }> {
+  const res = await fetch('/api/update/firmware', {
+    method: 'POST',
+    headers: { 'content-type': 'application/octet-stream', ...authKopf() },
+    body: datei,
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  // 200 und 500 tragen beide das Ergebnis-JSON mit dem avrdude-Log:
+  return (await res.json()) as { ok: boolean; log: string };
 }

@@ -6,3 +6,4 @@ export * from './persist/index.ts';
 export * from './service/index.ts';
 export * from './api/index.ts';
 export * from './demo/index.ts';
+export * from './update/index.ts';

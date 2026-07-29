@@ -64,3 +64,14 @@ sudo asksin-analyzer update  # neuer Stand + UI-Build + Neustart
 
 `/reboot` aus der Weboberfläche beendet den Prozess kontrolliert;
 systemd (`Restart=always`) startet ihn sofort neu.
+
+## Updates aus der Weboberfläche
+
+*Info → Software-Update* sucht nach neuen Ständen und installiert sie:
+Der Dienst legt eine Trigger-Datei an, die Path-Unit
+[`asksin-analyzer-update.path`](asksin-analyzer-update.path) startet
+`update.sh` als root — atomar, mit Health-Check und automatischem
+Rollback. Fortschritt: `/var/lib/asksin-analyzer/update-status.json`,
+Protokoll: `update.log` daneben. *Info → Sniffer-Firmware* flasht eine
+hochgeladene HEX-Datei auf den 328P (Ingest pausiert, Reset über GPIO4
+bzw. DTR, avrdude mit 58 824 Baud).

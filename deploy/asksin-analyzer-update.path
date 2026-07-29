@@ -1,0 +1,12 @@
+# Beobachtet die Trigger-Datei, die analyzerd bei einem Update-Wunsch aus der
+# Weboberflaeche/API anlegt. So kann der unprivilegierte Dienst ein Update
+# anstossen, ohne dass die NoNewPrivileges-Haertung aufgeweicht werden muss.
+[Unit]
+Description=AskSin-Analyzer: Update-Ausloeser
+
+[Path]
+PathExists=/var/lib/asksin-analyzer/update-anstoss
+Unit=asksin-analyzer-update.service
+
+[Install]
+WantedBy=multi-user.target

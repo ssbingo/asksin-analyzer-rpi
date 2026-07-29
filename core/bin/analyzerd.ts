@@ -14,15 +14,21 @@
  * mit `Restart=always` neu.
  */
 
+import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import { promisify } from 'node:util';
 
 import { ApiServer } from '../src/api/server.ts';
+import type { UpdateHooks } from '../src/api/server.ts';
 import { demoDevListFetch, demoPortOpener } from '../src/demo/port.ts';
 import { DEFAULT_BAUD, DEFAULT_DEVICE, sttyPortOpener } from '../src/ingest/sttyPort.ts';
 import { openDatabase } from '../src/persist/db.ts';
 import { DevListService } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
+import { flashFirmware, siehtNachIntelHexAus } from '../src/update/firmware.ts';
+
+const execFileAsync = promisify(execFile);
 
 // ---- Konfiguration ------------------------------------------------------
 
@@ -159,6 +165,84 @@ const analyzer = new Analyzer({
   onError: (err) => log(`Persistenz: ${String(err)}`),
 });
 
+// ---- Update-Mechanik (M7.5) ---------------------------------------------
+// Core-Update: Trigger-Datei → systemd-Path-Unit → update.sh (als root).
+// So braucht der unprivilegierte Dienst weder sudo noch Schreibrechte auf
+// /opt; der Fortschritt kommt über die Statusdatei zurück — auch über den
+// eigenen Neustart hinweg. Für M9.4 (Flotten-Update) ist alles reine API.
+
+const installDir = resolve(import.meta.dirname, '../..');
+const datenDir = dirname(konfig.db);
+const updateTrigger = join(datenDir, 'update-anstoss');
+const updateStatusDatei = join(datenDir, 'update-status.json');
+
+function leseUpdateStatus(): Record<string, unknown> | null {
+  try {
+    return JSON.parse(readFileSync(updateStatusDatei, 'utf8')) as Record<
+      string,
+      unknown
+    >;
+  } catch {
+    return null;
+  }
+}
+
+async function gitKurz(...args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync(
+    'git', ['-C', installDir, ...args], { timeout: 15_000 },
+  );
+  return stdout.trim();
+}
+
+const updateHooks: UpdateHooks = {
+  versions: async () => {
+    const commit = await gitKurz('rev-parse', '--short', 'HEAD');
+    let verfuegbar: string | null = null;
+    try {
+      const ref = await gitKurz('ls-remote', 'origin', 'main');
+      verfuegbar = ref.slice(0, 7);
+    } catch {
+      /* offline — verfügbare Version bleibt unbekannt */
+    }
+    return {
+      version: paketVersion(),
+      commit,
+      verfuegbarCommit: verfuegbar,
+      updateVerfuegbar: verfuegbar !== null && !verfuegbar.startsWith(commit.slice(0, 7)),
+      demo: demoAktiv,
+    };
+  },
+  startCoreUpdate: () => {
+    const status = leseUpdateStatus();
+    if (status !== null && status['running'] === true) return false;
+    writeFileSync(updateTrigger, `${new Date().toISOString()}\n`);
+    log('Core-Update angestoßen (Trigger-Datei für die systemd-Path-Unit)');
+    return true;
+  },
+  updateStatus: () => leseUpdateStatus(),
+  flashFirmware: async (hex) => {
+    if (demoAktiv) {
+      return { ok: false, log: 'Im Demo-Modus gibt es keine Hardware zum Flashen.' };
+    }
+    if (!siehtNachIntelHexAus(hex)) {
+      return { ok: false, log: 'Upload ist keine gültige Intel-HEX-Datei.' };
+    }
+    const hexPfad = join(datenDir, 'firmware-upload.hex');
+    writeFileSync(hexPfad, hex);
+    log('Firmware-Flash: Ingest wird angehalten, Port wird freigegeben');
+    await analyzer.stop();
+    try {
+      const ergebnis = await flashFirmware(hexPfad, { device: konfig.device });
+      log(`Firmware-Flash ${ergebnis.ok ? 'erfolgreich' : 'FEHLGESCHLAGEN'}`);
+      return ergebnis;
+    } finally {
+      rmSync(hexPfad, { force: true });
+      analyzer.start();
+      log('Ingest fortgesetzt');
+    }
+  },
+};
+
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
 const api = new ApiServer({
   analyzer,
@@ -168,6 +252,7 @@ const api = new ApiServer({
   config: { ccuip: konfig.ccu.host, demo: demoAktiv },
   ...(konfig.http.authToken === '' ? {} : { authToken: konfig.http.authToken }),
   ...(existsSync(uiDir) ? { uiDir } : {}),
+  update: updateHooks,
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');
     void herunterfahren(0);
