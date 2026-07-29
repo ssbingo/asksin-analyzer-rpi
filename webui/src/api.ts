@@ -372,7 +372,13 @@ export interface NetzwerkZustand {
   adressen: Array<{ address: string; prefix: number }>;
   gateway: string | null;
   dns: string[];
-  ntp: { server: string | null; sync: boolean | null };
+  ntp: {
+    /** konfigurierter Server (Drop-in), null = nichts gesetzt */
+    server: string | null;
+    /** tatsächlich verwendeter Server laut timesyncd */
+    aktiv: string | null;
+    sync: boolean | null;
+  };
 }
 
 export interface NetzwerkStatus {

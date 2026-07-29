@@ -511,14 +511,29 @@ async function netzZustand(): Promise<Record<string, unknown>> {
     grund = 'NetworkManager (nmcli) nicht gefunden — Ändern deaktiviert, Anzeige funktioniert';
   }
 
-  // NTP-Zustand
+  // NTP-Zustand: konfigurierter Server (Drop-in/Conf) UND der tatsächlich
+  // verwendete (timesyncd-Laufzeitdaten — deckt auch DHCP-gelieferte ab).
   let ntpSync: boolean | null = null;
   let ntpServer: string | null = null;
+  let ntpAktiv: string | null = null;
   try {
     const td = await kommando('timedatectl', ['show']);
     ntpSync = /NTPSynchronized=yes/.test(td);
   } catch {
     /* timedatectl fehlt */
+  }
+  try {
+    const ts = await kommando('timedatectl', ['show-timesync']);
+    const server = /^ServerName=(.+)$/m.exec(ts)?.[1]?.trim();
+    if (server !== undefined && server !== '') ntpAktiv = server;
+    else {
+      const fallback = /^FallbackNTPServers=(.+)$/m.exec(ts)?.[1]?.trim();
+      if (fallback !== undefined && fallback !== '') {
+        ntpAktiv = `${fallback.split(' ')[0]} (Fallback)`;
+      }
+    }
+  } catch {
+    /* show-timesync nicht verfügbar */
   }
   for (const pfad of [
     '/etc/systemd/timesyncd.conf.d/asksin.conf',
@@ -545,7 +560,7 @@ async function netzZustand(): Promise<Record<string, unknown>> {
     adressen,
     gateway,
     dns,
-    ntp: { server: ntpServer, sync: ntpSync },
+    ntp: { server: ntpServer, aktiv: ntpAktiv, sync: ntpSync },
   };
 }
 

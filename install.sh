@@ -212,6 +212,19 @@ if [ "$STATUSANZEIGE" -eq 1 ]; then
     c_warn "bestueckt sein statt R4 - die SPI-Variante (GPIO10)."
 fi
 
+# --- Zeitbasis: NTP-Vorgabe de.pool.ntp.org -----------------------------------
+# Der Verbund braucht synchrone Uhren. Ist nirgends ein NTP-Server
+# konfiguriert (auch keiner per DHCP/Netzwerkseite gesetzt), gilt die
+# Projektvorgabe. Idempotent - vorhandene Konfiguration bleibt unberuehrt.
+if [ ! -f /etc/systemd/timesyncd.conf.d/asksin.conf ] \
+   && ! grep -q '^NTP=' /etc/systemd/timesyncd.conf 2>/dev/null; then
+    mkdir -p /etc/systemd/timesyncd.conf.d
+    printf '[Time]\nNTP=de.pool.ntp.org\n' > /etc/systemd/timesyncd.conf.d/asksin.conf
+    timedatectl set-ntp true 2>/dev/null || true
+    systemctl try-restart systemd-timesyncd 2>/dev/null || true
+    c_ok "NTP-Vorgabe gesetzt: de.pool.ntp.org"
+fi
+
 # --- udev-Regel (fester Geraetename /dev/asksin-hat) --------------------------
 install -m 0644 "$INSTALL_DIR/hardware/99-asksin-analyzer.rules" /etc/udev/rules.d/
 udevadm control --reload && udevadm trigger || true

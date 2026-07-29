@@ -18,7 +18,6 @@ import type { NetzwerkStatus, NetzwerkZustand, VerbundPeerEintrag } from '../api
 
 const standort = ref('');
 const ccuip = ref('');
-const ntp = ref('');
 const token = ref(authToken());
 const demoAktiv = ref(false);
 const meldung = ref<{ art: 'ok' | 'fehler'; text: string } | null>(null);
@@ -29,7 +28,6 @@ onMounted(async () => {
     const c = await holeKonfiguration();
     standort.value = c.standort;
     ccuip.value = c.ccuip;
-    ntp.value = c.ntp;
     demoAktiv.value = c.demo === 1;
   } catch {
     meldung.value = { art: 'fehler', text: 'Konfiguration nicht abrufbar — Core erreichbar?' };
@@ -57,7 +55,6 @@ const speichern = (): Promise<void> =>
     sende('/setConfig', {
       standort: standort.value,
       ccuip: ccuip.value,
-      ntp: ntp.value,
     }));
 
 function tokenSpeichern(): void {
@@ -271,10 +268,6 @@ const demoUmschalten = (): Promise<void> | undefined => {
       <span class="name">CCU / RaspberryMatic (IP oder Hostname) — Quelle der Gerätenamen</span>
       <input type="text" v-model="ccuip" placeholder="z. B. 192.168.1.50" />
     </label>
-    <label class="feld">
-      <span class="name">NTP-Server (optional, sonst Systemvorgabe)</span>
-      <input type="text" v-model="ntp" placeholder="z. B. pool.ntp.org" />
-    </label>
     <button class="primaer" :disabled="beschaeftigt" @click="speichern">Speichern</button>
     <div class="fussnote">
       Netzwerk und Hostname des Raspberry Pi werden bewusst nicht über die
@@ -364,11 +357,14 @@ const demoUmschalten = (): Promise<void> | undefined => {
           </tr>
           <tr><td class="gedimmt">Hostname</td><td>{{ netz.hostname }}</td></tr>
           <tr>
-            <td class="gedimmt">NTP</td>
+            <td class="gedimmt">NTP aktuell</td>
             <td>
-              {{ netz.ntp.server ?? 'Systemvorgabe' }}
+              {{ netz.ntp.aktiv ?? netz.ntp.server ?? 'de.pool.ntp.org (Vorgabe)' }}
               <span :class="netz.ntp.sync === true ? 'gut' : 'mittel'">
                 {{ netz.ntp.sync === true ? '· synchron' : netz.ntp.sync === false ? '· NICHT synchron' : '' }}
+              </span>
+              <span class="gedimmt" v-if="netz.ntp.server !== null && netz.ntp.aktiv !== null && netz.ntp.server !== netz.ntp.aktiv">
+                (konfiguriert: {{ netz.ntp.server }})
               </span>
             </td>
           </tr>
@@ -411,8 +407,8 @@ const demoUmschalten = (): Promise<void> | undefined => {
         <input type="text" v-model="netzForm.hostname" />
       </label>
       <label class="feld">
-        <span class="name">NTP-Server (leer = Systemvorgabe)</span>
-        <input type="text" v-model="netzForm.ntp" placeholder="z. B. pool.ntp.org" />
+        <span class="name">NTP-Server (leer = de.pool.ntp.org)</span>
+        <input type="text" v-model="netzForm.ntp" placeholder="de.pool.ntp.org" />
       </label>
       <button class="gefahr" :disabled="beschaeftigt" @click="netzUebernehmen">
         Netzwerk übernehmen … (90 s Probezeit)

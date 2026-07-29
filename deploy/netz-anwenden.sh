@@ -59,13 +59,12 @@ hostname_setzen() {
 }
 
 ntp_setzen() {
-    local server="$1"
-    if [ -n "$server" ]; then
-        mkdir -p /etc/systemd/timesyncd.conf.d
-        printf '[Time]\nNTP=%s\n' "$server" > /etc/systemd/timesyncd.conf.d/asksin.conf
-    else
-        rm -f /etc/systemd/timesyncd.conf.d/asksin.conf
-    fi
+    # Leer = Projektvorgabe: liefert das Netz (DHCP) keinen Server,
+    # verwenden wir de.pool.ntp.org.
+    local server="${1:-de.pool.ntp.org}"
+    [ -z "$server" ] && server="de.pool.ntp.org"
+    mkdir -p /etc/systemd/timesyncd.conf.d
+    printf '[Time]\nNTP=%s\n' "$server" > /etc/systemd/timesyncd.conf.d/asksin.conf
     timedatectl set-ntp true 2>/dev/null || true
     systemctl try-restart systemd-timesyncd 2>/dev/null || true
 }
