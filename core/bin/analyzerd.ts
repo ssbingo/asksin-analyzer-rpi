@@ -60,7 +60,9 @@ interface Konfiguration {
   /** Dauerhaft simulierte Daten — üblicherweise steuert das die Flag-Datei
    *  im Datenverzeichnis (Schalter „Demo" in den Einstellungen). */
   demo?: boolean;
-  /** Standortname dieses Analyzers (M9.1), z. B. „Keller". Leer: erst die
+  /** Standortname dieses Analyzers (M9.1), z. B. „Keller" — ein REINES
+   *  Anzeige-Etikett für Verbund/UI/APIs. Der Hostname des Systems wird
+   *  nie verändert, nur als Vorgabe-Beschriftung gelesen. Leer: erst die
    *  über die Weboberfläche gesetzte Datei, sonst der Hostname. */
   standort?: string;
 }

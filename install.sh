@@ -168,7 +168,7 @@ fi
 if [ "$KONFIGURIEREN" -eq 1 ]; then
     if have_tty; then
         c_info "Konfigurations-Assistent (Enter = Vorgabe uebernehmen)"
-        STANDORT="$(ask_tty "  Standortname dieses Analyzers, z. B. Keller [$(hostname)]: ")"
+        STANDORT="$(ask_tty "  Standortname (reine Anzeige, aendert den Hostnamen NICHT), z. B. Keller [$(hostname)]: ")"
         STANDORT="${STANDORT:-$(hostname)}"
         CCU="$(ask_tty '  IP/Hostname der CCU/RaspberryMatic (leer = keine Namensaufloesung): ')"
         PORT="$(ask_tty '  HTTP-Port [8080]: ')"; PORT="${PORT:-8080}"

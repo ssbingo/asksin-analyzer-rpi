@@ -82,7 +82,7 @@ const demoUmschalten = (): Promise<void> | undefined => {
   <div class="panel">
     <h3 style="margin-top: 0">Standort &amp; Zentrale</h3>
     <label class="feld">
-      <span class="name">Standortname dieses Analyzers — unterscheidet mehrere Geräte im Verbund</span>
+      <span class="name">Standortname — reines Anzeige-Etikett für den Verbund; ändert den Hostnamen des Pi NICHT</span>
       <input type="text" v-model="standort" placeholder="z. B. Keller, DG-Ost" />
     </label>
     <label class="feld">
