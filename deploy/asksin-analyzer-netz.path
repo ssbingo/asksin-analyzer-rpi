@@ -1,0 +1,13 @@
+# Beobachtet Auftrags- und Bestaetigungs-Datei der Netzwerkeinstellungen
+# (M7.6). Wie beim Update: der unprivilegierte Dienst legt nur Dateien an,
+# die Aenderung selbst laeuft als root ueber netz-anwenden.sh.
+[Unit]
+Description=AskSin-Analyzer: Netzwerk-Ausloeser
+
+[Path]
+PathExists=/var/lib/asksin-analyzer/netz-auftrag.json
+PathExists=/var/lib/asksin-analyzer/netz-bestaetigen
+Unit=asksin-analyzer-netz.service
+
+[Install]
+WantedBy=multi-user.target

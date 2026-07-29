@@ -21,7 +21,9 @@ import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import { ApiServer } from '../src/api/server.ts';
-import type { UpdateHooks } from '../src/api/server.ts';
+import type { NetzwerkHooks, UpdateHooks } from '../src/api/server.ts';
+import { VerbundDienst } from '../src/verbund/verbund.ts';
+import type { PeerKonfig } from '../src/verbund/verbund.ts';
 import { demoDevListFetch, demoPortOpener } from '../src/demo/port.ts';
 import { DEFAULT_BAUD, DEFAULT_DEVICE, sttyPortOpener } from '../src/ingest/sttyPort.ts';
 import { openDatabase } from '../src/persist/db.ts';
@@ -65,6 +67,11 @@ interface Konfiguration {
    *  nie verändert, nur als Vorgabe-Beschriftung gelesen. Leer: erst die
    *  über die Weboberfläche gesetzte Datei, sonst der Hostname. */
   standort?: string;
+  /** Verbund-Rolle (M9.2): genau EIN Analyzer bekommt hier die anderen
+   *  eingetragen; die eigene Instanz wird automatisch ergänzt. */
+  verbund?: {
+    peers?: Array<{ name?: string; url: string; token?: string }>;
+  };
 }
 
 const VORGABEN: Konfiguration = {
@@ -308,6 +315,201 @@ const updateHooks: UpdateHooks = {
   },
 };
 
+// ---- Verbund-Rolle (M9.2) ------------------------------------------------
+// Nur aktiv, wenn Peers konfiguriert sind. Die eigene Instanz kommt
+// automatisch als erster Eintrag dazu (über localhost) — die Übersicht
+// zeigt damit immer ALLE Standorte inklusive des Masters.
+
+const peerListe: PeerKonfig[] = (konfig.verbund?.peers ?? []).filter(
+  (p): p is { url: string } & typeof p => typeof p.url === 'string' && p.url !== '',
+);
+const verbund =
+  peerListe.length === 0
+    ? undefined
+    : new VerbundDienst({
+        peers: [
+          {
+            name: standort,
+            url: `http://127.0.0.1:${konfig.http.port}`,
+            ...(konfig.http.authToken === '' ? {} : { token: konfig.http.authToken }),
+          },
+          ...peerListe,
+        ],
+      });
+if (verbund !== undefined) {
+  log(`Verbund-Rolle aktiv: ${peerListe.length} Peer(s) + eigener Standort`);
+}
+
+// ---- Netzwerkeinstellungen (M7.6) ---------------------------------------
+// Lesen ohne Root; Ändern über Auftragsdatei → systemd-Path-Unit →
+// deploy/netz-anwenden.sh (Probezeit + Rollback). docs/netzwerkeinstellungen.md.
+
+const netzAuftrag = join(datenDir, 'netz-auftrag.json');
+const netzBestaetigen = join(datenDir, 'netz-bestaetigen');
+const netzStatusDatei = join(datenDir, 'netz-status.json');
+
+const IPV4 = /^(\d{1,3})(\.\d{1,3}){3}$/;
+const HOSTNAME_OK = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$/;
+
+async function kommando(cmd: string, args: string[]): Promise<string> {
+  const { stdout } = await execFileAsync(cmd, args, { timeout: 10_000 });
+  return stdout;
+}
+
+async function netzZustand(): Promise<Record<string, unknown>> {
+  // Standardroute → Schnittstelle + Gateway
+  let iface: string | null = null;
+  let gateway: string | null = null;
+  try {
+    const routen = JSON.parse(await kommando('ip', ['-j', 'route', 'show', 'default'])) as Array<
+      Record<string, unknown>
+    >;
+    iface = (routen[0]?.['dev'] as string | undefined) ?? null;
+    gateway = (routen[0]?.['gateway'] as string | undefined) ?? null;
+  } catch {
+    /* keine Standardroute */
+  }
+
+  const adressen: Array<{ address: string; prefix: number }> = [];
+  try {
+    const geraete = JSON.parse(await kommando('ip', ['-j', 'addr', 'show'])) as Array<
+      Record<string, unknown>
+    >;
+    for (const g of geraete) {
+      if (iface !== null && g['ifname'] !== iface) continue;
+      for (const a of (g['addr_info'] as Array<Record<string, unknown>> | undefined) ?? []) {
+        if (a['family'] === 'inet' && typeof a['local'] === 'string') {
+          adressen.push({ address: a['local'], prefix: Number(a['prefixlen'] ?? 24) });
+        }
+      }
+    }
+  } catch {
+    /* ip nicht verfügbar — bleibt leer */
+  }
+
+  let dns: string[] = [];
+  try {
+    dns = readFileSync('/etc/resolv.conf', 'utf8')
+      .split('\n')
+      .filter((z) => z.startsWith('nameserver '))
+      .map((z) => z.slice('nameserver '.length).trim());
+  } catch {
+    /* keine resolv.conf */
+  }
+
+  // Methode + Änderbarkeit über NetworkManager
+  let methode: 'dhcp' | 'statisch' | 'unbekannt' = 'unbekannt';
+  let verbindung: string | null = null;
+  let aenderbar = false;
+  let grund: string | null = null;
+  try {
+    const aktiv = await kommando('nmcli', ['-t', '-f', 'NAME,DEVICE', 'connection', 'show', '--active']);
+    for (const zeile of aktiv.trim().split('\n')) {
+      const [name, dev] = zeile.split(':');
+      if (dev === iface && name !== undefined) verbindung = name;
+    }
+    if (verbindung !== null) {
+      const m = (await kommando('nmcli', ['-t', '-f', 'ipv4.method', 'connection', 'show', verbindung])).trim();
+      methode = m.endsWith('auto') ? 'dhcp' : m.endsWith('manual') ? 'statisch' : 'unbekannt';
+      aenderbar = true;
+    } else {
+      grund = 'Keine aktive NetworkManager-Verbindung für die Schnittstelle gefunden';
+    }
+  } catch {
+    grund = 'NetworkManager (nmcli) nicht gefunden — Ändern deaktiviert, Anzeige funktioniert';
+  }
+
+  // NTP-Zustand
+  let ntpSync: boolean | null = null;
+  let ntpServer: string | null = null;
+  try {
+    const td = await kommando('timedatectl', ['show']);
+    ntpSync = /NTPSynchronized=yes/.test(td);
+  } catch {
+    /* timedatectl fehlt */
+  }
+  for (const pfad of [
+    '/etc/systemd/timesyncd.conf.d/asksin.conf',
+    '/etc/systemd/timesyncd.conf',
+  ]) {
+    try {
+      const m = /^NTP=(.+)$/m.exec(readFileSync(pfad, 'utf8'));
+      if (m !== null && m[1]!.trim() !== '') {
+        ntpServer = m[1]!.trim();
+        break;
+      }
+    } catch {
+      /* Datei fehlt */
+    }
+  }
+
+  return {
+    hostname: hostname(),
+    iface,
+    verbindung,
+    methode,
+    aenderbar,
+    grund,
+    adressen,
+    gateway,
+    dns,
+    ntp: { server: ntpServer, sync: ntpSync },
+  };
+}
+
+function leseNetzStatus(): Record<string, unknown> | null {
+  try {
+    return JSON.parse(readFileSync(netzStatusDatei, 'utf8')) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
+const netzwerkHooks: NetzwerkHooks = {
+  zustand: netzZustand,
+  status: leseNetzStatus,
+  anwenden: (auftrag) => {
+    const status = leseNetzStatus();
+    if (status !== null && status['running'] === true) return false;
+    const methode = auftrag['method'];
+    if (methode !== 'dhcp' && methode !== 'statisch') {
+      throw new Error('method muss dhcp oder statisch sein');
+    }
+    if (methode === 'statisch') {
+      if (typeof auftrag['address'] !== 'string' || !IPV4.test(auftrag['address'])) {
+        throw new Error('address: keine gültige IPv4-Adresse');
+      }
+      const prefix = Number(auftrag['prefix']);
+      if (!Number.isInteger(prefix) || prefix < 1 || prefix > 32) {
+        throw new Error('prefix: 1–32 erwartet');
+      }
+      if (typeof auftrag['gateway'] !== 'string' || !IPV4.test(auftrag['gateway'])) {
+        throw new Error('gateway: keine gültige IPv4-Adresse');
+      }
+      const dns = auftrag['dns'];
+      if (!Array.isArray(dns) || dns.some((d) => typeof d !== 'string' || !IPV4.test(d))) {
+        throw new Error('dns: Liste gültiger IPv4-Adressen erwartet');
+      }
+    }
+    const neuerHostname = auftrag['hostname'];
+    if (
+      neuerHostname !== undefined &&
+      neuerHostname !== '' &&
+      (typeof neuerHostname !== 'string' || !HOSTNAME_OK.test(neuerHostname))
+    ) {
+      throw new Error('hostname: nur Buchstaben, Ziffern und Bindestriche');
+    }
+    writeFileSync(netzAuftrag, JSON.stringify(auftrag, null, 2));
+    log('Netzwerk-Auftrag abgelegt — Probezeit beginnt (netz-anwenden.sh)');
+    return true;
+  },
+  bestaetigen: () => {
+    writeFileSync(netzBestaetigen, `${new Date().toISOString()}\n`);
+    log('Netzwerkeinstellungen bestätigt — werden dauerhaft übernommen');
+    return true;
+  },
+};
+
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
 const api = new ApiServer({
   analyzer,
@@ -318,6 +520,8 @@ const api = new ApiServer({
   ...(konfig.http.authToken === '' ? {} : { authToken: konfig.http.authToken }),
   ...(existsSync(uiDir) ? { uiDir } : {}),
   update: updateHooks,
+  ...(verbund === undefined ? {} : { verbund }),
+  netzwerk: netzwerkHooks,
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');
     void herunterfahren(0);

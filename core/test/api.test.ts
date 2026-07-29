@@ -42,6 +42,8 @@ async function aufbau(t: TestContext, extra: {
   onReboot?: () => void;
   uiDir?: string;
   update?: import('../src/api/server.ts').UpdateHooks;
+  verbund?: { uebersicht(): Promise<unknown> };
+  netzwerk?: import('../src/api/server.ts').NetzwerkHooks;
 } = {}): Promise<Aufbau> {
   const time = new FakeTime();
   const ports: FakePort[] = [];
@@ -78,6 +80,8 @@ async function aufbau(t: TestContext, extra: {
     ...(extra.onReboot === undefined ? {} : { onReboot: extra.onReboot }),
     ...(extra.uiDir === undefined ? {} : { uiDir: extra.uiDir }),
     ...(extra.update === undefined ? {} : { update: extra.update }),
+    ...(extra.verbund === undefined ? {} : { verbund: extra.verbund }),
+    ...(extra.netzwerk === undefined ? {} : { netzwerk: extra.netzwerk }),
     time,
     onSetConfig: (c) => {
       gesetzt.push(c);
@@ -417,6 +421,87 @@ test('/api/update/*: mit gesetztem Token ist ALLES auth-pflichtig', async (t) =>
       })
     ).status,
     200,
+  );
+});
+
+// ---------------------------------------------------------------- Verbund + Netzwerk
+
+test('/api/verbund und /api/netzwerk: 501 ohne Rolle, mit Hooks voller Ablauf', async (t) => {
+  const ohne = await aufbau(t);
+  assert.equal((await fetch(`${ohne.base}/api/verbund`)).status, 501);
+  assert.equal((await fetch(`${ohne.base}/api/netzwerk`)).status, 501);
+
+  const auftraege: Array<Record<string, unknown>> = [];
+  let bestaetigt = 0;
+  const mit = await aufbau(t, {
+    verbund: {
+      uebersicht: () => Promise.resolve({ ts: 1, driftWarnMs: 1000, peers: [] }),
+    },
+    netzwerk: {
+      zustand: () =>
+        Promise.resolve({ hostname: 'pi', methode: 'dhcp', aenderbar: true }),
+      anwenden: (a) => {
+        auftraege.push(a);
+        return auftraege.length === 1;         // zweiter Auftrag: läuft bereits
+      },
+      bestaetigen: () => {
+        bestaetigt++;
+        return true;
+      },
+      status: () => (auftraege.length === 0 ? null : { running: true, step: 'probe' }),
+    },
+  });
+
+  const v = (await (await fetch(`${mit.base}/api/verbund`)).json()) as Record<string, unknown>;
+  assert.equal(v['driftWarnMs'], 1000);
+
+  const z = (await (await fetch(`${mit.base}/api/netzwerk`)).json()) as Record<string, unknown>;
+  assert.equal(z['methode'], 'dhcp');
+
+  const kaputt = await fetch(`${mit.base}/api/netzwerk`, { method: 'POST', body: 'kein json' });
+  assert.equal(kaputt.status, 400);
+
+  const ok = await fetch(`${mit.base}/api/netzwerk`, {
+    method: 'POST',
+    body: JSON.stringify({ method: 'statisch', address: '192.168.1.80' }),
+  });
+  assert.equal(ok.status, 202);
+  assert.equal(auftraege[0]!['address'], '192.168.1.80');
+
+  assert.equal(
+    (await fetch(`${mit.base}/api/netzwerk`, { method: 'POST', body: '{}' })).status,
+    409,
+    'zweiter Auftrag während der Probezeit wird abgewiesen',
+  );
+
+  const s = (await (await fetch(`${mit.base}/api/netzwerk/status`)).json()) as Record<string, unknown>;
+  assert.equal(s['step'], 'probe');
+
+  assert.equal(
+    (await fetch(`${mit.base}/api/netzwerk/bestaetigen`, { method: 'POST' })).status,
+    200,
+  );
+  assert.equal(bestaetigt, 1);
+});
+
+test('/api/netzwerk: verändernde Aufrufe sind mit Token auth-pflichtig', async (t) => {
+  const a = await aufbau(t, {
+    authToken: 'geheim',
+    netzwerk: {
+      zustand: () => Promise.resolve({}),
+      anwenden: () => true,
+      bestaetigen: () => true,
+      status: () => null,
+    },
+  });
+  assert.equal((await fetch(`${a.base}/api/netzwerk`)).status, 200, 'Lesen bleibt offen');
+  assert.equal(
+    (await fetch(`${a.base}/api/netzwerk`, { method: 'POST', body: '{}' })).status,
+    401,
+  );
+  assert.equal(
+    (await fetch(`${a.base}/api/netzwerk/bestaetigen`, { method: 'POST' })).status,
+    401,
   );
 });
 

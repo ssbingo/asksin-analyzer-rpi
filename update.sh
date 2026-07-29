@@ -68,9 +68,14 @@ installiere_dateien() {
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer.service" /etc/systemd/system/asksin-analyzer.service
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.service" /etc/systemd/system/
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.path" /etc/systemd/system/
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.service" /etc/systemd/system/ 2>/dev/null || true
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
+    # jq braucht netz-anwenden.sh (M7.6); auf Bestandsanlagen nachziehen:
+    command -v jq >/dev/null 2>&1 || apt-get install -y -qq jq || true
     systemctl daemon-reload
     systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
+    systemctl enable --now asksin-analyzer-netz.path >/dev/null 2>&1 || true
 }
 
 gesund() {

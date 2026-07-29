@@ -212,6 +212,87 @@ export const holeUpdateStatus = (): Promise<UpdateStatus> =>
 export const starteCoreUpdate = (): Promise<Response> =>
   sende('/api/update/core');
 
+// ---- Verbund (M9.2) ------------------------------------------------------
+
+export interface VerbundPeer {
+  name: string;
+  url: string;
+  erreichbar: boolean;
+  fehler: string | null;
+  standort: string | null;
+  version: string | null;
+  connected: boolean | null;
+  demo: boolean | null;
+  updateVerfuegbar: boolean | null;
+  telegramsPerMinute: number | null;
+  noiseFloor: number | null;
+  deviceCount: number | null;
+  maxDutyCycle: { name: string; percent: number } | null;
+  zeitdriftMs: number | null;
+}
+
+export interface VerbundUebersicht {
+  ts: number;
+  driftWarnMs: number;
+  peers: VerbundPeer[];
+}
+
+export const holeVerbund = (): Promise<VerbundUebersicht> => hole('/api/verbund');
+
+// ---- Netzwerkeinstellungen (M7.6) ---------------------------------------
+
+export interface NetzwerkZustand {
+  hostname: string;
+  iface: string | null;
+  verbindung: string | null;
+  methode: 'dhcp' | 'statisch' | 'unbekannt';
+  aenderbar: boolean;
+  grund: string | null;
+  adressen: Array<{ address: string; prefix: number }>;
+  gateway: string | null;
+  dns: string[];
+  ntp: { server: string | null; sync: boolean | null };
+}
+
+export interface NetzwerkStatus {
+  running: boolean;
+  step?: string;
+  ok?: boolean | null;
+  deadline?: number | null;
+  updatedAt?: number;
+}
+
+export interface NetzwerkAuftrag {
+  method: 'dhcp' | 'statisch';
+  address?: string;
+  prefix?: number;
+  gateway?: string;
+  dns?: string[];
+  hostname?: string;
+  ntp?: string;
+}
+
+export const holeNetzwerk = (): Promise<NetzwerkZustand> => hole('/api/netzwerk');
+export const holeNetzwerkStatus = (): Promise<NetzwerkStatus> =>
+  hole('/api/netzwerk/status');
+export const bestaetigeNetzwerk = (): Promise<Response> =>
+  sende('/api/netzwerk/bestaetigen');
+
+export async function sendeNetzwerk(auftrag: NetzwerkAuftrag): Promise<void> {
+  const res = await fetch('/api/netzwerk', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify(auftrag),
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (res.status === 409) {
+    throw new Error('Es läuft bereits ein Netzwerk-Auftrag (Probezeit).');
+  }
+  if (!res.ok) throw new Error(await res.text());
+}
+
 export async function flasheFirmware(
   datei: File,
 ): Promise<{ ok: boolean; log: string }> {

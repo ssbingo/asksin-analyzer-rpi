@@ -1,0 +1,9 @@
+# Wird von asksin-analyzer-netz.path gestartet; netz-anwenden.sh raeumt die
+# Trigger-Dateien selbst weg und schreibt seinen Fortschritt nach
+# /var/lib/asksin-analyzer/netz-status.json (Probezeit + Rollback).
+[Unit]
+Description=AskSin-Analyzer: Netzwerkeinstellungen anwenden
+
+[Service]
+Type=oneshot
+ExecStart=/opt/asksin-analyzer/deploy/netz-anwenden.sh

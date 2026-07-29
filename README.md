@@ -24,8 +24,9 @@ laufenden Gerät.
 | Web-UI (Nachbau, eigener Code, MIT) | ✅ fertig: Vue 3 + ECharts, vom Core ausgeliefert (M5.5) |
 | Demo-Modus (simulierte Anlage) | ✅ fertig, Schalter in den Einstellungen (v0.0.3) |
 | Update-Pfade (Core-Self-Update, 328P-Flash) | ✅ fertig (M7.5, v0.0.4) |
-| Netzwerkeinstellungen über die Web-UI | 📋 geplant (M7.6, [`docs/netzwerkeinstellungen.md`](docs/netzwerkeinstellungen.md)) |
-| Verbund: 5 Analyzer als Gesamtsystem | 🔨 in Arbeit — M9.1 Standort-Identität ✅ ([`docs/verbund.md`](docs/verbund.md)) |
+| Netzwerkeinstellungen über die Web-UI | ✅ gebaut (M7.6) — Praxistest auf dem Pi ausstehend |
+| Status-LED + OLED integriert | 📋 geplant (M11, [`docs/status-led-oled.md`](docs/status-led-oled.md)) |
+| Verbund: 5 Analyzer als Gesamtsystem | 🔨 in Arbeit — M9.1 ✅, M9.2 Dashboard ✅ ([`docs/verbund.md`](docs/verbund.md)) |
 | ioBroker-Adapter | 📋 geplant (M6, mehrinstanzfähig) |
 
 ## Installation auf dem Raspberry Pi

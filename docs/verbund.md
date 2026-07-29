@@ -116,7 +116,7 @@ mit drei RSSI-Werten.
 
 1. **M7.5** — Update-Pfade ✅ (v0.0.4; Basis für M9.4)
 2. **M9.1** — Standort-Identität ✅
-3. **M9.2 + M7.6** — Verbund-Dashboard **und** Netzwerkeinstellungen über
+3. **M9.2 + M7.6** ✅ — Verbund-Dashboard **und** Netzwerkeinstellungen über
    die Web-UI ([`netzwerkeinstellungen.md`](netzwerkeinstellungen.md)) —
    gemeinsam umgesetzt, gleiche Mechanik (Auftragsdatei/Path-Unit/Status)
 4. **M9.3 → M9.4** — Matrix/Dedup, Flotten-Update

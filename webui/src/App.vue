@@ -39,6 +39,7 @@ nutzeTakt(async () => {
     <nav class="haupt">
       <RouterLink to="/home">Übersicht</RouterLink>
       <RouterLink to="/list">Telegramme</RouterLink>
+      <RouterLink to="/verbund">Verbund</RouterLink>
       <RouterLink to="/settings">Einstellungen</RouterLink>
       <RouterLink to="/info">Info</RouterLink>
     </nav>

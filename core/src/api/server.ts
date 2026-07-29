@@ -75,6 +75,26 @@ export interface ApiServerOptions {
   uiDir?: string;
   /** Update-Mechanik (liefert analyzerd). Ohne Hooks: 501 auf /api/update/*. */
   update?: UpdateHooks;
+  /** Verbund-Rolle (M9.2): Übersicht aller Peers. Ohne: 501 auf /api/verbund. */
+  verbund?: { uebersicht(): Promise<unknown> };
+  /** Netzwerkeinstellungen (M7.6). Ohne Hooks: 501 auf /api/netzwerk*. */
+  netzwerk?: NetzwerkHooks;
+}
+
+/**
+ * Netzwerk-Mechanik ist Deployment-Sache (nmcli, hostnamectl, Probezeit-
+ * Rollback über die systemd-Path-Unit) — der Server kennt nur diese
+ * Schnittstelle. Details: docs/netzwerkeinstellungen.md.
+ */
+export interface NetzwerkHooks {
+  /** Ist-Zustand inkl. DHCP-Zuweisungen — reine Anzeige, ohne Root lesbar. */
+  zustand(): Promise<unknown>;
+  /** Legt den Auftrag ab (Probezeit beginnt); false = einer läuft bereits. */
+  anwenden(auftrag: Record<string, unknown>): boolean | Promise<boolean>;
+  /** Bestätigt die Probe-Einstellungen als dauerhaft. */
+  bestaetigen(): boolean;
+  /** Fortschritt/Ergebnis aus der Statusdatei oder null. */
+  status(): unknown;
 }
 
 /**
@@ -240,6 +260,23 @@ export class ApiServer {
           if (hooks === undefined) return this.#text(res, 501, 'Kein Update-Mechanismus');
           return this.#json(res, 200, hooks.updateStatus() ?? { running: false });
         }
+        case '/api/verbund': {
+          const verbund = this.#opts.verbund;
+          if (verbund === undefined) {
+            return this.#text(res, 501, 'Keine Verbund-Rolle konfiguriert');
+          }
+          return this.#json(res, 200, await verbund.uebersicht());
+        }
+        case '/api/netzwerk': {
+          const netz = this.#opts.netzwerk;
+          if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
+          return this.#json(res, 200, await netz.zustand());
+        }
+        case '/api/netzwerk/status': {
+          const netz = this.#opts.netzwerk;
+          if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
+          return this.#json(res, 200, netz.status() ?? { running: false });
+        }
       }
       // Alles Übrige: das gebaute Web-UI (mit SPA-Fallback).
       if (this.#opts.uiDir !== undefined && !pfad.startsWith('/api/')) {
@@ -259,6 +296,29 @@ export class ApiServer {
           res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('Update angestoßen — Fortschritt unter /api/update/status');
           return;
+        }
+        case '/api/netzwerk': {
+          if (!this.#autorisiert(req, res)) return;
+          const netz = this.#opts.netzwerk;
+          if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
+          let auftrag: Record<string, unknown>;
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            return this.#text(res, 400, 'Body muss JSON sein');
+          }
+          const angenommen = await netz.anwenden(auftrag);
+          if (!angenommen) return this.#text(res, 409, 'Ein Netzwerk-Auftrag läuft bereits');
+          res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('Auftrag angenommen — Probezeit läuft, Status unter /api/netzwerk/status');
+          return;
+        }
+        case '/api/netzwerk/bestaetigen': {
+          if (!this.#autorisiert(req, res)) return;
+          const netz = this.#opts.netzwerk;
+          if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
+          netz.bestaetigen();
+          return this.#text(res, 200, 'OK — Einstellungen werden dauerhaft übernommen');
         }
         case '/api/update/firmware': {
           if (!this.#autorisiert(req, res)) return;

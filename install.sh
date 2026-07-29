@@ -66,8 +66,8 @@ export DEBIAN_FRONTEND=noninteractive
 # npm soll nicht bei jedem Lauf fuer seine eigene neue Version werben:
 export npm_config_update_notifier=false
 apt-get update -qq
-# gpiod: 328P-Reset ueber GPIO4; avrdude: spaeteres Firmware-Flashen
-apt-get install -y -qq git curl ca-certificates gpiod avrdude
+# gpiod: 328P-Reset ueber GPIO4; avrdude: Firmware-Flash; jq: netz-anwenden.sh
+apt-get install -y -qq git curl ca-certificates gpiod avrdude jq
 c_ok "System-Pakete installiert."
 
 # --- Node.js ------------------------------------------------------------------
@@ -208,9 +208,12 @@ c_info "Richte systemd-Dienste ein..."
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer.service" "$SERVICE_FILE"
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.service" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.path" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.service" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.path" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable asksin-analyzer.service >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
+systemctl enable --now asksin-analyzer-netz.path >/dev/null 2>&1 || true
 systemctl restart asksin-analyzer.service
 c_ok "Dienst aktiviert und gestartet (Updates aus der Weboberflaeche moeglich)."
 
