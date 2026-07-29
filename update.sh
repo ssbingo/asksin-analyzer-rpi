@@ -57,6 +57,17 @@ port() {
     grep -o '"port": *[0-9]*' "$CONFIG_FILE" 2>/dev/null | grep -o '[0-9]*' || echo 8080
 }
 
+# Units und Wrapper auf den Stand aus /opt bringen — idempotent; laeuft auch
+# im „bereits aktuell"-Fall, damit neue Unit-Dateien nie liegenbleiben.
+installiere_dateien() {
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer.service" /etc/systemd/system/asksin-analyzer.service
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.service" /etc/systemd/system/
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.path" /etc/systemd/system/
+    install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
+    systemctl daemon-reload
+    systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
+}
+
 gesund() {
     curl -fsS --max-time 2 "http://127.0.0.1:$(port)/api/health" 2>/dev/null \
         | grep -q '"ok":true'
@@ -85,6 +96,7 @@ NACHHER="$(git -C "$INSTALL_DIR" rev-parse --short HEAD)"
 
 if [ "$VORHER" = "$NACHHER" ]; then
     c_ok "Bereits aktuell ($NACHHER)."
+    installiere_dateien
     schreibe_status false "aktuell" true
     exit 0
 fi
@@ -103,13 +115,7 @@ c_ok "Web-UI gebaut und getauscht."
 
 # --- 3. Unit/Wrapper nachziehen, Dienst neu starten ---------------------------
 schreibe_status true "neustart" null
-install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer.service" /etc/systemd/system/asksin-analyzer.service
-install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.service" /etc/systemd/system/ 2>/dev/null || true
-install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.path" /etc/systemd/system/ 2>/dev/null || true
-install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
-systemctl daemon-reload
-# Web-Ausloeser scharf schalten (idempotent; noetig beim ersten Update auf M7.5):
-systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
+installiere_dateien
 systemctl restart asksin-analyzer.service
 
 # --- 4. Health-Check: kommt der Dienst mit dem neuen Stand hoch? --------------
