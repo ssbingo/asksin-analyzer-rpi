@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { authToken, holeKonfiguration, sende, setzeAuthToken } from '../api.ts';
 
+const standort = ref('');
 const ccuip = ref('');
 const ntp = ref('');
 const token = ref(authToken());
@@ -12,6 +13,7 @@ const beschaeftigt = ref(false);
 onMounted(async () => {
   try {
     const c = await holeKonfiguration();
+    standort.value = c.standort;
     ccuip.value = c.ccuip;
     ntp.value = c.ntp;
     demoAktiv.value = c.demo === 1;
@@ -34,7 +36,12 @@ async function aktion(name: string, fn: () => Promise<unknown>): Promise<void> {
 }
 
 const speichern = (): Promise<void> =>
-  aktion('Gespeichert', () => sende('/setConfig', { ccuip: ccuip.value, ntp: ntp.value }));
+  aktion('Gespeichert', () =>
+    sende('/setConfig', {
+      standort: standort.value,
+      ccuip: ccuip.value,
+      ntp: ntp.value,
+    }));
 
 function tokenSpeichern(): void {
   setzeAuthToken(token.value.trim());
@@ -73,7 +80,11 @@ const demoUmschalten = (): Promise<void> | undefined => {
   <div class="meldung" v-if="meldung !== null" :class="meldung.art">{{ meldung.text }}</div>
 
   <div class="panel">
-    <h3 style="margin-top: 0">Zentrale</h3>
+    <h3 style="margin-top: 0">Standort &amp; Zentrale</h3>
+    <label class="feld">
+      <span class="name">Standortname dieses Analyzers — unterscheidet mehrere Geräte im Verbund</span>
+      <input type="text" v-model="standort" placeholder="z. B. Keller, DG-Ost" />
+    </label>
     <label class="feld">
       <span class="name">CCU / RaspberryMatic (IP oder Hostname) — Quelle der Gerätenamen</span>
       <input type="text" v-model="ccuip" placeholder="z. B. 192.168.1.50" />

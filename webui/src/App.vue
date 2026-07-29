@@ -7,6 +7,7 @@ const verbunden = ref(false);
 const erreichbar = ref(false);
 const demo = ref(false);
 const updateVerfuegbar = ref(false);
+const standort = ref('');
 
 nutzeTakt(async () => {
   try {
@@ -15,6 +16,12 @@ nutzeTakt(async () => {
     verbunden.value = h.connected;
     demo.value = h.demo;
     updateVerfuegbar.value = h.updateVerfuegbar === true;
+    if (h.standort !== standort.value) {
+      standort.value = h.standort;
+      // Browser-Tabs mehrerer Analyzer bleiben so unterscheidbar:
+      document.title =
+        h.standort === '' ? 'AskSin-Analyzer' : `AskSin-Analyzer · ${h.standort}`;
+    }
   } catch {
     erreichbar.value = false;
     verbunden.value = false;
@@ -26,6 +33,9 @@ nutzeTakt(async () => {
 <template>
   <header class="kopf">
     <h1>AskSin-<span>Analyzer</span></h1>
+    <span v-if="standort !== ''" class="standort-badge" title="Standort dieses Analyzers">
+      {{ standort }}
+    </span>
     <nav class="haupt">
       <RouterLink to="/home">Übersicht</RouterLink>
       <RouterLink to="/list">Telegramme</RouterLink>

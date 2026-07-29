@@ -102,6 +102,8 @@ export interface Health {
   demo: boolean;
   /** Ergebnis des täglichen Selbstchecks des Dienstes. */
   updateVerfuegbar: boolean;
+  /** Standort-Identität dieses Analyzers (M9.1). */
+  standort: string;
 }
 
 /** /getConfig — die Felder, die die UI tatsächlich anzeigt. */
@@ -120,6 +122,7 @@ export interface Konfiguration {
   spiffssizekb: number;
   spiffsusedkb: number;
   demo: number;
+  standort: string;
   [weitere: string]: unknown;
 }
 

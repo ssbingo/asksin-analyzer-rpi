@@ -70,6 +70,17 @@ nav.haupt a:hover { color: var(--text); }
 }
 .status-punkt.verbunden::before { background: var(--gut); }
 
+.standort-badge {
+  padding: 0.1rem 0.6rem;
+  border-radius: 99px;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  color: var(--akzent);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .update-glocke {
   padding: 0.15rem 0.6rem;
   border-radius: 99px;

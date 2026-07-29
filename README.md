@@ -23,8 +23,8 @@ laufenden Gerät.
 | Core: REST-API inkl. XS-Kompat-Endpunkten | ✅ fertig, 108 Unit-Tests gesamt (M5) |
 | Web-UI (Nachbau, eigener Code, MIT) | ✅ fertig: Vue 3 + ECharts, vom Core ausgeliefert (M5.5) |
 | Demo-Modus (simulierte Anlage) | ✅ fertig, Schalter in den Einstellungen (v0.0.3) |
-| Update-Pfade (Core-Self-Update, 328P-Flash) | 🔨 als Nächstes (M7.5) |
-| Verbund: 5 Analyzer als Gesamtsystem | 📋 geplant (M9, [`docs/verbund.md`](docs/verbund.md)) |
+| Update-Pfade (Core-Self-Update, 328P-Flash) | ✅ fertig (M7.5, v0.0.4) |
+| Verbund: 5 Analyzer als Gesamtsystem | 🔨 in Arbeit — M9.1 Standort-Identität ✅ ([`docs/verbund.md`](docs/verbund.md)) |
 | ioBroker-Adapter | 📋 geplant (M6, mehrinstanzfähig) |
 
 ## Installation auf dem Raspberry Pi

@@ -72,7 +72,7 @@ async function aufbau(t: TestContext, extra: {
     db,
     ...(devList === undefined ? {} : { devList }),
     version: '0.0.1',
-    config: { ccuip: 'ccu.local' },
+    config: { ccuip: 'ccu.local', standort: 'Testkeller' },
     ...(extra.authToken === undefined ? {} : { authToken: extra.authToken }),
     ...(extra.maxLogBatch === undefined ? {} : { maxLogBatch: extra.maxLogBatch }),
     ...(extra.onReboot === undefined ? {} : { onReboot: extra.onReboot }),
@@ -170,6 +170,7 @@ test('getConfig: alle Felder der Info-Ansicht, sinnvoll umgedeutet', async (t) =
   assert.equal(c['version_upper'], 0);
   assert.equal(c['version_lower'], 0.1);
   assert.equal(c['ccuip'], 'ccu.local');
+  assert.equal(c['standort'], 'Testkeller');
   assert.equal(c['resolve'], 1);
   assert.equal(c['boottime'], Math.floor(T0 / 1000));
   assert.equal(c['sdcardavailable'], 0, 'keine SD-Karte auf dem Pi');
@@ -279,10 +280,14 @@ test('setConfig: Felder auch aus dem POST-Body (urlencoded)', async (t) => {
   const res = await fetch(`${a.base}/setConfig`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: 'ccuip=10.0.0.2&hostname=analyzer-keller&unbekannt=weg',
+    body: 'ccuip=10.0.0.2&hostname=analyzer-keller&standort=Flur+OG&unbekannt=weg',
   });
   assert.equal(res.status, 200);
-  assert.deepEqual(a.gesetzt, [{ ccuip: '10.0.0.2', hostname: 'analyzer-keller' }]);
+  assert.deepEqual(a.gesetzt, [
+    { ccuip: '10.0.0.2', hostname: 'analyzer-keller', standort: 'Flur OG' },
+  ]);
+  const c = (await (await fetch(`${a.base}/getConfig`)).json()) as Record<string, unknown>;
+  assert.equal(c['standort'], 'Flur OG', 'Standort sofort wirksam');
 });
 
 // ---------------------------------------------------------------- eigene API
@@ -462,6 +467,7 @@ test('/api/snapshot und /api/health: die Sicht des Analyzers über HTTP', async 
   await a.einspeisen(TELEGRAMM, ':5B;\n');
 
   const s = (await (await fetch(`${a.base}/api/snapshot`)).json()) as Record<string, any>;
+  assert.equal(s['standort'], 'Testkeller', 'Standort-Identität im Snapshot');
   assert.equal(s['ingest']['telegrams'], 1);
   assert.equal(s['noiseFloor']['last'], -91);
   assert.equal(s['devices'][0]['name'], 'Wäschekeller Fenster');
@@ -471,4 +477,5 @@ test('/api/snapshot und /api/health: die Sicht des Analyzers über HTTP', async 
   assert.equal(h['ok'], true);
   assert.equal(h['connected'], true);
   assert.equal(h['telegrams'], 1);
+  assert.equal(h['standort'], 'Testkeller', 'Standort-Identität im Health');
 });

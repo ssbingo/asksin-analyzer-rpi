@@ -50,6 +50,9 @@ export interface ApiConfig {
   /** Läuft die Instanz mit simulierten Daten? Reine Anzeige — das
    *  Umschalten übernimmt der Dienst über `/setConfig` (Feld `demo`). */
   demo?: boolean;
+  /** Standort-Identität (M9.1): unterscheidet die Analyzer eines Verbunds
+   *  in UI, APIs und später als Influx-Tag/Adapter-Instanzname. */
+  standort?: string;
 }
 
 export interface ApiServerOptions {
@@ -94,7 +97,7 @@ export interface UpdateHooks {
   updateVerfuegbar?(): boolean;
 }
 
-const SET_CONFIG_FELDER = ['ccuip', 'hostname', 'ntp', 'ip', 'netmask', 'gw', 'demo'];
+const SET_CONFIG_FELDER = ['ccuip', 'hostname', 'ntp', 'ip', 'netmask', 'gw', 'demo', 'standort'];
 const MAX_BODY_BYTES = 65_536;
 /** Intel-HEX für 32 KiB Flash ist ~90 KiB — 256 KiB lassen reichlich Luft. */
 const MAX_FIRMWARE_BYTES = 262_144;
@@ -215,7 +218,10 @@ export class ApiServer {
           // SD-Karte gibt es nicht; die App erfährt das über sdcardavailable.
           return this.#text(res, 200, 'OK');
         case '/api/snapshot':
-          return this.#json(res, 200, this.#opts.analyzer.snapshot(this.#time.now()));
+          return this.#json(res, 200, {
+            standort: this.#config.standort ?? '',
+            ...this.#opts.analyzer.snapshot(this.#time.now()),
+          });
         case '/api/health':
           return this.#json(res, 200, this.#health());
         case '/api/telegrams':
@@ -489,6 +495,7 @@ export class ApiServer {
       backend: 0,
       backendurl: '',
       demo: this.#config.demo === true ? 1 : 0,
+      standort: this.#config.standort ?? '',
     };
   }
 
@@ -508,6 +515,9 @@ export class ApiServer {
     // und Hostname des Pi setzt — wenn gewünscht — der onSetConfig-Empfänger.
     if (änderungen['ccuip'] !== undefined) this.#config.ccuip = änderungen['ccuip'];
     if (änderungen['ntp'] !== undefined) this.#config.ntp = änderungen['ntp'];
+    if (änderungen['standort'] !== undefined) {
+      this.#config.standort = änderungen['standort'].trim();
+    }
     this.#opts.onSetConfig?.(änderungen);
     this.#text(res, 200, 'OK');
   }
@@ -529,6 +539,7 @@ export class ApiServer {
       devListSource: s.devList?.source ?? null,
       demo: this.#config.demo === true,
       updateVerfuegbar: this.#opts.update?.updateVerfuegbar?.() ?? false,
+      standort: this.#config.standort ?? '',
     };
   }
 

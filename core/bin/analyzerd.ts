@@ -16,6 +16,7 @@
 
 import { execFile } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { hostname } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -59,6 +60,9 @@ interface Konfiguration {
   /** Dauerhaft simulierte Daten — üblicherweise steuert das die Flag-Datei
    *  im Datenverzeichnis (Schalter „Demo" in den Einstellungen). */
   demo?: boolean;
+  /** Standortname dieses Analyzers (M9.1), z. B. „Keller". Leer: erst die
+   *  über die Weboberfläche gesetzte Datei, sonst der Hostname. */
+  standort?: string;
 }
 
 const VORGABEN: Konfiguration = {
@@ -117,11 +121,28 @@ mkdirSync(dirname(konfig.db), { recursive: true });
 const demoFlag = join(dirname(konfig.db), 'demo-modus');
 const demoAktiv = konfig.demo === true || existsSync(demoFlag);
 
+// Standort-Identität (M9.1): Konfiguration > per UI gesetzte Datei > Hostname.
+const standortDatei = join(dirname(konfig.db), 'standort.txt');
+function leseStandort(): string {
+  if (konfig.standort !== undefined && konfig.standort.trim() !== '') {
+    return konfig.standort.trim();
+  }
+  try {
+    const s = readFileSync(standortDatei, 'utf8').trim();
+    if (s !== '') return s;
+  } catch {
+    /* keine Datei — Hostname als Rückfall */
+  }
+  return hostname();
+}
+const standort = leseStandort();
+
 // Eigene Datenbank für die Simulation — echte Aufzeichnungen bleiben sauber.
 const dbPfad = demoAktiv
   ? join(dirname(konfig.db), 'analyzer-demo.db')
   : konfig.db;
 const db = openDatabase(dbPfad);
+log(`Standort: ${standort}`);
 log(`Datenbank: ${dbPfad}`);
 if (demoAktiv) log('DEMO-MODUS aktiv — alle Daten sind simuliert');
 
@@ -291,7 +312,7 @@ const api = new ApiServer({
   db,
   ...(devList === undefined ? {} : { devList }),
   version: paketVersion(),
-  config: { ccuip: konfig.ccu.host, demo: demoAktiv },
+  config: { ccuip: konfig.ccu.host, demo: demoAktiv, standort },
   ...(konfig.http.authToken === '' ? {} : { authToken: konfig.http.authToken }),
   ...(existsSync(uiDir) ? { uiDir } : {}),
   update: updateHooks,
@@ -300,6 +321,14 @@ const api = new ApiServer({
     void herunterfahren(0);
   },
   onSetConfig: (aenderungen) => {
+    const neuerStandort = aenderungen['standort'];
+    if (neuerStandort !== undefined) {
+      // Dauerhaft merken — /etc ist schreibgeschützt, das Datenverzeichnis
+      // gehört dem Dienst. Wirksam sofort (ApiServer) und nach Neustarts.
+      if (neuerStandort.trim() === '') rmSync(standortDatei, { force: true });
+      else writeFileSync(standortDatei, `${neuerStandort.trim()}\n`);
+      log(`Standort geändert: ${neuerStandort.trim() || hostname()}`);
+    }
     const demo = aenderungen['demo'];
     if (demo === undefined) return;
     const gewuenscht = demo === '1' || demo === 'true';

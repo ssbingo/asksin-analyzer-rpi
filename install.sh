@@ -132,9 +132,10 @@ chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 
 # --- Konfigurations-Assistent -------------------------------------------------
 schreibe_konfig() {
-    local ccu="$1" port="$2" host="$3" token="$4"
+    local ccu="$1" port="$2" host="$3" token="$4" standort="$5"
     cat > "$CONFIG_FILE" <<EOF
 {
+  "standort": "$standort",
   "device": "/dev/asksin-hat",
   "baud": 58824,
   "db": "$DATA_DIR/analyzer.db",
@@ -167,6 +168,8 @@ fi
 if [ "$KONFIGURIEREN" -eq 1 ]; then
     if have_tty; then
         c_info "Konfigurations-Assistent (Enter = Vorgabe uebernehmen)"
+        STANDORT="$(ask_tty "  Standortname dieses Analyzers, z. B. Keller [$(hostname)]: ")"
+        STANDORT="${STANDORT:-$(hostname)}"
         CCU="$(ask_tty '  IP/Hostname der CCU/RaspberryMatic (leer = keine Namensaufloesung): ')"
         PORT="$(ask_tty '  HTTP-Port [8080]: ')"; PORT="${PORT:-8080}"
         a="$(ask_tty '  Weboberflaeche im LAN erreichbar machen? (J/n): ')"
@@ -178,9 +181,9 @@ if [ "$KONFIGURIEREN" -eq 1 ]; then
         esac
     else
         c_warn "Kein Terminal - schreibe Vorgabe-Konfiguration (nur 127.0.0.1, ohne CCU)."
-        CCU=""; PORT=8080; HOST="127.0.0.1"; TOKEN=""
+        CCU=""; PORT=8080; HOST="127.0.0.1"; TOKEN=""; STANDORT="$(hostname)"
     fi
-    schreibe_konfig "$CCU" "$PORT" "$HOST" "$TOKEN"
+    schreibe_konfig "$CCU" "$PORT" "$HOST" "$TOKEN" "$STANDORT"
     c_ok "Konfiguration geschrieben: $CONFIG_FILE"
 fi
 
