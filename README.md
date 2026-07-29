@@ -28,7 +28,7 @@ laufenden Gerät.
 | Status-LED + OLED integriert | ✅ Software fertig (M11) — Hardware-Test steht aus ([`docs/status-led-oled.md`](docs/status-led-oled.md)) |
 | Einkaufsführer Zubehör (README + Handbuch) | 📋 geplant (M12, [`docs/einkaufsfuehrer.md`](docs/einkaufsfuehrer.md)) |
 | Verbund: 5 Analyzer als Gesamtsystem | ✅ Kern fertig: Dashboard, Matrix+Dedup, Flotten-Update (M9.1–M9.4); offen: Langzeitdaten M9.5 ([`docs/verbund.md`](docs/verbund.md)) |
-| ioBroker-Adapter | 🔨 Grundgerüst steht (M6, eigenes Repo [`ioBroker.asksinanalyzer`](https://github.com/ssbingo/ioBroker.asksinanalyzer), MIT, mehrinstanzfähig) |
+| ioBroker-Adapter | 🔨 Grundgerüst steht (M6, eigenes Repo [`ioBroker.asksinanalyzer-rpi`](https://github.com/ssbingo/ioBroker.asksinanalyzer-rpi), MIT, mehrinstanzfähig) |
 
 ## Installation auf dem Raspberry Pi
 
