@@ -24,6 +24,7 @@ laufenden Gerät.
 | Web-UI (Nachbau, eigener Code, MIT) | ✅ fertig: Vue 3 + ECharts, vom Core ausgeliefert (M5.5) |
 | Demo-Modus (simulierte Anlage) | ✅ fertig, Schalter in den Einstellungen (v0.0.3) |
 | Update-Pfade (Core-Self-Update, 328P-Flash) | ✅ fertig (M7.5, v0.0.4) |
+| Netzwerkeinstellungen über die Web-UI | 📋 geplant (M7.6, [`docs/netzwerkeinstellungen.md`](docs/netzwerkeinstellungen.md)) |
 | Verbund: 5 Analyzer als Gesamtsystem | 🔨 in Arbeit — M9.1 Standort-Identität ✅ ([`docs/verbund.md`](docs/verbund.md)) |
 | ioBroker-Adapter | 📋 geplant (M6, mehrinstanzfähig) |
 

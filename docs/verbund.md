@@ -114,8 +114,11 @@ mit drei RSSI-Werten.
 
 ## Reihenfolge
 
-1. **M7.5** — Update-Pfade (als Nächstes; liefert die Basis für M9.4)
-2. **M9.1** — Standort-Identität (klein, kann direkt mit M7.5 mitgehen)
-3. **M9.2 → M9.3 → M9.4** — Verbund aufbauen
-4. **M6** — Adapter (profitiert von fertiger Standort-Identität)
-5. **M9.5** — Langzeitdaten; M9.6 nur bei Bedarf
+1. **M7.5** — Update-Pfade ✅ (v0.0.4; Basis für M9.4)
+2. **M9.1** — Standort-Identität ✅
+3. **M9.2 + M7.6** — Verbund-Dashboard **und** Netzwerkeinstellungen über
+   die Web-UI ([`netzwerkeinstellungen.md`](netzwerkeinstellungen.md)) —
+   gemeinsam umgesetzt, gleiche Mechanik (Auftragsdatei/Path-Unit/Status)
+4. **M9.3 → M9.4** — Matrix/Dedup, Flotten-Update
+5. **M6** — Adapter (profitiert von fertiger Standort-Identität)
+6. **M9.5** — Langzeitdaten; M9.6 nur bei Bedarf
