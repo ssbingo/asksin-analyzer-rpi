@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <!-- Platzhalter, bis eigene Produktfotos vorliegen (Phase M12).
+       Keine fremden Shop-Bilder verwenden — das Repo ist öffentlich. -->
+  <defs>
+    <pattern id="wz" width="420" height="180" patternUnits="userSpaceOnUse"
+             patternTransform="rotate(-24 400 300)">
+      <text x="0" y="60" font-family="system-ui, 'Segoe UI', Roboto, sans-serif"
+            font-size="44" font-weight="700" fill="#5b6b7d" opacity="0.10"
+            letter-spacing="2">Produktbild folgt</text>
+      <text x="210" y="150" font-family="system-ui, 'Segoe UI', Roboto, sans-serif"
+            font-size="44" font-weight="700" fill="#5b6b7d" opacity="0.07"
+            letter-spacing="2">Produktbild folgt</text>
+    </pattern>
+  </defs>
+
+  <rect width="800" height="600" fill="#f2f4f8"/>
+  <rect width="800" height="600" fill="url(#wz)"/>
+  <rect x="10" y="10" width="780" height="580" rx="18" fill="none"
+        stroke="#aeb9c6" stroke-width="3" stroke-dasharray="14 10"/>
+
+  <!-- Kamera-Symbol -->
+  <g transform="translate(400 258)" stroke="#8fa0b3" stroke-width="7"
+     fill="none" stroke-linejoin="round" stroke-linecap="round" opacity="0.55">
+    <rect x="-95" y="-52" width="190" height="128" rx="16"/>
+    <path d="M -34 -52 L -22 -78 H 22 L 34 -52"/>
+    <circle cx="0" cy="12" r="38"/>
+    <circle cx="63" cy="-26" r="7" fill="#8fa0b3" stroke="none"/>
+  </g>
+
+  <!-- Hauptschriftzug in Wasserzeichenoptik -->
+  <text x="400" y="430" text-anchor="middle"
+        font-family="system-ui, 'Segoe UI', Roboto, sans-serif"
+        font-size="58" font-weight="800" fill="#5b6b7d" opacity="0.45"
+        letter-spacing="3" transform="rotate(-6 400 430)">Produktbild folgt</text>
+  <text x="400" y="472" text-anchor="middle"
+        font-family="system-ui, 'Segoe UI', Roboto, sans-serif"
+        font-size="21" fill="#7d8ea1" opacity="0.75">eigenes Foto wird ergänzt, sobald die Hardware vorliegt</text>
+</svg>
