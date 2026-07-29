@@ -98,8 +98,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.0.1** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.4** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.4** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.5** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.5** |
 
 Die **Firmware wird bewusst nicht eigenständig versioniert**: Sie ist
 byte-identisch der `AskSinSniffer328P` von jp112sdl (Stand des
@@ -109,6 +109,31 @@ werden, beginnt ab dann `firmware-v0.0.1`. Der ioBroker-Adapter bekommt ein
 eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.0.5 — 29.07.2026
+
+Der Verbund: fünf Analyzer als Gesamtsystem — plus Netzwerkverwaltung
+über die Weboberfläche. Hardware unverändert (0.0.1).
+
+**Core/Web-UI 0.0.5**
+- **Verbund (M9.1–M9.4)**: Standort-Identität (Badge, Tab-Titel, APIs);
+  neue Ansicht „Verbund" mit Kachel je Standort, Zeitdrift-Warnung und
+  Drilldown; **Empfangsmatrix Gerät × Standort** (RSSI-Farbskala,
+  ★ bester Empfang, CSV-Export); **deduplizierte Telegrammliste** mit
+  „gehört von"-Chips (Schlüssel Absender+Zähler+Typ+Länge, ±1,5 s,
+  selbstheilend bei Peer-Neustarts); **Flotten-Update** — alle Analyzer
+  nacheinander mit Health-Gate, Abbruch statt Domino, Master zuletzt
+- **Peers ohne Konsole**: verknüpfen/entfernen unter Einstellungen →
+  Verbund, sofort wirksam; Tokens werden nie herausgegeben; Installer
+  fragt die Master-Rolle ab und leitet an
+- **Netzwerkeinstellungen (M7.6)**: Einstellungen → Netzwerk zeigt den
+  Ist-Zustand (inkl. DHCP-Zuweisungen) und ändert DHCP/Statisch,
+  statische Werte, Hostname und NTP — mit 90-s-Probezeit und
+  automatischem Rollback gegen Aussperren (nmcli/hostnamectl/timesyncd
+  über systemd-Path-Unit)
+- Doku: Phasen M11 (Status-LED/OLED) und M12 (Einkaufsführer) geplant,
+  Platzhalterbild „Produktbild folgt"
+- 131 Unit-Tests
 
 ### v0.0.4 — 29.07.2026
 
