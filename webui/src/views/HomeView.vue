@@ -2,29 +2,51 @@
 import { onMounted, onUnmounted, ref } from 'vue';
 import { holeNoise, holeSnapshot, holeTelegramme } from '../api.ts';
 import type { Snapshot, Telegramm } from '../api.ts';
-import { echarts, zeitChartOption } from '../chart.ts';
+import { echarts, tortenOption, zeitChartOption } from '../chart.ts';
+import type { TortenStueck } from '../chart.ts';
 import { dbm, vorZeit } from '../format.ts';
 import { nutzeTakt } from '../takt.ts';
 
 const snapshot = ref<Snapshot | null>(null);
 const chartEl = ref<HTMLDivElement | null>(null);
+const tortenEl = ref<HTMLDivElement | null>(null);
 
 let chart: ReturnType<typeof echarts.init> | undefined;
+let torte: ReturnType<typeof echarts.init> | undefined;
 let telegramme: Telegramm[] = [];
 let lastId = 0;
 
 function anpassen(): void {
   chart?.resize();
+  torte?.resize();
 }
 
 onMounted(() => {
   if (chartEl.value !== null) chart = echarts.init(chartEl.value);
+  if (tortenEl.value !== null) torte = echarts.init(tortenEl.value);
   window.addEventListener('resize', anpassen);
 });
 onUnmounted(() => {
   window.removeEventListener('resize', anpassen);
   chart?.dispose();
+  torte?.dispose();
 });
+
+/** Alle Geräte als eigenes Tortenstück, wie im Original — größte zuerst. */
+function tortenStuecke(s: Snapshot): TortenStueck[] {
+  const gesamt = s.devices.reduce((sum, g) => sum + g.telegrams, 0);
+  if (gesamt === 0) return [];
+  return [...s.devices]
+    .sort((a, b) => b.telegrams - a.telegrams)
+    .map((g) => ({
+      name: g.name,
+      value: g.telegrams,
+      anteil: (g.telegrams / gesamt) * 100,
+      address: g.address,
+      rssi: g.rssi.last,
+      dutyCycle: g.dutyCyclePercent,
+    }));
+}
 
 nutzeTakt(async () => {
   const [s, n, t] = await Promise.all([
@@ -44,6 +66,7 @@ nutzeTakt(async () => {
       telegramme.filter((x) => x.ts >= grenze).map((x) => [x.ts, x.rssi]),
     ),
   );
+  torte?.setOption(tortenOption(tortenStuecke(s)));
 }, 3000);
 </script>
 
@@ -117,6 +140,16 @@ nutzeTakt(async () => {
     </div>
     <div class="fussnote">
       100 % = erlaubte Sendezeit (36 s/h) ausgeschöpft. Schätzung aus Telegrammlänge, gegen die CCU kalibrieren.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top: 0">Telegramme pro Gerät</h3>
+    <div ref="tortenEl" id="torte"></div>
+    <div class="fussnote">
+      Anteil an allen empfangenen Telegrammen seit Dienststart. Mauszeiger
+      auf ein Tortenstück zeigt Name und Daten des Geräts; die Legende
+      rechts blättert durch alle Geräte.
     </div>
   </div>
 </template>

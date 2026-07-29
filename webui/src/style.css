@@ -194,4 +194,5 @@ button:disabled { opacity: 0.5; cursor: default; }
 .fussnote { color: var(--muted); font-size: 0.8rem; margin-top: 0.5rem; }
 
 #chart { width: 100%; height: 340px; }
+#torte { width: 100%; height: 380px; }
 .scrollbar { overflow-x: auto; }
