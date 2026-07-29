@@ -92,8 +92,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.0.1** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.2** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.2** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.3** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.3** |
 
 Die **Firmware wird bewusst nicht eigenständig versioniert**: Sie ist
 byte-identisch der `AskSinSniffer328P` von jp112sdl (Stand des
@@ -103,6 +103,27 @@ werden, beginnt ab dann `firmware-v0.0.1`. Der ioBroker-Adapter bekommt ein
 eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.0.3 — 29.07.2026
+
+Demo-Modus und die Tortengrafik der Startseite. Hardware unverändert (0.0.1).
+
+**Core 0.0.3**
+- **Demo-Modus**: simulierte Anlage (~15 Geräte inkl. HmIP, Thermostaten,
+  Bewegungsmeldern und einem absichtlich dauersendenden Defekt-Gerät) als
+  Port-Generator ganz unten in der Kette — Parser, Statistik, Datenbank,
+  API und UI laufen unverändert mit; Geräteliste im originalen
+  CCU-Drahtformat; eigene Demo-Datenbank mit kurzer Retention
+- Umschalten im laufenden Betrieb über die Weboberfläche
+  (Flag-Datei + kontrollierter Dienst-Neustart); `demo`-Feld in
+  `/getConfig` und `/api/health`
+- 111 Unit-Tests
+
+**Web-UI 0.0.3**
+- Übersicht: Tortengrafik **„Telegramme pro Gerät"** wie im Original —
+  alle Geräte einzeln, blätterbare Legende, Tooltip mit Name, Anteil,
+  Adresse, RSSI und Duty-Cycle
+- Schalter **Einstellungen → Demo-Modus** und DEMO-Badge in der Kopfzeile
 
 ### v0.0.2 — 29.07.2026
 
