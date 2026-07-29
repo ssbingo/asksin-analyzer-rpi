@@ -396,10 +396,14 @@ test('/api/update/*: mit gesetztem Token ist ALLES auth-pflichtig', async (t) =>
       startCoreUpdate: () => true,
       updateStatus: () => null,
       flashFirmware: () => Promise.resolve({ ok: true, log: '' }),
+      updateVerfuegbar: () => true,
     },
   });
   assert.equal((await fetch(`${a.base}/api/update/versions`)).status, 401);
   assert.equal((await fetch(`${a.base}/api/update/status`)).status, 401);
+  // health bleibt offen und trägt das Badge-Signal des Selbstchecks:
+  const h = (await (await fetch(`${a.base}/api/health`)).json()) as Record<string, unknown>;
+  assert.equal(h['updateVerfuegbar'], true, 'Selbstcheck-Ergebnis im Health');
   assert.equal((await fetch(`${a.base}/api/update/core`, { method: 'POST' })).status, 401);
   assert.equal(
     (

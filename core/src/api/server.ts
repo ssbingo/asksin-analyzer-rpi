@@ -89,6 +89,9 @@ export interface UpdateHooks {
   updateStatus(): unknown;
   /** Flasht die hochgeladene Firmware; Ergebnis mit Log. */
   flashFirmware(hex: Buffer): Promise<{ ok: boolean; log: string }>;
+  /** Ergebnis des täglichen Selbstchecks — landet in /api/health und
+   *  treibt das Hinweis-Badge der Weboberfläche. */
+  updateVerfuegbar?(): boolean;
 }
 
 const SET_CONFIG_FELDER = ['ccuip', 'hostname', 'ntp', 'ip', 'netmask', 'gw', 'demo'];
@@ -525,6 +528,7 @@ export class ApiServer {
       persistErrors: s.persistErrors,
       devListSource: s.devList?.source ?? null,
       demo: this.#config.demo === true,
+      updateVerfuegbar: this.#opts.update?.updateVerfuegbar?.() ?? false,
     };
   }
 

@@ -194,7 +194,31 @@ async function gitKurz(...args: string[]): Promise<string> {
   return stdout.trim();
 }
 
+// Täglicher Selbstcheck: Ergebnis fließt über /api/health in das
+// Hinweis-Badge der Weboberfläche. Erster Lauf kurz nach dem Start
+// (Netz braucht nach dem Boot einen Moment), danach alle 24 h.
+let updateVerfuegbar = false;
+
+async function pruefeAktualitaet(): Promise<void> {
+  try {
+    const v = (await updateHooks.versions()) as { updateVerfuegbar: boolean };
+    if (v.updateVerfuegbar !== updateVerfuegbar) {
+      updateVerfuegbar = v.updateVerfuegbar;
+      log(
+        updateVerfuegbar
+          ? 'Neue Version verfügbar — Hinweis in der Weboberfläche aktiv'
+          : 'Software ist aktuell',
+      );
+    }
+  } catch (err) {
+    log(`Aktualitätsprüfung fehlgeschlagen: ${String(err)}`);
+  }
+}
+setTimeout(() => void pruefeAktualitaet(), 60_000).unref();
+setInterval(() => void pruefeAktualitaet(), 86_400_000).unref();
+
 const updateHooks: UpdateHooks = {
+  updateVerfuegbar: () => updateVerfuegbar,
   versions: async () => {
     let commit: string;
     try {

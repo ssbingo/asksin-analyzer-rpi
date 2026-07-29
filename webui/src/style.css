@@ -70,6 +70,24 @@ nav.haupt a:hover { color: var(--text); }
 }
 .status-punkt.verbunden::before { background: var(--gut); }
 
+.update-glocke {
+  padding: 0.15rem 0.6rem;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--warn) 20%, transparent);
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+  animation: glocke-puls 2.5s ease-in-out infinite;
+}
+.update-glocke:hover { background: color-mix(in srgb, var(--warn) 35%, transparent); }
+
+@keyframes glocke-puls {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--warn) 45%, transparent); }
+  50% { box-shadow: 0 0 0 6px transparent; }
+}
+
 .demo-badge {
   padding: 0.1rem 0.55rem;
   border-radius: 99px;

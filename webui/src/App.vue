@@ -6,6 +6,7 @@ import { nutzeTakt } from './takt.ts';
 const verbunden = ref(false);
 const erreichbar = ref(false);
 const demo = ref(false);
+const updateVerfuegbar = ref(false);
 
 nutzeTakt(async () => {
   try {
@@ -13,6 +14,7 @@ nutzeTakt(async () => {
     erreichbar.value = true;
     verbunden.value = h.connected;
     demo.value = h.demo;
+    updateVerfuegbar.value = h.updateVerfuegbar === true;
   } catch {
     erreichbar.value = false;
     verbunden.value = false;
@@ -34,6 +36,12 @@ nutzeTakt(async () => {
     <span class="status-punkt" :class="{ verbunden }">
       {{ !erreichbar ? 'Core nicht erreichbar' : verbunden ? 'Sniffer verbunden' : 'Sniffer getrennt' }}
     </span>
+    <RouterLink
+      v-if="updateVerfuegbar"
+      to="/info"
+      class="update-glocke"
+      title="Neue Version verfügbar — klicken für Details und Installation"
+    >🔔 Update</RouterLink>
   </header>
   <main class="inhalt">
     <RouterView />

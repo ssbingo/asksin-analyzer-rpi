@@ -100,6 +100,8 @@ export interface Health {
   persistErrors: number;
   devListSource: 'ccu' | 'cache' | null;
   demo: boolean;
+  /** Ergebnis des täglichen Selbstchecks des Dienstes. */
+  updateVerfuegbar: boolean;
 }
 
 /** /getConfig — die Felder, die die UI tatsächlich anzeigt. */
