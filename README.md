@@ -22,8 +22,10 @@ laufenden Gerät.
 | Core: Serial-Ingest, SQLite, CCU-Namen, Analyzer | ✅ fertig verdrahtet (M2–M4) |
 | Core: REST-API inkl. XS-Kompat-Endpunkten | ✅ fertig, 108 Unit-Tests gesamt (M5) |
 | Web-UI (Nachbau, eigener Code, MIT) | ✅ fertig: Vue 3 + ECharts, vom Core ausgeliefert (M5.5) |
-| Web-UI (Nachbau, lizenzfrei) | 📋 geplant (M5.5), API-Vertrag steht |
-| ioBroker-Adapter | 📋 geplant (M6) |
+| Demo-Modus (simulierte Anlage) | ✅ fertig, Schalter in den Einstellungen (v0.0.3) |
+| Update-Pfade (Core-Self-Update, 328P-Flash) | 🔨 als Nächstes (M7.5) |
+| Verbund: 5 Analyzer als Gesamtsystem | 📋 geplant (M9, [`docs/verbund.md`](docs/verbund.md)) |
+| ioBroker-Adapter | 📋 geplant (M6, mehrinstanzfähig) |
 
 ## Installation auf dem Raspberry Pi
 
@@ -55,6 +57,7 @@ docs/
 ├── serial-protocol.md    das serielle Telegrammformat, verifiziert
 ├── raspberry-pi-uart.md  UART-Konfiguration Pi 3/4/5
 ├── webui-und-updates.md  API-Vertrag der Web-UI, Update-Pfade, Lizenzlage
+├── verbund.md            Phase M9: fünf Analyzer als Gesamtsystem (Föderation)
 └── handbuch/             das Handbuch (HTML-Quelle, Bilder, PDF)
 reference/                Originalprojekte (nicht eingecheckt — siehe unten)
 ```
