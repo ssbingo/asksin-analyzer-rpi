@@ -92,8 +92,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.0.1** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/`, `package.json` führt dieselbe Nummer) | **0.0.1** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.1** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.2** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.2** |
 
 Die **Firmware wird bewusst nicht eigenständig versioniert**: Sie ist
 byte-identisch der `AskSinSniffer328P` von jp112sdl (Stand des
@@ -103,6 +103,42 @@ werden, beginnt ab dann `firmware-v0.0.1`. Der ioBroker-Adapter bekommt ein
 eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.0.2 — 29.07.2026
+
+Die Pi-Software ist komplett: vom seriellen Port bis zur Weboberfläche,
+installierbar mit einem Befehl. Hardware unverändert (bleibt 0.0.1).
+
+**Core 0.0.2**
+- Serial-Ingest: Zeilenstrom-Leser mit Stille-Watchdog (750-ms-Rauschzeilen),
+  exponentiellem Reconnect-Backoff und Drop-Oldest-Puffer (M2)
+- Persistenz: eingebautes node:sqlite (WAL), Recorder mit Batch-Transaktionen
+  und additiven Upserts, Retention + WAL-Checkpoint; LiveStats (M3)
+- Namensauflösung: DevListService mit CCU-Polling (stündlich, Fehler-Retry
+  5 min) und atomarem Datei-Cache; latin1/XML/HTML-Dekodierung (M4)
+- Analyzer-Komposition mit einer Leseschnittstelle `snapshot()` (M4)
+- REST-API auf node:http: Kompatibilitäts-Endpunktsatz der originalen
+  Web-UI (CSV-Polling, RSSI-Log, Config, DevList, Tages-CSV) plus eigene
+  JSON-API `/api/*`; optionaler Bearer-Token, Bind an 127.0.0.1 (M5)
+- Dienst-Einstiegspunkt `analyzerd` (JSON-Konfig, journald, sauberes
+  Herunterfahren), läuft ohne Buildschritt und ohne Laufzeitabhängigkeiten
+- 108 Unit-Tests, alle ohne Hardware
+
+**Web-UI 0.0.2** (neu, MIT)
+- Funktionaler Nachbau mit eigenem Code: Vue 3 + Apache ECharts statt
+  Vue 2 + Highcharts; Routen wie im Original (/home, /list, /settings, /info)
+- Übersicht mit Zeitchart und Duty-Cycle-Top-10, Live-Telegrammliste mit
+  Filter, Einstellungen inkl. Token, Info mit Herkunftsnennung
+- Wird vom Core selbst ausgeliefert (SPA-Fallback, Asset-Caching)
+
+**Installation**
+- `install.sh`: Ein-Befehl-Installation mit Konfigurations-Assistent,
+  Node 24, systemd-Dienst (gehärtet), udev-Regel, optionaler
+  UART-Einrichtung; Verwaltungsbefehl `asksin-analyzer`, `update.sh`
+
+**Projekt**
+- Repository öffentlich; Testdaten durch eine strukturgleiche synthetische
+  Beispielanlage ersetzt, Git-Historie bereinigt
 
 ### v0.0.1 — 28.07.2026
 
