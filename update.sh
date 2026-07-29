@@ -73,6 +73,8 @@ installiere_dateien() {
     install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
     # jq braucht netz-anwenden.sh (M7.6); auf Bestandsanlagen nachziehen:
     command -v jq >/dev/null 2>&1 || apt-get install -y -qq jq || true
+    # i2c-/spi-tools für die Statusanzeige (M11, per WebUI aktivierbar):
+    command -v i2ctransfer >/dev/null 2>&1 || apt-get install -y -qq i2c-tools spi-tools || true
     systemctl daemon-reload
     systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-netz.path >/dev/null 2>&1 || true

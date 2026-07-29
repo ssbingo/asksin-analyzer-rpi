@@ -92,6 +92,13 @@ export interface ApiServerOptions {
   };
   /** Netzwerkeinstellungen (M7.6). Ohne Hooks: 501 auf /api/netzwerk*. */
   netzwerk?: NetzwerkHooks;
+  /** Status-LED/OLED (M11): Zustand fürs WebUI, Konfiguration zur Laufzeit,
+   *  Blättern der OLED-Seite. Ohne Hooks: 501. */
+  statusAnzeige?: {
+    zustand(): unknown;
+    einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
+    seiteWeiter(): void;
+  };
 }
 
 /**
@@ -325,6 +332,11 @@ export class ApiServer {
           if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
           return this.#json(res, 200, await netz.zustand());
         }
+        case '/api/statusanzeige': {
+          const hooks = this.#opts.statusAnzeige;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Statusanzeige');
+          return this.#json(res, 200, hooks.zustand());
+        }
         case '/api/netzwerk/status': {
           const netz = this.#opts.netzwerk;
           if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
@@ -365,6 +377,25 @@ export class ApiServer {
           res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('Auftrag angenommen — Probezeit läuft, Status unter /api/netzwerk/status');
           return;
+        }
+        case '/api/statusanzeige': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.statusAnzeige;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Statusanzeige');
+          let auftrag: Record<string, unknown>;
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            return this.#text(res, 400, 'Body muss JSON sein');
+          }
+          await hooks.einstellen(auftrag);
+          return this.#text(res, 200, 'OK — sofort wirksam');
+        }
+        case '/api/statusanzeige/seite': {
+          const hooks = this.#opts.statusAnzeige;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Statusanzeige');
+          hooks.seiteWeiter();
+          return this.#text(res, 200, 'OK');
         }
         case '/api/verbund/flottenupdate': {
           if (!this.#autorisiert(req, res)) return;

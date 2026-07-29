@@ -44,6 +44,7 @@ async function aufbau(t: TestContext, extra: {
   update?: import('../src/api/server.ts').UpdateHooks;
   verbund?: import('../src/api/server.ts').ApiServerOptions['verbund'];
   netzwerk?: import('../src/api/server.ts').NetzwerkHooks;
+  statusAnzeige?: import('../src/api/server.ts').ApiServerOptions['statusAnzeige'];
 } = {}): Promise<Aufbau> {
   const time = new FakeTime();
   const ports: FakePort[] = [];
@@ -82,6 +83,7 @@ async function aufbau(t: TestContext, extra: {
     ...(extra.update === undefined ? {} : { update: extra.update }),
     ...(extra.verbund === undefined ? {} : { verbund: extra.verbund }),
     ...(extra.netzwerk === undefined ? {} : { netzwerk: extra.netzwerk }),
+    ...(extra.statusAnzeige === undefined ? {} : { statusAnzeige: extra.statusAnzeige }),
     time,
     onSetConfig: (c) => {
       gesetzt.push(c);
@@ -530,6 +532,54 @@ test('/api/verbund/peers: Liste ohne Tokens, Ändern mit Auth und Validierung', 
     body: JSON.stringify({ aktion: 'hinzufuegen', url: 'kaputt' }),
   });
   assert.equal(schlecht.status, 500, 'Validierungsfehler kommt lesbar zurück');
+});
+
+test('/api/statusanzeige: Zustand offen, Einstellen mit Auth, Blättern frei', async (t) => {
+  const auftraege: Array<Record<string, unknown>> = [];
+  let geblaettert = 0;
+  const a = await aufbau(t, {
+    authToken: 'geheim',
+    statusAnzeige: {
+      zustand: () => ({ konfig: { led: 'aus', oled: false, helligkeit: 40 }, seite: 0 }),
+      einstellen: (auftrag: Record<string, unknown>) => {
+        auftraege.push(auftrag);
+      },
+      seiteWeiter: () => {
+        geblaettert++;
+      },
+    },
+  });
+
+  const z = (await (await fetch(`${a.base}/api/statusanzeige`)).json()) as Record<string, any>;
+  assert.equal(z['konfig']['led'], 'aus');
+
+  assert.equal(
+    (
+      await fetch(`${a.base}/api/statusanzeige`, {
+        method: 'POST',
+        body: JSON.stringify({ led: 'ws2812-spi', oled: true, helligkeit: 60 }),
+      })
+    ).status,
+    401,
+    'Umkonfigurieren nur mit Token',
+  );
+  const ok = await fetch(`${a.base}/api/statusanzeige`, {
+    method: 'POST',
+    headers: { authorization: 'Bearer geheim' },
+    body: JSON.stringify({ led: 'ws2812-spi', oled: true, helligkeit: 60 }),
+  });
+  assert.equal(ok.status, 200);
+  assert.equal(auftraege[0]!['helligkeit'], 60);
+
+  assert.equal(
+    (await fetch(`${a.base}/api/statusanzeige/seite`, { method: 'POST' })).status,
+    200,
+    'Blättern ist harmlos und bleibt offen',
+  );
+  assert.equal(geblaettert, 1);
+
+  const ohne = await aufbau(t);
+  assert.equal((await fetch(`${ohne.base}/api/statusanzeige`)).status, 501);
 });
 
 test('/api/netzwerk: verändernde Aufrufe sind mit Token auth-pflichtig', async (t) => {

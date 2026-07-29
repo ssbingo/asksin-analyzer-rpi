@@ -212,6 +212,45 @@ export const holeUpdateStatus = (): Promise<UpdateStatus> =>
 export const starteCoreUpdate = (): Promise<Response> =>
   sende('/api/update/core');
 
+// ---- Status-LED / OLED (M11) --------------------------------------------
+
+export interface StatusAnzeigeZustand {
+  konfig: { led: 'ws2812-spi' | 'aus'; oled: boolean; helligkeit: number };
+  aktiv: { led: boolean; oled: boolean };
+  seite: number;
+  fehler: Record<string, string>;
+  ledMuster: { farbe: [number, number, number]; blinken: string; grund: string };
+  system: {
+    cpuLast: number;
+    tempC: number | null;
+    ramFreiProzent: number;
+    diskFreiProzent: number | null;
+  };
+  /** SSD1306-Framebuffer (1024 Bytes, base64) für die Live-Vorschau. */
+  oledBild: string;
+}
+
+export const holeStatusAnzeige = (): Promise<StatusAnzeigeZustand> =>
+  hole('/api/statusanzeige');
+export const statusSeiteWeiter = (): Promise<Response> =>
+  sende('/api/statusanzeige/seite');
+
+export async function sendeStatusAnzeige(auftrag: {
+  led: 'ws2812-spi' | 'aus';
+  oled: boolean;
+  helligkeit: number;
+}): Promise<void> {
+  const res = await fetch('/api/statusanzeige', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify(auftrag),
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+}
+
 // ---- Verbund (M9.2) ------------------------------------------------------
 
 export interface VerbundPeer {

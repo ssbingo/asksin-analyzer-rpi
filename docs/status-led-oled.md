@@ -55,6 +55,17 @@ vier OLED-Seiten mit Taster-Blättern (gpiomon, v2/v1) — alles über
 injizierbare Kommandos (`i2ctransfer`, `spi-config`) und damit ohne
 Hardware getestet. Installer-Frage aktiviert I²C/SPI und die Konfiguration.
 
+**Ergänzt am 29.07.2026 — die Statuswebsite der Vorlage lebt im WebUI
+weiter:** Die Übersicht bekommt bei aktiver Anzeige einen Bereich
+„Status-LED & OLED" mit LED-Punkt samt Klartext-Grund, Systemwerten
+(CPU/Temperatur/RAM/SSD wie im Original-Dashboard), Störungs-Chips je Teil
+und einer **pixelgenauen OLED-Live-Vorschau** (der echte Framebuffer,
+im Browser gerendert) inklusive Blättern-Knopf. Aktivierung und
+Konfiguration (LED, OLED, Helligkeit) gehen **nachträglich über
+Einstellungen → Status-LED & OLED** — sofort wirksam, persistiert
+dienst-schreibbar; die Installer-Frage bleibt für die Ersteinrichtung
+(I²C/SPI). Nur die Backup-Funktion der Vorlage bleibt außen vor.
+
 **Offen: der Hardware-Test**, sobald Platine + Zubehör vorliegen.
 Akzeptanz: (a) LED spiegelt die Analyzer-Zustände live, (b) OLED zeigt die
 Seiten und der Taster blättert, (c) Installation rein über die

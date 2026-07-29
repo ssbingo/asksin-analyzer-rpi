@@ -7,9 +7,11 @@ import {
   holeKonfiguration,
   holeNetzwerk,
   holeNetzwerkStatus,
+  holeStatusAnzeige,
   holeVerbundPeers,
   sende,
   sendeNetzwerk,
+  sendeStatusAnzeige,
   setzeAuthToken,
 } from '../api.ts';
 import type { NetzwerkStatus, NetzwerkZustand, VerbundPeerEintrag } from '../api.ts';
@@ -34,6 +36,7 @@ onMounted(async () => {
   }
   void netzLaden();
   void peersLaden();
+  void anzeigeLaden();
 });
 
 async function aktion(name: string, fn: () => Promise<unknown>): Promise<void> {
@@ -106,6 +109,31 @@ const peerEntfernen = (url: string): Promise<void> | undefined =>
         await peersLaden();
       })
     : undefined;
+
+// ---- Status-LED / OLED (M11) ---------------------------------------------
+
+const anzeige = reactive({ led: false, oled: false, helligkeit: 40 });
+const anzeigeVerfuegbar = ref(false);
+
+async function anzeigeLaden(): Promise<void> {
+  try {
+    const z = await holeStatusAnzeige();
+    anzeige.led = z.konfig.led !== 'aus';
+    anzeige.oled = z.konfig.oled;
+    anzeige.helligkeit = z.konfig.helligkeit;
+    anzeigeVerfuegbar.value = true;
+  } catch {
+    /* ältere Core-Version */
+  }
+}
+
+const anzeigeSpeichern = (): Promise<void> =>
+  aktion('Statusanzeige umkonfiguriert — sofort wirksam', () =>
+    sendeStatusAnzeige({
+      led: anzeige.led ? 'ws2812-spi' : 'aus',
+      oled: anzeige.oled,
+      helligkeit: Number(anzeige.helligkeit),
+    }));
 
 // ---- Netzwerk (M7.6) -----------------------------------------------------
 
@@ -408,6 +436,31 @@ const demoUmschalten = (): Promise<void> | undefined => {
       Änderungen gelten erst nach Bestätigung dauerhaft — ohne Bestätigung
       stellt der Pi nach 90 s automatisch den vorherigen Zustand wieder her
       (Schutz vor dem Aussperren). Details: docs/netzwerkeinstellungen.md.
+    </div>
+  </div>
+
+  <div class="panel" v-if="anzeigeVerfuegbar">
+    <h3 style="margin-top: 0">Status-LED &amp; OLED</h3>
+    <p style="margin-top: 0">
+      Zubehör an den Steckern J5–J7 der Platine: RGB-Status-LED (WS2812) und
+      OLED-Anzeige mit Taster. Änderungen wirken sofort, ohne Neustart — die
+      Live-Vorschau erscheint auf der <RouterLink to="/home">Übersicht</RouterLink>.
+    </p>
+    <div class="zeile" style="margin-bottom: 0.8rem">
+      <label><input type="checkbox" v-model="anzeige.led" /> Status-LED (WS2812 über SPI)</label>
+      <label><input type="checkbox" v-model="anzeige.oled" /> OLED-Anzeige</label>
+      <label class="zeile" style="gap: 0.4rem">
+        Helligkeit
+        <input type="range" min="5" max="100" v-model.number="anzeige.helligkeit" />
+        <span class="gedimmt">{{ anzeige.helligkeit }} %</span>
+      </label>
+    </div>
+    <button class="primaer" :disabled="beschaeftigt" @click="anzeigeSpeichern">Speichern</button>
+    <div class="fussnote">
+      Voraussetzungen: I²C/SPI aktiviert (macht der Installer bei „Status-LED
+      einrichten? Ja"; nachträglich: <code>sudo raspi-config</code> →
+      Interface Options) und für die LED auf der Platine <strong>R5 (0 Ω)
+      statt R4</strong> bestückt. Gestörte Teile meldet die Übersicht.
     </div>
   </div>
 

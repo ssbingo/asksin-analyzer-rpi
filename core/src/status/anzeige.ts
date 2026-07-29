@@ -66,6 +66,7 @@ export class StatusAnzeige {
   #ledFehler = 0;
   #oledFehler = 0;
   #letzterLedSchluessel = '';
+  readonly #fehlerTexte = new Map<string, string>();
 
   constructor(options: StatusAnzeigeOptions) {
     this.#o = options;
@@ -253,6 +254,23 @@ export class StatusAnzeige {
   }
 
   #fehler(kontext: string, fehler: unknown): void {
+    this.#fehlerTexte.set(kontext, String(fehler).split('\n')[0] ?? '');
     this.#o.onError?.(kontext, fehler);
+  }
+
+  /** Für die Status-Seite der Weboberfläche (M11): Zustand der Anzeige. */
+  zustandFuerApi(): {
+    aktiv: { led: boolean; oled: boolean };
+    seite: number;
+    fehler: Record<string, string>;
+  } {
+    return {
+      aktiv: {
+        led: this.#o.led === 'ws2812-spi' && this.#ledFehler < MAX_FEHLER,
+        oled: this.#o.oled && this.#oledFehler < MAX_FEHLER,
+      },
+      seite: this.#seite,
+      fehler: Object.fromEntries(this.#fehlerTexte),
+    };
   }
 }

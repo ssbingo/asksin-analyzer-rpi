@@ -30,6 +30,8 @@ import { openDatabase } from '../src/persist/db.ts';
 import { DevListService } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
 import { StatusAnzeige } from '../src/status/anzeige.ts';
+import { OledBild } from '../src/status/ssd1306.ts';
+import { ledMuster, zeichneSeite } from '../src/status/zustand.ts';
 import type { StatusDaten } from '../src/status/zustand.ts';
 import { flashFirmware, siehtNachIntelHexAus } from '../src/update/firmware.ts';
 
@@ -654,20 +656,95 @@ function statusDaten(): StatusDaten {
   };
 }
 
-const anzeigeKonfig = konfig.statusanzeige ?? {};
-const statusAnzeige =
-  (anzeigeKonfig.led !== undefined && anzeigeKonfig.led !== 'aus') ||
-  anzeigeKonfig.oled === true
-    ? new StatusAnzeige({
-        led: anzeigeKonfig.led ?? 'aus',
-        oled: anzeigeKonfig.oled === true,
-        ...(anzeigeKonfig.helligkeit === undefined
-          ? {}
-          : { helligkeit: anzeigeKonfig.helligkeit }),
-        daten: statusDaten,
-        onError: (kontext, err) => log(`Statusanzeige (${kontext}): ${String(err)}`),
-      })
-    : null;
+// Konfiguration: die per WebUI gesetzte Datei ÜBERSCHREIBT config.json —
+// „im Nachhinein aktivierbar", ganz ohne Konsole (Leitlinie des Projekts).
+const statusKonfigDatei = join(datenDir, 'statusanzeige.json');
+
+interface StatusKonfig {
+  led: 'ws2812-spi' | 'aus';
+  oled: boolean;
+  helligkeit: number;
+}
+
+function statusKonfigLesen(): StatusKonfig {
+  let basis = {
+    led: konfig.statusanzeige?.led ?? 'aus',
+    oled: konfig.statusanzeige?.oled === true,
+    helligkeit: konfig.statusanzeige?.helligkeit ?? 40,
+  };
+  try {
+    const ui = JSON.parse(readFileSync(statusKonfigDatei, 'utf8')) as Partial<StatusKonfig>;
+    basis = {
+      led: ui.led === 'ws2812-spi' ? 'ws2812-spi' : ui.led === 'aus' ? 'aus' : basis.led,
+      oled: typeof ui.oled === 'boolean' ? ui.oled : basis.oled,
+      helligkeit: typeof ui.helligkeit === 'number' ? ui.helligkeit : basis.helligkeit,
+    };
+  } catch {
+    /* keine UI-Datei — config.json/Vorgaben gelten */
+  }
+  return basis;
+}
+
+let statusAnzeige: StatusAnzeige | null = null;
+
+async function statusAnzeigeAufbauen(): Promise<void> {
+  await statusAnzeige?.stop();
+  statusAnzeige = null;
+  const k = statusKonfigLesen();
+  if (k.led === 'aus' && !k.oled) return;
+  statusAnzeige = new StatusAnzeige({
+    led: k.led,
+    oled: k.oled,
+    helligkeit: k.helligkeit,
+    daten: statusDaten,
+    onError: (kontext, err) => log(`Statusanzeige (${kontext}): ${String(err)}`),
+  });
+  await statusAnzeige.start();
+  log(`Statusanzeige aktiv (LED: ${k.led}, OLED: ${k.oled ? 'an' : 'aus'})`);
+}
+
+const statusAnzeigeHooks = {
+  /** Zustand fürs WebUI — inklusive pixelgenauer OLED-Vorschau. */
+  zustand: (): Record<string, unknown> => {
+    const k = statusKonfigLesen();
+    const daten = statusDaten();
+    const bild = new OledBild();
+    zeichneSeite(bild, statusAnzeige?.zustandFuerApi().seite ?? 0, daten);
+    return {
+      konfig: k,
+      ...(statusAnzeige?.zustandFuerApi() ?? {
+        aktiv: { led: false, oled: false },
+        seite: 0,
+        fehler: {},
+      }),
+      ledMuster: ledMuster(daten),
+      system: daten.system,
+      oledBild: Buffer.from(bild.puffer).toString('base64'),
+    };
+  },
+  /** Konfiguration zur Laufzeit — persistiert, sofort wirksam. */
+  einstellen: async (auftrag: Record<string, unknown>): Promise<void> => {
+    const led = auftrag['led'];
+    if (led !== 'ws2812-spi' && led !== 'aus') {
+      throw new Error('led: ws2812-spi oder aus erwartet');
+    }
+    const helligkeit = Number(auftrag['helligkeit'] ?? 40);
+    if (!Number.isFinite(helligkeit) || helligkeit < 1 || helligkeit > 100) {
+      throw new Error('helligkeit: 1–100 erwartet');
+    }
+    const neu: StatusKonfig = {
+      led,
+      oled: auftrag['oled'] === true,
+      helligkeit: Math.round(helligkeit),
+    };
+    writeFileSync(statusKonfigDatei, JSON.stringify(neu, null, 2));
+    await statusAnzeigeAufbauen();
+    log(`Statusanzeige umkonfiguriert (LED: ${neu.led}, OLED: ${neu.oled})`);
+  },
+  seiteWeiter: (): void => {
+    statusAnzeige?.naechsteSeite();
+  },
+};
 
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
 const api = new ApiServer({
@@ -681,6 +758,7 @@ const api = new ApiServer({
   update: updateHooks,
   verbund: verbundHooks,
   netzwerk: netzwerkHooks,
+  statusAnzeige: statusAnzeigeHooks,
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');
     void herunterfahren(0);
@@ -711,10 +789,7 @@ const api = new ApiServer({
 });
 
 analyzer.start();
-if (statusAnzeige !== null) {
-  await statusAnzeige.start();
-  log('Statusanzeige aktiv (LED/OLED an J5–J7)');
-}
+await statusAnzeigeAufbauen();
 const { host, port } = await api.listen(konfig.http.port, konfig.http.host);
 log(`AskSin-Analyzer ${paketVersion()} — API auf http://${host}:${port}`);
 if (existsSync(uiDir)) log(`Web-UI: ${uiDir}`);

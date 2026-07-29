@@ -1,7 +1,13 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue';
-import { holeNoise, holeSnapshot, holeTelegramme } from '../api.ts';
-import type { Snapshot, Telegramm } from '../api.ts';
+import {
+  holeNoise,
+  holeSnapshot,
+  holeStatusAnzeige,
+  holeTelegramme,
+  statusSeiteWeiter,
+} from '../api.ts';
+import type { Snapshot, StatusAnzeigeZustand, Telegramm } from '../api.ts';
 import { echarts, tortenOption, zeitChartOption } from '../chart.ts';
 import type { TortenStueck } from '../chart.ts';
 import { dbm, vorZeit } from '../format.ts';
@@ -20,6 +26,62 @@ function anpassen(): void {
   chart?.resize();
   torte?.resize();
 }
+
+// ---- Status-LED / OLED (M11) --------------------------------------------
+
+const status = ref<StatusAnzeigeZustand | null>(null);
+const oledCanvas = ref<HTMLCanvasElement | null>(null);
+
+const statusAktiv = (): boolean => {
+  const k = status.value?.konfig;
+  return k !== undefined && (k.led !== 'aus' || k.oled);
+};
+
+function zeichneOledVorschau(): void {
+  const z = status.value;
+  const canvas = oledCanvas.value;
+  if (z === null || canvas === null) return;
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) return;
+  const bytes = Uint8Array.from(atob(z.oledBild), (c) => c.charCodeAt(0));
+  ctx.fillStyle = '#001018';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#9fdcff';
+  for (let seite8 = 0; seite8 < 8; seite8++) {
+    for (let x = 0; x < 128; x++) {
+      const byte = bytes[seite8 * 128 + x] ?? 0;
+      for (let bit = 0; bit < 8; bit++) {
+        if (((byte >> bit) & 1) === 1) {
+          ctx.fillRect(x * 2, (seite8 * 8 + bit) * 2, 2, 2);
+        }
+      }
+    }
+  }
+}
+
+nutzeTakt(async () => {
+  try {
+    status.value = await holeStatusAnzeige();
+    if (statusAktiv()) zeichneOledVorschau();
+  } catch {
+    status.value = null;               // ältere Core-Version ohne den Endpunkt
+  }
+}, 2000);
+
+async function blaettern(): Promise<void> {
+  await statusSeiteWeiter().catch(() => {});
+  try {
+    status.value = await holeStatusAnzeige();
+    zeichneOledVorschau();
+  } catch {
+    /* nächster Takt */
+  }
+}
+
+const ledCss = (): string => {
+  const f = status.value?.ledMuster.farbe;
+  return f === undefined ? '#555' : `rgb(${f[0]},${f[1]},${f[2]})`;
+};
 
 onMounted(() => {
   if (chartEl.value !== null) chart = echarts.init(chartEl.value);
@@ -140,6 +202,42 @@ nutzeTakt(async () => {
     </div>
     <div class="fussnote">
       100 % = erlaubte Sendezeit (36 s/h) ausgeschöpft. Schätzung aus Telegrammlänge, gegen die CCU kalibrieren.
+    </div>
+  </div>
+
+  <div class="panel" v-if="status !== null && statusAktiv()">
+    <h3 style="margin-top: 0">Status-LED &amp; OLED</h3>
+    <div class="zeile" style="align-items: flex-start; gap: 1.5rem">
+      <div>
+        <div class="zeile" style="margin-bottom: 0.6rem">
+          <span
+            :style="`display:inline-block;width:1.1rem;height:1.1rem;border-radius:50%;background:${ledCss()};box-shadow:0 0 10px ${ledCss()}`"
+          ></span>
+          <strong>{{ status.ledMuster.grund }}</strong>
+          <span class="chip" v-if="status.ledMuster.blinken !== 'aus'">{{ status.ledMuster.blinken }}</span>
+          <span class="chip schwach" v-if="status.konfig.led !== 'aus' && !status.aktiv.led">LED gestört</span>
+          <span class="chip schwach" v-if="status.konfig.oled && !status.aktiv.oled">OLED gestört</span>
+        </div>
+        <table class="daten" style="max-width: 22rem">
+          <tbody>
+            <tr><td class="gedimmt">CPU-Last</td><td class="num">{{ status.system.cpuLast.toFixed(2) }}</td></tr>
+            <tr v-if="status.system.tempC !== null"><td class="gedimmt">Temperatur</td><td class="num">{{ status.system.tempC.toFixed(1) }} °C</td></tr>
+            <tr><td class="gedimmt">RAM frei</td><td class="num">{{ status.system.ramFreiProzent.toFixed(0) }} %</td></tr>
+            <tr v-if="status.system.diskFreiProzent !== null"><td class="gedimmt">SSD frei</td><td class="num">{{ status.system.diskFreiProzent.toFixed(0) }} %</td></tr>
+          </tbody>
+        </table>
+        <div class="fussnote" v-for="(text, kontext) in status.fehler" :key="kontext">
+          ⚠ {{ kontext }}: {{ text }}
+        </div>
+      </div>
+      <div>
+        <canvas ref="oledCanvas" width="256" height="128"
+                style="border: 1px solid var(--border); border-radius: 6px; image-rendering: pixelated"></canvas>
+        <div class="zeile" style="margin-top: 0.4rem">
+          <button @click="blaettern">Blättern (Seite {{ status.seite + 1 }}/4)</button>
+          <span class="fussnote" style="margin: 0">Live-Vorschau des OLED — pixelgenau dasselbe Bild wie am Gerät.</span>
+        </div>
+      </div>
     </div>
   </div>
 
