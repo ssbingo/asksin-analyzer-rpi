@@ -42,7 +42,7 @@ async function aufbau(t: TestContext, extra: {
   onReboot?: () => void;
   uiDir?: string;
   update?: import('../src/api/server.ts').UpdateHooks;
-  verbund?: { uebersicht(): Promise<unknown> };
+  verbund?: import('../src/api/server.ts').ApiServerOptions['verbund'];
   netzwerk?: import('../src/api/server.ts').NetzwerkHooks;
 } = {}): Promise<Aufbau> {
   const time = new FakeTime();
@@ -482,6 +482,54 @@ test('/api/verbund und /api/netzwerk: 501 ohne Rolle, mit Hooks voller Ablauf', 
     200,
   );
   assert.equal(bestaetigt, 1);
+});
+
+test('/api/verbund/peers: Liste ohne Tokens, Ändern mit Auth und Validierung', async (t) => {
+  const auftraege: Array<Record<string, unknown>> = [];
+  const a = await aufbau(t, {
+    authToken: 'geheim',
+    verbund: {
+      uebersicht: () => Promise.resolve({}),
+      peers: () => ({
+        peers: [{ url: 'http://og:8080', name: 'OG', hatToken: true, quelle: 'ui' }],
+      }),
+      peersAendern: (auftrag: Record<string, unknown>) => {
+        if (auftrag['url'] === 'kaputt') throw new Error('url: http(s):// erwartet');
+        auftraege.push(auftrag);
+      },
+    },
+  });
+
+  const liste = (await (await fetch(`${a.base}/api/verbund/peers`)).json()) as {
+    peers: Array<Record<string, unknown>>;
+  };
+  assert.equal(liste.peers[0]!['hatToken'], true, 'Token selbst wird NIE geliefert');
+  assert.equal(liste.peers[0]!['token'], undefined);
+
+  assert.equal(
+    (
+      await fetch(`${a.base}/api/verbund/peers`, {
+        method: 'POST',
+        body: JSON.stringify({ aktion: 'hinzufuegen', url: 'http://dg:8080' }),
+      })
+    ).status,
+    401,
+    'Ändern nur mit Token',
+  );
+  const ok = await fetch(`${a.base}/api/verbund/peers`, {
+    method: 'POST',
+    headers: { authorization: 'Bearer geheim' },
+    body: JSON.stringify({ aktion: 'hinzufuegen', url: 'http://dg:8080' }),
+  });
+  assert.equal(ok.status, 200);
+  assert.equal(auftraege[0]!['url'], 'http://dg:8080');
+
+  const schlecht = await fetch(`${a.base}/api/verbund/peers`, {
+    method: 'POST',
+    headers: { authorization: 'Bearer geheim' },
+    body: JSON.stringify({ aktion: 'hinzufuegen', url: 'kaputt' }),
+  });
+  assert.equal(schlecht.status, 500, 'Validierungsfehler kommt lesbar zurück');
 });
 
 test('/api/netzwerk: verändernde Aufrufe sind mit Token auth-pflichtig', async (t) => {

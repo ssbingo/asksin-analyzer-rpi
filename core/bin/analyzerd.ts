@@ -316,29 +316,103 @@ const updateHooks: UpdateHooks = {
 };
 
 // ---- Verbund-Rolle (M9.2) ------------------------------------------------
-// Nur aktiv, wenn Peers konfiguriert sind. Die eigene Instanz kommt
-// automatisch als erster Eintrag dazu (über localhost) — die Übersicht
-// zeigt damit immer ALLE Standorte inklusive des Masters.
+// JEDER Analyzer ist verbundfähig; „Master" wird er dadurch, dass ihm der
+// Anwender unter Einstellungen → Verbund Peers hinzufügt (keine Konsole
+// nötig). config.json-Peers bleiben als Experten-Weg zusätzlich möglich.
+// Die eigene Instanz ist immer der erste Eintrag.
 
-const peerListe: PeerKonfig[] = (konfig.verbund?.peers ?? []).filter(
+const verbundPeersDatei = join(datenDir, 'verbund-peers.json');
+
+const konfigPeers: PeerKonfig[] = (konfig.verbund?.peers ?? []).filter(
   (p): p is { url: string } & typeof p => typeof p.url === 'string' && p.url !== '',
 );
-const verbund =
-  peerListe.length === 0
-    ? undefined
-    : new VerbundDienst({
-        peers: [
-          {
-            name: standort,
-            url: `http://127.0.0.1:${konfig.http.port}`,
-            ...(konfig.http.authToken === '' ? {} : { token: konfig.http.authToken }),
-          },
-          ...peerListe,
-        ],
-      });
-if (verbund !== undefined) {
-  log(`Verbund-Rolle aktiv: ${peerListe.length} Peer(s) + eigener Standort`);
+
+function leseUiPeers(): PeerKonfig[] {
+  try {
+    const roh = JSON.parse(readFileSync(verbundPeersDatei, 'utf8')) as unknown;
+    if (!Array.isArray(roh)) return [];
+    return roh.filter(
+      (p): p is PeerKonfig =>
+        p !== null && typeof p === 'object' && typeof (p as PeerKonfig).url === 'string',
+    );
+  } catch {
+    return [];
+  }
 }
+
+function allePeers(): PeerKonfig[] {
+  const selbst: PeerKonfig = {
+    name: standort,
+    url: `http://127.0.0.1:${konfig.http.port}`,
+    ...(konfig.http.authToken === '' ? {} : { token: konfig.http.authToken }),
+  };
+  const gesehen = new Set([selbst.url]);
+  const liste = [selbst];
+  for (const p of [...konfigPeers, ...leseUiPeers()]) {
+    const url = p.url.replace(/\/+$/, '');
+    if (gesehen.has(url)) continue;
+    gesehen.add(url);
+    liste.push({ ...p, url });
+  }
+  return liste;
+}
+
+const verbund = new VerbundDienst({ peers: allePeers() });
+if (verbund.peerAnzahl > 1) {
+  log(`Verbund: ${verbund.peerAnzahl - 1} Peer(s) + eigener Standort`);
+}
+
+const URL_OK = /^https?:\/\/[^\s]+$/;
+
+const verbundHooks = {
+  uebersicht: () => verbund.uebersicht(),
+  matrix: () => verbund.matrix(),
+  matrixCsv: () => verbund.matrixCsv(),
+  telegramme: () => verbund.telegramme(),
+  /** Peer-Liste für die UI — Tokens werden NIE herausgegeben. */
+  peers: () => ({
+    peers: [
+      ...konfigPeers.map((p) => ({
+        url: p.url,
+        name: p.name ?? null,
+        hatToken: p.token !== undefined,
+        quelle: 'config' as const,
+      })),
+      ...leseUiPeers().map((p) => ({
+        url: p.url,
+        name: p.name ?? null,
+        hatToken: p.token !== undefined,
+        quelle: 'ui' as const,
+      })),
+    ],
+  }),
+  peersAendern: (auftrag: Record<string, unknown>): void => {
+    const aktion = auftrag['aktion'];
+    const url = typeof auftrag['url'] === 'string' ? auftrag['url'].trim().replace(/\/+$/, '') : '';
+    if (!URL_OK.test(url)) throw new Error('url: http(s)://… erwartet');
+    let uiPeers = leseUiPeers();
+    if (aktion === 'hinzufuegen') {
+      if (uiPeers.some((p) => p.url === url) || konfigPeers.some((p) => p.url === url)) {
+        throw new Error('Dieser Analyzer ist bereits eingetragen');
+      }
+      const neu: PeerKonfig = { url };
+      if (typeof auftrag['name'] === 'string' && auftrag['name'].trim() !== '') {
+        neu.name = auftrag['name'].trim();
+      }
+      if (typeof auftrag['token'] === 'string' && auftrag['token'] !== '') {
+        neu.token = auftrag['token'];
+      }
+      uiPeers.push(neu);
+    } else if (aktion === 'entfernen') {
+      uiPeers = uiPeers.filter((p) => p.url !== url);
+    } else {
+      throw new Error('aktion: hinzufuegen oder entfernen erwartet');
+    }
+    writeFileSync(verbundPeersDatei, JSON.stringify(uiPeers, null, 2));
+    verbund.setPeers(allePeers());
+    log(`Verbund-Peers geändert (${String(aktion)}: ${url}) — sofort wirksam`);
+  },
+};
 
 // ---- Netzwerkeinstellungen (M7.6) ---------------------------------------
 // Lesen ohne Root; Ändern über Auftragsdatei → systemd-Path-Unit →
@@ -520,7 +594,7 @@ const api = new ApiServer({
   ...(konfig.http.authToken === '' ? {} : { authToken: konfig.http.authToken }),
   ...(existsSync(uiDir) ? { uiDir } : {}),
   update: updateHooks,
-  ...(verbund === undefined ? {} : { verbund }),
+  verbund: verbundHooks,
   netzwerk: netzwerkHooks,
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');

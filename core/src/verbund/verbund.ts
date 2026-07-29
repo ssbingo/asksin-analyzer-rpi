@@ -115,7 +115,7 @@ function wahrheit(x: unknown): boolean | null {
 }
 
 export class VerbundDienst {
-  readonly #peers: PeerKonfig[];
+  #peers: PeerKonfig[];
   readonly #fetch: FetchJson;
   readonly #time: TimeSource;
   readonly #cacheMs: number;
@@ -146,6 +146,13 @@ export class VerbundDienst {
 
   get peerAnzahl(): number {
     return this.#peers.length;
+  }
+
+  /** Peers im laufenden Betrieb austauschen (UI-Verwaltung, M9.2+). */
+  setPeers(peers: PeerKonfig[]): void {
+    this.#peers = peers;
+    this.#cache = null;
+    this.#geraeteJeStandort.clear();
   }
 
   /** Zustand aller Peers; parallel abgefragt, kurz gecacht. */

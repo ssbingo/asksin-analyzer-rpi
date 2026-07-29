@@ -42,6 +42,11 @@ Backoff weiter — der HAT kann jederzeit später dazukommen.
 startet den Dienst mit einer simulierten Anlage (~15 Geräte, eigene
 Demo-Datenbank) — läuft ganz ohne Homematic-Zentrale und ohne Platine.
 
+**Mehrere Analyzer verbinden:** Auf dem Analyzer, der die Gesamtübersicht
+zeigen soll, unter *Einstellungen → Verbund* die Adressen der anderen
+eintragen — sofort wirksam, ganz ohne Konsole. Auf den übrigen Analyzern
+ist nichts zu tun.
+
 ## Dateien und Pfade
 
 | Pfad | Inhalt |

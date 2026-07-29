@@ -29,6 +29,7 @@ NODE_MAJOR_MIN=24
 
 REBOOT_NEEDED=0
 NEUES_TOKEN=""
+VERBUND_MASTER=0
 
 c_info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 c_ok()    { printf '\033[1;32m  ok\033[0m %s\n' "$*"; }
@@ -179,6 +180,8 @@ if [ "$KONFIGURIEREN" -eq 1 ]; then
             n|nein|no) TOKEN="" ;;
             *) TOKEN="$(head -c 16 /dev/urandom | od -An -tx1 | tr -d ' \n')"; NEUES_TOKEN="$TOKEN" ;;
         esac
+        a="$(ask_tty '  Soll DIESER Analyzer die Verbund-Gesamtuebersicht fuehren (Master)? (j/N): ')"
+        case "${a,,}" in j|ja|y|yes) VERBUND_MASTER=1 ;; *) VERBUND_MASTER=0 ;; esac
     else
         c_warn "Kein Terminal - schreibe Vorgabe-Konfiguration (nur 127.0.0.1, ohne CCU)."
         CCU=""; PORT=8080; HOST="127.0.0.1"; TOKEN=""; STANDORT="$(hostname)"
@@ -237,6 +240,16 @@ echo "    asksin-analyzer status    # Dienststatus"
 echo "    asksin-analyzer logs      # Live-Log"
 echo "    asksin-analyzer config    # Konfiguration aendern"
 echo "    asksin-analyzer update    # auf neue Version aktualisieren"
+echo
+if [ "$VERBUND_MASTER" -eq 1 ]; then
+    c_info "Verbund-Master: Die anderen Analyzer verknuepfst du bequem in der"
+    c_info "Weboberflaeche unter Einstellungen -> Verbund (Adresse eintragen,"
+    c_info "fertig - keine Konsole noetig)."
+else
+    c_info "Verbund-Client: Hier ist nichts weiter zu tun - der Master traegt"
+    c_info "diesen Analyzer in SEINER Weboberflaeche unter Einstellungen ->"
+    c_info "Verbund ein. Adresse dieses Analyzers: http://${IP:-<pi-ip>}:${PORT_ANZEIGE}"
+fi
 echo
 c_info "Solange der Sniffer-HAT noch nicht steckt, meldet die Oberflaeche"
 c_info "'Sniffer getrennt' und der Dienst versucht es ruhig weiter - normal."

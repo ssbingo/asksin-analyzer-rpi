@@ -44,26 +44,17 @@ const gefiltert = computed(() => {
 
   <div class="panel" v-if="keineRolle">
     <p style="margin-top: 0">
-      Auf diesem Analyzer ist <strong>keine Verbund-Rolle</strong> konfiguriert.
-    </p>
-    <p>
-      Genau ein Analyzer des Hauses bekommt in seiner
-      <code>/etc/asksin-analyzer/config.json</code> die anderen als Peers
-      eingetragen und zeigt hier dann alle Standorte auf einen Blick:
-    </p>
-    <pre style="color: var(--muted); font-size: 0.85rem">"verbund": {
-  "peers": [
-    { "url": "http://192.168.1.72:8080", "token": "…" },
-    { "url": "http://192.168.1.73:8080", "token": "…" }
-  ]
-}</pre>
-    <p class="fussnote">
-      Der eigene Standort wird automatisch ergänzt. Details:
-      docs/verbund.md im Repository.
+      Dieser Core-Stand kennt die Verbund-Ansicht noch nicht —
+      bitte zuerst aktualisieren (Info → Software-Update).
     </p>
   </div>
 
   <template v-else-if="uebersicht !== null">
+    <div class="meldung ok" v-if="uebersicht.peers.length === 1">
+      Bisher nur der eigene Standort — weitere Analyzer verknüpfst du unter
+      <RouterLink to="/settings">Einstellungen → Verbund</RouterLink>
+      (Adresse eintragen, fertig — ganz ohne Konsole).
+    </div>
     <div class="kacheln" style="grid-template-columns: repeat(auto-fit, minmax(260px, 1fr))">
       <div class="kachel" v-for="p in uebersicht.peers" :key="p.url">
         <div class="zeile" style="justify-content: space-between">

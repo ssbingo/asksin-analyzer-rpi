@@ -267,6 +267,33 @@ export interface VerbundTelegramm {
   gehoertVon: Array<{ standort: string; rssi: number }>;
 }
 
+export interface VerbundPeerEintrag {
+  url: string;
+  name: string | null;
+  hatToken: boolean;
+  quelle: 'config' | 'ui';
+}
+
+export const holeVerbundPeers = (): Promise<{ peers: VerbundPeerEintrag[] }> =>
+  hole('/api/verbund/peers');
+
+export async function aenderePeer(auftrag: {
+  aktion: 'hinzufuegen' | 'entfernen';
+  url: string;
+  name?: string;
+  token?: string;
+}): Promise<void> {
+  const res = await fetch('/api/verbund/peers', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify(auftrag),
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+}
+
 export const holeVerbundMatrix = (): Promise<VerbundMatrix> =>
   hole('/api/verbund/matrix');
 export const holeVerbundTelegramme = (): Promise<{

@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, reactive, ref } from 'vue';
 import {
+  aenderePeer,
   authToken,
   bestaetigeNetzwerk,
   holeKonfiguration,
   holeNetzwerk,
   holeNetzwerkStatus,
+  holeVerbundPeers,
   sende,
   sendeNetzwerk,
   setzeAuthToken,
 } from '../api.ts';
-import type { NetzwerkStatus, NetzwerkZustand } from '../api.ts';
+import type { NetzwerkStatus, NetzwerkZustand, VerbundPeerEintrag } from '../api.ts';
 
 const standort = ref('');
 const ccuip = ref('');
@@ -31,6 +33,7 @@ onMounted(async () => {
     meldung.value = { art: 'fehler', text: 'Konfiguration nicht abrufbar — Core erreichbar?' };
   }
   void netzLaden();
+  void peersLaden();
 });
 
 async function aktion(name: string, fn: () => Promise<unknown>): Promise<void> {
@@ -67,6 +70,41 @@ const dbLeeren = (): Promise<void> | undefined =>
 const neustart = (): Promise<void> | undefined =>
   window.confirm('Core-Dienst neu starten?')
     ? aktion('Neustart ausgelöst', () => sende('/reboot'))
+    : undefined;
+
+// ---- Verbund-Peers -------------------------------------------------------
+
+const peers = ref<VerbundPeerEintrag[]>([]);
+const neuerPeer = reactive({ url: '', name: '', token: '' });
+
+async function peersLaden(): Promise<void> {
+  try {
+    peers.value = (await holeVerbundPeers()).peers;
+  } catch {
+    /* ältere Core-Version ohne Peer-Verwaltung */
+  }
+}
+
+const peerHinzufuegen = (): Promise<void> =>
+  aktion('Analyzer verknüpft', async () => {
+    await aenderePeer({
+      aktion: 'hinzufuegen',
+      url: neuerPeer.url.trim(),
+      ...(neuerPeer.name.trim() === '' ? {} : { name: neuerPeer.name.trim() }),
+      ...(neuerPeer.token === '' ? {} : { token: neuerPeer.token }),
+    });
+    neuerPeer.url = '';
+    neuerPeer.name = '';
+    neuerPeer.token = '';
+    await peersLaden();
+  });
+
+const peerEntfernen = (url: string): Promise<void> | undefined =>
+  window.confirm(`„${url}" aus dem Verbund entfernen?`)
+    ? aktion('Analyzer entfernt', async () => {
+        await aenderePeer({ aktion: 'entfernen', url });
+        await peersLaden();
+      })
     : undefined;
 
 // ---- Netzwerk (M7.6) -----------------------------------------------------
@@ -223,6 +261,55 @@ const demoUmschalten = (): Promise<void> | undefined => {
       <input type="password" v-model="token" autocomplete="off" />
     </label>
     <button :disabled="beschaeftigt" @click="tokenSpeichern">Token speichern</button>
+  </div>
+
+  <div class="panel">
+    <h3 style="margin-top: 0">Verbund — weitere Analyzer verknüpfen</h3>
+    <p style="margin-top: 0">
+      Trage hier die anderen Analyzer des Hauses ein — dieser Analyzer zeigt
+      dann unter <RouterLink to="/verbund">Verbund</RouterLink> alle Standorte,
+      die Empfangsmatrix und die zusammengeführte Telegrammliste. Auf den
+      übrigen Analyzern ist nichts einzutragen.
+    </p>
+
+    <table class="daten" style="max-width: 40rem; margin-bottom: 0.9rem" v-if="peers.length > 0">
+      <tbody>
+        <tr v-for="p in peers" :key="p.url">
+          <td>{{ p.name ?? '—' }}</td>
+          <td class="gedimmt">{{ p.url }}</td>
+          <td><span class="chip" v-if="p.hatToken">Token</span>
+              <span class="chip" v-if="p.quelle === 'config'" title="fest in der Konfigurationsdatei">fest</span></td>
+          <td class="num">
+            <button class="gefahr" v-if="p.quelle === 'ui'" :disabled="beschaeftigt"
+                    @click="peerEntfernen(p.url)">Entfernen</button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="fussnote" v-else>Noch keine Analyzer verknüpft.</p>
+
+    <div class="zeile">
+      <label class="feld" style="flex: 2; margin-bottom: 0">
+        <span class="name">Adresse des Analyzers</span>
+        <input type="text" v-model="neuerPeer.url" placeholder="http://192.168.1.72:8080" />
+      </label>
+      <label class="feld" style="flex: 1; margin-bottom: 0">
+        <span class="name">Name (optional)</span>
+        <input type="text" v-model="neuerPeer.name" placeholder="z. B. OG" />
+      </label>
+      <label class="feld" style="flex: 1; margin-bottom: 0">
+        <span class="name">Dessen Auth-Token (optional)</span>
+        <input type="password" v-model="neuerPeer.token" autocomplete="off" />
+      </label>
+      <button class="primaer" style="align-self: flex-end"
+              :disabled="beschaeftigt || neuerPeer.url.trim() === ''"
+              @click="peerHinzufuegen">Verknüpfen</button>
+    </div>
+    <div class="fussnote">
+      Sofort wirksam, kein Neustart. Der Name wird sonst automatisch vom
+      Standort des anderen Analyzers übernommen; das Token wird nur für
+      spätere Fernwartung (Flotten-Update) gebraucht und nie angezeigt.
+    </div>
   </div>
 
   <div class="panel" v-if="!netzFehlt">

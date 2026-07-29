@@ -81,6 +81,11 @@ export interface ApiServerOptions {
     matrix?(): Promise<unknown>;
     matrixCsv?(): Promise<string>;
     telegramme?(): Promise<unknown>;
+    /** Peer-Liste für die UI-Verwaltung — OHNE Tokens. */
+    peers?(): unknown;
+    /** {aktion:'hinzufuegen'|'entfernen', url, name?, token?} — wirft bei
+     *  ungültigen Angaben; Änderung ist sofort wirksam und persistiert. */
+    peersAendern?(auftrag: Record<string, unknown>): void;
   };
   /** Netzwerkeinstellungen (M7.6). Ohne Hooks: 501 auf /api/netzwerk*. */
   netzwerk?: NetzwerkHooks;
@@ -298,6 +303,13 @@ export class ApiServer {
           }
           return this.#json(res, 200, await verbund.telegramme());
         }
+        case '/api/verbund/peers': {
+          const verbund = this.#opts.verbund;
+          if (verbund?.peers === undefined) {
+            return this.#text(res, 501, 'Keine Peer-Verwaltung');
+          }
+          return this.#json(res, 200, verbund.peers());
+        }
         case '/api/netzwerk': {
           const netz = this.#opts.netzwerk;
           if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
@@ -343,6 +355,21 @@ export class ApiServer {
           res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('Auftrag angenommen — Probezeit läuft, Status unter /api/netzwerk/status');
           return;
+        }
+        case '/api/verbund/peers': {
+          if (!this.#autorisiert(req, res)) return;
+          const verbund = this.#opts.verbund;
+          if (verbund?.peersAendern === undefined) {
+            return this.#text(res, 501, 'Keine Peer-Verwaltung');
+          }
+          let auftrag: Record<string, unknown>;
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            return this.#text(res, 400, 'Body muss JSON sein');
+          }
+          verbund.peersAendern(auftrag);
+          return this.#text(res, 200, 'OK');
         }
         case '/api/netzwerk/bestaetigen': {
           if (!this.#autorisiert(req, res)) return;
