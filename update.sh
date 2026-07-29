@@ -108,6 +108,8 @@ install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.service" /etc/system
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.path" /etc/systemd/system/ 2>/dev/null || true
 install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
 systemctl daemon-reload
+# Web-Ausloeser scharf schalten (idempotent; noetig beim ersten Update auf M7.5):
+systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
 systemctl restart asksin-analyzer.service
 
 # --- 4. Health-Check: kommt der Dienst mit dem neuen Stand hoch? --------------
