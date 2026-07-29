@@ -95,8 +95,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.0.1** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.3** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.3** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.4** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.4** |
 
 Die **Firmware wird bewusst nicht eigenständig versioniert**: Sie ist
 byte-identisch der `AskSinSniffer328P` von jp112sdl (Stand des
@@ -106,6 +106,36 @@ werden, beginnt ab dann `firmware-v0.0.1`. Der ioBroker-Adapter bekommt ein
 eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.0.4 — 29.07.2026
+
+Update-Pfade (M7.5): Die Software aktualisiert sich selbst — atomar,
+rückrollbar und fernsteuerbar. Hardware unverändert (0.0.1).
+
+**Core 0.0.4**
+- **Self-Update über die Weboberfläche/API**: `/api/update/versions`,
+  `/api/update/core`, `/api/update/status` — der unprivilegierte Dienst
+  legt nur eine Trigger-Datei an, eine systemd-Path-Unit startet
+  `update.sh` als root (NoNewPrivileges bleibt intakt)
+- `update.sh` atomar und rückrollbar: UI-Build nach `dist-neu` mit
+  atomarem Tausch, Statusdatei übersteht den Dienst-Neustart,
+  Health-Check nach dem Neustart, bei Fehlschlag automatischer Rollback
+  von Git-Stand und UI; installiert fehlende Units selbstheilend nach
+- **328P-Firmware-Flash** über die API: Intel-HEX-Upload, Ingest pausiert
+  und gibt den Port frei, Reset am HAT über GPIO4 (libgpiod v2/v1), am
+  USB über DTR, avrdude mit 58 824 Baud; Kommandosequenz injizierbar und
+  ohne Hardware getestet
+- **Täglicher Selbstcheck** auf neue Versionen (Start + alle 24 h),
+  Ergebnis in `/api/health`
+- git `safe.directory` für den Dienstbenutzer automatisch gesetzt;
+  Versions-Hook meldet Fehler lesbar statt mit 500
+- 118 Unit-Tests
+
+**Web-UI 0.0.4**
+- Info-Ansicht: Update suchen/installieren mit Live-Fortschritt über den
+  Dienst-Neustart hinweg; Firmware-Upload mit avrdude-Log
+- Pulsierendes **🔔-Update-Badge** in der Kopfzeile, sobald der
+  Selbstcheck eine neue Version meldet — Klick führt zur Info-Seite
 
 ### v0.0.3 — 29.07.2026
 
