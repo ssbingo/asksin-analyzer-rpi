@@ -99,6 +99,11 @@ export interface ApiServerOptions {
     einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
     seiteWeiter(): void;
   };
+  /** Langzeitdaten nach InfluxDB (M9.5): Zustand + Laufzeit-Konfiguration. */
+  influx?: {
+    zustand(): unknown;
+    einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
+  };
 }
 
 /**
@@ -337,6 +342,11 @@ export class ApiServer {
           if (hooks === undefined) return this.#text(res, 501, 'Keine Statusanzeige');
           return this.#json(res, 200, hooks.zustand());
         }
+        case '/api/influx': {
+          const hooks = this.#opts.influx;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Influx-Anbindung');
+          return this.#json(res, 200, hooks.zustand());
+        }
         case '/api/netzwerk/status': {
           const netz = this.#opts.netzwerk;
           if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
@@ -382,6 +392,19 @@ export class ApiServer {
           if (!this.#autorisiert(req, res)) return;
           const hooks = this.#opts.statusAnzeige;
           if (hooks === undefined) return this.#text(res, 501, 'Keine Statusanzeige');
+          let auftrag: Record<string, unknown>;
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            return this.#text(res, 400, 'Body muss JSON sein');
+          }
+          await hooks.einstellen(auftrag);
+          return this.#text(res, 200, 'OK — sofort wirksam');
+        }
+        case '/api/influx': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.influx;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Influx-Anbindung');
           let auftrag: Record<string, unknown>;
           try {
             auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;

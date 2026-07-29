@@ -7,9 +7,11 @@ import {
   holeKonfiguration,
   holeNetzwerk,
   holeNetzwerkStatus,
+  holeInflux,
   holeStatusAnzeige,
   holeVerbundPeers,
   sende,
+  sendeInflux,
   sendeNetzwerk,
   sendeStatusAnzeige,
   setzeAuthToken,
@@ -35,6 +37,7 @@ onMounted(async () => {
   void netzLaden();
   void peersLaden();
   void anzeigeLaden();
+  void influxLaden();
 });
 
 async function aktion(name: string, fn: () => Promise<unknown>): Promise<void> {
@@ -131,6 +134,57 @@ const anzeigeSpeichern = (): Promise<void> =>
       oled: anzeige.oled,
       helligkeit: Number(anzeige.helligkeit),
     }));
+
+// ---- Langzeitdaten / InfluxDB (M9.5) -------------------------------------
+
+const influx = reactive({
+  aktiv: false,
+  url: '',
+  org: '',
+  bucket: 'asksin',
+  token: '',
+  intervallSekunden: 30,
+  hatToken: false,
+});
+const influxVerfuegbar = ref(false);
+const influxStatusText = ref('');
+
+async function influxLaden(): Promise<void> {
+  try {
+    const z = await holeInflux();
+    influx.aktiv = z.konfig.aktiv;
+    influx.url = z.konfig.url;
+    influx.org = z.konfig.org;
+    influx.bucket = z.konfig.bucket;
+    influx.intervallSekunden = z.konfig.intervallSekunden;
+    influx.hatToken = z.konfig.hatToken;
+    influxVerfuegbar.value = true;
+    const s = z.status;
+    if (s.aktiv) {
+      influxStatusText.value =
+        `${s.schreibvorgaenge ?? 0} Schreibvorgänge, ${s.fehler ?? 0} Fehler` +
+        (s.letzterFehlerText ? ` — zuletzt: ${s.letzterFehlerText}` : '');
+    } else {
+      influxStatusText.value = '';
+    }
+  } catch {
+    /* ältere Core-Version */
+  }
+}
+
+const influxSpeichern = (): Promise<void> =>
+  aktion('Langzeitdaten umkonfiguriert — sofort wirksam', async () => {
+    await sendeInflux({
+      aktiv: influx.aktiv,
+      url: influx.url.trim(),
+      org: influx.org.trim(),
+      bucket: influx.bucket.trim(),
+      token: influx.token,
+      intervallSekunden: Number(influx.intervallSekunden),
+    });
+    influx.token = '';
+    await influxLaden();
+  });
 
 // ---- Netzwerk (M7.6) -----------------------------------------------------
 
@@ -457,6 +511,51 @@ const demoUmschalten = (): Promise<void> | undefined => {
       einrichten? Ja"; nachträglich: <code>sudo raspi-config</code> →
       Interface Options) und für die LED auf der Platine <strong>R5 (0 Ω)
       statt R4</strong> bestückt. Gestörte Teile meldet die Übersicht.
+    </div>
+  </div>
+
+  <div class="panel" v-if="influxVerfuegbar">
+    <h3 style="margin-top: 0">Langzeitdaten (InfluxDB)</h3>
+    <p style="margin-top: 0">
+      Schreibt die Kennzahlen dieses Analyzers (mit Standort-Kennung) in eine
+      zentrale InfluxDB v2 — Grafana wertet dann alle Standorte gemeinsam aus.
+    </p>
+    <div class="zeile" style="margin-bottom: 0.6rem">
+      <label><input type="checkbox" v-model="influx.aktiv" /> aktiv</label>
+    </div>
+    <div class="zeile">
+      <label class="feld" style="flex: 2">
+        <span class="name">InfluxDB-URL</span>
+        <input type="text" v-model="influx.url" placeholder="http://192.168.1.10:8086" />
+      </label>
+      <label class="feld" style="flex: 1">
+        <span class="name">Organisation</span>
+        <input type="text" v-model="influx.org" />
+      </label>
+      <label class="feld" style="flex: 1">
+        <span class="name">Bucket</span>
+        <input type="text" v-model="influx.bucket" />
+      </label>
+    </div>
+    <div class="zeile">
+      <label class="feld" style="flex: 2">
+        <span class="name">API-Token {{ influx.hatToken ? '(gesetzt — leer lassen zum Behalten)' : '' }}</span>
+        <input type="password" v-model="influx.token" autocomplete="off" />
+      </label>
+      <label class="feld" style="width: 10rem">
+        <span class="name">Intervall (s)</span>
+        <input type="text" v-model.number="influx.intervallSekunden" />
+      </label>
+    </div>
+    <button class="primaer" :disabled="beschaeftigt" @click="influxSpeichern">Speichern</button>
+    <div class="meldung" :class="influxStatusText.includes('zuletzt:') ? 'fehler' : 'ok'" v-if="influxStatusText !== ''">
+      {{ influxStatusText }}
+    </div>
+    <div class="fussnote">
+      Measurements: <code>analyzer</code> (Verbindung, Telegramme/min,
+      Grundrauschen, Geräte) und <code>geraet</code> (RSSI, Duty-Cycle je
+      Funkgerät), Tag <code>standort</code>. Ausfälle der InfluxDB stören den
+      Analyzer nicht — die lokale Datenbank bleibt die primäre Aufzeichnung.
     </div>
   </div>
 

@@ -93,11 +93,25 @@ mit drei RSSI-Werten.
   nacheinander aus: Peer aktualisieren → Health-Check → nächster
 - Abbruch bei fehlschlagendem Health-Check (kein Domino-Ausfall)
 
-### M9.5 — Verbund-Langzeitdaten *(= M8, verbundfähig gedacht)*
+### M9.5 — Verbund-Langzeitdaten *(= M8, verbundfähig gedacht)* ✅
 
-- InfluxDB + Grafana zentral, jeder Analyzer schreibt mit `standort`-Tag
-  (oder der Verbund sammelt — Entscheidung bei Umsetzung)
-- Grafana-Dashboards: Standortvergleich Rauschen, Duty-Cycle-Trends, Matrix
+Umgesetzt am 29.07.2026: **Jeder Analyzer schreibt selbst** (dezentral —
+kein zusätzlicher Sammelpfad über den Master, die lokale SQLite bleibt die
+primäre Wahrheit) per Line Protocol in eine zentrale **InfluxDB v2**
+(`/api/v2/write`, Token-Auth, ohne Client-Bibliothek):
+
+- Measurement `analyzer` (Tag `standort`): connected, telegrammeProMinute,
+  grundrauschen, geraete
+- Measurement `geraet` (Tags `standort`, `adresse`, `name`): rssi,
+  dutyCycle, telegramme
+- Konfiguration über **Einstellungen → Langzeitdaten** (URL, Org, Bucket,
+  Token — wird nie wieder angezeigt, Intervall ≥ 5 s), sofort wirksam,
+  dienst-schreibbar persistiert; Influx-Ausfälle stören den Analyzer nicht
+
+Grafana-Beispielabfragen (Flux): Standortvergleich Rauschen
+`filter(fn: (r) => r._measurement == "analyzer" and r._field == "grundrauschen")`
+gruppiert nach `standort`; Duty-Cycle-Trends je Gerät über Measurement
+`geraet`. Die Dashboards selbst baut man sich in Grafana nach Geschmack.
 
 ### M9.6 — MQTT-Ausgang *(optional, nur bei Bedarf)*
 

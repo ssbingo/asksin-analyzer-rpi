@@ -29,6 +29,8 @@ import { DEFAULT_BAUD, DEFAULT_DEVICE, sttyPortOpener } from '../src/ingest/stty
 import { openDatabase } from '../src/persist/db.ts';
 import { DevListService } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
+import { INFLUX_VORGABEN, InfluxSchreiber } from '../src/influx/schreiber.ts';
+import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { StatusAnzeige } from '../src/status/anzeige.ts';
 import { OledBild } from '../src/status/ssd1306.ts';
 import { ledMuster, zeichneSeite } from '../src/status/zustand.ts';
@@ -761,6 +763,102 @@ const statusAnzeigeHooks = {
   },
 };
 
+// ---- Langzeitdaten nach InfluxDB (M9.5) ---------------------------------
+// Konfiguriert über das WebUI (Einstellungen → Langzeitdaten), persistiert
+// dienst-schreibbar; config.json bleibt Experten-Weg. Jeder Analyzer
+// schreibt mit standort-Tag — Grafana wertet zentral aus.
+
+const influxKonfigDatei = join(datenDir, 'influx.json');
+
+function influxKonfigLesen(): InfluxKonfig {
+  let basis: InfluxKonfig = {
+    ...INFLUX_VORGABEN,
+    ...((konfig as unknown as Record<string, unknown>)['influx'] as
+      | Partial<InfluxKonfig>
+      | undefined),
+  };
+  try {
+    const ui = JSON.parse(readFileSync(influxKonfigDatei, 'utf8')) as Partial<InfluxKonfig>;
+    basis = { ...basis, ...ui };
+  } catch {
+    /* keine UI-Datei */
+  }
+  return basis;
+}
+
+function influxDaten(): InfluxDaten {
+  const s = analyzer.snapshot();
+  return {
+    standort,
+    connected: s.ingest.connected,
+    telegramsPerMinute: s.telegramsPerMinute,
+    noiseFloorEwma: s.noiseFloor.ewma,
+    deviceCount: s.devices.length,
+    geraete: s.devices.map((g) => ({
+      address: g.address,
+      name: g.name,
+      rssiEwma: g.rssi.ewma,
+      dutyCyclePercent: g.dutyCyclePercent,
+      telegrams: g.telegrams,
+    })),
+  };
+}
+
+let influxSchreiber: InfluxSchreiber | null = null;
+
+async function influxAufbauen(): Promise<void> {
+  await influxSchreiber?.stop();
+  influxSchreiber = null;
+  const k = influxKonfigLesen();
+  if (!k.aktiv || k.url === '') return;
+  influxSchreiber = new InfluxSchreiber({
+    konfig: k,
+    daten: influxDaten,
+    onError: (text) => log(`Influx: ${text}`),
+  });
+  influxSchreiber.start();
+  log(`Langzeitdaten aktiv: ${k.url} (Bucket ${k.bucket}, alle ${k.intervallSekunden} s)`);
+}
+
+const influxHooks = {
+  zustand: (): Record<string, unknown> => {
+    const k = influxKonfigLesen();
+    return {
+      konfig: { ...k, token: undefined, hatToken: k.token !== '' },
+      status: influxSchreiber?.status ?? { aktiv: false },
+    };
+  },
+  einstellen: async (auftrag: Record<string, unknown>): Promise<void> => {
+    const alt = influxKonfigLesen();
+    const url = typeof auftrag['url'] === 'string' ? auftrag['url'].trim() : alt.url;
+    if (auftrag['aktiv'] === true && !/^https?:\/\/\S+$/.test(url)) {
+      throw new Error('url: http(s)://… erwartet');
+    }
+    const intervall = Number(auftrag['intervallSekunden'] ?? alt.intervallSekunden);
+    if (!Number.isFinite(intervall) || intervall < 5 || intervall > 3600) {
+      throw new Error('intervallSekunden: 5–3600 erwartet');
+    }
+    const neu: InfluxKonfig = {
+      aktiv: auftrag['aktiv'] === true,
+      url,
+      org: typeof auftrag['org'] === 'string' ? auftrag['org'].trim() : alt.org,
+      bucket:
+        typeof auftrag['bucket'] === 'string' && auftrag['bucket'].trim() !== ''
+          ? auftrag['bucket'].trim()
+          : alt.bucket,
+      // Leeres Token-Feld = vorhandenes behalten (es wird nie angezeigt):
+      token:
+        typeof auftrag['token'] === 'string' && auftrag['token'] !== ''
+          ? auftrag['token']
+          : alt.token,
+      intervallSekunden: Math.round(intervall),
+    };
+    writeFileSync(influxKonfigDatei, JSON.stringify(neu, null, 2));
+    await influxAufbauen();
+    log(`Langzeitdaten umkonfiguriert (aktiv: ${neu.aktiv})`);
+  },
+};
+
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
 const api = new ApiServer({
   analyzer,
@@ -774,6 +872,7 @@ const api = new ApiServer({
   verbund: verbundHooks,
   netzwerk: netzwerkHooks,
   statusAnzeige: statusAnzeigeHooks,
+  influx: influxHooks,
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');
     void herunterfahren(0);
@@ -805,6 +904,7 @@ const api = new ApiServer({
 
 analyzer.start();
 await statusAnzeigeAufbauen();
+await influxAufbauen();
 const { host, port } = await api.listen(konfig.http.port, konfig.http.host);
 log(`AskSin-Analyzer ${paketVersion()} — API auf http://${host}:${port}`);
 if (existsSync(uiDir)) log(`Web-UI: ${uiDir}`);
@@ -819,6 +919,7 @@ async function herunterfahren(code: number): Promise<void> {
   log('Fahre herunter …');
   try {
     await api.close();
+    await influxSchreiber?.stop();
     await statusAnzeige?.stop();    // LED dunkel, OLED aus
     await analyzer.stop();          // letzter Flush passiert hier
     db.close();

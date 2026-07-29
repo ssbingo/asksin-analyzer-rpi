@@ -251,6 +251,48 @@ export async function sendeStatusAnzeige(auftrag: {
   if (!res.ok) throw new Error(await res.text());
 }
 
+// ---- Langzeitdaten / InfluxDB (M9.5) ------------------------------------
+
+export interface InfluxZustand {
+  konfig: {
+    aktiv: boolean;
+    url: string;
+    org: string;
+    bucket: string;
+    hatToken: boolean;
+    intervallSekunden: number;
+  };
+  status: {
+    aktiv: boolean;
+    schreibvorgaenge?: number;
+    fehler?: number;
+    letzterErfolg?: number | null;
+    letzterFehler?: number | null;
+    letzterFehlerText?: string | null;
+  };
+}
+
+export const holeInflux = (): Promise<InfluxZustand> => hole('/api/influx');
+
+export async function sendeInflux(auftrag: {
+  aktiv: boolean;
+  url: string;
+  org: string;
+  bucket: string;
+  token: string;
+  intervallSekunden: number;
+}): Promise<void> {
+  const res = await fetch('/api/influx', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify(auftrag),
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+}
+
 // ---- Verbund (M9.2) ------------------------------------------------------
 
 export interface VerbundPeer {
