@@ -3,6 +3,24 @@
 Hier kommen die Druckvorlagen für den 19-Zoll-Rahmen hin, mit dem der
 Analyzer (Raspberry Pi 4 + HAT, Boot-SSD) in den Datenschrank einzieht.
 
+## Herkunft und Lizenz
+
+Die Vorlagen sind **abgeleitete Versionen** (Remix) von:
+
+> **„19″ 1U Rack with Moduler trays for Raspberry Pis"** von **Robert**
+> (auf Thingiverse: Rob_Z71) —
+> <https://www.printables.com/model/69176-19-1u-rack-with-moduler-trays-for-raspberry-pis>
+> (auch auf Thingiverse: <https://www.thingiverse.com/thing:4886186>)
+
+Das Original steht unter **CC BY-NC-SA 4.0** (Namensnennung — nicht
+kommerziell — Weitergabe unter gleichen Bedingungen). Wegen der
+Share-Alike-Bedingung gilt für alle abgeleiteten Dateien in diesem
+Verzeichnis dieselbe Lizenz: **CC BY-NC-SA 4.0** —
+<https://creativecommons.org/licenses/by-nc-sa/4.0/>
+
+Das fügt sich nahtlos in die Lizenzstrategie des Projekts: die
+Analyzer-Hardware steht ohnehin unter CC BY-NC-SA 4.0.
+
 Die Vorlagen entstehen extern und werden eingecheckt, **sobald die ersten
 Testdrucke erfolgreich waren** — bis dahin bleibt dieses Verzeichnis bis auf
 diese Beschreibung leer.
