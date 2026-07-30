@@ -104,12 +104,13 @@
     <div class="badge">Homematic · BidCoS · 868&nbsp;MHz</div>
     <div class="badge">Raspberry&nbsp;Pi&nbsp;4</div>
     <div class="badge">Selbstbau</div>
+    <div class="badge">Weboberfläche · Verbund</div>
     <h1>AskSin-Analyzer</h1>
-    <div class="unter">Das Handbuch — vom leeren Platinen-Layout bis zum laufenden Funkanalyzer</div>
+    <div class="unter">Das Handbuch — vom leeren Platinen-Layout bis zum Verbund aus fünf Funkanalyzern</div>
     <img class="held" src="img/platine-schraeg.png" alt="Die Analyzer-Platine V4">
     <div class="fuss">
-      <span>Ausgabe 1 · Juli 2026 · deutsch</span>
-      <span>Hardware V4 · Lizenz CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Ausgabe 2 · Juli 2026 · deutsch</span>
+      <span>Hardware V4 · Software 0.0.7 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -150,12 +151,21 @@ sudo apt update</pre>
   <li><span class="nr">6</span> Handbestückung: die restlichen Bauteile auflöten</li>
   <li><span class="nr">7</span> Fuses setzen und Bootloader brennen</li>
   <li><span class="nr">8</span> Die Firmware aufspielen</li>
-  <li><span class="nr">9</span> Den Raspberry Pi einrichten</li>
+  <li><span class="nr">9</span> Den Raspberry Pi einrichten — Installation mit einem Befehl</li>
   <li><span class="nr">10</span> Zusammenbau und Montage im Schrank</li>
   <li><span class="nr">11</span> Firmware-Updates im laufenden Betrieb</li>
-  <li><span class="nr">12</span> Die Software auf dem Pi</li>
-  <li><span class="nr">13</span> Fehlersuche</li>
-  <li><span class="nr">14</span> Anhang: Belegungen, Glossar, Quellen</li>
+  <li><span class="nr">12</span> Die Software: Überblick und Architektur</li>
+  <li><span class="nr">13</span> Die Weboberfläche im Detail</li>
+  <li><span class="nr">14</span> Der Demo-Modus — testen ohne Hardware</li>
+  <li><span class="nr">15</span> Software-Updates: Glocke, Ein-Klick-Update, Rollback</li>
+  <li><span class="nr">16</span> Netzwerkeinstellungen mit Aussperr-Schutz</li>
+  <li><span class="nr">17</span> Der Verbund: mehrere Analyzer als Gesamtsystem</li>
+  <li><span class="nr">18</span> Status-LED und OLED-Anzeige</li>
+  <li><span class="nr">19</span> Langzeitdaten: InfluxDB und Grafana</li>
+  <li><span class="nr">20</span> Der ioBroker-Adapter</li>
+  <li><span class="nr">21</span> Sicherheit: Token, Netzwerk, Grenzen</li>
+  <li><span class="nr">22</span> Fehlersuche</li>
+  <li><span class="nr">23</span> Anhang: Belegungen, Glossar, Quellen</li>
 </ol>
 </div>
 
@@ -764,53 +774,125 @@ Blitzen ist noch kein Beinbruch: Ohne Antenne ist die Reichweite winzig.
 Der belastbare Test folgt in Kapitel 9 am Pi.</p>
 
 <!-- ==================================================== KAPITEL 9 -->
-<h1 class="kapitel"><span class="knr">9</span>Den Raspberry Pi einrichten</h1>
+<h1 class="kapitel"><span class="knr">9</span>Den Raspberry Pi einrichten — Installation mit einem Befehl</h1>
 <div class="kapitelband"></div>
 
-<p>Der Pi braucht drei Dinge: ein Betriebssystem, eine freigeschaltete serielle
-Schnittstelle und die Berechtigungen für unseren Dienst. Für die serielle
-Schnittstelle liegt ein Skript bei, das alles Nötige selbst erledigt.</p>
+<p>Die gute Nachricht vorweg: Die gesamte Software-Installation ist
+<strong>ein einziger Befehl</strong>. Ein Assistent stellt dir ein paar Fragen,
+alles Weitere — Node.js, Dienste, Berechtigungen, sogar die Einrichtung der
+seriellen Schnittstelle — erledigt der Installer selbst. Dieses Kapitel
+erklärt jeden Schritt und <em>jede</em> Frage, damit du weißt, was du
+antwortest und warum.</p>
 
-<h2>9.1 Betriebssystem</h2>
+<h2>9.1 Betriebssystem — SSD zuerst</h2>
+<div class="hinweis box"><span class="titel">ℹ SSD statt SD-Karte</span>
+Der Analyzer schreibt rund um die Uhr in seine Datenbank. SD-Karten nutzen
+sich dabei ab — deshalb ist in diesem Projekt der <strong>Betrieb von einer
+SSD</strong> (über einen USB-SATA-Adapter) der Standard. Die SD-Karte bleibt
+Notbehelf für schnelle Tests. Der Pi 4 bootet ab Werk von USB; sollte deiner
+das nicht tun, einmal mit aktueller SD-Karte starten und
+<code>sudo raspi-config</code> → <em>Advanced → Boot Order</em> auf USB stellen.</div>
 <ol class="schritte">
 <li>Mit dem <strong>Raspberry Pi Imager</strong> (raspberrypi.com/software)
-<em>Raspberry Pi OS Lite (64-bit)</em>, Basis „Bookworm", auf die SD-Karte
-schreiben.</li>
+<em>Raspberry Pi OS Lite (64-bit)</em> auf die <strong>SSD</strong> schreiben
+(die SSD dazu per USB-Adapter an den PC hängen).</li>
 <li>Im Imager unter dem Zahnrad gleich Hostname (z. B.
-<code>analyzer-keller</code>), Benutzer, SSH und ggf. WLAN setzen — dann läuft
-alles ohne Monitor („headless").</li>
-<li>SD-Karte einstecken, Pi ans Netzwerk, booten, per SSH anmelden.</li>
+<code>asksin-analyzer-01</code>), Benutzer, SSH und ggf. WLAN setzen — dann
+läuft alles ohne Monitor („headless"). Der Hostname gehört dir und deiner
+Netzwerkstruktur; die Software ändert ihn nie von sich aus.</li>
+<li>SSD an den Pi (blaue USB-3-Buchse), Netzwerkkabel dran, booten, per SSH
+anmelden: <code>ssh benutzer@asksin-analyzer-01</code>.</li>
 </ol>
 
-<h2>9.2 Projekt holen und UART einrichten</h2>
-<pre>sudo apt update && sudo apt install -y git gpiod avrdude
-git clone https://github.com/ssbingo/asksin-analyzer-rpi.git
-cd asksin-analyzer-rpi
+<h2>9.2 Die Ein-Befehl-Installation</h2>
+<pre>curl -fsSL https://raw.githubusercontent.com/ssbingo/asksin-analyzer-rpi/main/install.sh | sudo bash</pre>
+<p>Der Installer ist <strong>idempotent</strong>: Du kannst ihn jederzeit
+erneut ausführen — er aktualisiert dann die Installation und stellt die Fragen
+noch einmal (deine bestehende Konfiguration behält er auf Wunsch). Was er der
+Reihe nach tut:</p>
+<ol class="schritte">
+<li><strong>Systempakete</strong>: git, curl, gpiod (für den Firmware-Reset über
+GPIO4), avrdude (Firmware-Flash), jq (Netzwerk-Skript) — und bei Bedarf
+i2c-/spi-tools für die Statusanzeige.</li>
+<li><strong>Node.js 24</strong>, falls nicht vorhanden. Die Analyzer-Software
+läuft ohne Umwege direkt auf ihren TypeScript-Quellen — es gibt keinen
+Build-Schritt und keine einzige Laufzeit-Bibliothek, die nachgeladen wird.</li>
+<li><strong>Quellcode</strong> nach <code>/opt/asksin-analyzer</code>, danach wird
+die Weboberfläche gebaut (dauert auf dem Pi ein paar Minuten — normal).</li>
+<li><strong>Dienstbenutzer</strong> <code>asksin</code> mit den Gruppen
+<code>dialout</code> (serieller Port) und <code>gpio</code> — der Dienst läuft
+bewusst ohne Root-Rechte.</li>
+</ol>
 
-<span class="c"># erst schauen, was das Skript ändern würde:</span>
-sudo hardware/setup-uart.sh --check
-<span class="c"># dann anwenden:</span>
-sudo hardware/setup-uart.sh</pre>
+<h3>Die Fragen des Assistenten — und was du antwortest</h3>
+<table>
+<tr><th>Frage</th><th>Empfehlung und Hintergrund</th></tr>
+<tr><td><strong>Standortname</strong> (Vorgabe: Hostname)</td>
+<td>z. B. „Keller" oder „DG-Ost". Ein <em>reines Anzeige-Etikett</em> für
+Weboberfläche, Verbund und Auswertungen — es ändert den Hostnamen
+<strong>nicht</strong>. Später jederzeit unter <em>Einstellungen →
+Standort &amp; Zentrale</em> änderbar.</td></tr>
+<tr><td><strong>IP/Hostname der CCU</strong></td>
+<td>Adresse deiner CCU/RaspberryMatic — daher bekommt der Analyzer die
+Gerätenamen. Leer lassen geht auch: dann erscheinen Geräte als Hex-Adressen,
+bis du die CCU später in den Einstellungen einträgst.</td></tr>
+<tr><td><strong>HTTP-Port</strong> (Vorgabe 8080)</td>
+<td>Einfach Enter, außer 8080 ist bei dir belegt.</td></tr>
+<tr><td><strong>Im LAN erreichbar machen?</strong></td>
+<td><strong>Ja</strong> — sonst kommst du vom PC nicht an die Weboberfläche.
+(„Nein" bindet den Dienst nur an 127.0.0.1 — sinnvoll, wenn ein
+Reverse-Proxy davor sitzt.)</td></tr>
+<tr><td><strong>Schreibzugriffe mit Token schützen?</strong></td>
+<td><strong>Ja.</strong> Der Installer erzeugt ein Zufalls-Token und zeigt es
+am Ende an — <em>notieren!</em> Ohne Token kann jeder im LAN Einstellungen
+ändern oder die Datenbank leeren. Details in Kapitel 21.</td></tr>
+<tr><td><strong>Verbund-Master?</strong></td>
+<td>„Ja" auf genau <em>einem</em> Analyzer — dem, der die Gesamtübersicht
+aller Standorte zeigen soll. Alle anderen: „Nein". Die eigentliche
+Verknüpfung passiert später bequem in der Weboberfläche (Kapitel 17).</td></tr>
+<tr><td><strong>Status-LED und OLED einrichten?</strong></td>
+<td>„Ja" nur, wenn du das Zubehör an J5–J7 anschließt (Kapitel 18). Aktiviert
+I²C und SPI — danach ist ein Neustart nötig. Später jederzeit über die
+Weboberfläche nachholbar.</td></tr>
+<tr><td><strong>UART für den Sniffer-HAT einrichten?</strong></td>
+<td><strong>Ja.</strong> Richtet GPIO14/15 als serielle Schnittstelle ein
+(Details unten). Braucht am Ende einen Neustart, den der Installer anbietet.</td></tr>
+</table>
 
-<p>Das Skript erkennt das Pi-Modell und erledigt:</p>
+<div class="tipp box"><span class="titel">✓ Danach</span>
+Weboberfläche im Browser öffnen: <code>http://&lt;pi-ip&gt;:8080</code> — und das
+notierte Token unter <em>Einstellungen → Zugriff</em> eintragen. Solange die
+Platine noch nicht steckt, meldet die Kopfzeile „Sniffer getrennt" und der
+Dienst versucht es geduldig weiter — das ist der Normalzustand ohne HAT.
+Zum Ausprobieren gibt es den Demo-Modus (Kapitel 14).</div>
+
+<h3>Was die UART-Einrichtung im Hintergrund macht</h3>
 <ul>
 <li>Pi 3/4: <code>enable_uart=1</code> + <code>dtoverlay=disable-bt</code> — das
 Bluetooth-Modem räumt die „gute" Hardware-UART, die miniUART mit ihrer
 schwankenden Baudrate wird umgangen. (Pi 5: <code>dtparam=uart0=on</code>.)</li>
 <li>Die serielle <strong>Konsole</strong> wird abgeschaltet — sonst schreibt das
 Login-Programm in genau die Schnittstelle, aus der wir lesen.</li>
+<li>Eine udev-Regel gibt dem Port den festen Namen
+<code>/dev/asksin-hat</code> — egal, in welcher Reihenfolge der Kernel die
+Schnittstellen aufzählt.</li>
 <li>Warnung, falls <code>w1-gpio</code> (1-Wire) aktiv ist — das würde GPIO4
 belegen, unsere Reset-Leitung.</li>
 </ul>
 
-<pre><span class="c"># udev-Regel: fester Gerätename /dev/asksin-hat</span>
-sudo cp hardware/99-asksin-analyzer.rules /etc/udev/rules.d/
-sudo udevadm control --reload
-
-<span class="c"># Benutzerrechte für seriellen Port und GPIO</span>
-sudo usermod -aG dialout,gpio $USER
-
-sudo reboot</pre>
+<h3>Verwaltung an der Konsole (optional)</h3>
+<p>Für den Alltag brauchst du die Konsole nicht — alles Wichtige geht über die
+Weboberfläche. Falls doch, installiert der Installer den Befehl
+<code>asksin-analyzer</code>:</p>
+<table class="schmal">
+<tr><th>Befehl</th><th>Zweck</th></tr>
+<tr><td><code>asksin-analyzer status</code></td><td>Läuft der Dienst?</td></tr>
+<tr><td><code>asksin-analyzer logs</code></td><td>Live-Protokoll (Strg+C beendet)</td></tr>
+<tr><td><code>asksin-analyzer health</code></td><td>Kurzcheck der API</td></tr>
+<tr><td><code>asksin-analyzer config</code></td><td>Konfigurationsdatei bearbeiten</td></tr>
+<tr><td><code>asksin-analyzer restart</code></td><td>Dienst neu starten</td></tr>
+<tr><td><code>sudo asksin-analyzer update</code></td><td>Update von Hand (geht auch per Klick, Kapitel 15)</td></tr>
+</table>
 
 <h2>9.3 Platine aufstecken und lauschen</h2>
 <ol class="schritte">
@@ -875,10 +957,18 @@ kommt da kaum heraus.</li>
 </figure>
 <p>Die drei JST-Kabel nach diesen Belegungen crimpen (oder fertige Kabel
 entsprechend umpinnen). Die Nase der Stecker verhindert Verpolen — was passt,
-passt richtig. Softwareseitig gehören Display, Taster und LED zum
-<strong>Status-LED-Projekt</strong>; dessen Installation (I²C aktivieren,
-<code>dtparam=i2c_arm=on</code>, Dienst einrichten) beschreibt dessen eigene
-Anleitung.</p>
+passt richtig. Softwareseitig sind Display, Taster und LED inzwischen
+<strong>fest in die Analyzer-Software integriert</strong> — kein zweiter
+Dienst, keine eigene Anleitung mehr nötig. Alles Weitere (Aktivieren,
+Farben, Anzeigeseiten) steht in Kapitel 18.</p>
+
+<div class="achtung box"><span class="titel">⚠ Für die LED: R5 statt R4 bestücken</span>
+Die WS2812-Datenleitung an J7 kann von zwei Pi-Pins kommen:
+<strong>R4</strong> (390 Ω, GPIO18/PWM) oder <strong>R5</strong> (0 Ω,
+GPIO10/SPI) — genau <em>einer</em> von beiden wird bestückt. Die
+Analyzer-Software steuert die LED über <strong>SPI</strong>, braucht also
+<strong>R5</strong>. Falls deine Platine mit R4 bestückt ist: R4 auslöten,
+an R5 einen 0-Ω-Widerstand (oder eine Lötbrücke) setzen.</div>
 
 <!-- ==================================================== KAPITEL 11 -->
 <h1 class="kapitel"><span class="knr">11</span>Firmware-Updates im laufenden Betrieb</h1>
@@ -891,12 +981,28 @@ normalerweise in den Bootloader schickt. Dafür hat die Platine die
 <strong>GPIO4-Reset-Strecke</strong>: Ein kurzer Low-Impuls auf GPIO4 wird über den
 Kondensator C8 als Reset-Puls an den Mikrocontroller weitergereicht.</p>
 
-<h2>11.1 Das Update</h2>
-<pre><span class="c"># 1. Falls der Analyse-Dienst läuft: anhalten (er belegt den Port)</span>
-sudo systemctl stop asksin-core 2>/dev/null || true
+<h2>11.1 Der bequeme Weg: über die Weboberfläche</h2>
+<p>Seit Software 0.0.4 flasht der Analyzer den 328P <strong>selbst</strong> —
+du lädst nur die HEX-Datei im Browser hoch:</p>
+<ol class="schritte">
+<li>Weboberfläche → <em>Info → Sniffer-Firmware</em>.</li>
+<li>HEX-Datei auswählen (Herkunft: siehe Kasten unten), <em>Firmware
+flashen…</em> klicken und die Rückfrage bestätigen.</li>
+<li>Der Dienst prüft die Datei (Intel-HEX-Struktur), <strong>pausiert die
+Aufzeichnung</strong>, gibt den seriellen Port frei, löst den Reset über GPIO4
+aus, ruft avrdude mit den korrekten 58 824 Baud auf — und nimmt die
+Aufzeichnung danach automatisch wieder auf. Das komplette avrdude-Protokoll
+erscheint anschließend auf der Seite.</li>
+</ol>
+
+<h2>11.2 Der Handweg (Hintergrundwissen)</h2>
+<p>Wer sehen will, was dabei technisch passiert — oder es ohne Weboberfläche
+braucht:</p>
+<pre><span class="c"># 1. Analyse-Dienst anhalten (er belegt den Port)</span>
+sudo systemctl stop asksin-analyzer
 
 <span class="c"># 2. avrdude starten — es wartet auf den Bootloader …</span>
-avrdude -c arduino -p m328p -P /dev/ttyAMA0 -b 58824 -D \
+avrdude -c arduino -p m328p -P /dev/asksin-hat -b 58824 -D \
         -U flash:w:AskSinSniffer328P.hex:i &
 
 <span class="c"># 3. … und sofort den Reset-Impuls geben:</span>
@@ -907,7 +1013,7 @@ timeout 0.3 gpioset -c gpiochip0 4=0 || true    <span class="c"># libgpiod 2.x (
 
 wait
 <span class="c"># 4. Dienst wieder starten</span>
-sudo systemctl start asksin-core 2>/dev/null || true</pre>
+sudo systemctl start asksin-analyzer</pre>
 
 <p>Der Ablauf dahinter: Die fallende Flanke auf GPIO4 läuft durch C8 und zieht
 RESET für etwa eine Millisekunde auf Masse. Der Chip startet neu, der
@@ -928,51 +1034,459 @@ exportieren</em> erzeugt sie direkt im Sketch-Ordner
 <code>pio run</code> unter <code>.pio/build/…/firmware.hex</code>.</div>
 
 <!-- ==================================================== KAPITEL 12 -->
-<h1 class="kapitel"><span class="knr">12</span>Die Software auf dem Pi</h1>
+<h1 class="kapitel"><span class="knr">12</span>Die Software: Überblick und Architektur</h1>
 <div class="kapitelband"></div>
 
-<div class="achtung box"><span class="titel">⚠ Stand der Entwicklung</span>
-Die Hardware dieses Projekts ist fertig — die Auswertesoftware entsteht gerade.
-Dieses Kapitel beschreibt, was heute schon läuft und was als Nächstes kommt.
-Es wird mit jeder Handbuch-Ausgabe aktualisiert.</div>
+<p>Die Software auf dem Pi ist ein einziger, dauerhaft laufender Dienst
+(<code>analyzerd</code>, per systemd überwacht und bei Absturz automatisch neu
+gestartet). Innen ist er eine Kette klar getrennter Bausteine:</p>
 
-<h2>12.1 Die Architektur</h2>
-<p>Die Software ist bewusst zweigeteilt:</p>
 <table>
-<tr><th>Teil</th><th>Aufgabe</th><th>Lizenz</th></tr>
-<tr><td><strong>Core-Dienst</strong> (Node.js, läuft auf dem Pi)</td><td>Liest die serielle Schnittstelle, zerlegt die Telegramme, rechnet Duty-Cycle und Statistiken, speichert in SQLite, stellt REST/WebSocket-API und die Web-Oberfläche bereit</td><td>CC BY-NC-SA</td></tr>
-<tr><td><strong>ioBroker-Adapter</strong></td><td>Verbindet sich mit dem Core und spiegelt die Ergebnisse als ioBroker-States — enthält selbst keinerlei Analyse-Logik</td><td>MIT, veröffentlichbar</td></tr>
+<tr><th>Baustein</th><th>Aufgabe</th></tr>
+<tr><td><strong>Serial-Ingest</strong></td><td>Liest den Zeilenstrom des Sniffers mit 58 824 Baud. Ein <em>Watchdog</em> nutzt aus, dass der Sniffer alle 750 ms eine Rauschzeile schickt: bleibt die Leitung still, gilt sie als tot und wird automatisch neu aufgebaut (mit ansteigenden Wartezeiten). Ein voller Puffer verwirft die <em>ältesten</em> Zeilen — Live-Daten sind wichtiger als lückenlose Historie.</td></tr>
+<tr><td><strong>Parser</strong></td><td>Zerlegt jede Zeile in ihre Felder, prüft Hex-Alphabet, Längenbyte und Pegel-Plausibilität. Kaputte Zeilen werden gezählt statt verschluckt — steigende Fehlzähler sind ein Frühwarnsignal (z. B. driftende Baudrate).</td></tr>
+<tr><td><strong>Statistik</strong></td><td>Duty-Cycle je Sender über ein gleitendes Stundenfenster (formelgleich mit dem etablierten AskSinAnalyzerXS), Grundrauschen geglättet, Telegrammrate, RSSI je Gerät.</td></tr>
+<tr><td><strong>Datenbank</strong></td><td>SQLite direkt im Node.js eingebaut — keine Zusatzsoftware. Einzeltelegramme (30 Tage), Rauschwerte je Minute (90 Tage), Stundensummen je Gerät (1 Jahr); die Aufbewahrung räumt täglich automatisch auf, die Datenbank kann also nicht endlos wachsen.</td></tr>
+<tr><td><strong>Namensauflösung</strong></td><td>Holt stündlich die Geräteliste von der CCU und cacht sie als Datei — nach einem Neustart sind die Namen sofort da, auch wenn die CCU gerade schläft.</td></tr>
+<tr><td><strong>API + Weboberfläche</strong></td><td>Eine REST-API liefert alles als JSON; dieselbe API bedient die eingebaute Weboberfläche (Kapitel 13), den Verbund (Kapitel 17) und den ioBroker-Adapter (Kapitel 20). Zusätzlich gibt es den Kompatibilitäts-Endpunktsatz der originalen AskSinAnalyzer-Web-App.</td></tr>
 </table>
-<p>Diese Trennung hat zwei Gründe: Der Core läuft unabhängig von
-ioBroker-Neustarts durch — und der Adapter bleibt frei von den
-Lizenzauflagen der Analyzer-Vorprojekte.</p>
 
-<h2>12.2 Was heute schon fertig ist</h2>
-<ul>
-<li><strong>Der Telegramm-Parser</strong> — zerlegt jede Zeile in ihre Felder,
-verwirft Übertragungsfehler nachvollziehbar (mit Zähler je Fehlerart) und ist
-mit 29 automatischen Tests abgesichert.</li>
-<li><strong>Die Duty-Cycle-Berechnung</strong> — pro Sender über ein gleitendes
-Stundenfenster, formelgleich mit dem etablierten AskSinAnalyzerXS, damit die
-Werte vergleichbar bleiben.</li>
-</ul>
-<p>Wer es ausprobieren möchte (auf einem Rechner mit Node.js ≥ 22):</p>
-<pre>cd core
-npm install
-npm run check      <span class="c"># Typprüfung + alle 29 Tests</span></pre>
+<div class="hinweis box"><span class="titel">ℹ Null Abhängigkeiten — mit Absicht</span>
+Der Dienst kommt ohne eine einzige nachgeladene Laufzeit-Bibliothek aus:
+serieller Port über <code>stty</code>, Datenbank über das eingebaute
+<code>node:sqlite</code>, I²C/SPI über Bordwerkzeuge. Was nicht installiert
+wird, kann nicht kaputtgehen, keine Sicherheitslücke einschleppen und keine
+Update-Kette blockieren — bei einem Gerät, das jahrelang unbeaufsichtigt im
+Schrank läuft, ist das Gold wert.</div>
 
-<h2>12.3 Die nächsten Schritte</h2>
+<h2>12.1 Lizenz-Architektur</h2>
+<table>
+<tr><th>Teil</th><th>Lizenz</th><th>Warum</th></tr>
+<tr><td>Core-Dienst (Analyse)</td><td>CC BY-NC-SA</td><td>Parser-/Formel-Herkunft aus den Analyzer-Vorprojekten</td></tr>
+<tr><td>Weboberfläche</td><td>MIT</td><td>kompletter Eigenbau (Vue 3 + ECharts) — nur der API-Vertrag wurde übernommen</td></tr>
+<tr><td>ioBroker-Adapter</td><td>MIT</td><td>eigenes Repo, spiegelt nur States, keinerlei Analyse-Logik</td></tr>
+</table>
+
+<h2>12.2 Wichtige Pfade auf dem Pi</h2>
 <table class="schmal">
-<tr><th>Baustein</th><th>Inhalt</th></tr>
-<tr><td>Serial-Ingest</td><td>Port öffnen (58 824 Baud!), Zeilen lesen, bei Störung automatisch neu verbinden</td></tr>
-<tr><td>Persistenz</td><td>SQLite-Datenbank mit Ringpuffer-Logik — läuft jahrelang, ohne die SD-Karte zu fluten</td></tr>
-<tr><td>API + Web-UI</td><td>REST/WebSocket und eine Weboberfläche mit Live-Telegrammliste, Duty-Cycle-Ranking und RSSI-Verlauf. Die Oberfläche wird dem originalen AskSinAnalyzer nachempfunden, aber lizenzfrei neu gebaut</td></tr>
-<tr><td>Multi-Standort</td><td>Jeder Analyzer meldet seinen Standort mit — aus den Pegel-Unterschieden mehrerer Geräte entsteht die Funk-Landkarte des Hauses</td></tr>
-<tr><td>ioBroker-Adapter</td><td>Kommt zuletzt, wenn die API stabil ist</td></tr>
+<tr><th>Pfad</th><th>Inhalt</th></tr>
+<tr><td><code>/opt/asksin-analyzer</code></td><td>die Software (Git-Arbeitskopie)</td></tr>
+<tr><td><code>/etc/asksin-analyzer/config.json</code></td><td>Grundkonfiguration (Installer/Experten)</td></tr>
+<tr><td><code>/var/lib/asksin-analyzer/</code></td><td>Datenbank, Geräteliste-Cache, alle über die Weboberfläche gesetzten Einstellungen, Update-Protokolle</td></tr>
 </table>
+<p class="klein">Alles, was du in der Weboberfläche einstellst (Standort,
+Verbund-Peers, Demo, Statusanzeige, Langzeitdaten), landet in
+<code>/var/lib/asksin-analyzer/</code> und überlebt Updates wie Neustarts.</p>
 
 <!-- ==================================================== KAPITEL 13 -->
-<h1 class="kapitel"><span class="knr">13</span>Fehlersuche</h1>
+<h1 class="kapitel"><span class="knr">13</span>Die Weboberfläche im Detail</h1>
+<div class="kapitelband"></div>
+
+<p>Die Weboberfläche ist die Schaltzentrale des Analyzers — erreichbar unter
+<code>http://&lt;pi-ip&gt;:8080</code>, ohne App, ohne Cloud. Sie besteht aus fünf
+Ansichten (Übersicht, Telegramme, Verbund, Einstellungen, Info) und einer
+Kopfzeile, die auf jeder Seite dieselben Informationen trägt.</p>
+
+<h2>13.1 Die Kopfzeile</h2>
+<ul>
+<li><strong>Standort-Plakette</strong> neben dem Titel — bei mehreren Analyzern
+siehst du sofort, auf welchem du bist; auch der Browser-Tab trägt den Namen.</li>
+<li><strong>DEMO</strong> (orange) erscheint nur im Demo-Modus (Kapitel 14) —
+Verwechslung mit echten Daten ausgeschlossen.</li>
+<li><strong>🔔 Update</strong> (orange, pulsierend) erscheint, sobald der
+tägliche Selbstcheck eine neue Software-Version findet — ein Klick führt zur
+Info-Seite mit dem Installieren-Knopf (Kapitel 15).</li>
+<li><strong>Statuspunkt</strong> ganz rechts: grün = „Sniffer verbunden"
+(es kommen gültige Daten von der Platine), rot = „Sniffer getrennt" oder
+„Core nicht erreichbar".</li>
+</ul>
+
+<h2>13.2 Übersicht</h2>
+<figure class="rahmen"><img src="img/ui-uebersicht.png" alt="Die Übersichtsseite">
+<figcaption>Die Übersicht (hier im Demo-Modus): Kacheln, Zeitchart, Duty-Cycle-Tabelle — darunter folgen Torte und ggf. Statusanzeige.</figcaption></figure>
+<ul>
+<li><strong>Vier Kacheln</strong>: Verbindung (mit Dauer), Grundrauschen
+(letzter Wert + träge geglättet — die Glättung zeigt den Trend, der letzte
+Wert das Jetzt), Telegramme pro Minute (gleitende 60 Sekunden), aktive
+Geräte samt Herkunft der Namen (CCU live oder Datei-Cache).</li>
+<li><strong>Zeitchart</strong> (letzte 3 Stunden): das Grundrauschen als Linie
+(Minutenmittel), jedes Telegramm als Punkt auf seiner Empfangsstärke.
+Ein plötzlich angehobenes Grundrauschen ohne Telegramme = Störquelle in
+der Nähe (typisch: billige Netzteile, Funkkopfhörer).</li>
+<li><strong>Duty-Cycle Top 10</strong>: die stärksten Sender der gleitenden
+Stunde. 100 % = das gesetzliche Sendekontingent (36 s Sendezeit pro Stunde)
+ist ausgeschöpft; ab 50 % färbt sich der Wert orange, ab 80 % rot. Die Werte
+sind aus der Telegrammlänge <em>berechnet</em> — für Trends und Alarme
+verlässlich, als Absolutwert einmal gegen die CCU-Anzeige kalibrieren.</li>
+<li><strong>Telegramme pro Gerät</strong>: die Torte wie im Original-Projekt —
+jedes Gerät ein Stück, Legende blätterbar, Mauszeiger auf ein Stück zeigt
+Name, Telegramme, Anteil, Adresse, RSSI und Duty-Cycle.</li>
+<li><strong>Status-LED &amp; OLED</strong> (nur bei aktivierter Statusanzeige):
+LED-Farbe mit Klartext-Grund, Systemwerte und die pixelgenaue
+OLED-Live-Vorschau — Kapitel 18.</li>
+</ul>
+
+<h2>13.3 Telegramme</h2>
+<figure class="rahmen"><img src="img/ui-telegramme.png" alt="Die Telegrammliste">
+<figcaption>Live-Telegrammliste mit Filter — Namen kommen von der CCU, HmIP-Telegramme sind blau markiert.</figcaption></figure>
+<p>Die Liste füllt sich von selbst (neueste oben, maximal 500 im Speicher).
+Jede Zeile zeigt Zeit, RSSI (farbig: grün ≥ −65 dBm, orange bis −85, rot
+darunter), Absender und Empfänger (aufgelöster Name plus Hex-Adresse),
+Länge, laufende Nummer, Typ (z. B. WEATHER, CONFIG — HmIP-Typen blau),
+Flags (z. B. BURST, BIDI) und die Roh-Nutzdaten. Werkzeuge:
+<strong>Textfilter</strong> (sucht in Namen, Adressen und Typ),
+<strong>Pause</strong> (friert die Anzeige ein, ohne Daten zu verlieren) und
+<strong>Leeren</strong>.</p>
+<div class="tipp box"><span class="titel">✓ Praxis-Trick</span>
+Gerätename ins Filterfeld, dann am Gerät eine Aktion auslösen (Fenster
+öffnen, Taste drücken) — du siehst live, ob und wie stark sein Telegramm
+ankommt. Das ist der schnellste Funktionstest für ein einzelnes Gerät.</div>
+
+<h2>13.4 Einstellungen</h2>
+<figure class="rahmen"><img src="img/ui-einstellungen.png" alt="Die Einstellungen">
+<figcaption>Alle Verwaltung an einem Ort — Konsole nicht nötig.</figcaption></figure>
+<p>Jedes Panel dieser Seite hat sein eigenes Kapitel; hier der Überblick:</p>
+<table>
+<tr><th>Panel</th><th>Inhalt</th><th>Details</th></tr>
+<tr><td>Verbund</td><td>weitere Analyzer verknüpfen/entfernen</td><td>Kapitel 17</td></tr>
+<tr><td>Netzwerk</td><td>DHCP/Statisch, Hostname, NTP — mit Aussperr-Schutz</td><td>Kapitel 16</td></tr>
+<tr><td>Standort &amp; Zentrale</td><td>Standortname (reines Etikett!) und CCU-Adresse</td><td>—</td></tr>
+<tr><td>Zugriff</td><td>Auth-Token dieses Browsers</td><td>Kapitel 21</td></tr>
+<tr><td>Status-LED &amp; OLED</td><td>Zubehör aktivieren, Helligkeit</td><td>Kapitel 18</td></tr>
+<tr><td>Langzeitdaten</td><td>InfluxDB-Anbindung</td><td>Kapitel 19</td></tr>
+<tr><td>Demo-Modus</td><td>simulierte Anlage ein/aus</td><td>Kapitel 14</td></tr>
+<tr><td>Daten</td><td>Tages-CSV herunterladen, Datenbank leeren, Dienst neu starten</td><td>—</td></tr>
+</table>
+<p>Alle Änderungen wirken sofort (nur der Demo-Schalter startet den Dienst
+kontrolliert neu) und überleben Neustarts wie Updates.</p>
+
+<h2>13.5 Info</h2>
+<figure class="rahmen"><img src="img/ui-info.png" alt="Die Info-Seite">
+<figcaption>Version, Laufzeit, Empfangszähler — und die Update-Verwaltung.</figcaption></figure>
+<p>Kacheln mit Core-Version, Laufzeit, Datenbankgröße und Host-Daten; darunter
+die <strong>Empfangszähler seit Dienststart</strong> — besonders wertvoll die
+Zeile „verworfen": steigt sie plötzlich, stimmt etwas an der seriellen
+Strecke. Es folgen <strong>Software-Update</strong> und
+<strong>Sniffer-Firmware</strong> (Kapitel 15/11) und die Herkunftsnennung der
+Original-Projekte, auf denen dieser Analyzer aufbaut.</p>
+
+<!-- ==================================================== KAPITEL 14 -->
+<h1 class="kapitel"><span class="knr">14</span>Der Demo-Modus — testen ohne Hardware</h1>
+<div class="kapitelband"></div>
+
+<p>Der Demo-Modus lässt den kompletten Analyzer laufen, <strong>ohne dass eine
+Platine steckt oder eine Homematic-Zentrale existiert</strong> — ideal zum
+Kennenlernen, zum Vorführen und um die Weboberfläche zu erkunden, während die
+Platine noch beim Fertiger liegt.</p>
+
+<h2>23.1 Ein- und ausschalten</h2>
+<p><em>Einstellungen → Demo-Modus → einschalten</em>, Rückfrage bestätigen — der
+Dienst startet neu (die Seite verbindet sich nach wenigen Sekunden von
+selbst), und in der Kopfzeile erscheint die orange <strong>DEMO</strong>-Plakette.
+Ausschalten geht genauso; danach liest der Analyzer wieder die echte
+Hardware.</p>
+
+<h2>23.2 Was simuliert wird — und wie ehrlich</h2>
+<p>Die Simulation setzt am untersten Ende an: Sie erzeugt exakt die Zeilen,
+die der echte Sniffer über die serielle Schnittstelle schicken würde —
+Telegramme, die 750-ms-Rauschzeilen, sogar gelegentliche Störimpulse.
+<strong>Parser, Statistik, Datenbank, API und Weboberfläche laufen dabei
+unverändert</strong> — was du im Demo-Modus siehst, ist die echte Software bei
+der Arbeit, nur die Funkwellen sind erfunden.</p>
+<p>Die Demo-Anlage umfasst rund 15 Geräte mit Charakter: Wettersensoren,
+Heizkörperthermostate, Bewegungsmelder (mit Burst-Telegrammen),
+HmIP-Fensterkontakte, eine Strommess-Steckdose — und absichtlich ein
+„defektes" Gerät (<em>Defekt_BWM Carport (klemmt)</em>), das dauersendet und
+nach kurzer Zeit die Duty-Cycle-Liste mit roter Warnfarbe anführt. So siehst
+du auch die Alarmseite der Anzeige.</p>
+<div class="hinweis box"><span class="titel">ℹ Saubere Trennung</span>
+Die Simulation schreibt in eine <em>eigene</em> Datenbank
+(<code>analyzer-demo.db</code>) mit kurzer Aufbewahrung. Deine echten
+Aufzeichnungen werden weder gelesen noch verändert — nach dem Ausschalten
+ist alles exakt wie vorher.</div>
+
+<!-- ==================================================== KAPITEL 15 -->
+<h1 class="kapitel"><span class="knr">15</span>Software-Updates: Glocke, Ein-Klick-Update, Rollback</h1>
+<div class="kapitelband"></div>
+
+<h2>15.1 Der tägliche Selbstcheck</h2>
+<p>Eine Minute nach jedem Dienststart und danach alle 24 Stunden vergleicht
+der Analyzer seinen Software-Stand mit dem Projekt auf GitHub. Gibt es etwas
+Neues, erscheint in der Kopfzeile die pulsierende
+<strong>🔔&nbsp;Update</strong>-Plakette — auf jeder Seite, nicht zu übersehen.
+Ein Klick darauf führt zur Info-Seite.</p>
+
+<h2>15.2 Das Update per Klick</h2>
+<ol class="schritte">
+<li><em>Info → Software-Update → Nach Update suchen</em> zeigt installierte und
+verfügbare Version.</li>
+<li><em>Update installieren…</em> bestätigen. Ab jetzt läuft alles automatisch;
+die Seite zeigt den Fortschritt live: <em>hole → baue-ui → neustart →
+prüfe</em>.</li>
+<li>Mittendrin startet der Dienst neu — die Seite meldet sich von selbst
+zurück und zeigt am Ende „Update fertig".</li>
+</ol>
+
+<h2>15.3 Das Sicherheitsnetz: automatischer Rollback</h2>
+<p>Das Update ist <strong>atomar und rückrollbar</strong> gebaut: Die neue
+Weboberfläche wird erst vollständig gebaut und dann in einem Zug getauscht;
+nach dem Neustart prüft ein Gesundheits-Check 30 Sekunden lang, ob der
+Dienst mit dem neuen Stand sauber antwortet. <strong>Tut er das nicht, stellt
+das Update selbstständig den vorherigen Stand wieder her</strong> — Software
+und Oberfläche. Ein misslungenes Update kann dir den Analyzer also nicht
+lahmlegen. Protokolle liegen unter
+<code>/var/lib/asksin-analyzer/update.log</code>, der Fortschritt übersteht
+sogar den Neustart des Dienstes.</p>
+<div class="hinweis box"><span class="titel">ℹ Wie das ohne Root-Dienst geht</span>
+Der Analyzer-Dienst selbst läuft unprivilegiert und darf das System nicht
+verändern. Fürs Update legt er nur eine Auftragsdatei ab; eine
+systemd-Überwachung startet daraufhin das eigentliche Update-Skript mit
+Root-Rechten. Dasselbe Muster nutzen Netzwerkänderungen (Kapitel 16).</div>
+
+<!-- ==================================================== KAPITEL 16 -->
+<h1 class="kapitel"><span class="knr">16</span>Netzwerkeinstellungen mit Aussperr-Schutz</h1>
+<div class="kapitelband"></div>
+
+<p>Unter <em>Einstellungen → Netzwerk</em> verwaltest du die
+Netzwerkkonfiguration des Pi komplett im Browser — DHCP oder statische
+Adresse, Gateway, DNS, Hostname und NTP-Server. Die Seite zeigt zuerst nur
+den <strong>Ist-Zustand</strong> (bei DHCP inklusive der zugewiesenen Werte);
+geändert wird erst, wenn du ausdrücklich „Übernehmen" klickst.</p>
+
+<h2>16.1 Die 90-Sekunden-Probezeit</h2>
+<p>Wer die IP-Adresse ändert, sägt am Ast, auf dem seine Browser-Verbindung
+sitzt. Deshalb gelten neue Netzwerkeinstellungen zunächst <strong>nur auf
+Probe</strong>:</p>
+<ol class="schritte">
+<li>„Netzwerk übernehmen…" bestätigen — die neuen Einstellungen werden aktiv,
+ein 90-Sekunden-Countdown läuft.</li>
+<li>Bei geänderter Adresse: die Weboberfläche unter der <em>neuen</em> Adresse
+öffnen.</li>
+<li>Funktioniert alles → <strong>„Einstellungen behalten"</strong> klicken.
+Erst jetzt sind sie dauerhaft.</li>
+<li>Kommt <em>keine</em> Bestätigung an (weil du dich ausgesperrt hättest),
+stellt der Pi nach Ablauf <strong>automatisch den vorherigen Zustand wieder
+her</strong> — du erreichst ihn wieder unter der alten Adresse, als wäre nichts
+gewesen.</li>
+</ol>
+
+<h2>16.2 Hostname und NTP</h2>
+<ul>
+<li>Der <strong>Hostname</strong> gehört zur Netzwerkstruktur und wird von der
+Software nirgendwo sonst angefasst — <em>nur hier</em>, als bewusste
+Verwaltungsentscheidung, lässt er sich ändern. (Der Standortname aus den
+Einstellungen ist davon unabhängig — ein reines Anzeige-Etikett.)</li>
+<li><strong>NTP</strong>: Die Zeile „NTP aktuell" zeigt den tatsächlich
+verwendeten Zeitserver samt Synchronisations-Status. Ohne eigene Angabe gilt
+die Projektvorgabe <code>de.pool.ntp.org</code>. Synchrone Uhren sind
+Pflicht, sobald mehrere Analyzer im Verbund arbeiten — der Verbund warnt bei
+Abweichungen über einer Sekunde (Kapitel 17).</li>
+</ul>
+<div class="hinweis box"><span class="titel">ℹ Voraussetzung</span>
+Das Ändern nutzt den NetworkManager des Raspberry Pi OS. Auf Systemen ohne
+NetworkManager funktioniert die Anzeige trotzdem — das Ändern ist dann
+sauber deaktiviert statt halb kaputt.</div>
+
+<!-- ==================================================== KAPITEL 17 -->
+<h1 class="kapitel"><span class="knr">17</span>Der Verbund: mehrere Analyzer als Gesamtsystem</h1>
+<div class="kapitelband"></div>
+
+<p>Ab zwei Analyzern beginnt der eigentliche Zauber dieses Projekts: Jedes
+Funktelegramm wird meist von <em>mehreren</em> Standorten gleichzeitig gehört —
+mit unterschiedlicher Stärke. Aus genau diesen Unterschieden entsteht die
+Funk-Landkarte des Hauses.</p>
+
+<figure class="rahmen"><img src="img/ui-verbund.png" alt="Die Verbund-Ansicht">
+<figcaption>Die Verbund-Ansicht mit zwei Standorten: Kacheln, Flotten-Update, Empfangsmatrix und zusammengeführte Telegrammliste.</figcaption></figure>
+
+<h2>17.1 Einrichten — zwei Klicks, keine Konsole</h2>
+<p>Jeder Analyzer ist von Haus aus verbundfähig. „Master" wird schlicht der,
+bei dem du die anderen einträgst:</p>
+<ol class="schritte">
+<li>Auf dem Wunsch-Master: <em>Einstellungen → Verbund</em>.</li>
+<li>Adresse des nächsten Analyzers eintragen
+(<code>http://192.168.1.72:8080</code>), optional Name und dessen Auth-Token
+(nur fürs Flotten-Update nötig), <em>Verknüpfen</em>.</li>
+<li>Für jeden weiteren Analyzer wiederholen. Auf den anderen Geräten ist
+<strong>nichts</strong> zu tun.</li>
+</ol>
+<p>Die Änderung wirkt sofort; der eigene Standort erscheint automatisch als
+erste Kachel. Hinterlegte Tokens werden nie wieder angezeigt.</p>
+
+<h2>17.2 Das Standort-Dashboard</h2>
+<p>Je Standort eine Kachel: Sniffer-Status, Telegramme/min, Grundrauschen,
+höchster Duty-Cycle, Software-Version — plus Plaketten für Demo-Modus und
+verfügbare Updates und ein Link direkt in die Weboberfläche des jeweiligen
+Analyzers. Ein ausgefallener Standort erscheint als „nicht erreichbar",
+stört aber die Übersicht nicht. Weicht die <strong>Uhr</strong> eines
+Standorts mehr als eine Sekunde ab, warnt die Kachel („NTP prüfen!") — denn
+die Telegramm-Zusammenführung braucht synchrone Uhren.</p>
+
+<h2>17.3 Die Empfangsmatrix — die Funkloch-Karte</h2>
+<p>Zeile = Funkgerät, Spalte = Standort, Zelle = geglätteter Empfangspegel in
+Farbe; <strong>★</strong> markiert den besten Empfang, „—" heißt „an diesem
+Standort nie gehört". Damit beantwortest du auf einen Blick: Wo sind
+Funklöcher? Welcher Analyzer „besitzt" welches Gerät? Wohin gehört die
+nächste Antenne? Der Knopf <em>CSV herunterladen</em> exportiert die Matrix
+für die Planung am Schreibtisch.</p>
+
+<h2>17.4 Die zusammengeführte Telegrammliste</h2>
+<p>Gleicher Absender + gleiche laufende Nummer + gleicher Typ und Länge
+innerhalb von ±1,5 Sekunden = <strong>ein</strong> Funkereignis. Die Liste zeigt
+jedes Telegramm genau einmal, mit farbigen Chips je Standort:
+<span class="kv">Keller (−62)</span> <span class="kv">DG (−88)</span>. So siehst
+du je Ereignis sofort, wer es wie gut gehört hat.</p>
+
+<h2>17.5 Das Flotten-Update</h2>
+<p>Der Knopf <em>Alle Analyzer aktualisieren…</em> rollt ein Software-Update
+über alle Standorte aus — bewusst vorsichtig: <strong>nacheinander</strong>,
+jeder Analyzer erst nach bestandenem Gesundheits-Check des vorherigen.
+Scheitert ein Schritt, stoppt der Lauf (der betroffene Analyzer hat lokal
+längst automatisch zurückgerollt, Kapitel 15) und die restlichen bleiben
+unangetastet. Der Master aktualisiert sich zum Schluss. Für Peers mit
+Token-Pflicht muss deren Token beim Verknüpfen hinterlegt sein.</p>
+
+<!-- ==================================================== KAPITEL 18 -->
+<h1 class="kapitel"><span class="knr">18</span>Status-LED und OLED-Anzeige</h1>
+<div class="kapitelband"></div>
+
+<p>Mit dem Zubehör an J5–J7 (Anschluss: Kapitel 10.3, <strong>R5-Hinweis
+beachten!</strong>) zeigt der Analyzer seinen Zustand direkt am Gerät — ein
+Blick in den Schrank genügt.</p>
+
+<h2>18.1 Aktivieren</h2>
+<p>Entweder im Installer („Status-LED und OLED einrichten? Ja") oder jederzeit
+nachträglich: <em>Einstellungen → Status-LED &amp; OLED</em> — LED und OLED
+einzeln schaltbar, Helligkeitsregler, sofort wirksam. Einzige Voraussetzung:
+I²C/SPI müssen einmal freigeschaltet sein (macht der Installer; nachträglich
+<code>sudo raspi-config</code> → Interface Options). Fehlt etwas, zeigt die
+Übersicht ehrlich „LED gestört"/„OLED gestört" samt Fehlertext.</p>
+
+<h2>18.2 Die LED-Farbsprache</h2>
+<table class="schmal">
+<tr><th>Farbe/Muster</th><th>Bedeutung</th></tr>
+<tr><td>🟢 grün, ruhig</td><td>alles in Ordnung</td></tr>
+<tr><td>🔵 blau, atmend</td><td>Software-Update verfügbar</td></tr>
+<tr><td>🟠 orange, ruhig</td><td>Demo-Modus aktiv</td></tr>
+<tr><td>🟡 gelb, langsam blinkend</td><td>Persistenz-Fehler (Datenbank prüfen)</td></tr>
+<tr><td>🔴 rot, ruhig</td><td>Sniffer getrennt — keine Daten von der Platine</td></tr>
+<tr><td>🔴 rot, schnell blinkend</td><td><strong>Duty-Cycle-Alarm</strong>: ein Gerät verbraucht ≥ 80 % seines Sendekontingents</td></tr>
+</table>
+<p class="klein">Die Reihenfolge ist eine Prioritätsleiter — es leuchtet immer
+der wichtigste Zustand.</p>
+
+<h2>18.3 Die OLED-Seiten</h2>
+<figure class="rahmen"><img src="img/oled-seiten.png" alt="Die vier OLED-Seiten">
+<figcaption>Schriftprobe und die vier Seiten — exakt dieses Bild zeigt auch die Live-Vorschau in der Weboberfläche.</figcaption></figure>
+<p>Der Taster an J6 blättert durch vier Seiten: <strong>1</strong> Standort,
+IP, Version, Verbindungsstatus · <strong>2</strong> Telegramme/min (groß),
+Grundrauschen, Geräte · <strong>3</strong> Duty-Cycle-Spitze mit Gerätename
+(und „!! ALARM !!" ab 80 %) · <strong>4</strong> Systemwerte (Last, Temperatur,
+RAM, SSD). Die Übersicht der Weboberfläche zeigt eine <strong>pixelgenaue
+Live-Vorschau</strong> desselben Bildes — inklusive Blättern-Knopf; du siehst
+das Display im Schrank also auch vom Sofa aus.</p>
+
+<!-- ==================================================== KAPITEL 19 -->
+<h1 class="kapitel"><span class="knr">19</span>Langzeitdaten: InfluxDB und Grafana</h1>
+<div class="kapitelband"></div>
+
+<p>Für Auswertungen über Wochen und Monate — und über alle Standorte hinweg —
+schreibt jeder Analyzer seine Kennzahlen zusätzlich in eine zentrale
+<strong>InfluxDB&nbsp;v2</strong> (z. B. auf deinem Server oder einem
+NAS-Container). Die lokale Datenbank bleibt dabei die primäre Aufzeichnung;
+fällt die InfluxDB aus, merkt der Analyzer sich das nur als Zähler und macht
+unbeirrt weiter.</p>
+
+<h2>19.1 Einrichten</h2>
+<ol class="schritte">
+<li>In der InfluxDB einen Bucket (z. B. <code>asksin</code>) und ein API-Token
+mit Schreibrecht darauf anlegen.</li>
+<li>Auf <em>jedem</em> Analyzer: <em>Einstellungen → Langzeitdaten</em> — URL
+(<code>http://server:8086</code>), Organisation, Bucket, Token, Intervall
+(Vorgabe 30 s), Haken bei „aktiv", Speichern. Sofort wirksam; das Panel
+zeigt Schreibvorgänge und eventuelle Fehler. Das Token wird nach dem
+Speichern nie wieder angezeigt (leeres Feld = vorhandenes behalten).</li>
+</ol>
+
+<h2>19.2 Was geschrieben wird</h2>
+<table>
+<tr><th>Measurement</th><th>Tags</th><th>Felder</th></tr>
+<tr><td><code>analyzer</code></td><td><code>standort</code></td><td>connected, telegrammeProMinute, grundrauschen, geraete</td></tr>
+<tr><td><code>geraet</code></td><td><code>standort</code>, <code>adresse</code>, <code>name</code></td><td>rssi, dutyCycle, telegramme</td></tr>
+</table>
+<p>In Grafana (Datenquelle: deine InfluxDB) entstehen daraus z. B.
+„Grundrauschen aller Standorte übereinander", „Duty-Cycle-Trend von Gerät X
+über 30 Tage" oder „RSSI-Verlauf eines Sensors an drei Standorten" — nach
+<code>standort</code> gruppieren, fertig. Beispielabfragen stehen in
+<code>docs/verbund.md</code> im Projekt.</p>
+
+<!-- ==================================================== KAPITEL 20 -->
+<h1 class="kapitel"><span class="knr">20</span>Der ioBroker-Adapter</h1>
+<div class="kapitelband"></div>
+
+<p>Der Adapter <strong>ioBroker.asksinanalyzer-rpi</strong> (eigenes Repository,
+MIT-Lizenz) bringt die Analyzer-Werte als States in deine Hausautomation —
+für Visualisierung, Benachrichtigungen und Automatik-Regeln. Er enthält
+bewusst keinerlei Analyse-Logik: Er fragt nur die API des Analyzers ab und
+spiegelt die Werte.</p>
+
+<h2>20.1 Installation und Einrichtung</h2>
+<ol class="schritte">
+<li>ioBroker-Admin → Adapter → „Installieren aus eigener URL" →
+<code>https://github.com/ssbingo/ioBroker.asksinanalyzer-rpi</code>
+(alternativ an der Konsole: <code>iobroker url …</code>).</li>
+<li><strong>Eine Instanz je Analyzer-Standort</strong> anlegen — dein
+Fünf-Standorte-Verbund wird also zu fünf Instanzen.</li>
+<li>Je Instanz: Adresse (<code>http://&lt;pi&gt;:8080</code>), ggf. das
+Auth-Token des Analyzers, Abfrageintervall (Vorgabe 5 s).</li>
+</ol>
+
+<h2>20.2 Die States</h2>
+<table>
+<tr><th>Zweig</th><th>Inhalt</th></tr>
+<tr><td><code>info.*</code></td><td>connection (erreichbar <em>und</em> Sniffer verbunden), Standort, Version, Demo, Update verfügbar</td></tr>
+<tr><td><code>funk.*</code></td><td>Telegramme/min, Grundrauschen (roh + geglättet), aktive Geräte, höchster Duty-Cycle samt Gerätename</td></tr>
+<tr><td><code>zaehler.*</code></td><td>Telegramme, Neuverbindungen, verlorene Zeilen, Persistenz-Fehler seit Dienststart</td></tr>
+<tr><td><code>geraete.&lt;ADRESSE&gt;.*</code></td><td>je Funkgerät: Name, RSSI (letzter/geglättet), Duty-Cycle, Telegramme, zuletzt gehört — Channels entstehen automatisch</td></tr>
+<tr><td><code>verbund.&lt;STANDORT&gt;.*</code></td><td>nur bei der Instanz des Verbund-Masters: je Standort erreichbar, Sniffer-Status, Kennzahlen, Version, Update-Flag und <code>zeitdriftWarnung</code> — ein fertiger Auslöser für „NTP prüfen an Standort X"-Benachrichtigungen</td></tr>
+</table>
+<div class="tipp box"><span class="titel">✓ Automatisierungs-Ideen</span>
+Benachrichtigung bei <code>funk.maxDutyCycle &gt; 80</code> („Gerät X sendet
+sich das Kontingent leer"), bei <code>info.connection = false</code> länger als
+5 Minuten („Analyzer Keller meldet sich nicht") oder bei
+<code>verbund.*.zeitdriftWarnung = true</code>.</div>
+
+<!-- ==================================================== KAPITEL 21 -->
+<h1 class="kapitel"><span class="knr">21</span>Sicherheit: Token, Netzwerk, Grenzen</h1>
+<div class="kapitelband"></div>
+
+<h2>21.1 Das Auth-Token</h2>
+<p><strong>Lesen ist frei, Ändern braucht das Token.</strong> Alle
+Anzeige-Endpunkte (Übersicht, Listen, Verbund) sind im LAN offen — das ist
+gewollt, ein Funkanalyzer zeigt keine Geheimnisse. Alles, was etwas
+<em>verändert</em> (Einstellungen, Updates, Firmware-Flash, Netzwerk,
+Datenbank leeren), verlangt das beim Setup erzeugte Token. Du trägst es
+einmal je Browser unter <em>Einstellungen → Zugriff</em> ein; es bleibt nur in
+diesem Browser gespeichert.</p>
+<div class="tipp box"><span class="titel">✓ Token vergessen?</span>
+Es steht in der Konfigurationsdatei auf dem Pi:
+<code>sudo grep authToken /etc/asksin-analyzer/config.json</code></div>
+
+<h2>21.2 Grundsätze</h2>
+<ul>
+<li>Keine Cloud, keine Fremdserver: Der Analyzer telefoniert nur zu GitHub
+(täglicher Update-Check) und — wenn konfiguriert — zu deiner CCU und deiner
+InfluxDB.</li>
+<li>Der Dienst läuft unprivilegiert mit systemd-Härtung; Systemänderungen
+(Updates, Netzwerk) laufen über geprüfte, eng begrenzte Root-Skripte.</li>
+<li>Das gefährliche „Update von beliebiger URL" des Original-Projekts wurde
+bewusst <em>nicht</em> nachgebaut.</li>
+<li>Der Analyzer gehört ins Heimnetz. Willst du ihn von unterwegs erreichen,
+nutze VPN (z. B. WireGuard) — keine Portfreigabe ins Internet.</li>
+</ul>
+
+<!-- ==================================================== KAPITEL 22 -->
+<h1 class="kapitel"><span class="knr">22</span>Fehlersuche</h1>
 <div class="kapitelband"></div>
 
 <table>
@@ -985,15 +1499,23 @@ npm run check      <span class="c"># Typprüfung + alle 29 Tests</span></pre>
 <tr><td>Bootloader-Update schlägt fehl (<code>not in sync</code>)</td><td>Reset-Impuls kam zu früh/spät oder Dienst belegt Port</td><td>Reihenfolge aus Kapitel 11 exakt einhalten; <code>sudo fuser /dev/ttyAMA0</code> zeigt Belegungen</td></tr>
 <tr><td>Empfang schlecht (RSSI ständig unter −95 dBm)</td><td>Antenne im Metallschrank oder Störer</td><td>Antenne nach außen verlegen; Grundrauschen beobachten: steigt es ohne Telegramme, stört eine Quelle in der Nähe (Netzteile!)</td></tr>
 <tr><td>Funkmodul wird heiß</td><td>Es hat irgendwann 5 V gesehen</td><td>Sofort stromlos machen. Modul ist vermutlich defekt — auslöten, neues Modul, künftig Jumper-Regel aus Kapitel 7 beachten</td></tr>
+<tr><td>Weboberfläche nicht erreichbar</td><td>Dienst gestoppt oder nur an 127.0.0.1 gebunden</td><td><code>asksin-analyzer status</code>; in <code>config.json</code> muss <code>"host": "0.0.0.0"</code> stehen (LAN-Frage des Installers)</td></tr>
+<tr><td>Kopfzeile dauerhaft „Sniffer getrennt"</td><td>HAT steckt nicht / UART nicht eingerichtet / Baudrate</td><td>Ohne Platine normal. Sonst: <code>asksin-analyzer logs</code> — steht dort ein Gerätefehler, Kapitel 9 (UART-Frage des Installers) wiederholen</td></tr>
+<tr><td>Geräte heißen nur „1A2B3C" statt Klarnamen</td><td>CCU nicht erreichbar oder CCU-Script fehlt</td><td>CCU-Adresse in <em>Einstellungen → Standort &amp; Zentrale</em> prüfen; auf der CCU muss die Systemvariable <code>AskSinAnalyzerDevList</code> befüllt werden (Kapitel 12/CCU-Script im Repo)</td></tr>
+<tr><td>„Nicht erlaubt" beim Speichern in der Weboberfläche</td><td>Auth-Token fehlt in diesem Browser</td><td>Token unter <em>Einstellungen → Zugriff</em> eintragen (Kapitel 21; vergessen? <code>sudo grep authToken /etc/asksin-analyzer/config.json</code>)</td></tr>
+<tr><td>🔔-Glocke erscheint nie</td><td>Pi ohne Internetzugang zu GitHub</td><td><code>asksin-analyzer logs</code> zeigt „Aktualitätsprüfung fehlgeschlagen"; Update dann von Hand: <code>sudo asksin-analyzer update</code></td></tr>
+<tr><td>Verbund-Kachel warnt „Uhr weicht ab"</td><td>NTP auf einem Analyzer nicht synchron</td><td>Auf dem betroffenen Gerät <em>Einstellungen → Netzwerk</em>: Zeile „NTP aktuell" muss „synchron" zeigen — sonst NTP-Server setzen (Vorgabe de.pool.ntp.org)</td></tr>
+<tr><td>Flotten-Update meldet „Auth-Token fehlt"</td><td>Peer verlangt Token, keines hinterlegt</td><td>Peer entfernen und mit seinem Token neu verknüpfen (<em>Einstellungen → Verbund</em>)</td></tr>
+<tr><td>Status-LED bleibt dunkel</td><td>R4 statt R5 bestückt oder SPI aus</td><td>Kapitel 10.3 (R5-Kasten!); SPI per Installer-Frage oder <code>raspi-config</code> aktivieren; Übersicht zeigt „LED gestört" mit Ursache</td></tr>
 <tr><td>OLED bleibt dunkel</td><td>I²C nicht aktiv oder Kabelbelegung</td><td><code>sudo raspi-config</code> → I²C aktivieren; <code>i2cdetect -y 1</code> muss <code>3c</code> zeigen; J5-Belegung gegen Kapitel 10.3 prüfen</td></tr>
 <tr><td>1-Wire-Sensoren funktionieren nicht mehr</td><td><code>w1-gpio</code> kollidiert mit GPIO4 (Reset)</td><td>In <code>config.txt</code>: <code>dtoverlay=w1-gpio,gpiopin=17</code> o. ä. — nicht GPIO4</td></tr>
 </table>
 
 <!-- ==================================================== KAPITEL 14 -->
-<h1 class="kapitel"><span class="knr">14</span>Anhang</h1>
+<h1 class="kapitel"><span class="knr">23</span>Anhang</h1>
 <div class="kapitelband"></div>
 
-<h2>14.1 Belegung des Pi-Headers (genutzte Pins)</h2>
+<h2>23.1 Belegung des Pi-Headers (genutzte Pins)</h2>
 <table class="schmal">
 <tr><th>Pi-Pin</th><th>Signal</th><th>Verwendung</th></tr>
 <tr><td>1</td><td>3V3</td><td>durchgereicht an OLED (J5) und LED (J7)</td></tr>
@@ -1008,7 +1530,7 @@ npm run check      <span class="c"># Typprüfung + alle 29 Tests</span></pre>
 <tr><td>6, 9, 14, 20, 25, 30, 34, 39</td><td>GND</td><td>Masse</td></tr>
 </table>
 
-<h2>14.2 Prüfpunkte</h2>
+<h2>23.2 Prüfpunkte</h2>
 <table class="schmal">
 <tr><th>Pad</th><th>Signal</th><th>Sollwert im Betrieb</th></tr>
 <tr><td>TP1</td><td>RESET</td><td>3,3 V (Ruhe)</td></tr>
@@ -1021,7 +1543,7 @@ npm run check      <span class="c"># Typprüfung + alle 29 Tests</span></pre>
 <tr><td>TP8</td><td>CS</td><td>SPI-Auswahl Funkmodul</td></tr>
 </table>
 
-<h2>14.3 Glossar</h2>
+<h2>23.3 Glossar</h2>
 <table>
 <tr><th>Begriff</th><th>Bedeutung</th></tr>
 <tr><td>BidCoS</td><td>„Bidirectional Communication Standard" — das Funkprotokoll klassischer Homematic-Geräte</td></tr>
@@ -1037,7 +1559,7 @@ npm run check      <span class="c"># Typprüfung + alle 29 Tests</span></pre>
 <tr><td>UART</td><td>serielle Schnittstelle (zwei Drähte: senden, empfangen)</td></tr>
 </table>
 
-<h2>14.4 Quellen und Dank</h2>
+<h2>23.4 Quellen und Dank</h2>
 <p>Dieses Projekt wäre ohne die Vorarbeit dieser Autoren nicht denkbar:</p>
 <ul>
 <li><strong>jp112sdl</strong> — AskSinAnalyzer und die Sniffer-Firmware
@@ -1052,7 +1574,7 @@ npm run check      <span class="c"># Typprüfung + alle 29 Tests</span></pre>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 1 · Juli 2026 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.0.7 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

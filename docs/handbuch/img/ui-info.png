@@ -1,0 +1,8 @@
+Diese Datei wurde am 03.08.2026 aus der Git-Historie entfernt.
+
+Grund: Sie enthielt Bildschirmfotos mit interner Netzidentitaet
+(Adressierung, Hostname, MAC-Adresse), aufgenommen im Demo-Modus.
+Der Demo-Modus gibt seit dieser Fassung nur noch Beispielwerte aus
+(RFC 5737 / RFC 7042); geprueft von tools/pruefe-keine-echtdaten.sh.
+
+Der aktuelle Stand ist unberuehrt und vollstaendig.
