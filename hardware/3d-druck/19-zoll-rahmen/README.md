@@ -5,14 +5,17 @@ Analyzer (Raspberry Pi 4 + HAT, Boot-SSD) in den Datenschrank einzieht.
 
 ## Herkunft und Lizenz
 
-Die Vorlagen sind **abgeleitete Versionen** (Remix) von:
+Die Vorlagen sind **abgeleitete Versionen** (Remixe) aus zwei Projekten:
 
-> **„19″ 1U Rack with Moduler trays for Raspberry Pis"** von **Robert**
-> (auf Thingiverse: Rob_Z71) —
-> <https://www.printables.com/model/69176-19-1u-rack-with-moduler-trays-for-raspberry-pis>
-> (auch auf Thingiverse: <https://www.thingiverse.com/thing:4886186>)
+- **Rahmen und Trays:** „19″ 1U Rack with Moduler trays for Raspberry Pis"
+  von **Robert** (auf Thingiverse: Rob_Z71) —
+  <https://www.printables.com/model/69176-19-1u-rack-with-moduler-trays-for-raspberry-pis>
+  (auch auf Thingiverse: <https://www.thingiverse.com/thing:4886186>)
+- **SSD-Rahmen:** „2.5 SSD/HDD Hot swap holder for Modular trays"
+  von **balazsgrill** —
+  <https://www.printables.com/model/1433279-25-ssdhdd-hot-swap-holder-for-modular-trays>
 
-Das Original steht unter **CC BY-NC-SA 4.0** (Namensnennung — nicht
+Beide Originale stehen unter **CC BY-NC-SA 4.0** (Namensnennung — nicht
 kommerziell — Weitergabe unter gleichen Bedingungen). Wegen der
 Share-Alike-Bedingung gilt für alle abgeleiteten Dateien in diesem
 Verzeichnis dieselbe Lizenz: **CC BY-NC-SA 4.0** —
