@@ -302,7 +302,6 @@ und selbst aufgelötet.</p>
 <tr><th>Pos.</th><th>Menge</th><th>Reichelt-Artikel</th><th>Was es ist</th></tr>
 <tr><td>J1</td><td>1</td><td><code>MPE 094-2-040</code></td><td>Buchsenleiste 2×20 — die Verbindung zum Pi</td></tr>
 <tr><td>J2</td><td>1</td><td><code>ECON SL6G2</code></td><td>Stiftleiste 2×3 — der Programmieranschluss</td></tr>
-<tr><td>Y1</td><td>1</td><td><code>CST 8,00</code></td><td>Keramikresonator 8 MHz — der Taktgeber</td></tr>
 <tr><td>J5–J7</td><td>je 1</td><td><code>JST PH4P ST</code>, <code>JST PH2P ST</code>, <code>JST PH3P ST</code></td><td>Stecker für OLED, Taster, LED</td></tr>
 <tr><td>—</td><td>je 1</td><td><code>JST PH4P BU</code>, <code>PH2P BU</code>, <code>PH3P BU</code></td><td>die passenden Buchsengehäuse</td></tr>
 <tr><td>—</td><td>≥ 15</td><td><code>JST PH CKB</code></td><td>Crimpkontakte (9 gebraucht + Reserve!)</td></tr>
@@ -387,15 +386,16 @@ daneben ist Ruhe.</li>
 <tr><td><strong>Reset-Strecke</strong></td><td>C8, R2, S1, TP1</td><td>Über GPIO4 des Pi kann der Mikrocontroller neu gestartet werden (für Firmware-Updates, Kapitel 11). C8 koppelt nur den Impuls, R2 hält die Leitung in Ruhe oben, S1 ist der Taster für den Handreset.</td></tr>
 <tr><td><strong>SPI-Verteilung</strong></td><td>R3</td><td>Mikrocontroller, Funkmodul und Programmieranschluss teilen sich den SPI-Bus. R3 sorgt dafür, dass das Funkmodul still ist, während programmiert wird.</td></tr>
 <tr><td><strong>Status-LED</strong></td><td>R1, D1</td><td>Blitzt bei jedem empfangenen Telegramm kurz auf.</td></tr>
-<tr><td><strong>Peripherie</strong></td><td>J5, J6, J7, R4, (R5)</td><td>Stecker für OLED-Display, Taster und WS2812-LED des Status-LED-Projekts. R4 ist der Vorwiderstand der LED-Datenleitung.</td></tr>
+<tr><td><strong>Peripherie</strong></td><td>J5, J6, J7, R5, (R4)</td><td>Stecker für OLED-Display, Taster und WS2812-LED des Status-LED-Projekts. R5 (0 Ω) führt die LED-Datenleitung zum SPI-Pin des Pi.</td></tr>
 <tr><td><strong>Prüfpunkte</strong></td><td>TP1–TP8</td><td>Kleine Messpads für Multimeter und Fehlersuche (Belegung im Anhang).</td></tr>
 </table>
 
-<div class="hinweis box"><span class="titel">ℹ R4 oder R5 — nie beide</span>
+<div class="hinweis box"><span class="titel">ℹ R5 oder R4 — nie beide</span>
 Die WS2812-LED kann vom Pi über zwei verschiedene Pins angesteuert werden:
-<strong>GPIO18</strong> (PWM, der Normalfall → R4 bestückt) oder
-<strong>GPIO10</strong> (SPI-Variante → stattdessen R5 bestücken). R5 bleibt in der
-Standardbestückung leer — die leeren Pads sind kein Fehler.</div>
+<strong>GPIO10</strong> (SPI, der Normalfall → R5 bestückt — diesen Weg nutzt die
+Analyzer-Software) oder <strong>GPIO18</strong> (PWM-Variante → stattdessen R4
+bestücken). R4 bleibt in der Standardbestückung leer — die leeren Pads sind
+kein Fehler.</div>
 
 <figure class="rahmen">
   <img src="img/platine-unten.png" alt="Platine von unten">
@@ -441,10 +441,10 @@ stehen im mitgelieferten Jobfile.</li>
 <code>bestueckung/jlcpcb_cpl.csv</code> als CPL-Datei hochladen.</li>
 <li>Die Bauteilzuordnung durchsehen: Alle Positionen sollten automatisch auf
 lagernde Teile zeigen — die Nummern sind in der BOM hinterlegt (Tabelle unten).
-Drei Positionen sind „Extended" und kosten eine kleine Einrichtungsgebühr.</li>
+Vier Positionen sind „Extended" und kosten eine kleine Einrichtungsgebühr.</li>
 <li>Die <strong>Bestückungsvorschau</strong> kontrollieren — Kapitel 5.4.</li>
-<li>Bestellen. Geliefert wird die Platine mit allen SMD-Teilen außer dem
-Funkmodul.</li>
+<li>Bestellen. Geliefert wird die Platine mit allen SMD-Teilen und dem
+Resonator Y1 — es fehlen nur noch Funkmodul und Steckverbinder.</li>
 </ol>
 
 <h2>5.3 Was bestückt wird — und was nicht</h2>
@@ -452,17 +452,19 @@ Funkmodul.</li>
 <tr><th>Ref</th><th>Bauteil</th><th>LCSC-Nr.</th><th>Status</th></tr>
 <tr><td>U1</td><td>Spannungsregler XC6206P332MR-G <span class="klein">(pinkompatibler Ersatz für MCP1754S)</span></td><td>C5446</td><td>Basic</td></tr>
 <tr><td>U2</td><td>ATmega328P-AU</td><td>C14877</td><td>Extended</td></tr>
-<tr><td>S1</td><td>Taster Omron B3U-1000P-B</td><td>C231330</td><td>Extended</td></tr>
+<tr><td>S1</td><td>Taster Omron B3U-1000P <span class="klein">(Variante ohne Zentrierstift — gleiche Pads, die kleine Bohrung bleibt leer)</span></td><td>C231329</td><td>Extended</td></tr>
+<tr><td>Y1</td><td>Resonator Murata CSTLS8M00G53-B0 <span class="klein">(bedrahtet — JLCPCB lötet ihn in der Welle mit)</span></td><td>C83707</td><td>Extended</td></tr>
 <tr><td>L1</td><td>Ferrit BLM21PG300SN1D</td><td>C16903</td><td>Extended</td></tr>
 <tr><td>D1</td><td>LED rot 0805</td><td>C84256</td><td>Basic</td></tr>
-<tr><td>R1 / R4 / R2,R3</td><td>330 Ω / 390 Ω / 10 kΩ</td><td>C17630 / C17655 / C17414</td><td>Basic</td></tr>
+<tr><td>R1 / R5 / R2,R3</td><td>330 Ω / 0 Ω / 10 kΩ</td><td>C17630 / C17477 / C17414</td><td>Basic</td></tr>
 <tr><td>C1,C2</td><td>10 µF 25 V</td><td>C15850</td><td>Basic</td></tr>
 <tr><td>C3–C5,C8,C9</td><td>100 nF 50 V</td><td>C49678</td><td>Basic</td></tr>
 </table>
 
 <p><strong>Nicht bestückt werden:</strong> das Funkmodul U3 (führt JLCPCB nicht),
-R5 (absichtlich leer) sowie alle bedrahteten Teile — J1, J2, J5–J7 und Y1.
-Die kommen in Kapitel 6 von Hand drauf.</p>
+R4 (absichtlich leer — die PWM-Alternative zu R5) sowie die bedrahteten
+Steckverbinder J1, J2 und J5–J7. Die kommen in Kapitel 6 von Hand drauf.
+Der Resonator Y1 ist zwar auch bedrahtet, wird aber von JLCPCB mitbestückt.</p>
 
 <h2>5.4 Die Bestückungsvorschau richtig prüfen</h2>
 <div class="achtung box"><span class="titel">⚠ Zwei Minuten, die eine Charge retten</span>
@@ -487,9 +489,8 @@ noch sechs Positionen — in dieser Reihenfolge:</p>
 <table>
 <tr><th>#</th><th>Ref</th><th>Bauteil</th><th>Schwierigkeit</th></tr>
 <tr><td>1</td><td>U3</td><td>Funkmodul E07-900M10S</td><td>mittel — Halblöcher, siehe 6.2</td></tr>
-<tr><td>2</td><td>Y1</td><td>Keramikresonator 8 MHz</td><td>leicht</td></tr>
-<tr><td>3</td><td>J2</td><td>ISP-Stiftleiste 2×3</td><td>leicht</td></tr>
-<tr><td>4</td><td>J5, J6, J7</td><td>JST-PH-Stecker</td><td>leicht</td></tr>
+<tr><td>2</td><td>J2</td><td>ISP-Stiftleiste 2×3</td><td>leicht</td></tr>
+<tr><td>3</td><td>J5, J6, J7</td><td>JST-PH-Stecker</td><td>leicht</td></tr>
 <tr><td>5</td><td>J1</td><td>Buchsenleiste 2×20</td><td>leicht, aber 40 Lötstellen</td></tr>
 </table>
 
@@ -540,8 +541,9 @@ Versorgung.</div>
 
 <h2>6.3 Resonator, Stecker, Buchsenleiste</h2>
 <ol class="schritte">
-<li><strong>Y1 (Resonator):</strong> Drei Beine, keine Polung — kann nicht falsch
-herum. Einstecken, umdrehen, verlöten, Beine kürzen.</li>
+<li><strong>Y1 (Resonator):</strong> kommt bereits bestückt von JLCPCB
+(C83707). Nur bei einer komplett handbestückten Platine selbst einlöten:
+drei Beine, keine Polung — kann nicht falsch herum.</li>
 <li><strong>J2 (ISP):</strong> Kurze Seite der Stifte in die Platine, lange Seite
 nach oben. Erst einen Pin löten, Sitz prüfen (senkrecht?), dann die
 restlichen fünf.</li>
@@ -962,13 +964,15 @@ passt richtig. Softwareseitig sind Display, Taster und LED inzwischen
 Dienst, keine eigene Anleitung mehr nötig. Alles Weitere (Aktivieren,
 Farben, Anzeigeseiten) steht in Kapitel 18.</p>
 
-<div class="achtung box"><span class="titel">⚠ Für die LED: R5 statt R4 bestücken</span>
+<div class="achtung box"><span class="titel">⚠ Für die LED: R5 muss bestückt sein</span>
 Die WS2812-Datenleitung an J7 kann von zwei Pi-Pins kommen:
-<strong>R4</strong> (390 Ω, GPIO18/PWM) oder <strong>R5</strong> (0 Ω,
-GPIO10/SPI) — genau <em>einer</em> von beiden wird bestückt. Die
+<strong>R5</strong> (0 Ω, GPIO10/SPI) oder <strong>R4</strong> (390 Ω,
+GPIO18/PWM) — genau <em>einer</em> von beiden wird bestückt. Die
 Analyzer-Software steuert die LED über <strong>SPI</strong>, braucht also
-<strong>R5</strong>. Falls deine Platine mit R4 bestückt ist: R4 auslöten,
-an R5 einen 0-Ω-Widerstand (oder eine Lötbrücke) setzen.</div>
+<strong>R5</strong>. Platinen aus der JLCPCB-Bestückung (Kapitel 5) haben
+R5 bereits drauf. Nur falls deine Platine noch nach der alten Vorgabe mit
+R4 bestückt ist: R4 auslöten, an R5 einen 0-Ω-Widerstand (oder eine
+Lötbrücke) setzen.</div>
 
 <!-- ==================================================== KAPITEL 11 -->
 <h1 class="kapitel"><span class="knr">11</span>Firmware-Updates im laufenden Betrieb</h1>
@@ -1525,8 +1529,8 @@ nutze VPN (z. B. WireGuard) — keine Portfreigabe ins Internet.</li>
 <tr><td>8</td><td>GPIO14 (TXD)</td><td>Pi sendet → Mikrocontroller</td></tr>
 <tr><td>10</td><td>GPIO15 (RXD)</td><td>Mikrocontroller sendet → Pi (der Telegrammstrom)</td></tr>
 <tr><td>11</td><td>GPIO17</td><td>Taster (J6)</td></tr>
-<tr><td>12</td><td>GPIO18</td><td>WS2812-Daten über R4 (J7)</td></tr>
-<tr><td>19</td><td>GPIO10</td><td>WS2812-Alternative über R5 (unbestückt)</td></tr>
+<tr><td>12</td><td>GPIO18</td><td>WS2812-Alternative über R4 (unbestückt)</td></tr>
+<tr><td>19</td><td>GPIO10</td><td>WS2812-Daten über R5 (J7)</td></tr>
 <tr><td>6, 9, 14, 20, 25, 30, 34, 39</td><td>GND</td><td>Masse</td></tr>
 </table>
 

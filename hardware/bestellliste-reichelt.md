@@ -8,6 +8,14 @@ Artikelbezeichnung steht, wurde sie dort gefunden; wo nur ein Suchbegriff
 steht, gibt es die Position zwar, aber ich habe die konkrete Variante nicht
 verifiziert.
 
+> **Hinweis bei JLCPCB-Bestückung (Stand 30.07.2026):** Wer die Platine mit
+> der JLCPCB-Bestückung aus `kicad/fab/jlcpcb_bom.csv` fertigen lässt,
+> braucht von dieser Liste nur noch die **Handbestückungs-Teile**: U3
+> (Funkmodul), J1, J2, J5–J7 sowie das Zubehör aus Abschnitt 4. Alles
+> andere — einschließlich Y1 (Resonator, JLCPCB **C83707**), S1 (Taster,
+> JLCPCB **C231329**) und R5 (0 Ω, JLCPCB **C17477**) — lötet JLCPCB.
+> R4 wird **nicht mehr bestückt** (siehe Hinweise unten).
+
 ---
 
 ## 1. Bei Reichelt erhältlich — Bezeichnung geprüft
@@ -33,7 +41,7 @@ Auswahl im Shop.
 | --- | --- | --- | --- | --- |
 | C1, C2 | 2 | Kondensator **10 µF**, 0805, X5R/X7R, ≥ 10 V | `Kondensator 0805 10µ` | ≥ 10 V, besser 16 V |
 | R1 | 1 | Widerstand **330 Ω**, 0805 | `WR08X3300FTL` bzw. `SMD 0805 330` | Reihe wie bei R2/R3: `WR08X…FTL` |
-| R4 | 1 | Widerstand **390 Ω**, 0805 | `WR08X3900FTL` bzw. `SMD 0805 390` | Vorwiderstand der LED-Daten |
+| R5 | 1 | Widerstand **0 Ω**, 0805 | `SMD 0805 0R` | Brücke der LED-Datenleitung (SPI/GPIO10) — bei JLCPCB-Bestückung schon drauf |
 | L1 | 1 | Ferritperle **30 Ω @ 100 MHz**, 0805 | `BLM21P` | Reihe BLM21P, 30 Ω / 4 A |
 | D1 | 1 | LED 0805, **Flussspannung ≈ 2 V** | `EVL 17-21USRC` | ⚠️ siehe Hinweis unten — die Farbe ist **nicht** frei wählbar |
 
@@ -74,9 +82,10 @@ die Gegenstücke gleich mit — siehe Abschnitt 4.
 
 ## Hinweise
 
-**R5 wird nicht bestückt.** Der 0-Ω-Widerstand ist die Alternative für die
-SPI-Variante der WS2812-Ansteuerung (GPIO10 statt GPIO18). Bestückt wird R4
-**oder** R5, nie beide. Vorgabe ist R4.
+**R4 wird nicht bestückt** (geändert am 30.07.2026). Die Analyzer-Software
+steuert die WS2812 über **SPI (GPIO10)**, dafür braucht es die 0-Ω-Brücke
+**R5**. R4 (390 Ω, GPIO18) bleibt als unbestückte Alternative für eine
+PWM-Ansteuerung auf der Platine. Bestückt wird R5 **oder** R4, nie beide.
 
 **TP1–TP8 sind keine Bauteile**, sondern Prüfpads auf der Platine.
 
@@ -101,7 +110,7 @@ Geprüfte Kandidaten bei Reichelt:
 | --- | --- | --- |
 | R1 | Vorwiderstand Status-LED | ≈ 5 mW (bei roter LED knapp 7 mW) |
 | R2, R3 | Pull-up RESET und CS | je ≈ 1 mW |
-| R4 | Serienwiderstand Datenleitung WS2812 | < 1 mW — der Eingang der LED ist hochohmig, Strom fließt nur beim Umladen von rund 15 pF |
+| R5 | Brücke Datenleitung WS2812 | < 1 mW — der Eingang der LED ist hochohmig, Strom fließt nur beim Umladen von rund 15 pF |
 
 Auch die Spannungsfestigkeit ist ohne Belang: 0805 sind typisch für 150 V
 ausgelegt, auf der Platine liegen maximal 5 V an.

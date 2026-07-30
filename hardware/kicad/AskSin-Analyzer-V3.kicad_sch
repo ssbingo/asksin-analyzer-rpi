@@ -5199,7 +5199,7 @@
 			(at 121.92 234.95 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(property "Value" "390"
+		(property "Value" "390 DNP"
 			(at 121.92 237.49 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
@@ -5238,7 +5238,7 @@
 			(at 147.32 234.95 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(property "Value" "0R DNP"
+		(property "Value" "0R"
 			(at 147.32 237.49 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)

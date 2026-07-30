@@ -57,19 +57,24 @@ gerber/
        Ordnerinhalt hochladen.
 
 bestueckung/
-    bom.csv          Stueckliste, gruppiert, mit Bezugsquellen
-                     (Reichelt-Artikelnummern). R5 ist als DNP
-                     ausgewiesen: bestueckt wird R4 ODER R5.
+    bom.csv          Stueckliste, gruppiert, mit Bezugsquellen.
+                     R4 ist als DNP ausgewiesen: bestueckt wird
+                     R5 (0 Ohm, SPI/GPIO10) ODER R4 (PWM/GPIO18),
+                     nie beide. Vorgabe seit 30.07.2026 ist R5.
     cpl.csv          Pick-&-Place: Designator, Mid X, Mid Y, Layer,
                      Rotation. Ursprung linke untere Platinenecke,
                      X nach rechts, Y nach oben, Millimeter.
                      Drehwinkel in KiCad-Konvention.
     stueckliste.csv  Rohe KiCad-Stueckliste (Referenz).
-    jlcpcb_bom.csv   BOM fuer die JLCPCB-Bestueckung: nur SMD, mit
-                     LCSC-Nummern. U3 (Funkmodul) fehlt dort bewusst —
+    jlcpcb_bom.csv   BOM fuer die JLCPCB-Bestueckung, mit LCSC-Nummern.
+                     SMD plus eine THT-Ausnahme: Y1 (Resonator
+                     CSTLS8M00G53-B0, C83707) loetet JLCPCB in der
+                     Welle mit. U3 (Funkmodul) fehlt dort bewusst —
                      nicht im JLCPCB-Katalog, wird von Hand geloetet.
                      U1 ist als XC6206P332MR-G (C5446) eingetragen,
                      pinkompatibler Ersatz fuer den MCP1754S.
+                     S1 ist C231329 (B3U-1000P ohne Zentrierstift,
+                     gleiche Pads — die Stiftbohrung bleibt leer).
     jlcpcb_cpl.csv   Pick-&-Place passend zur jlcpcb_bom.csv.
                      Nach dem Upload die Bauteilvorschau pruefen:
                      Drehlage von U1/U2/S1 und Polung von D1.

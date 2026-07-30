@@ -14,7 +14,7 @@ Die Analyzer-Platine V4 wurde dafür bereits vorbereitet:
 | --- | --- | --- |
 | **J5** | OLED (I²C, SSD1306) | GPIO2/3 — deshalb wurde der Reset auf GPIO4 gelegt |
 | **J6** | Taster | zum Blättern der OLED-Seiten |
-| **J7** | WS2812-Status-LED | GPIO18 (R4) oder SPI/GPIO10 (R5, DNP) |
+| **J7** | WS2812-Status-LED | SPI/GPIO10 (R5, bestückt) oder GPIO18 (R4, DNP) |
 
 ## Umfang
 
@@ -70,4 +70,7 @@ dienst-schreibbar; die Installer-Frage bleibt für die Ersteinrichtung
 Akzeptanz: (a) LED spiegelt die Analyzer-Zustände live, (b) OLED zeigt die
 Seiten und der Taster blättert, (c) Installation rein über die
 Installer-Frage, (d) Deaktiviert (Vorgabe) verhält sich alles wie bisher.
-Wichtig für die LED: **R5 (0 Ω) statt R4 bestücken** (SPI-Variante GPIO10).
+Wichtig für die LED: **R5 (0 Ω) statt R4** (SPI-Variante GPIO10). Seit dem
+30.07.2026 ist R5 die Bestückungsvorgabe — von JLCPCB gefertigte Platinen
+haben die Brücke schon drauf; nur ältere Aufbauten mit R4 müssen umgelötet
+werden.

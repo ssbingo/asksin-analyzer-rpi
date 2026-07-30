@@ -236,10 +236,11 @@ Drei verriegelnde JST-PH-Stecker an der dem Pi zugewandten Kante:
 | J6 | Taster | 1 GPIO17 · 2 GND |
 | J7 | WS2812 | 1 3V3 · 2 Daten · 3 GND |
 
-Der Vorwiderstand der LED-Datenleitung (R4, 390 Ω) sitzt **auf der Platine** —
-bisher war er fliegend verdrahtet. R5 ist die unbestückte Alternative für die
-SPI-Variante (GPIO10 statt GPIO18); beim Aufbau wird genau einer von beiden
-bestückt.
+Die Datenleitung der WS2812 führt **über die Platine**: bestückt wird die
+0-Ω-Brücke **R5** (SPI, GPIO10) — das ist der Weg, den die Analyzer-Software
+verwendet. R4 (390 Ω, PWM/GPIO18) ist die unbestückte Alternative; beim
+Aufbau wird genau einer von beiden bestückt. (Bis 30.07.2026 war R4 die
+Vorgabe — geändert, weil die Software die LED per SPI ansteuert.)
 
 ### 3.4 Funk-Frontend
 
@@ -462,12 +463,12 @@ Erzeugt aus dem Schaltplan, nicht von Hand gepflegt:
 | U1 | MCP1754S-3302xCB (JLCPCB-Ersatz: XC6206P332MR-G) | SOT-23-3 | 1 |
 | U2 | ATmega328P-AU | TQFP-32 | 1 |
 | U3 | Ebyte **E07-900M10S** (CC1101, 855–925 MHz, IPEX) | Modul 14×20 mm | 1 |
-| Y1 | Keramikresonator 8 MHz, integr. C (CST 8,00) | 3-polig THT | 1 |
+| Y1 | Keramikresonator 8 MHz, integr. C (Murata CSTLS8M00G53-B0, JLCPCB C83707) | 3-polig THT | 1 |
 | L1 | BLM21PG300 Ferrit | 0805 | 1 |
 | R1 | 330 Ω | 0805 | 1 |
 | R2, R3 | 10 kΩ | 0805 | 2 |
-| R4 | 390 Ω (WS2812-Daten, GPIO18) | 0805 | 1 |
-| R5 | 0 Ω — **DNP**, Alternative zu R4 (GPIO10/SPI) | 0805 | (1) |
+| R4 | 390 Ω — **DNP**, PWM-Alternative zu R5 (GPIO18) | 0805 | (1) |
+| R5 | 0 Ω (WS2812-Daten, GPIO10/SPI) | 0805 | 1 |
 | C1, C2 | 10 µF | 0805 | 2 |
 | C3, C4, C5, C8, C9 | 100 nF | 0805 | 5 |
 | D1 | LED rot, U_F ≈ 2 V | 0805 | 1 |
@@ -476,7 +477,7 @@ Erzeugt aus dem Schaltplan, nicht von Hand gepflegt:
 | J5 | JST-PH 4-polig (OLED, I²C) | THT | 1 |
 | J6 | JST-PH 2-polig (Taster) | THT | 1 |
 | J7 | JST-PH 3-polig (WS2812) | THT | 1 |
-| S1 | Taster Omron B3U-1000P-B | SMD | 1 |
+| S1 | Taster Omron B3U-1000P (JLCPCB C231329) | SMD | 1 |
 | TP1–TP8 | Prüfpads 1 × 1 mm | – | 8 |
 | KB1, KB2 | Kabelbinderlöcher (Zugentlastung Antenne) | 2,1 mm | 2 |
 

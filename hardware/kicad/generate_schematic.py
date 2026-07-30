@@ -170,11 +170,14 @@ COMPONENTS = {
     "J7":  ("Connector_Generic:Conn_01x03", "WS2812",
             "Connector_JST:JST_PH_B3B-PH-K_1x03_P2.00mm_Vertical", 90, 265),
 
-    # Vorwiderstand der LED-Datenleitung — bisher fliegend verdrahtet, jetzt
-    # auf der Platine. R5 ist die unbestückte Alternative für die SPI-Variante
-    # (GPIO10 statt GPIO18); beim Aufbau wird genau einer von beiden bestückt.
-    "R4":  ("Device:R", "390", "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder", 120, 240),
-    "R5":  ("Device:R", "0R DNP", "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder", 145, 240),
+    # Datenleitung der WS2812 — bisher fliegend verdrahtet, jetzt auf der
+    # Platine. Bestückt wird genau einer von beiden; seit 30.07.2026 ist das
+    # R5 (0 Ohm, SPI/GPIO10 — den Weg nutzt die Analyzer-Software), R4 ist
+    # die unbestückte PWM-Alternative (GPIO18). Nur Werte-Text geändert —
+    # Netzliste und Fußabdrücke sind identisch zum Produktionsstand, die
+    # gefertigte Platine (AskSin-Analyzer-V3.kicad_pcb) bleibt unberührt.
+    "R4":  ("Device:R", "390 DNP", "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder", 120, 240),
+    "R5":  ("Device:R", "0R", "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder", 145, 240),
 
     # --- Versorgung -------------------------------------------------------
     "U1":  ("Regulator_Linear:MCP1754S-3302xCB", "MCP1754S-3302xCB",
@@ -507,12 +510,17 @@ def build() -> str:
 
 
 def write_project() -> None:
-    (HERE / f"{PROJECT}.kicad_pro").write_text(
-        '{\n  "board": {},\n  "libraries": {"pinned_footprint_libs": [], '
-        '"pinned_symbol_libs": []},\n  "meta": {"filename": '
-        f'"{PROJECT}.kicad_pro", "version": 3}},\n  "schematic": {{}},\n'
-        '  "sheets": [],\n  "text_variables": {}\n}\n'
-    )
+    # Nur beim allerersten Lauf anlegen: die vorhandene .kicad_pro enthält
+    # inzwischen die Board-Designregeln des Produktionsstands (DRC,
+    # Netzklassen) — die darf ein Schaltplan-Neubau nicht plattmachen.
+    pro = HERE / f"{PROJECT}.kicad_pro"
+    if not pro.exists():
+        pro.write_text(
+            '{\n  "board": {},\n  "libraries": {"pinned_footprint_libs": [], '
+            '"pinned_symbol_libs": []},\n  "meta": {"filename": '
+            f'"{PROJECT}.kicad_pro", "version": 3}},\n  "schematic": {{}},\n'
+            '  "sheets": [],\n  "text_variables": {}\n}\n'
+        )
     stock = sorted(({c[0].split(":", 1)[0] for c in COMPONENTS.values()}
                     | {p[0].split(":", 1)[0] for p in POWER_SYMBOLS.values()})
                    - {"AskSin-Analyzer-HAT"})
