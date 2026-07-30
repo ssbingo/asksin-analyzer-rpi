@@ -16,7 +16,12 @@ import {
   sendeStatusAnzeige,
   setzeAuthToken,
 } from '../api.ts';
-import type { NetzwerkStatus, NetzwerkZustand, VerbundPeerEintrag } from '../api.ts';
+import type {
+  LedMethode,
+  NetzwerkStatus,
+  NetzwerkZustand,
+  VerbundPeerEintrag,
+} from '../api.ts';
 
 const standort = ref('');
 const ccuip = ref('');
@@ -112,13 +117,21 @@ const peerEntfernen = (url: string): Promise<void> | undefined =>
 
 // ---- Status-LED / OLED (M11) ---------------------------------------------
 
-const anzeige = reactive({ led: false, oled: false, helligkeit: 40 });
+const anzeige = reactive({
+  led: false,
+  // Methode wird aus der Konfiguration übernommen und beim Speichern
+  // zurückgeschrieben — sonst würde ein Pi 4 (PWM) still auf SPI kippen.
+  methode: 'ws2812-spi' as LedMethode,
+  oled: false,
+  helligkeit: 40,
+});
 const anzeigeVerfuegbar = ref(false);
 
 async function anzeigeLaden(): Promise<void> {
   try {
     const z = await holeStatusAnzeige();
     anzeige.led = z.konfig.led !== 'aus';
+    if (z.konfig.led !== 'aus') anzeige.methode = z.konfig.led;
     anzeige.oled = z.konfig.oled;
     anzeige.helligkeit = z.konfig.helligkeit;
     anzeigeVerfuegbar.value = true;
@@ -130,7 +143,7 @@ async function anzeigeLaden(): Promise<void> {
 const anzeigeSpeichern = (): Promise<void> =>
   aktion('Statusanzeige umkonfiguriert — sofort wirksam', () =>
     sendeStatusAnzeige({
-      led: anzeige.led ? 'ws2812-spi' : 'aus',
+      led: anzeige.led ? anzeige.methode : 'aus',
       oled: anzeige.oled,
       helligkeit: Number(anzeige.helligkeit),
     }));
@@ -497,7 +510,14 @@ const demoUmschalten = (): Promise<void> | undefined => {
       Live-Vorschau erscheint auf der <RouterLink to="/home">Übersicht</RouterLink>.
     </p>
     <div class="zeile" style="margin-bottom: 0.8rem">
-      <label><input type="checkbox" v-model="anzeige.led" /> Status-LED (WS2812 über SPI)</label>
+      <label><input type="checkbox" v-model="anzeige.led" /> Status-LED (WS2812)</label>
+      <label v-if="anzeige.led" class="zeile" style="gap: 0.4rem">
+        Ansteuerung
+        <select v-model="anzeige.methode">
+          <option value="ws2812-spi">SPI / GPIO10 — Pi 5, Platine R5</option>
+          <option value="ws2812-pwm">PWM / GPIO18 — Pi 3/4, Platine R4</option>
+        </select>
+      </label>
       <label><input type="checkbox" v-model="anzeige.oled" /> OLED-Anzeige</label>
       <label class="zeile" style="gap: 0.4rem">
         Helligkeit
@@ -509,8 +529,13 @@ const demoUmschalten = (): Promise<void> | undefined => {
     <div class="fussnote">
       Voraussetzungen: I²C/SPI aktiviert (macht der Installer bei „Status-LED
       einrichten? Ja"; nachträglich: <code>sudo raspi-config</code> →
-      Interface Options) und für die LED auf der Platine <strong>R5 (0 Ω)
-      statt R4</strong> bestückt. Gestörte Teile meldet die Übersicht.
+      Interface Options). Für die LED gilt: <strong>SPI</strong> braucht den
+      bestückten <strong>R5</strong> und läuft ohne Root — auf dem
+      <strong>Pi 5</strong> der einzige Weg. <strong>PWM</strong> braucht
+      <strong>R4</strong>, abgeschaltetes Onboard-Audio und den Hilfsdienst
+      <code>asksin-analyzer-led</code>; auf <strong>Pi 3/4</strong> ist das der
+      stabile Weg, weil dort der SPI-Takt mit dem Kerntakt wandert. Gestörte
+      Teile meldet die Übersicht.
     </div>
   </div>
 

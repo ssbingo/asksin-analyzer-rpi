@@ -1,0 +1,33 @@
+# Root-Hilfsdienst für die WS2812-Status-LED über PWM (GPIO18).
+#
+# Nur auf Pi 3/4 nötig und nur dann installiert/aktiviert. Auf dem Pi 5
+# spricht der Analyzer die LED direkt über SPI an — dort gibt es diesen
+# Dienst nicht.
+#
+# Warum ein eigener Dienst: PWM/DMA braucht /dev/mem, also Root. Der
+# Analyzer-Dienst selbst läuft bewusst unprivilegiert und schreibt nur die
+# gewünschte Farbe nach /var/lib/asksin-analyzer/led-farbe.
+[Unit]
+Description=AskSin-Analyzer Status-LED (WS2812 über PWM)
+After=asksin-analyzer.service
+Wants=asksin-analyzer.service
+
+[Service]
+Type=simple
+ExecStart=/opt/asksin-analyzer/led-venv/bin/python /opt/asksin-analyzer/deploy/led-pwm.py
+Restart=always
+RestartSec=5
+
+# Root ist unvermeidlich (DMA-Zugriff), deshalb der Rest so eng wie möglich:
+ProtectSystem=strict
+ReadWritePaths=/var/lib/asksin-analyzer
+ProtectHome=true
+PrivateTmp=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+# /dev/mem und /dev/gpiomem müssen erreichbar bleiben — deshalb KEIN
+# PrivateDevices=true und kein ProtectKernelTunables.
+
+[Install]
+WantedBy=multi-user.target

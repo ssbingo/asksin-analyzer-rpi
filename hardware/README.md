@@ -271,11 +271,18 @@ Drei verriegelnde JST-PH-Stecker an der dem Pi zugewandten Kante:
 | J6 | Taster | 1 GPIO17 · 2 GND |
 | J7 | WS2812 | 1 3V3 · 2 Daten · 3 GND |
 
-Die Datenleitung der WS2812 führt **über die Platine**: bestückt wird die
-0-Ω-Brücke **R5** (SPI, GPIO10) — das ist der Weg, den die Analyzer-Software
-verwendet. R4 (390 Ω, PWM/GPIO18) ist die unbestückte Alternative; beim
-Aufbau wird genau einer von beiden bestückt. (Bis 30.07.2026 war R4 die
-Vorgabe — geändert, weil die Software die LED per SPI ansteuert.)
+Die Datenleitung der WS2812 führt **über die Platine**, wahlweise über
+**R5** (SPI, GPIO10) oder **R4** (PWM, GPIO18) — bestückt wird genau einer
+von beiden, **beide 330 Ω**. Welcher, hängt am Rechner:
+
+- **Pi 5 → R5 (SPI).** Die PWM/DMA-Bibliotheken bedienen den RP1-Chip nicht;
+  der SPI-Takt ist dort stabil.
+- **Pi 3/4 → R4 (PWM).** Dort leitet sich der SPI-Takt vom Kerntakt ab und
+  wandert mit dessen Skalierung, was das WS2812-Timing zerreißt.
+
+Der Installer erkennt das Modell und wählt vor; umstellbar ist es in den
+Einstellungen der Weboberfläche. Einzelheiten:
+[`../docs/status-led-oled.md`](../docs/status-led-oled.md)
 
 ### 3.4 Funk-Frontend
 
@@ -525,8 +532,8 @@ Erzeugt aus dem Schaltplan, nicht von Hand gepflegt:
 | L1 | BLM21PG300 Ferrit | 0805 | 1 |
 | R1 | 330 Ω | 0805 | 1 |
 | R2, R3 | 10 kΩ | 0805 | 2 |
-| R4 | 390 Ω — **DNP**, PWM-Alternative zu R5 (GPIO18) | 0805 | (1) |
-| R5 | 0 Ω (WS2812-Daten, GPIO10/SPI) | 0805 | 1 |
+| R4 | 330 Ω — WS2812-Daten über PWM/GPIO18 (Pi 3/4) | 0805 | (1) |
+| R5 | 330 Ω — WS2812-Daten über SPI/GPIO10 (Pi 5) | 0805 | 1 |
 | C1, C2 | 10 µF | 0805 | 2 |
 | C3, C4, C5, C8, C9 | 100 nF | 0805 | 5 |
 | D1 | LED rot, U_F ≈ 2 V | 0805 | 1 |

@@ -14,7 +14,7 @@ Die Analyzer-Platine V4 wurde dafür bereits vorbereitet:
 | --- | --- | --- |
 | **J5** | OLED (I²C, SSD1306) | GPIO2/3 — deshalb wurde der Reset auf GPIO4 gelegt |
 | **J6** | Taster | zum Blättern der OLED-Seiten |
-| **J7** | WS2812-Status-LED | SPI/GPIO10 (R5, bestückt) oder GPIO18 (R4, DNP) |
+| **J7** | WS2812-Status-LED | SPI/GPIO10 (R5) **oder** PWM/GPIO18 (R4) — je nach Pi |
 
 ## Umfang
 
@@ -70,7 +70,36 @@ dienst-schreibbar; die Installer-Frage bleibt für die Ersteinrichtung
 Akzeptanz: (a) LED spiegelt die Analyzer-Zustände live, (b) OLED zeigt die
 Seiten und der Taster blättert, (c) Installation rein über die
 Installer-Frage, (d) Deaktiviert (Vorgabe) verhält sich alles wie bisher.
-Wichtig für die LED: **R5 (0 Ω) statt R4** (SPI-Variante GPIO10). Seit dem
-30.07.2026 ist R5 die Bestückungsvorgabe — von JLCPCB gefertigte Platinen
-haben die Brücke schon drauf; nur ältere Aufbauten mit R4 müssen umgelötet
-werden.
+
+## Welche Ansteuerung auf welchem Pi
+
+Die WS2812 lässt sich über zwei Wege bedienen. Der Installer wählt anhand des
+erkannten Modells vor; in den Einstellungen ist beides umstellbar.
+
+| | **SPI** (GPIO10) | **PWM** (GPIO18) |
+| --- | --- | --- |
+| Platine | **R5** bestückt | **R4** bestückt |
+| Vorgabe auf | **Pi 5** | **Pi 3 und Pi 4** |
+| Rechte | läuft im Analyzer-Dienst, ohne Root | Root — eigener Hilfsdienst `asksin-analyzer-led` |
+| Onboard-Audio | egal | muss aus (`dtparam=audio=off`) |
+| Bibliothek | keine, eigener Bitstrom | `rpi_ws281x` im venv `/opt/asksin-analyzer/led-venv` |
+
+**Warum diese Aufteilung:** Auf **Pi 3 und Pi 4** leitet sich der SPI-Takt vom
+Kerntakt ab und wandert mit dessen Skalierung — das zerreißt das
+WS2812-Timing (Flackern, Farbsprünge); dort ist PWM der bewährte Weg, so wie
+im Vorbildprojekt. Auf dem **Pi 5** hängen die GPIOs am RP1-Chip, die
+PWM/DMA-Bibliotheken sprechen aber die alte BCM-Hardware direkt an und
+funktionieren dort nicht; SPI ist dort der vorgesehene Weg und der Takt ist
+stabil, weil er nicht mehr am Kerntakt hängt.
+
+**Aufteilung im PWM-Betrieb:** Der Analyzer-Dienst bleibt unprivilegiert und
+rechnet Farbe, Blinkphase und Helligkeit wie gehabt aus — er schreibt das
+Ergebnis nur als `r,g,b` nach `/var/lib/asksin-analyzer/led-farbe`. Der kleine
+Root-Dienst [`deploy/led-pwm.py`](../deploy/led-pwm.py) liest die Datei und
+setzt die LED. Dasselbe Muster wie bei Update und Netzwerkeinstellungen.
+
+**Die LED ist immer eine WS2812B**, versorgt mit **3,3 V** vom Pi (J7 Pin 1).
+Das ist bewusst so: Bei 5 V Versorgung erwartet die LED rund 3,5 V für „High",
+die der Pi mit seinen 3,3 V nicht liefert. Mit 3,3-V-Versorgung passt der
+Pegel wieder. Der Serienwiderstand in der Datenleitung beträgt 330 Ω (R4
+bzw. R5) — genau wie im Vorbildprojekt.

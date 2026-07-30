@@ -176,3 +176,68 @@ test('StatusAnzeige: fehlende Hardware legt nur den Teil still, wirft nie', asyn
   await anzeige.stop();
   assert.ok(fehler.includes('led') && fehler.includes('oled'));
 });
+
+test('StatusAnzeige PWM: schreibt r,g,b als Text, kein spi-config, dunkel beim Stopp', async () => {
+  const time = new FakeTime();
+  const kommandos: Array<[string, string[]]> = [];
+  const geschrieben: Array<[string, Uint8Array]> = [];
+  let daten = { ...DATEN };
+
+  const anzeige = new StatusAnzeige({
+    led: 'ws2812-pwm',
+    oled: false,
+    helligkeit: 50,
+    pwmDatei: '/tmp/led-farbe-test',
+    daten: () => daten,
+    time,
+    runner: (cmd, args) => {
+      kommandos.push([cmd, args]);
+      return Promise.resolve({ code: 0, output: '' });
+    },
+    schreibeGeraet: (pfad, bytes) => {
+      geschrieben.push([pfad, bytes]);
+      return Promise.resolve();
+    },
+  });
+
+  await anzeige.start();
+  assert.equal(
+    kommandos.some(([cmd]) => cmd === 'spi-config'),
+    false,
+    'PWM fasst SPI nicht an',
+  );
+
+  const text = (): string => new TextDecoder().decode(geschrieben.at(-1)![1]);
+
+  await time.advance(300);
+  assert.equal(geschrieben[0]![0], '/tmp/led-farbe-test', 'Ziel ist die Farbdatei');
+  // grün (0,255,40) bei 50 % Helligkeit -> 0,128,20
+  assert.equal(text(), '0,128,20\n');
+
+  daten = { ...daten, connected: false };
+  await time.advance(250);
+  assert.equal(text(), '128,0,0\n', 'rot bei getrennt, halbe Helligkeit');
+
+  await anzeige.stop();
+  assert.equal(text(), '0,0,0\n', 'beim Stopp dunkel');
+});
+
+test('StatusAnzeige PWM: Schreibfehler schalten nur die LED ab, werfen nicht', async () => {
+  const time = new FakeTime();
+  const fehler: string[] = [];
+  const anzeige = new StatusAnzeige({
+    led: 'ws2812-pwm',
+    oled: false,
+    daten: () => ({ ...DATEN }),
+    time,
+    runner: () => Promise.resolve({ code: 0, output: '' }),
+    schreibeGeraet: () => Promise.reject(new Error('kein Platz')),
+    onError: (kontext, err) => fehler.push(`${kontext}: ${String(err)}`),
+  });
+
+  await anzeige.start();
+  await time.advance(2000);
+  assert.ok(fehler.length >= 1, 'Fehler gemeldet');
+  assert.match(fehler[0]!, /led: .*kein Platz/);
+  await anzeige.stop();                       // darf nicht werfen
+});

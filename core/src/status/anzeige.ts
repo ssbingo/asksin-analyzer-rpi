@@ -27,15 +27,29 @@ import {
   initKommandos,
 } from './ssd1306.ts';
 import { SPI_HZ, kodiereWs2812 } from './ws2812.ts';
+import type { Farbe } from './ws2812.ts';
 import { SEITEN_ANZAHL, blinkPhase, ledMuster, zeichneSeite } from './zustand.ts';
 import type { StatusDaten } from './zustand.ts';
 
 export interface StatusAnzeigeOptions {
-  led: 'ws2812-spi' | 'aus';
+  /**
+   * Ansteuerung der WS2812:
+   *   `ws2812-spi` — Daten über SPI/GPIO10 (Platine: R5). Läuft ohne
+   *     Root-Rechte. Auf dem **Pi 5** der einzige Weg, weil die
+   *     PWM/DMA-Bibliotheken den RP1 nicht bedienen.
+   *   `ws2812-pwm` — Daten über PWM/GPIO18 (Platine: R4). Auf **Pi 3/4**
+   *     der robuste Weg: dort leitet sich der SPI-Takt vom Kerntakt ab und
+   *     wandert mit dessen Skalierung, was das WS2812-Timing zerstört.
+   *     Braucht Root und damit den Hilfsdienst `asksin-analyzer-led`; der
+   *     Core schreibt hier nur die gewünschte Farbe in eine Datei.
+   */
+  led: 'ws2812-spi' | 'ws2812-pwm' | 'aus';
   oled: boolean;
   /** 0–100; wirkt auf LED und OLED-Kontrast. */
   helligkeit?: number;
   spiGeraet?: string;
+  /** Farbdatei für den PWM-Hilfsdienst. */
+  pwmDatei?: string;
   i2cBus?: number;
   oledAdresse?: number;
   /** Taster an J6 — GPIO17 laut Platine V4. */
@@ -91,6 +105,9 @@ export class StatusAnzeige {
         this.#ledFehler = MAX_FEHLER;
       }
       this.#takte.push(this.#ledTakt(signal, geraet));
+    } else if (this.#o.led === 'ws2812-pwm') {
+      // Kein Gerät zu öffnen: Die Farbe geht als Text an den Root-Hilfsdienst.
+      this.#takte.push(this.#ledTakt(signal, this.#pwmDatei()));
     }
 
     if (this.#o.oled) {
@@ -110,11 +127,9 @@ export class StatusAnzeige {
     this.#takte = [];
     this.#stop = null;
     // Hardware dunkel hinterlassen:
-    if (this.#o.led === 'ws2812-spi' && this.#ledFehler < MAX_FEHLER) {
-      await this.#schreibe(
-        this.#o.spiGeraet ?? '/dev/spidev0.0',
-        kodiereWs2812([0, 0, 0], 100),
-      ).catch(() => {});
+    if (this.#ledFehler < MAX_FEHLER && this.#o.led !== 'aus') {
+      const [ziel, daten] = this.#ledNutzlast([0, 0, 0], 0);
+      await this.#schreibe(ziel, daten).catch(() => {});
     }
     if (this.#o.oled && this.#oledFehler < MAX_FEHLER) {
       await this.#oledKommando([AUS_KOMMANDO]);
@@ -135,6 +150,27 @@ export class StatusAnzeige {
 
   // ---- LED -------------------------------------------------------------
 
+  #pwmDatei(): string {
+    return this.#o.pwmDatei ?? '/var/lib/asksin-analyzer/led-farbe';
+  }
+
+  /**
+   * Ziel und Nutzlast für die gewünschte Farbe — je nach Ansteuerung.
+   * SPI: fertiger Bytestrom fürs Gerät. PWM: `r,g,b` als Text für den
+   * Hilfsdienst, Helligkeit ist dort bereits eingerechnet.
+   */
+  #ledNutzlast(farbe: Farbe, helligkeit: number): [string, Uint8Array] {
+    if (this.#o.led === 'ws2812-pwm') {
+      const f = Math.max(0, Math.min(100, helligkeit)) / 100;
+      const werte = farbe.map((k) => Math.round(k * f) & 0xff);
+      return [this.#pwmDatei(), new TextEncoder().encode(`${werte.join(',')}\n`)];
+    }
+    return [
+      this.#o.spiGeraet ?? '/dev/spidev0.0',
+      kodiereWs2812(farbe, helligkeit),
+    ];
+  }
+
   async #ledTakt(signal: AbortSignal, geraet: string): Promise<void> {
     for (;;) {
       try {
@@ -149,10 +185,8 @@ export class StatusAnzeige {
       if (schluessel === this.#letzterLedSchluessel) continue;
       this.#letzterLedSchluessel = schluessel;
       try {
-        await this.#schreibe(
-          geraet,
-          kodiereWs2812(muster.farbe, this.#helligkeit * faktor),
-        );
+        const [, daten] = this.#ledNutzlast(muster.farbe, this.#helligkeit * faktor);
+        await this.#schreibe(geraet, daten);
       } catch (err) {
         this.#ledFehler++;
         this.#fehler('led', err);

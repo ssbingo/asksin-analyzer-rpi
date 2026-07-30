@@ -53,6 +53,13 @@ if [ "$(id -u)" -ne 0 ]; then
 fi
 
 MODEL="$(tr -d '\0' < /proc/device-tree/model 2>/dev/null || echo '')"
+# Generation bestimmt, wie die WS2812 angesteuert wird (siehe LED_METHODE unten)
+case "$MODEL" in
+    *"Raspberry Pi 5"*|*"Compute Module 5"*) PI_GEN=5 ;;
+    *"Raspberry Pi 4"*|*"Pi 400"*|*"Compute Module 4"*) PI_GEN=4 ;;
+    *"Raspberry Pi 3"*) PI_GEN=3 ;;
+    *) PI_GEN=0 ;;
+esac
 case "$MODEL" in
     *Raspberry*) c_ok "Erkannt: $MODEL" ;;
     *)
@@ -144,10 +151,21 @@ mkdir -p "$DATA_DIR" "$CONFIG_DIR"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 
 # --- Konfigurations-Assistent -------------------------------------------------
+# Ansteuerung der WS2812 nach Pi-Generation:
+#   Pi 5  -> SPI. PWM scheidet aus, weil die PWM/DMA-Bibliotheken den
+#            RP1-Chip nicht bedienen; der SPI-Takt ist dort stabil.
+#   Pi 3/4 -> PWM. Dort leitet sich der SPI-Takt vom Kerntakt ab und wandert
+#            mit dessen Skalierung — das zerreisst das WS2812-Timing.
+#   unbekannt -> SPI, weil dieser Weg ohne Root-Hilfsdienst auskommt.
+case "$PI_GEN" in
+    3|4) LED_METHODE="ws2812-pwm" ;;
+    *)   LED_METHODE="ws2812-spi" ;;
+esac
+
 schreibe_konfig() {
     local ccu="$1" port="$2" host="$3" token="$4" standort="$5" statusanzeige="$6"
     local led="aus" oled="false"
-    if [ "$statusanzeige" = "1" ]; then led="ws2812-spi"; oled="true"; fi
+    if [ "$statusanzeige" = "1" ]; then led="$LED_METHODE"; oled="true"; fi
     cat > "$CONFIG_FILE" <<EOF
 {
   "standort": "$standort",
@@ -227,22 +245,76 @@ if [ "$KONFIGURIEREN" -eq 1 ]; then
     fi
     schreibe_konfig "$CCU" "$PORT" "$HOST" "$TOKEN" "$STANDORT" "$STATUSANZEIGE"
     c_ok "Konfiguration geschrieben: $CONFIG_FILE"
+else
+    # Bestehende Konfiguration behalten: Statusanzeige und Methode von dort
+    # uebernehmen, damit ein erneuter Lauf den LED-Hilfsdienst nicht verliert.
+    VORHANDEN="$(grep -o '"led"[[:space:]]*:[[:space:]]*"[a-z0-9-]*"' "$CONFIG_FILE" \
+                 | grep -o '"[a-z0-9-]*"$' | tr -d '"' || true)"
+    case "$VORHANDEN" in
+        ws2812-pwm|ws2812-spi)
+            STATUSANZEIGE=1
+            LED_METHODE="$VORHANDEN"
+            c_ok "Statusanzeige aus der Konfiguration uebernommen: $LED_METHODE"
+            ;;
+    esac
 fi
 
 # --- Status-LED / OLED (M11) --------------------------------------------------
 if [ "$STATUSANZEIGE" -eq 1 ]; then
-    c_info "Richte Status-LED/OLED ein (I2C + SPI + Werkzeuge)..."
+    c_info "Richte Status-LED/OLED ein (Methode: $LED_METHODE)..."
     apt-get install -y -qq i2c-tools spi-tools
     if command -v raspi-config >/dev/null 2>&1; then
         raspi-config nonint do_i2c 0 || c_warn "I2C konnte nicht aktiviert werden."
-        raspi-config nonint do_spi 0 || c_warn "SPI konnte nicht aktiviert werden."
         REBOOT_NEEDED=1
     else
-        c_warn "raspi-config fehlt - I2C/SPI ggf. manuell aktivieren."
+        c_warn "raspi-config fehlt - I2C ggf. manuell aktivieren."
+    fi
+
+    if [ "$LED_METHODE" = "ws2812-spi" ]; then
+        if command -v raspi-config >/dev/null 2>&1; then
+            raspi-config nonint do_spi 0 || c_warn "SPI konnte nicht aktiviert werden."
+        fi
+        systemctl disable --now asksin-analyzer-led.service 2>/dev/null || true
+        c_ok "LED ueber SPI (GPIO10) - der Analyzer-Dienst treibt sie selbst."
+        c_warn "Auf der Platine muss dafuer R5 bestueckt sein (nicht R4)."
+    else
+        # PWM braucht die PWM-Hardware exklusiv -> Onboard-Audio abschalten,
+        # und rpi_ws281x braucht Root. Beides erledigt der Hilfsdienst.
+        BOOTCFG=/boot/firmware/config.txt
+        [ -f "$BOOTCFG" ] || BOOTCFG=/boot/config.txt
+        if [ -f "$BOOTCFG" ]; then
+            if grep -q '^dtparam=audio=on' "$BOOTCFG"; then
+                sed -i 's/^dtparam=audio=on/dtparam=audio=off/' "$BOOTCFG"
+                c_ok "Onboard-Audio abgeschaltet (PWM-Voraussetzung)."
+                REBOOT_NEEDED=1
+            elif ! grep -q '^dtparam=audio=off' "$BOOTCFG"; then
+                echo 'dtparam=audio=off' >> "$BOOTCFG"
+                c_ok "Onboard-Audio abgeschaltet (PWM-Voraussetzung)."
+                REBOOT_NEEDED=1
+            fi
+        else
+            c_warn "config.txt nicht gefunden - Onboard-Audio bitte selbst abschalten."
+        fi
+
+        c_info "Installiere rpi_ws281x fuer den LED-Hilfsdienst..."
+        apt-get install -y -qq python3-venv python3-dev
+        if [ ! -x "$INSTALL_DIR/led-venv/bin/python" ]; then
+            python3 -m venv "$INSTALL_DIR/led-venv"
+        fi
+        if "$INSTALL_DIR/led-venv/bin/pip" install --quiet --upgrade rpi_ws281x; then
+            install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-led.service" \
+                /etc/systemd/system/asksin-analyzer-led.service
+            systemctl daemon-reload
+            systemctl enable --now asksin-analyzer-led.service \
+                || c_warn "LED-Hilfsdienst startete nicht - 'journalctl -u asksin-analyzer-led'."
+            c_ok "LED ueber PWM (GPIO18), Hilfsdienst asksin-analyzer-led laeuft."
+            c_warn "Auf der Platine muss dafuer R4 bestueckt sein (nicht R5)."
+        else
+            c_warn "rpi_ws281x liess sich nicht installieren - LED bleibt dunkel."
+            c_warn "Alternative: in den Einstellungen auf SPI umstellen (dann R5 bestuecken)."
+        fi
     fi
     c_ok "Status-LED/OLED vorbereitet."
-    c_warn "WICHTIG: Fuer die LED an J7 muss auf der Platine R5 (0 Ohm)"
-    c_warn "bestueckt sein statt R4 - die SPI-Variante (GPIO10)."
 fi
 
 # --- Zeitbasis: NTP-Vorgabe de.pool.ntp.org -----------------------------------

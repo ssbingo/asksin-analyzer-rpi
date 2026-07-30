@@ -81,7 +81,7 @@ interface Konfiguration {
   /** Status-LED und OLED (M11) — Zubehör an J5–J7 der Platine V4.
    *  LED: SPI-Variante (R5 statt R4 bestücken). Vorgabe: alles aus. */
   statusanzeige?: {
-    led?: 'ws2812-spi' | 'aus';
+    led?: 'ws2812-spi' | 'ws2812-pwm' | 'aus';
     oled?: boolean;
     helligkeit?: number;
   };
@@ -678,7 +678,7 @@ function statusDaten(): StatusDaten {
 const statusKonfigDatei = join(datenDir, 'statusanzeige.json');
 
 interface StatusKonfig {
-  led: 'ws2812-spi' | 'aus';
+  led: 'ws2812-spi' | 'ws2812-pwm' | 'aus';
   oled: boolean;
   helligkeit: number;
 }
@@ -692,7 +692,10 @@ function statusKonfigLesen(): StatusKonfig {
   try {
     const ui = JSON.parse(readFileSync(statusKonfigDatei, 'utf8')) as Partial<StatusKonfig>;
     basis = {
-      led: ui.led === 'ws2812-spi' ? 'ws2812-spi' : ui.led === 'aus' ? 'aus' : basis.led,
+      led:
+        ui.led === 'ws2812-spi' || ui.led === 'ws2812-pwm' || ui.led === 'aus'
+          ? ui.led
+          : basis.led,
       oled: typeof ui.oled === 'boolean' ? ui.oled : basis.oled,
       helligkeit: typeof ui.helligkeit === 'number' ? ui.helligkeit : basis.helligkeit,
     };
@@ -713,6 +716,9 @@ async function statusAnzeigeAufbauen(): Promise<void> {
     led: k.led,
     oled: k.oled,
     helligkeit: k.helligkeit,
+    // Im PWM-Modus schreibt der Core nur die Farbe hierhin; der Root-Dienst
+    // asksin-analyzer-led liest sie und treibt GPIO18.
+    pwmDatei: join(dirname(konfig.db), 'led-farbe'),
     daten: statusDaten,
     onError: (kontext, err) => log(`Statusanzeige (${kontext}): ${String(err)}`),
   });
@@ -742,8 +748,8 @@ const statusAnzeigeHooks = {
   /** Konfiguration zur Laufzeit — persistiert, sofort wirksam. */
   einstellen: async (auftrag: Record<string, unknown>): Promise<void> => {
     const led = auftrag['led'];
-    if (led !== 'ws2812-spi' && led !== 'aus') {
-      throw new Error('led: ws2812-spi oder aus erwartet');
+    if (led !== 'ws2812-spi' && led !== 'ws2812-pwm' && led !== 'aus') {
+      throw new Error('led: ws2812-spi, ws2812-pwm oder aus erwartet');
     }
     const helligkeit = Number(auftrag['helligkeit'] ?? 40);
     if (!Number.isFinite(helligkeit) || helligkeit < 1 || helligkeit > 100) {

@@ -214,8 +214,11 @@ export const starteCoreUpdate = (): Promise<Response> =>
 
 // ---- Status-LED / OLED (M11) --------------------------------------------
 
+/** Ansteuerung der WS2812: SPI/GPIO10 (Pi 5) oder PWM/GPIO18 (Pi 3/4). */
+export type LedMethode = 'ws2812-spi' | 'ws2812-pwm';
+
 export interface StatusAnzeigeZustand {
-  konfig: { led: 'ws2812-spi' | 'aus'; oled: boolean; helligkeit: number };
+  konfig: { led: LedMethode | 'aus'; oled: boolean; helligkeit: number };
   aktiv: { led: boolean; oled: boolean };
   seite: number;
   fehler: Record<string, string>;
@@ -236,7 +239,7 @@ export const statusSeiteWeiter = (): Promise<Response> =>
   sende('/api/statusanzeige/seite');
 
 export async function sendeStatusAnzeige(auftrag: {
-  led: 'ws2812-spi' | 'aus';
+  led: LedMethode | 'aus';
   oled: boolean;
   helligkeit: number;
 }): Promise<void> {

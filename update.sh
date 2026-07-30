@@ -73,6 +73,12 @@ installiere_dateien() {
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.service" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
+    # LED-Hilfsdienst (PWM auf Pi 3/4) nur nachziehen, wenn er schon
+    # eingerichtet ist — auf dem Pi 5 gibt es ihn bewusst nicht.
+    if [ -f /etc/systemd/system/asksin-analyzer-led.service ]; then
+        install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-led.service" \
+            /etc/systemd/system/asksin-analyzer-led.service
+    fi
     # jq braucht netz-anwenden.sh (M7.6); auf Bestandsanlagen nachziehen:
     command -v jq >/dev/null 2>&1 || apt-get install -y -qq jq || true
     # i2c-/spi-tools für die Statusanzeige (M11, per WebUI aktivierbar):
