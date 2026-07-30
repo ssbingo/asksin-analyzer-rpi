@@ -279,6 +279,7 @@ def main() -> int:
          32.5, 12.8, 0.85)
     silk("Diese Seite auf den PoE-HAT", 32.5, 12.8, 0.9, pcbnew.B_SilkS)
     silk("1", COL0 - 2.2, OBEN_UNGERADE, 0.9)
+    silk("1", COL0 - 2.2, UNTEN_UNGERADE, 0.9, pcbnew.B_SilkS)
 
     for fp in board.GetFootprints():
         fp.Reference().SetVisible(False)
