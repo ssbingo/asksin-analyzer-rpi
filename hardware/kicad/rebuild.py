@@ -70,6 +70,16 @@ def versuch(nr: int) -> tuple[bool, str]:
     if fehlend:
         return False, f"{len(fehlend)} Massepad(s) ohne Stützvia"
 
+    # Netzliste **frisch** exportieren, bevor sie geprüft wird. Vorher lief die
+    # Prüfung gegen die zuletzt abgelegte netlist.net — nach einer Änderung am
+    # Schaltplan verglich sie damit gegen einen veralteten Stand und hätte eine
+    # echte Abweichung verschleiern können.
+    code, text = lauf("kicad-cli", "sch", "export", "netlist",
+                      "--output", str(HERE / "netlist.net"),
+                      str(HERE / "AskSin-Analyzer-V3.kicad_sch"))
+    if code != 0:
+        return False, "Netzlisten-Export fehlgeschlagen"
+
     code, text = lauf(sys.executable, "verify_netlist.py")
     if code != 0 or "stimmt exakt" not in text:
         return False, "Netzliste weicht von der Spezifikation ab"

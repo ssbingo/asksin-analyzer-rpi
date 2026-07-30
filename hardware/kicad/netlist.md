@@ -14,7 +14,7 @@ Generiert aus `generate_schematic.py`. Gegenprobe: `../README.md` Abschnitt 3.
 | `WS_DATA` | R4.2, R5.2, J7.2 |
 | `VREG_OUT` | U1.2, C1.1, L1.1 |
 | `+3V3` | L1.2, C2.1, U2.4, U2.6, U2.18, C3.1, C4.1, U3.9, C5.1, R2.1, R3.1, J2.2, TP2.1 |
-| `GND` | J1.6, J1.9, J1.14, J1.20, J1.25, J1.30, J1.34, J1.39, J5.1, J6.2, J7.3, U1.1, C1.2, C2.2, C3.2, C4.2, C5.2, C9.2, U2.3, U2.5, U2.21, U3.1, U3.2, U3.3, U3.4, U3.5, U3.11, U3.12, U3.20, U3.22, Y1.2, D1.2, S1.2, J2.6, TP4.1 |
+| `GND` | J1.6, J1.9, J1.14, J1.20, J1.25, J1.30, J1.34, J1.39, J5.1, J6.2, J7.3, U1.1, C1.2, C2.2, C3.2, C4.2, C5.2, C9.2, U2.3, U2.5, U2.21, U3.1, U3.2, U3.3, U3.4, U3.5, U3.11, U3.12, U3.20, U3.22, Y1.2, D1.1, S1.2, J2.6, TP4.1 |
 | `UART_PI_TX` | J1.8, U2.30, TP6.1 |
 | `UART_328_TX` | U2.31, J1.10, TP5.1 |
 | `PI_RESET_DRV` | J1.7, C8.1 |
@@ -27,7 +27,7 @@ Generiert aus `generate_schematic.py`. Gegenprobe: `../README.md` Abschnitt 3.
 | `XTAL1` | U2.7, Y1.1 |
 | `XTAL2` | U2.8, Y1.3 |
 | `AREF` | U2.20, C9.1 |
-| `LED_A` | U2.2, R1.1 |
-| `LED_K` | R1.2, D1.1 |
+| `LED_TREIBER` | U2.2, R1.1 |
+| `LED_ANODE` | R1.2, D1.2 |
 
 Netze: 25 · Bauteile: 32 · No-Connect-Marker: 42

@@ -285,7 +285,7 @@ NETS: dict[str, list[tuple[str, str]]] = {
         ("U2", "3"), ("U2", "5"), ("U2", "21"),
         ("U3", "1"), ("U3", "2"), ("U3", "3"), ("U3", "4"), ("U3", "5"),
         ("U3", "11"), ("U3", "12"), ("U3", "20"), ("U3", "22"),
-        ("Y1", "2"), ("D1", "2"), ("S1", "2"),
+        ("Y1", "2"), ("D1", "1"), ("S1", "2"),
         ("J2", "6"), ("TP4", "1"),
     ],
 
@@ -313,8 +313,14 @@ NETS: dict[str, list[tuple[str, str]]] = {
     "AREF": [("U2", "20"), ("C9", "1")],
 
     # --- Status-LED an PD4 ------------------------------------------------
-    "LED_A": [("U2", "2"), ("R1", "1")],
-    "LED_K": [("R1", "2"), ("D1", "1")],
+    # Achtung Polung: Im KiCad-Symbol Device:LED ist **Pin 1 = K (Kathode)**
+    # und Pin 2 = A (Anode). Die Firmware schaltet den Treiberpin auf HIGH
+    # (AskSinPP, Led::ledOn -> setHigh; invert() wird nie gesetzt), der Strom
+    # fließt also aus dem Mikrocontroller über R1 in die **Anode** und von der
+    # Kathode nach Masse. Bis Hardware v0.0.1 war genau das vertauscht — die
+    # LED konnte nie leuchten.
+    "LED_TREIBER": [("U2", "2"), ("R1", "1")],
+    "LED_ANODE": [("R1", "2"), ("D1", "2")],
 }
 
 # Pins, die absichtlich offen bleiben.

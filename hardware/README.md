@@ -15,6 +15,13 @@
 > Seit v0.2.0 flippt `generate_pcb.py` J1 wie die Vorlage **und prüft die
 > Pad-Positionen bei jedem Lauf hart gegen das Pi-Raster** — ein erneuter
 > Fehler dieser Art bricht den Lauf ab.
+>
+> **Zweiter Fehler derselben Chargen: die Status-LED D1 war verpolt.** Im
+> KiCad-Symbol ist Pin 1 die Kathode; sie lag an R1 statt an Masse, die Anode
+> an Masse. Die Firmware schaltet ihren Treiberpin auf HIGH — der Strom hätte
+> also gegen die Diodenrichtung fließen müssen, die LED blieb dunkel. Rein
+> kosmetisch (die Empfangsanzeige), Funk und Auswertung waren nie betroffen.
+> Ab v0.2.0 korrigiert.
 
 Abgeleitet von **AskSin-Analyzer-XS-RPi V1.1** (der-pw, 08/2020), lizenziert
 CC BY-NC-SA 4.0. Diese Ableitung steht unter derselben Lizenz und muss den

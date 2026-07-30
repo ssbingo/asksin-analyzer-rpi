@@ -134,6 +134,11 @@ sie laufen mit dem [J1-Adapter](hardware/kicad/adapter/README.md) einwandfrei.
 `generate_pcb.py` prüft die Padgeometrie jetzt bei jedem Lauf gegen das
 Pi-Raster.
 
+**Status-LED D1 war verpolt.** Kathode an R1, Anode an Masse — die Firmware
+treibt ihren Pin aktiv auf HIGH, der Strom hätte gegen die Diodenrichtung
+fließen müssen. Die LED konnte nie leuchten. Betrifft ebenfalls alle bisher
+gefertigten Platinen; rein kosmetisch, der Funkempfang war nie beeinträchtigt.
+
 **Neue Bauform:** T-förmig statt L-förmig. Der Körper (88 × 34 mm) liegt
 parallel neben dem Pi an der Header-Seite und steht nach hinten 20 mm über —
 er deckt **keine Buchse** mehr ab, was den 19-Zoll-Einbau erst möglich macht.
