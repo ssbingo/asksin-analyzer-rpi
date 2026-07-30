@@ -8,16 +8,22 @@
 
 ## Wie er funktioniert
 
-Der Fehler ist eine reine Reihenvertauschung: Die ungerade Pin-Reihe der
-Platine sitzt exakt richtig, die gerade Reihe liegt 2,54 mm auf der falschen
-Seite. Der Adapter korrigiert genau das:
+Der Fehler ist eine reine Reihenvertauschung: Die **ungerade** Pin-Reihe
+(1, 3, 5 …) der Platine sitzt exakt richtig, nur die **gerade** Reihe
+(2, 4, 6 …) liegt 2,54 mm auf der falschen Seite. Der Adapter versetzt
+deshalb auch nur die gerade Reihe — die ungerade reicht er unverändert
+durch. Daraus ergeben sich **drei einreihige** Leisten statt einer
+zweireihigen:
 
-- Unten eine 2×20-**Stapelbuchse** in korrekter HAT-Position → steckt normal
-  auf dem durchgeschleiften Header des PoE-HAT.
-- Die **ungeraden** Stifte (1–39) reichen unverändert nach oben durch.
-- Die **geraden** Signale (2–40) laufen über kurze Leiterbahnen auf eine
-  1×20-**Stiftleiste**, die 2,54 mm weiter innen sitzt — genau unter der
-  gespiegelten geraden Reihe der Analyzer-Platine.
+| Ref | Reihe | Bauteil | Aufgabe |
+| --- | --- | --- | --- |
+| **J1** | 4,77 mm | Stapelbuchse 1×20 (lange Pins) | steckt unten auf den ungeraden Pi-Pins; dieselben Pins ragen oben durch und tragen dort die ungerade Reihe der Analyzer-Platine |
+| **J2** | 2,23 mm | Buchsenleiste 1×20, **nicht** stapelbar | steckt auf den geraden Pi-Pins, oben bündig |
+| **J3** | 7,31 mm | Stiftleiste 1×20 nach oben | bekommt die geraden Signale von J2 über kurze Leiterbahnen — dort erwartet die Analyzer-Platine ihre (verrutschte) gerade Reihe |
+
+> ⚠️ **J2 darf keine Stapelbuchse sein.** Ragten ihre Pins nach oben, träfen
+> sie auf der Analyzer-Platine auf blankes Basismaterial — dort ist kein
+> Loch — und die Platine könnte nicht aufsitzen.
 
 Die Analyzer-Platine steckt dann ganz normal (Bestückungsseite oben) auf dem
 Adapter: Jedes Pad liegt auf seinem richtigen Pi-Pin, und die Montagelöcher
@@ -28,16 +34,20 @@ berücksichtigen).
 ## Fertigung und Bestückung
 
 - **Platine:** 65 × 12 mm, 2 Lagen. Gerber + Bohrdaten in
-  [`fab/gerber/`](fab/gerber/) — als einfachste 2-Lagen-Platine bei jedem
-  Hersteller wenige Euro für alle fünf.
-- **J1 (unten):** Stapelbuchse 2×20, RM 2,54 (z. B. „stacking header 2×20"
-  mit langen Stiften, wie bei PoE-HATs üblich). **Kopfüber montieren:**
-  Buchsenkörper zeigt nach unten (zum Pi), die langen Stifte ragen oben aus
-  der Platine und werden oben verlötet.
-- **J2 (oben):** normale Stiftleiste 1×20, RM 2,54, von oben bestücken,
-  unten verlöten.
-- Bestückungsseite ist eindeutig: der Bestückungsdruck oben sagt
-  „Analyzer oben aufstecken", unten „Pi-Header unten".
+  [`fab/gerber/`](fab/gerber/), fertiges Upload-Paket:
+  [`fab/AskSin-Adapter-J1-fertigung.zip`](fab/AskSin-Adapter-J1-fertigung.zip)
+  — als einfachste 2-Lagen-Platine bei jedem Hersteller wenige Euro für
+  alle fünf.
+- **Bestückung von unten (Pi-Seite):** J1 und J2 werden so eingesetzt, dass
+  ihre Buchsenkörper **nach unten** zeigen. Bei J1 (Stapelbuchse) ragen die
+  langen Pins oben heraus und werden oben verlötet; bei J2 wird von oben
+  verlötet, oben bleibt nichts stehen.
+- **Bestückung von oben:** J3 von oben einsetzen, unten verlöten.
+- Die drei Leisten stehen im 2,54-Raster unmittelbar nebeneinander, ihre
+  Kunststoffkörper stoßen aneinander — genau wie bei einer zweireihigen
+  Leiste. Das ist so gewollt.
+- Bestückungsseite ist eindeutig beschriftet: oben „Analyzer oben
+  aufstecken", unten „Pi-Header unten".
 
 ## Prüfung
 
