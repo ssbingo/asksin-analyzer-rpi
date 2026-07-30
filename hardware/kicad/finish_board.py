@@ -162,7 +162,7 @@ def set_thermal_relief(board) -> int:
     return n
 
 
-HW_VERSION = "0.1.0"
+HW_VERSION = "0.2.0"
 HW_DATUM = "07/2026"
 MARKING_TOP = [
     f"AskSin-Analyzer · HW v{HW_VERSION} · {HW_DATUM}",

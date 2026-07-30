@@ -1,4 +1,20 @@
-# AskSin-Analyzer V4 — Hardware-Spezifikation
+# AskSin-Analyzer — Hardware-Spezifikation (v0.2.0)
+
+> ### ⚠️ Errata zur Hardware v0.0.1 — Platinen der ersten Chargen
+>
+> Auf allen 2026 gefertigten Platinen (Bestückungsdruck „HW v0.0.1") ist die
+> 2×20-Buchse **J1 gespiegelt**: Die ungerade Pinreihe sitzt richtig, die
+> gerade liegt 2,54 mm auf der falschen Seite. Direkt aufgesteckt landet
+> jedes Pad auf dem falschen Pi-Pin — 5 V auf 3,3 V, Masse auf GPIOs.
+>
+> **Diese Platinen niemals ohne Adapter aufstecken und einschalten.** Mit dem
+> [J1-Rettungsadapter](kicad/adapter/README.md) sind sie voll funktionsfähig.
+>
+> Ursache: Der Footprint stammt aus der offiziellen Vorlage
+> `RaspberryPi-HAT`, wurde aber ohne deren Flip auf die Unterseite übernommen.
+> Seit v0.2.0 flippt `generate_pcb.py` J1 wie die Vorlage **und prüft die
+> Pad-Positionen bei jedem Lauf hart gegen das Pi-Raster** — ein erneuter
+> Fehler dieser Art bricht den Lauf ab.
 
 Abgeleitet von **AskSin-Analyzer-XS-RPi V1.1** (der-pw, 08/2020), lizenziert
 CC BY-NC-SA 4.0. Diese Ableitung steht unter derselben Lizenz und muss den
@@ -10,14 +26,26 @@ Quelle der Analyse: `../AskSinAnalyzerXS-RPi-main/AskSinAnalyzerXS-RPi-main/KiCa
 Umsetzung: [`kicad/`](kicad/) — KiCad-9-Projekt, Schaltplan generiert,
 ERC 0 Fehler, Netzliste maschinell gegen diese Spezifikation geprüft.
 
-**V4 gegenüber V3:** Der USB-Zweig entfällt — die Platine ist reines
-Aufsteckmodul für einen **Raspberry Pi 4**. Dafür trägt sie jetzt zusätzlich die
+**Gegenüber der Vorlage:** Der USB-Zweig entfällt — die Platine ist reines
+Aufsteckmodul für einen **Raspberry Pi**. Dafür trägt sie zusätzlich die
 Peripherie des Status-LED-OLED-Projekts: Stecker für Display, Taster und
-WS2812-LED samt deren Vorwiderstand. Der Umriss ist L-förmig, damit der Lüfter
-des PoE-HAT frei bleibt. Die Antenne verlässt das Funkmodul über dessen
-IPEX-Buchse — auf der Platine gibt es **keine einzige HF-Leitung**.
+WS2812-LED samt deren Vorwiderstand. Die Antenne verlässt das Funkmodul über
+dessen IPEX-Buchse — auf der Platine gibt es **keine einzige HF-Leitung**.
 
-Zielaufbau: Pi 4 → Waveshare PoE HAT (B) mit durchgeschleiftem 40-poligem
+**Bauform seit v0.2.0:** T-förmig und **liegend neben dem Pi**. Der Körper
+(88 × 34 mm) liegt parallel zur Header-Seite des Pi, steht nach hinten
+(SD-Karten-Seite) 20 mm über und deckt **keine Buchsen ab**; der schmale Arm
+(65 × 8 mm) ragt nur so weit über den Pi, wie die 2×20-Buchse und die beiden
+HAT-Bohrungen es verlangen. Das Funkmodul mit der IPEX-Buchse sitzt im
+hinteren Überstand — im 19-Zoll-Einbau direkt am rückwärtigen
+Antennen-Keystone und maximal weit weg vom Störnebel aus Schaltreglern,
+HDMI und USB. Die drei Peripheriestecker liegen an der Frontkante, kurze
+Wege zum OLED-/LED-/Taster-Einsatz.
+
+*(Bis v0.0.1 war der Umriss L-förmig und der Körper ragte über die
+USB-/Ethernet-Buchsen des Pi — das kollidierte mit dem 19-Zoll-Einbau.)*
+
+Zielaufbau: Pi (4 oder 5) → PoE-HAT mit durchgeschleiftem 40-poligem
 Header → diese Platine. Mehrere solcher Einheiten an verschiedenen Stellen im
 Haus, fest in Datenschränken montiert.
 
@@ -354,19 +382,31 @@ kritisch, und der passiert einmalig beim Aufbau.
 ## 5. Layout
 
 Umgesetzt in [`kicad/`](kicad/), erzeugt von `generate_pcb.py`. Grundlage ist
-die **offizielle KiCad-Vorlage `RaspberryPi-HAT`** — Umriss (65 × 56 mm), die
-vier Befestigungsbohrungen, die Aussparungen für Kamera- und Displayanschluss
-und vor allem die exakte Position des 40-poligen Sockels kommen von dort und
-sind nicht nachgebaut.
+die **offizielle KiCad-Vorlage `RaspberryPi-HAT`**: die exakte Position des
+40-poligen Sockels, seine Lage auf der **Unterseite** und die beiden
+zugehörigen Befestigungsbohrungen kommen von dort und sind nicht nachgebaut.
+Der Umriss selbst ist ein eigener (T-Form, siehe oben), weil die Platine
+neben dem Pi liegt statt auf ihm.
+
+`check_j1_geometry()` prüft nach dem Platzieren die vier Eckpads von J1
+gegen das Pi-Raster und bricht ab, wenn eine Reihe verrutscht ist — die
+Lehre aus dem Fehler in v0.0.1.
 
 ### 5.1 Lagenaufbau
 
 | Lage | Belegung |
 | --- | --- |
-| F.Cu | Signale, Massefläche als Auffüllung |
+| F.Cu | Signale (keine Massefläche) |
 | In1.Cu | durchgehende Massefläche |
-| In2.Cu | 3,3-V-Fläche |
-| B.Cu | Signale, Massefläche als Auffüllung |
+| In2.Cu | durchgehende Massefläche |
+| B.Cu | Signale (keine Massefläche) |
+
+Seit v0.2.0 tragen die **Außenlagen keine Masseauffüllung** mehr. Auf dem
+kompakteren Umriss zerfiel sie zwischen den Leiterbahnen in Splitter, die
+sich weder zuverlässig verankern noch sauber entfernen ließen. Stattdessen
+bekommt **jedes SMD-Massepad vor dem Routen sein eigenes Stützvia** auf die
+beiden Innenlagen (`generate_pcb.py`, Freiraum geometrisch geprüft) — die
+Abschirmung leisten die durchgehenden Innenflächen.
 
 Zwei Lagen würden reichen, seit keine HF-Leitung mehr auf der Platine liegt.
 Die durchgehende Massefläche unter dem Funkmodul und unter dem USB-Paar kostet
@@ -392,32 +432,43 @@ Ursache haben.
 
 Leitgedanken:
 
-- **Funkmodul rechts**, weit weg vom USB-Zweig und von der Reglerecke. Alle
-  Signalpins des E07 liegen auf dessen linker Seite und zeigen damit auf den
-  Mikrocontroller; VCC liegt rechts, C5 direkt daneben.
-- **USB-C an der Unterkante.** Der Footprint markiert die Sollposition der
-  Platinenkante auf `Dwgs.User`; der Ursprung liegt entsprechend 3,67 mm davor.
-  Die Abstandsfläche ragt bauartbedingt über die Kante — bei einem
-  Steckverbinder für horizontales Stecken ist das richtig.
+- **Im Arm liegt nur die Buchse.** Alles andere dort säße über dem PoE-HAT.
+- **Funkmodul im hinteren Überstand**, also so weit wie möglich vom Pi und
+  von der Reglerecke entfernt — im Rack zeigt die IPEX-Buchse damit direkt
+  zum rückwärtigen Antennen-Keystone. Alle Signalpins des E07 liegen auf
+  einer Seite und zeigen zum Mikrocontroller; C5 sitzt direkt am VCC-Pin.
+- **Peripheriestecker (J5–J7) an der Frontkante** — kurze Wege zum
+  OLED-/LED-/Taster-Einsatz an der Rack-Front.
 - **Abblockkondensatoren am Pin**, nicht in einer Reihe am Rand.
-- **Jumper quer gelegt**, damit sie im Streifen unter dem Header flach bleiben.
-- **Prüfpunkte** in einer Reihe rechts unten, für einen Nadeladapter greifbar.
+- **Prüfpunkte** in einer Reihe an der Frontkante, für einen Nadeladapter
+  greifbar.
+- **Masse-Stützvias vor dem Routen.** Jedes SMD-Massepad bekommt sein Via
+  auf die Innenlagen, bevor der Autorouter läuft — sonst belegt der genau
+  diese Fläche, und die eng bepinnten Bauteile (ATmega, Funkmodul) kämen
+  hinterher nicht mehr an Masse.
 
-### 5.3 Was noch zu routen ist
+### 5.3 Routing
 
-Masse ist über die Flächen vollständig verbunden — alle 36 Massepins, kein
-offener Anschluss. Offen sind **73 Verbindungen**:
+Vollständig maschinell, reproduzierbar über [`rebuild.py`](kicad/rebuild.py):
 
-| Netz | offen | Bemerkung |
-| --- | --- | --- |
-| `+3V3` | 18 | Fläche liegt auf einer Innenlage, jeder Pad braucht eine Durchkontaktierung |
-| `VBUS`, `VIN`, `VREG_OUT`, `+5V` | 11 | Versorgungszweig |
-| `USB_D_P`, `USB_D_N` | 8 | als 90-Ω-Differenzpaar, kurz und symmetrisch |
-| SPI, UART, Reset, Takt | 36 | Signale |
+```text
+generate_pcb.py   Umriss, Bauteile, J1-Prüfung, Masse-Stützvias
+autoroute.py      Freerouting, Nachrouten offener Reste, Flächenanbindung
+finish_board.py   Bestückungsdruck, Markierung, Fertigungsunterlagen
+kicad-cli drc     Fehler und Warnungen, beide müssen null sein
+```
 
-Der Rest wird interaktiv geroutet. KiCad bringt keinen Autorouter mit, und
-maschinell erzeugte Leiterbahnen wären hier schlechter als von Hand gezogene —
-gerade beim USB-Paar und bei der Taktleitung zum Resonator.
+Masse ist dabei aus dem Autorouter herausgenommen: Sie liegt auf den beiden
+Innenlagen, und jedes Massepad hängt über sein Stützvia daran. Ließe man sie
+im Autorouter, zöge der zusätzliche Bahnen quer über die Platine, deren
+Enden hinterher als unverbunden gemeldet werden — er kennt die Flächen nicht
+als Verbindung.
+
+Freerouting arbeitet mit Zufallselementen und liefert bei gleicher Eingabe
+nicht zweimal dasselbe Layout; meist ist das Ergebnis fehlerfrei, manchmal
+bleibt eine Verbindung offen. `rebuild.py` würfelt deshalb einfach neu, bis
+alle Prüfungen durchgehen — statt von Hand nachzubessern und damit die
+Reproduzierbarkeit zu verlieren.
 
 ### 5.4 Entwurfsregeln
 
@@ -472,7 +523,7 @@ Erzeugt aus dem Schaltplan, nicht von Hand gepflegt:
 | C1, C2 | 10 µF | 0805 | 2 |
 | C3, C4, C5, C8, C9 | 100 nF | 0805 | 5 |
 | D1 | LED rot, U_F ≈ 2 V | 0805 | 1 |
-| J1 | Buchsenleiste 2×20, 2,54 mm | THT | 1 |
+| J1 | Buchsenleiste 2×20, 2,54 mm — **auf der Unterseite** | THT | 1 |
 | J2 | Stiftleiste 2×3, 2,54 mm (ISP) | THT | 1 |
 | J5 | JST-PH 4-polig (OLED, I²C) | THT | 1 |
 | J6 | JST-PH 2-polig (Taster) | THT | 1 |
@@ -491,15 +542,16 @@ SMA-Einbaubuchse, Gehäuse.
 
 ## 7. Fertigungsstand
 
-Die Platine ist fertig. Prüfstand:
+**Hardware v0.2.0.** Prüfstand:
 
 | Prüfung | Ergebnis |
 | --- | --- |
 | Schaltplan-ERC | 0 Fehler, 0 Warnungen |
 | Netzliste gegen diese Spezifikation | exakt übereinstimmend |
-| Platinen-DRC | **0 Verstöße** |
+| Platinen-DRC | **0 Fehler, 0 Warnungen, 0 unverbundene Elemente** |
+| J1-Padgeometrie gegen die HAT-Vorlage | maschinell geprüft, siehe Errata |
 
-330 Leiterbahnen, 157 Durchkontaktierungen, 38 Footprints, vier Lagen.
+38 Footprints auf vier Lagen, Umriss 88 × 42 mm.
 Fertigungsunterlagen liegen in [`kicad/fab/`](kicad/fab/): Gerber für zehn
 Lagen, Bohrdaten getrennt nach durchkontaktiert und nicht durchkontaktiert,
 Bestückungsdatei, Stückliste, Layout- und Schaltplan-PDF.
@@ -507,11 +559,10 @@ Bestückungsdatei, Stückliste, Layout- und Schaltplan-PDF.
 ### Beim Platinenhersteller
 
 Bestellt wird die **unbestückte Platine**. Vier Lagen, 1,6 mm. Beide Innenlagen
-tragen Masse, es gibt keine impedanzkontrollierte Leitung — der Lagenaufbau ist
-damit unkritisch und muss nicht abgestimmt werden.
+tragen durchgehend Masse, es gibt keine impedanzkontrollierte Leitung — der
+Lagenaufbau ist damit unkritisch und muss nicht abgestimmt werden.
 
-Hochzuladen ist **`kicad/AskSin-Analyzer-V3-fertigung.zip`** — 13 Dateien,
-133 KB: Kupfer für alle vier Lagen, Lötstopplack beidseitig, Bestückungsdruck
+Hochzuladen ist **`kicad/AskSin-Analyzer-V3-fertigung.zip`** — 13 Dateien: Kupfer für alle vier Lagen, Lötstopplack beidseitig, Bestückungsdruck
 oben und unten, Lötpastenmaske oben, Umriss, Bohrdaten getrennt nach
 durchkontaktiert und nicht durchkontaktiert, dazu das Gerber-Jobfile mit dem
 Lagenaufbau.

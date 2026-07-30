@@ -8893,10 +8893,10 @@
 		(layer "Edge.Cuts")
 		(uuid "a94f6d24-e84b-40c0-8099-d0569d3c20a6")
 	)
-	(gr_text "© 2026 S. Sternitzke · CC BY-NC-SA 4.0"
-		(at 115.5 65.2 0)
+	(gr_text "AskSin-Analyzer · HW v0.2.0 · 07/2026"
+		(at 115.5 62.8 0)
 		(layer "B.SilkS")
-		(uuid "5c873708-8028-4dfa-a4b9-a82dbdbb5a72")
+		(uuid "b9a3722d-fcbb-4601-9f96-2a7647015393")
 		(effects
 			(font
 				(size 1 1)
@@ -8905,10 +8905,10 @@
 			(justify mirror)
 		)
 	)
-	(gr_text "AskSin-Analyzer · HW v0.1.0 · 07/2026"
-		(at 115.5 62.8 0)
+	(gr_text "© 2026 S. Sternitzke · CC BY-NC-SA 4.0"
+		(at 115.5 65.2 0)
 		(layer "B.SilkS")
-		(uuid "f3ad920a-31a1-48d4-a894-ee1547984c16")
+		(uuid "ee8f1b8b-a0d2-4a5d-b396-8b67210ae7d4")
 		(effects
 			(font
 				(size 1 1)

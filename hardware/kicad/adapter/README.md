@@ -1,62 +1,104 @@
-# J1-Rettungsadapter (für Platinen-Chargen der Hardware v0.0.1)
+# J1-Rettungsadapter (für Platinen der Hardware v0.0.1)
 
-> ⚠️ **Warum es dieses Bauteil gibt:** Auf allen 2026 gefertigten Platinen der
-> Hardware v0.0.1 ist die 2×20-Buchse J1 **gespiegelt**. Direkt auf den Pi
-> gesteckt verrutscht die Platine um eine Rasterposition — 5 V landet auf
-> 3,3 V, Masse auf GPIOs. **Diese Chargen niemals ohne Adapter aufstecken
-> und einschalten.** Mit dem Adapter sind die Platinen voll funktionsfähig.
+> ⚠️ **Warum es dieses Bauteil gibt:** Auf allen 2026 gefertigten Platinen
+> (Bestückungsdruck „HW v0.0.1") ist die 2×20-Buchse J1 gespiegelt. Direkt auf
+> den Pi gesteckt landet jedes Pad auf dem falschen Pi-Pin — 5 V auf 3,3 V,
+> Masse auf GPIOs. **Diese Platinen niemals ohne Adapter aufstecken und
+> einschalten.** Mit dem Adapter sind sie voll funktionsfähig.
 
-## Wie er funktioniert
+## Das Fehlerbild, ausgemessen
 
-Der Fehler ist eine reine Reihenvertauschung: Die **ungerade** Pin-Reihe
-(1, 3, 5 …) der Platine sitzt exakt richtig, nur die **gerade** Reihe
-(2, 4, 6 …) liegt 2,54 mm auf der falschen Seite. Der Adapter versetzt
-deshalb auch nur die gerade Reihe — die ungerade reicht er unverändert
-durch. Daraus ergeben sich **drei einreihige** Leisten statt einer
-zweireihigen:
+Alle Maße ab der vorderen Platinenkante (der Kante, die beim Pi zur
+Platinenkante zeigt):
 
-| Ref | Reihe | Bauteil | Aufgabe |
-| --- | --- | --- | --- |
-| **J1** | 4,77 mm | Stapelbuchse 1×20 (lange Pins) | steckt unten auf den ungeraden Pi-Pins; dieselben Pins ragen oben durch und tragen dort die ungerade Reihe der Analyzer-Platine |
-| **J2** | 2,23 mm | Buchsenleiste 1×20, **nicht** stapelbar | steckt auf den geraden Pi-Pins, oben bündig |
-| **J3** | 7,31 mm | Stiftleiste 1×20 nach oben | bekommt die geraden Signale von J2 über kurze Leiterbahnen — dort erwartet die Analyzer-Platine ihre (verrutschte) gerade Reihe |
+| | gerade Pins (2, 4, 6 …) | ungerade Pins (1, 3, 5 …) |
+| --- | --- | --- |
+| Raspberry Pi / PoE-HAT | **2,23 mm** | 4,77 mm |
+| Analyzer-Platine v0.0.1 | **7,31 mm** | 4,77 mm |
 
-> ⚠️ **J2 darf keine Stapelbuchse sein.** Ragten ihre Pins nach oben, träfen
-> sie auf der Analyzer-Platine auf blankes Basismaterial — dort ist kein
-> Loch — und die Platine könnte nicht aufsitzen.
+Die ungerade Reihe sitzt richtig; die gerade liegt nicht *zwischen* ungerader
+Reihe und Kante, sondern dahinter. Kein einziger Pin trifft.
 
-Die Analyzer-Platine steckt dann ganz normal (Bestückungsseite oben) auf dem
-Adapter: Jedes Pad liegt auf seinem richtigen Pi-Pin, und die Montagelöcher
-MH1/MH2 fluchten wieder exakt mit den Abstandsbolzen des Pi.
-**Mehrhöhe des Stapels: rund 10 mm** (bei der Tray-Höhe im 19″-Rahmen
-berücksichtigen).
+## Wie der Adapter das löst
 
-## Fertigung und Bestückung
+Nicht durch Umsortieren einzelner Reihen, sondern indem das **ganze Steckbild
+um 2,54 mm nach hinten versetzt** wird — dann stimmt die Reihenfolge wieder:
 
-- **Platine:** 65 × 12 mm, 2 Lagen. Gerber + Bohrdaten in
-  [`fab/gerber/`](fab/gerber/), fertiges Upload-Paket:
-  [`fab/AskSin-Adapter-J1-fertigung.zip`](fab/AskSin-Adapter-J1-fertigung.zip)
-  — als einfachste 2-Lagen-Platine bei jedem Hersteller wenige Euro für
-  alle fünf.
-- **Bestückung von unten (Pi-Seite):** J1 und J2 werden so eingesetzt, dass
-  ihre Buchsenkörper **nach unten** zeigen. Bei J1 (Stapelbuchse) ragen die
-  langen Pins oben heraus und werden oben verlötet; bei J2 wird von oben
-  verlötet, oben bleibt nichts stehen.
-- **Bestückung von oben:** J3 von oben einsetzen, unten verlöten.
-- Die drei Leisten stehen im 2,54-Raster unmittelbar nebeneinander, ihre
-  Kunststoffkörper stoßen aneinander — genau wie bei einer zweireihigen
-  Leiste. Das ist so gewollt.
-- Bestückungsseite ist eindeutig beschriftet: oben „Analyzer oben
-  aufstecken", unten „Pi-Header unten".
+```text
+    ┌───────────────────────────┐  Analyzer-Platine (v0.0.1)
+    │  Buchse 2x20 (unten dran) │
+    └──┬───────────────────────┬┘
+       │ Stiftleiste 2x20      │     ← Adapter oben, Reihen 7,31 / 9,85 mm
+    ┌──┴───────────────────────┴──┐
+    │        A D A P T E R        │  65 × 14 mm, 2 Lagen
+    └──┬───────────────────────┬──┘
+       │ Buchsenleiste 2x20    │     ← Adapter unten, Reihen 2,23 / 4,77 mm
+    ┌──┴───────────────────────┴──┐
+    │  Stiftleiste des PoE-HAT    │
+    └─────────────────────────────┘
+```
+
+Jeder Pin geht schnurstracks von unten nach oben: Pin n der Buchse auf Pin n
+der Stiftleiste. Die ungeraden Bahnen laufen 2,54 mm auf der Oberseite, die
+geraden 7,62 mm auf der Unterseite an den Pads vorbei. Keine Durchkontaktierung
+nötig — bedrahtete Pads liegen ohnehin auf beiden Lagen.
+
+## Stückliste — zwei Standardteile
+
+| Ref | Bauteil | Lage |
+| --- | --- | --- |
+| **J1** | Buchsenleiste **2×20**, RM 2,54, gerade | **unten** montieren (Körper zeigt zum PoE-HAT), oben verlöten |
+| **J2** | Stiftleiste **2×20**, RM 2,54, gerade | **oben** montieren, unten verlöten |
+
+Beides gewöhnliche Massenware. Ausdrücklich **keine Stapelbuchsen**, keine
+besonderen Pinlängen — es gibt nichts, was in der Höhe zueinander passen
+müsste.
+
+## Was der Adapter kostet
+
+- **Bauhöhe:** rund 10 mm zusätzlich im Stapel. Bei der Tray-Höhe im
+  19-Zoll-Rahmen berücksichtigen.
+- **Versatz:** Die Analyzer-Platine sitzt **2,54 mm weiter hinten** als
+  vorgesehen; ihre Bohrungen MH1/MH2 fluchten dann nicht mehr mit den
+  Abstandsbolzen des Pi. Im 19-Zoll-Rahmen wird sie ohnehin an der
+  Druckhalterung verschraubt; ansonsten helfen Nylon-Distanzstücke.
+
+## Fertigung
+
+2 Lagen, 65 × 14 mm — die einfachste Platine, die ein Hersteller anbietet.
+Upload-Paket: [`fab/AskSin-Adapter-J1-fertigung.zip`](fab/AskSin-Adapter-J1-fertigung.zip),
+Einzeldateien in [`fab/gerber/`](fab/gerber/), Lagenbild zur Kontrolle in
+[`fab/adapter-layout.pdf`](fab/adapter-layout.pdf).
+
+Die Bestückungsseite ist im Druck beschriftet: oben „Analyzer-Platine hier
+oben aufstecken", unten „Diese Seite auf den PoE-HAT".
 
 ## Prüfung
 
-Erzeugt aus [`generate_adapter.py`](generate_adapter.py) (Maße aus der
-offiziellen KiCad-Vorlage `RaspberryPi-HAT`, im Skript automatisch
-gegengeprüft). DRC: 0 Fehler, 0 Warnungen, 0 offene Verbindungen.
-Layout-Zeichnung: [`fab/adapter-layout.pdf`](fab/adapter-layout.pdf)
+Erzeugt von [`generate_adapter.py`](generate_adapter.py). Die Netze werden dort
+**nach gemessener Pad-Position** vergeben, nicht nach Pad-Nummer — genau die
+Verwechslung, an der die Platine v0.0.1 gescheitert ist, kann so nicht mehr
+passieren.
 
-Vor dem ersten Einschalten mit Multimeter gegenprüfen (Adapter gesteckt,
-Analyzer-Platine gesteckt, Pi **aus**): Durchgang von Pi-Pin 2 (5 V) zum
-Eingang von U1 auf der Analyzer-Platine (TP-Belegung im Hardware-README)
-und **kein** Durchgang von Pi-Pin 1 (3V3) nach Masse.
+Unabhängig davon prüft [`verify_adapter.py`](verify_adapter.py) das fertige
+Layout gegen die beiden Gegenstücke und verlangt, dass sich beide Steckbilder
+mit **einem einzigen** Versatz decken (jeder abweichende Pin wäre ein falsches
+Signal):
+
+```console
+$ python3 verify_adapter.py
+  A) Unterseite gegen Pi/PoE-HAT: PASST — einheitlicher Versatz +0.00 / +0.00 mm über alle 40 Pins
+  B) Oberseite gegen die gefertigte Platine v0.0.1: PASST — einheitlicher Versatz +0.00 / +2.54 mm über alle 40 Pins
+
+Der Adapter passt auf beiden Seiten.
+```
+
+Verglichen wird gegen die **offizielle KiCad-Vorlage `RaspberryPi-HAT`** und
+gegen den Platinenstand aus dem Git-Tag `hardware-v0.0.1` — also gegen das,
+was tatsächlich beim Fertiger lag, nicht gegen den heutigen Entwurf.
+DRC: 0 Fehler, 0 Warnungen, 0 unverbundene Elemente.
+
+Vor dem ersten Einschalten trotzdem mit dem Multimeter gegenprüfen (Adapter
+gesteckt, Analyzer-Platine gesteckt, Pi **aus**): Durchgang von Pi-Pin 2 (5 V)
+zum Eingang von U1 auf der Analyzer-Platine, und **kein** Durchgang zwischen
+Pi-Pin 1 (3,3 V) und Masse.

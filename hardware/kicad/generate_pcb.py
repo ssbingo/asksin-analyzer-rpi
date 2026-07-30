@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Erzeugt das Platinenlayout des AskSin-Analyzer, Hardware v0.1.0.
+Erzeugt das Platinenlayout des AskSin-Analyzer, Hardware v0.2.0.
 
 Bauform
 -------

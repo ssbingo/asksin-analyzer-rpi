@@ -2,44 +2,65 @@
 """
 Erzeugt den J1-Rettungsadapter für die Platinen der Hardware v0.0.1.
 
-Hintergrund
------------
-Auf den 2026 gefertigten Platinen ist die 2×20-Buchse J1 gespiegelt: Die
-**ungerade** Pinreihe (1, 3, 5 …) sitzt exakt an der Position der offiziellen
-HAT-Vorlage, die **gerade** Reihe (2, 4, 6 …) liegt aber 2,54 mm auf der
-falschen Seite davon — bei 7,31 mm statt bei 2,23 mm von der Kante. Direkt auf
-den Pi gesteckt verrutscht die Platine um eine Rasterposition, jedes Pad landet
-auf dem falschen Pi-Pin (5 V auf 3,3 V, Masse auf GPIOs). **Niemals direkt
-aufstecken und einschalten.**
+Das Fehlerbild
+--------------
+Gemessen an der gefertigten Platine (Koordinaten ab der vorderen
+Platinenkante, also der Kante, die beim Pi zur Platinenkante zeigt):
 
-Aufbau des Adapters
--------------------
-Weil nur die gerade Reihe falsch liegt, versetzt der Adapter auch nur diese —
-die ungerade wird unverändert durchgereicht. Daraus ergeben sich drei
-einreihige Steckverbinder statt eines zweireihigen:
+    Raspberry Pi / PoE-HAT      gerade Pins (2,4,…) bei 2,23 mm
+                                ungerade Pins (1,3,…) bei 4,77 mm
 
-    Reihe 4,77 mm   J1  Stapelbuchse 1×20 (lange Pins)
-                        unten: steckt auf der ungeraden Pi-Reihe
-                        oben:  dieselben Pins ragen durch — hier greift die
-                               ungerade Reihe der Analyzer-Platine
-    Reihe 2,23 mm   J2  Buchsenleiste 1×20 (normal, ohne lange Pins)
-                        steckt auf der geraden Pi-Reihe, oben bündig
-    Reihe 7,31 mm   J3  Stiftleiste 1×20 nach oben
-                        führt die geraden Signale von J2 dorthin, wo die
-                        Analyzer-Platine ihre gerade Reihe erwartet
+    Analyzer-Platine v0.0.1     ungerade Pins bei 4,77 mm   (richtig)
+                                gerade Pins bei 7,31 mm     (falsche Seite)
 
-Wichtig ist, dass J2 **keine** Stapelbuchse ist: Ragten ihre Pins nach oben,
-träfen sie auf der Analyzer-Platine auf blankes Basismaterial — dort ist kein
-Loch — und die Platine könnte nicht aufsitzen.
+Die gerade Reihe liegt also nicht zwischen ungerader Reihe und Kante,
+sondern dahinter. Aufgesteckt passt kein einziges Pad — 5 V läge auf 3,3 V,
+Masse auf GPIOs. **Diese Platinen niemals ohne Adapter einschalten.**
 
-Ergebnis: Die Analyzer-Platine steckt ganz normal (Bestückungsseite oben) auf
-dem Adapter, jedes Pad liegt auf seinem richtigen Pi-Pin, und die
-Montagelöcher MH1/MH2 fluchten wieder mit den Abstandsbolzen des Pi.
-Mehrhöhe des Stapels: rund 10 mm.
+Wie der Adapter das löst
+------------------------
+Nicht durch Umsortieren einzelner Reihen, sondern indem das **ganze
+Steckbild um 2,54 mm nach hinten versetzt** wird. Dann stimmt die
+Reihenfolge wieder:
 
-Alle Maße stammen aus der offiziellen KiCad-Vorlage `RaspberryPi-HAT`
-(Pin 1 bei (8,37, 4,77), gerade Reihe bei 2,23 mm, Bohrungen (3,5, 3,5) und
-(61,5, 3,5)) und werden im Skript gegengeprüft.
+    Adapter unten (zum PoE-HAT)     Buchsenleiste 2×20
+                                    Pin 2 bei 2,23 · Pin 1 bei 4,77
+                                    → exakt die Pi-Geometrie
+
+    Adapter oben (zur Platine)      Stiftleiste 2×20
+                                    Pin 1 bei 7,31 · Pin 2 bei 9,85
+                                    → genau dort erwartet die Platine
+                                      ihre ungerade bzw. gerade Reihe
+
+Jeder Pin geht schnurstracks von unten nach oben: Pin n der Buchse auf
+Pin n der Stiftleiste. Die ungeraden Bahnen laufen 2,54 mm auf der
+Oberseite, die geraden 7,62 mm auf der Unterseite an den Pads vorbei.
+
+Beides sind **gewöhnliche Standardteile** — eine normale Buchsenleiste
+2×20 und eine normale Stiftleiste 2×20, RM 2,54. Keine Stapelbuchsen,
+keine besonderen Pinlängen, nichts, was in der Höhe zueinander passen
+müsste.
+
+    ┌───────────────────────────┐  Analyzer-Platine (v0.0.1)
+    │  Buchse 2x20 (unten dran) │
+    └──┬───────────────────────┬┘
+       │ Stiftleiste 2x20      │     ← Adapter oben, Reihen 7,31 / 9,85
+    ┌──┴───────────────────────┴──┐
+    │        A D A P T E R        │  65 x 14 mm, 2 Lagen
+    └──┬───────────────────────┬──┘
+       │ Buchsenleiste 2x20    │     ← Adapter unten, Reihen 2,23 / 4,77
+    ┌──┴───────────────────────┴──┐
+    │  Stiftleiste des PoE-HAT    │
+    └─────────────────────────────┘
+
+Preis dafür: Die Analyzer-Platine sitzt **2,54 mm weiter hinten** als
+vorgesehen, ihre Bohrungen MH1/MH2 fluchten also nicht mehr mit den
+Abstandsbolzen des Pi. Im 19-Zoll-Rahmen wird sie ohnehin an der
+Druckhalterung verschraubt; ansonsten helfen Nylon-Distanzstücke.
+Zusätzliche Bauhöhe des Stapels: rund 10 mm.
+
+Die Sollpositionen werden nach dem Platzieren gegen die gemessene
+Geometrie geprüft — jede Abweichung bricht den Lauf ab.
 
 Aufruf:
     python3 generate_adapter.py
@@ -61,24 +82,25 @@ OUT = HERE / f"{PROJECT}.kicad_pcb"
 FP_DIRS = [pathlib.Path("/usr/share/kicad/footprints")]
 
 ORIGIN_X, ORIGIN_Y = 100.0, 60.0
-BOARD_W, BOARD_H = 65.0, 12.0
+BOARD_W, BOARD_H = 65.0, 14.0
 
-# Geometrie aus der HAT-Vorlage, bezogen auf die linke obere Platinenecke.
-COL0 = 8.37               # Spalte von Pin 1/2
+COL0 = 8.37               # Spalte von Pin 1/2 (aus der HAT-Vorlage)
 PITCH = 2.54
-ROW_ODD = 4.77            # ungerade Pi-Reihe — wird durchgereicht
-ROW_EVEN = 2.23           # gerade Pi-Reihe
-ROW_SHIFTED = 7.31        # dorthin muss die gerade Reihe für die alte Platine
+SPALTEN = 20
+
+# Unten: Pi-Geometrie. Oben: um 2,54 mm nach hinten versetzt.
+UNTEN_UNGERADE, UNTEN_GERADE = 4.77, 2.23
+OBEN_UNGERADE, OBEN_GERADE = 7.31, 9.85
+
 HOLES = [(3.5, 3.5), (61.5, 3.5)]
 HOLE_FP = "MountingHole:MountingHole_2.7mm_M2.5"
+SOCKET_FP = "Connector_PinSocket_2.54mm:PinSocket_2x20_P2.54mm_Vertical"
+HEADER_FP = "Connector_PinHeader_2.54mm:PinHeader_2x20_P2.54mm_Vertical"
 
-SOCKET_FP = "Connector_PinSocket_2.54mm:PinSocket_1x20_P2.54mm_Vertical"
-HEADER_FP = "Connector_PinHeader_2.54mm:PinHeader_1x20_P2.54mm_Vertical"
-
-# Leiterbahnbreite je Signal: Versorgung breiter (Pi-Pins 2/4 = 5 V,
-# 6/14/20/30/34 = GND), der Rest Standardsignal.
-POWER_EVEN = {2, 4, 6, 14, 20, 30, 34}
-W_POWER, W_SIGNAL = 0.4, 0.3
+# Pi-Pins mit Versorgungsfunktion bekommen breitere Bahnen.
+POWER_PINS = {1, 2, 4, 6, 9, 14, 17, 20, 25, 30, 34, 39}
+W_POWER, W_SIGNAL = 0.5, 0.35
+CLEARANCE = 0.15
 
 
 def mm(v: float) -> int:
@@ -98,44 +120,100 @@ def load_footprint(fp_id: str) -> pcbnew.FOOTPRINT:
     raise FileNotFoundError(fp_id)
 
 
-def pad_pos(fp: pcbnew.FOOTPRINT, number: str) -> tuple[float, float]:
-    p = fp.FindPadByNumber(number).GetPosition()
+def pad_xy(fp: pcbnew.FOOTPRINT, nummer: int) -> tuple[float, float]:
+    p = fp.FindPadByNumber(str(nummer)).GetPosition()
     return (pcbnew.ToMM(p.x) - ORIGIN_X, pcbnew.ToMM(p.y) - ORIGIN_Y)
 
 
-def place_row(board, nets, fp_id, ref, value, reihe, erstes_signal, schritt):
-    """Einreihigen Steckverbinder setzen; Pad k trägt Pi-Signal
-    `erstes_signal + (k-1) * schritt`. Position wird gegengeprüft."""
+def soll(nummer: int, reihe_ungerade: float, reihe_gerade: float) -> tuple[float, float]:
+    """Sollposition von Pin `nummer`: Spalte aus der Pinnummer, Reihe aus
+    gerade/ungerade. Gerundet, damit sie sich mit gemessenen Pad-Positionen
+    vergleichen lässt (8,37 + 3·2,54 ergibt sonst 15,989999999999998)."""
+    spalte = (nummer - 1) // 2
+    reihe = reihe_ungerade if nummer % 2 else reihe_gerade
+    return (round(COL0 + spalte * PITCH, 2), round(reihe, 2))
+
+
+def place(board, nets, fp_id, ref, value, reihe_ungerade, reihe_gerade, flip):
+    """Leiste setzen; die Netze werden **nach gemessener Position** vergeben.
+
+    Der Kern der Lehre aus dem Fehler in v0.0.1: Die Pin-Nummerierung eines
+    Footprints ist eine Konvention, das Bauteil selbst ist ein symmetrischer
+    Block. Verlässt man sich darauf, dass Pad 2 „unterhalb" von Pad 1 liegt,
+    kippt bei Drehung oder Flip genau das um — unbemerkt.
+
+    Deshalb hier: Leiste so setzen, dass ihre beiden Reihen auf den beiden
+    Sollreihen liegen (welche Reihe welche Padnummern trägt, ist egal), und
+    anschließend jedem Pad **aus seiner Lage** das Pi-Signal zuordnen:
+    Spalte aus der x-Position, gerade/ungerade aus der Reihe. Zum Schluss
+    wird geprüft, dass alle 40 Sollpositionen genau einmal getroffen sind.
+    """
     fp = load_footprint(fp_id)
     fp.SetReference(ref)
     fp.SetValue(value)
     board.Add(fp)
-    fp.SetPosition(at(COL0, reihe))
-    for winkel in (-90.0, 90.0):
-        fp.SetOrientationDegrees(winkel)
-        x2, y2 = pad_pos(fp, "2")
-        if abs(x2 - (COL0 + PITCH)) < 0.01 and abs(y2 - reihe) < 0.01:
+    if flip:
+        fp.Flip(at(COL0, reihe_ungerade), False)
+
+    # Die KiCad-Footprints laufen senkrecht (Spalten entlang y) und haben
+    # ihren Bezugspunkt auf Pad 1. Welches Pad nach Drehung und Flip in der
+    # linken oberen Rasterecke landet, hängt von beidem ab — also alle
+    # Kombinationen durchprobieren und die nehmen, die das Sollraster deckt.
+    ziele = {soll(n, reihe_ungerade, reihe_gerade) for n in range(1, 41)}
+    beste = None
+    gefunden = False
+    for winkel in (0.0, 90.0, 180.0, 270.0):
+        for anker_pad in (1, 2, 39, 40):
+            for anker_reihe in (reihe_ungerade, reihe_gerade):
+                fp.SetOrientationDegrees(winkel)
+                fp.SetPosition(at(COL0, anker_reihe))
+                ist = pad_xy(fp, anker_pad)
+                pos = fp.GetPosition()
+                fp.SetPosition(pcbnew.VECTOR2I(pos.x + mm(COL0 - ist[0]),
+                                               pos.y + mm(anker_reihe - ist[1])))
+                treffer = {(round(x, 2), round(y, 2))
+                           for x, y in (pad_xy(fp, n) for n in range(1, 41))}
+                fehler = len(ziele - treffer)
+                beste = fehler if beste is None else min(beste, fehler)
+                if not fehler:
+                    gefunden = True
+                    break
+            if gefunden:
+                break
+        if gefunden:
             break
-    else:
-        raise SystemExit(f"{ref}: Pad 2 landet nicht bei "
-                         f"({COL0 + PITCH:.2f}, {reihe:.2f})")
-    x1, y1 = pad_pos(fp, "1")
-    if abs(x1 - COL0) > 0.01 or abs(y1 - reihe) > 0.01:
-        raise SystemExit(f"{ref}: Pad 1 bei ({x1:.2f}, {y1:.2f})")
+    if not gefunden:
+        raise SystemExit(f"{ref}: keine Lage deckt das Sollraster "
+                         f"({beste} Positionen unbesetzt)")
+
     for pad in fp.Pads():
-        k = int(pad.GetNumber())
-        pad.SetNet(nets[f"P{erstes_signal + (k - 1) * schritt}"])
+        x, y = pad_xy(fp, int(pad.GetNumber()))
+        spalte = round((x - COL0) / PITCH)
+        if abs(y - reihe_ungerade) < 0.01:
+            signal = 2 * spalte + 1
+        elif abs(y - reihe_gerade) < 0.01:
+            signal = 2 * spalte + 2
+        else:
+            raise SystemExit(f"{ref}: Pad {pad.GetNumber()} liegt bei y={y:.2f} "
+                             "auf keiner der beiden Sollreihen")
+        if not 1 <= signal <= 40:
+            raise SystemExit(f"{ref}: Pad {pad.GetNumber()} ergibt Signal {signal}")
+        pad.SetNet(nets[f"P{signal}"])
+
+    vergeben = sorted(int(p.GetNetname()[1:]) for p in fp.Pads())
+    if vergeben != list(range(1, 41)):
+        raise SystemExit(f"{ref}: Signalzuordnung unvollständig: {vergeben}")
     return fp
 
 
-def add_track(board, nets, net_name, width, points):
-    for a, b in zip(points, points[1:]):
+def add_track(board, nets, netz, breite, lage, punkte):
+    for a, b in zip(punkte, punkte[1:]):
         t = pcbnew.PCB_TRACK(board)
         t.SetStart(at(*a))
         t.SetEnd(at(*b))
-        t.SetWidth(mm(width))
-        t.SetLayer(pcbnew.F_Cu)
-        t.SetNet(nets[net_name])
+        t.SetWidth(mm(breite))
+        t.SetLayer(lage)
+        t.SetNet(nets[netz])
         board.Add(t)
 
 
@@ -143,12 +221,12 @@ def main() -> int:
     board = pcbnew.BOARD()
     board.SetCopperLayerCount(2)
 
-    corners = [(0, 0), (BOARD_W, 0), (BOARD_W, BOARD_H), (0, BOARD_H)]
+    ecken = [(0, 0), (BOARD_W, 0), (BOARD_W, BOARD_H), (0, BOARD_H)]
     for i in range(4):
         seg = pcbnew.PCB_SHAPE(board)
         seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
-        seg.SetStart(at(*corners[i]))
-        seg.SetEnd(at(*corners[(i + 1) % 4]))
+        seg.SetStart(at(*ecken[i]))
+        seg.SetEnd(at(*ecken[(i + 1) % 4]))
         seg.SetLayer(pcbnew.Edge_Cuts)
         seg.SetWidth(mm(0.1))
         board.Add(seg)
@@ -165,98 +243,70 @@ def main() -> int:
         board.Add(item)
         nets[f"P{n}"] = item
 
-    # Ungerade Reihe: Stapelbuchse, Pins ragen nach oben durch — von hier
-    # gibt es nichts zu verdrahten, der Pin ist die Verbindung.
-    place_row(board, nets, SOCKET_FP, "J1",
-              "Stapelbuchse 1x20 (Pins ragen oben durch)",
-              ROW_ODD, erstes_signal=1, schritt=2)
-    # Gerade Reihe: normale Buchse, oben bündig.
-    place_row(board, nets, SOCKET_FP, "J2", "Buchsenleiste 1x20 (nicht stapelbar)",
-              ROW_EVEN, erstes_signal=2, schritt=2)
-    # Zielreihe für die geraden Signale: Stiftleiste nach oben.
-    place_row(board, nets, HEADER_FP, "J3", "Stiftleiste 1x20 nach oben",
-              ROW_SHIFTED, erstes_signal=2, schritt=2)
+    place(board, nets, SOCKET_FP, "J1", "Buchsenleiste 2x20 (unten, zum PoE-HAT)",
+          UNTEN_UNGERADE, UNTEN_GERADE, flip=True)
+    place(board, nets, HEADER_FP, "J2", "Stiftleiste 2x20 (oben, zur Platine)",
+          OBEN_UNGERADE, OBEN_GERADE, flip=False)
 
-    # Je gerader Position eine Bahn von J2 (2,23) nach J3 (7,31). Der Korridor
-    # bei Spalte + 1,27 läuft mittig zwischen zwei Pads der durchgereichten
-    # Reihe hindurch.
-    for k in range(20):
-        n = 2 * (k + 1)
-        c = COL0 + k * PITCH
-        lane = c + 1.27
-        width = W_POWER if n in POWER_EVEN else W_SIGNAL
-        add_track(board, nets, f"P{n}", width,
-                  [(c, ROW_EVEN), (lane, ROW_EVEN + 1.27),
-                   (lane, ROW_ODD + 1.27), (c, ROW_SHIFTED)])
+    # Ungerade Pins: 2,54 mm gerade nach hinten, nichts liegt dazwischen.
+    # Gerade Pins: 7,62 mm — die Bahn weicht dafür auf die Spaltenmitte aus
+    # (1,27 mm neben den Pads) und läuft auf der Unterseite.
+    for n in range(1, 41):
+        x, y_unten = soll(n, UNTEN_UNGERADE, UNTEN_GERADE)
+        _, y_oben = soll(n, OBEN_UNGERADE, OBEN_GERADE)
+        breite = W_POWER if n in POWER_PINS else W_SIGNAL
+        if n % 2:
+            add_track(board, nets, f"P{n}", breite, pcbnew.F_Cu,
+                      [(x, y_unten), (x, y_oben)])
+        else:
+            gasse = x + PITCH / 2
+            add_track(board, nets, f"P{n}", W_SIGNAL, pcbnew.B_Cu,
+                      [(x, y_unten), (gasse, y_unten + PITCH / 2),
+                       (gasse, y_oben - PITCH / 2), (x, y_oben)])
 
-    def silk(text, x, y, size=0.9, layer=pcbnew.F_SilkS):
+    def silk(text, x, y, size=0.9, lage=pcbnew.F_SilkS):
         t = pcbnew.PCB_TEXT(board)
         t.SetText(text)
         t.SetPosition(at(x, y))
         t.SetTextSize(pcbnew.VECTOR2I(mm(size), mm(size)))
         t.SetTextThickness(mm(0.15 * size))
-        t.SetLayer(layer)
-        if layer == pcbnew.B_SilkS:
+        t.SetLayer(lage)
+        if lage == pcbnew.B_SilkS:
             t.SetMirrored(True)
         board.Add(t)
 
-    silk("AskSin J1-Adapter v1.1 — Analyzer oben aufstecken", 32.5, 10.4)
-    silk("Pi-Header unten", 32.5, 10.4, 1.0, pcbnew.B_SilkS)
+    silk("AskSin J1-Adapter v2 — Analyzer-Platine hier oben aufstecken",
+         32.5, 12.8, 0.85)
+    silk("Diese Seite auf den PoE-HAT", 32.5, 12.8, 0.9, pcbnew.B_SilkS)
+    silk("1", COL0 - 2.2, OBEN_UNGERADE, 0.9)
 
-    # Die drei Leisten stehen im 2,54-Raster unmittelbar nebeneinander: Ihre
-    # Kunststoffkörper stoßen aneinander, genau wie bei einer zweireihigen
-    # Leiste. Die Standard-Footprints bringen aber je 0,25 mm Luft im
-    # Courtyard und einen eigenen Siebdruckrahmen mit — beides überlappt
-    # zwangsläufig. Courtyard auf den Körper zurückschneiden, Siebdruck der
-    # Leisten entfernen; die Beschriftung steht am Platinenrand.
     for fp in board.GetFootprints():
         fp.Reference().SetVisible(False)
         fp.Value().SetVisible(False)
-        if fp.GetReference() not in ("J1", "J2", "J3"):
-            continue
-        for item in list(fp.GraphicalItems()):
-            lage = board.GetLayerName(item.GetLayer())
-            if lage in ("F.Silkscreen", "F.Courtyard"):
-                fp.Delete(item)
-        # Der Bezugspunkt der Leiste liegt auf Pad 1, nicht in ihrer Mitte —
-        # das Rechteck läuft deshalb von dort nach rechts über alle 20 Pads.
-        pos = fp.GetPosition()
-        x0, x1 = -PITCH / 2, 19 * PITCH + PITCH / 2
-        ecken = [(x0, -PITCH / 2), (x1, -PITCH / 2),
-                 (x1, PITCH / 2), (x0, PITCH / 2)]
-        for i in range(4):
-            ax, ay = ecken[i]
-            bx, by = ecken[(i + 1) % 4]
-            seg = pcbnew.PCB_SHAPE(fp)
-            seg.SetShape(pcbnew.SHAPE_T_SEGMENT)
-            seg.SetStart(pcbnew.VECTOR2I(pos.x + mm(ax), pos.y + mm(ay)))
-            seg.SetEnd(pcbnew.VECTOR2I(pos.x + mm(bx), pos.y + mm(by)))
-            seg.SetLayer(pcbnew.F_CrtYd)
-            seg.SetWidth(mm(0.05))
-            fp.Add(seg)
 
     board.Save(str(OUT))
 
     pro = {
         "meta": {"filename": f"{PROJECT}.kicad_pro", "version": 3},
         "board": {"design_settings": {"rules": {
-            "min_clearance": 0.15, "min_track_width": 0.25,
+            "min_clearance": CLEARANCE, "min_track_width": 0.25,
             "min_via_diameter": 0.6, "min_through_hole_diameter": 0.3,
             "min_hole_clearance": 0.25, "min_silk_clearance": 0.0,
         }}},
         "net_settings": {"classes": [
-            {"name": "Default", "clearance": 0.15, "track_width": 0.3,
+            {"name": "Default", "clearance": CLEARANCE, "track_width": 0.35,
              "via_diameter": 0.6, "via_drill": 0.3},
         ]},
         "schematic": {}, "sheets": [], "text_variables": {},
     }
     (HERE / f"{PROJECT}.kicad_pro").write_text(json.dumps(pro, indent=2) + "\n")
 
-    print(f"geschrieben: {OUT.name}")
-    print(f"  Umriss : {BOARD_W:.0f} × {BOARD_H:.0f} mm, 2 Lagen")
-    print("  Reihen : 4,77 durchgereicht · 2,23 gerade Pi-Reihe · "
-          "7,31 versetzte Zielreihe")
-    print("  Pad-Positionen gegen die HAT-Vorlagengeometrie geprüft: OK")
+    print(f"geschrieben: {OUT.name}   ({BOARD_W:.0f} × {BOARD_H:.0f} mm, 2 Lagen)")
+    print(f"  J1 unten (Buchse)   Reihen {UNTEN_GERADE} / {UNTEN_UNGERADE} mm "
+          "— Pi-Geometrie")
+    print(f"  J2 oben  (Stifte)   Reihen {OBEN_UNGERADE} / {OBEN_GERADE} mm "
+          "— Geometrie der Platine v0.0.1")
+    print("  alle 40 Pads beider Leisten gegen die Sollgeometrie geprüft: OK")
     return 0
 
 

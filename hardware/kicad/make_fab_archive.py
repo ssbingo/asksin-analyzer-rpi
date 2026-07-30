@@ -43,13 +43,13 @@ LAYOUT = {
 }
 
 LIESMICH = """\
-AskSin-Analyzer — Fertigungspaket Hardware v0.1.0
+AskSin-Analyzer — Fertigungspaket Hardware v0.2.0
 Erzeugt am {datum} aus AskSin-Analyzer-V3.kicad_pcb.
 
 WICHTIG — Unterschied zu v0.0.1:
     In v0.0.1 war die 2x20-Buchse J1 gespiegelt (die gerade Pinreihe lag
     auf der falschen Seite). Platinen dieser Charge duerfen NUR ueber den
-    J1-Adapter (kicad/adapter/) betrieben werden. In v0.1.0 ist J1
+    J1-Adapter (kicad/adapter/) betrieben werden. In v0.2.0 ist J1
     korrigiert -- geprueft gegen die offizielle KiCad-Vorlage
     RaspberryPi-HAT -- und die Platine liegt jetzt PARALLEL neben dem Pi
     an der Header-Seite statt ueber dessen Buchsen.

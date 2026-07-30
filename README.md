@@ -11,12 +11,22 @@ im Haus sind ausdrücklich vorgesehen.
 anfängertaugliche Schritt-für-Schritt-Anleitung vom Platinenbestellen bis zum
 laufenden Gerät.
 
+> ### ⚠️ Platinen mit „HW v0.0.1" im Bestückungsdruck
+>
+> Bei diesen ist die 2×20-Buchse J1 gespiegelt — direkt aufgesteckt liegt
+> jedes Pad auf dem falschen Pi-Pin (5 V auf 3,3 V, Masse auf GPIOs).
+> **Nicht ohne den [J1-Rettungsadapter](hardware/kicad/adapter/README.md)
+> aufstecken und einschalten.** Mit ihm sind sie voll funktionsfähig.
+> Ab **v0.2.0** ist der Fehler behoben, und die Platine liegt neben dem Pi
+> statt über dessen Buchsen.
+
 ## Projektstand
 
 | Baustein | Stand |
 | --- | --- |
-| **Hardware V4** (L-Platine, Pi-Aufsatz) | ✅ fertig entworfen, DRC 0 Verstöße, **in Produktion** |
+| **Hardware v0.2.0** (T-Platine neben dem Pi) | ✅ fertig entworfen, DRC 0 Fehler / 0 Warnungen — J1 korrigiert |
 | Fertigungsdaten (Gerber, BOM, CPL, JLCPCB) | ✅ [`hardware/kicad/fab/`](hardware/kicad/fab/) + Archiv |
+| J1-Rettungsadapter für die Chargen v0.0.1 | ✅ [`hardware/kicad/adapter/`](hardware/kicad/adapter/README.md) |
 | Firmware | ✅ unveränderter `AskSinSniffer328P` (jp112sdl) |
 | Core: Parser + Duty-Cycle | ✅ fertig ([`core/`](core/)) |
 | Core: Serial-Ingest, SQLite, CCU-Namen, Analyzer | ✅ fertig verdrahtet (M2–M4) |
@@ -42,7 +52,7 @@ curl -fsSL https://raw.githubusercontent.com/ssbingo/asksin-analyzer-rpi/main/in
 
 ```
 hardware/                 Platine, Bestelllisten, Setup-Skripte
-├── README.md             vollständige Hardware-Spezifikation V4
+├── README.md             vollständige Hardware-Spezifikation
 ├── bestellliste-reichelt.md
 ├── setup-uart.sh         richtet den Pi-UART ein (Pi 3/4/5)
 ├── 99-asksin-analyzer.rules   udev: fester Gerätename
@@ -51,7 +61,9 @@ hardware/                 Platine, Bestelllisten, Setup-Skripte
 └── kicad/                KiCad-9-Projekt, generiert & maschinell geprüft
     ├── generate_*.py     Schaltplan, Layout, Symbole, Footprints, BOM/CPL
     ├── autoroute.py      Freerouting-Anbindung
-    ├── fab/              Gerber, Bohrdaten, BOM, CPL, PDFs
+    ├── rebuild.py       baut die Platine neu, bis alle Prüfungen sauber sind
+    ├── adapter/         J1-Rettungsadapter für die Chargen v0.0.1
+    ├── fab/             Gerber, Bohrdaten, BOM, CPL, PDFs
     └── AskSin-Analyzer-V3-fertigung.zip   Upload-Paket
 core/                     Node.js/TypeScript-Analysedienst
 webui/                    Web-UI-Nachbau (Vue 3 + ECharts, MIT)
@@ -70,9 +82,10 @@ reference/                Originalprojekte (nicht eingecheckt — siehe unten)
 
 Die Funkseite bleibt beim bewährten Gespann **ATmega328P + CC1101** mit der
 unveränderten `AskSinSniffer328P`-Firmware — kein Fork, wer will flasht die
-Original-HEX. Die Platine V4 ist ein L-förmiger Aufsatz, der auf den
-durchgeschleiften Header des PoE-HAT gesteckt wird; der Körper liegt neben dem
-Pi, damit Lüfter und Funkmodul freie Bahn haben. Die Antenne verlässt das
+Original-HEX. Die Platine ist ein T-förmiger Aufsatz, der auf den
+durchgeschleiften Header des PoE-HAT gesteckt wird; der Körper liegt
+**parallel neben dem Pi** an der Header-Seite und deckt keine Buchse ab —
+das Funkmodul sitzt im hinteren Überstand, weit weg vom Störnebel. Die Antenne verlässt das
 Ebyte-Modul per IPEX — auf der Platine existiert **keine einzige HF-Leitung**.
 Der bekannte 2,12-%-Baudratenfehler der 8-MHz-Klasse wird nicht in der
 Firmware „repariert", sondern auf der Pi-Seite kompensiert: der Port läuft mit
@@ -98,7 +111,7 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
-| `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.0.1** — steht auch im Bestückungsdruck |
+| `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
 | `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.7** |
 | `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.7** |
 
@@ -110,6 +123,26 @@ werden, beginnt ab dann `firmware-v0.0.1`. Der ioBroker-Adapter bekommt ein
 eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### Hardware v0.2.0 — 30.07.2026
+
+**J1 war gespiegelt.** Der Footprint kam aus der offiziellen Vorlage
+`RaspberryPi-HAT`, aber ohne deren Flip auf die Unterseite: Die ungerade
+Pinreihe saß richtig, die gerade 2,54 mm daneben. Aufgesteckt landet jedes
+Pad einen Pin daneben. Betroffen sind **alle bisher gefertigten Platinen**;
+sie laufen mit dem [J1-Adapter](hardware/kicad/adapter/README.md) einwandfrei.
+`generate_pcb.py` prüft die Padgeometrie jetzt bei jedem Lauf gegen das
+Pi-Raster.
+
+**Neue Bauform:** T-förmig statt L-förmig. Der Körper (88 × 34 mm) liegt
+parallel neben dem Pi an der Header-Seite und steht nach hinten 20 mm über —
+er deckt **keine Buchse** mehr ab, was den 19-Zoll-Einbau erst möglich macht.
+Das Funkmodul sitzt im hinteren Überstand (Antennen-Keystone), die
+Peripheriestecker an der Frontkante (OLED-/LED-/Taster-Einsatz).
+
+Routing-Kette überarbeitet: Masseflächen nur noch auf den Innenlagen, jedes
+SMD-Massepad bekommt sein Stützvia vor dem Routen, alle Vias getentet, und
+`rebuild.py` baut so lange neu, bis DRC 0/0 und Netzliste exakt sind.
 
 ### v0.0.7 — 29.07.2026
 

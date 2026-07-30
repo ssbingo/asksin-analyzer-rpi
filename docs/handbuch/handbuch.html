@@ -107,10 +107,10 @@
     <div class="badge">Weboberfläche · Verbund</div>
     <h1>AskSin-Analyzer</h1>
     <div class="unter">Das Handbuch — vom leeren Platinen-Layout bis zum Verbund aus fünf Funkanalyzern</div>
-    <img class="held" src="img/platine-schraeg.png" alt="Die Analyzer-Platine V4">
+    <img class="held" src="img/platine-schraeg.png" alt="Die Analyzer-Platine">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware V4 · Software 0.0.7 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.0.7 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -360,22 +360,41 @@ es da sitzt.</p>
 
 <figure class="rahmen">
   <img src="img/platine-oben.png" alt="Platine von oben">
-  <figcaption>Die Platine von oben. Links der schmale <strong>Arm</strong> mit der 2×20-Buchse (J1),
-  rechts der <strong>Körper</strong> mit allen Bauteilen.</figcaption>
+  <figcaption>Die Platine von oben. Der schmale <strong>Arm</strong> unten trägt die
+  2×20-Buchse (J1) und ragt über den Pi; der breite <strong>Körper</strong> mit allen
+  Bauteilen liegt daneben.</figcaption>
 </figure>
 
-<h2>4.1 Warum diese L-Form?</h2>
-<p>Der Arm wird auf den durchgeschleiften Header des PoE-HAT gesteckt — die
-Platine „steht" also über dem Pi. Der Körper ragt zur Seite heraus. Das hat
-zwei Gründe:</p>
+<h2>4.1 Warum diese T-Form?</h2>
+<p>Nur der schmale Arm liegt über dem Pi — gerade so viel, wie die 2×20-Buchse
+und die beiden Befestigungsbohrungen brauchen. Der Körper mit allen Bauteilen
+liegt <strong>parallel neben dem Pi</strong>, an der Seite des 40-poligen
+Headers, und steht nach hinten (zur SD-Karten-Seite) etwa 20 mm über. Vier
+Gründe:</p>
 <ul>
+<li><strong>Keine Buchse wird verdeckt.</strong> USB, Ethernet und HDMI bleiben
+frei zugänglich — Voraussetzung für den 19-Zoll-Einbau, bei dem vorn die
+Keystone-Module sitzen und Kabel gesteckt werden müssen.</li>
 <li><strong>Der Lüfter des PoE-HAT bleibt frei.</strong> Eine durchgehende Platine
 direkt über dem Lüfter würde ihm die Luft nehmen — bei einem Gerät im
 Dauerbetrieb keine Kleinigkeit.</li>
 <li><strong>Der Funkempfänger kommt aus dem Störnebel.</strong> Direkt über dem Pi
 stören HDMI, USB 3 und zwei Schaltregler den 868-MHz-Empfang messbar. Seitlich
 daneben ist Ruhe.</li>
+<li><strong>Die Antenne sitzt hinten.</strong> Das Funkmodul mit der IPEX-Buchse
+liegt im hinteren Überstand — im Rack genau dort, wo das Antennenkabel zum
+rückwärtigen Keystone geht. Kurzer Weg, keine Schleife über die Platine.</li>
 </ul>
+
+<div class="achtung box"><span class="titel">⚠ Platinen mit „HW v0.0.1"</span>
+Auf den ersten gefertigten Platinen ist die 2×20-Buchse J1 <strong>gespiegelt</strong>:
+Die ungerade Pinreihe sitzt richtig, die gerade liegt 2,54 mm auf der falschen
+Seite. Aufgesteckt landet jedes Pad auf dem <em>falschen</em> Pi-Pin — 5 V auf
+3,3 V, Masse auf GPIOs. <strong>Solche Platinen niemals ohne den J1-Adapter
+aufstecken und einschalten</strong> (Bauanleitung:
+<code>hardware/kicad/adapter/</code>). Mit dem Adapter laufen sie einwandfrei.
+Ab Hardware 0.2.0 ist der Fehler behoben; erkennbar am Bestückungsdruck auf
+der Platinenunterseite.</div>
 
 <h2>4.2 Die Funktionsblöcke</h2>
 <table>
@@ -430,7 +449,7 @@ funktionieren analog.</p>
 wählen. Die komplette ZIP hochladen — das Portal findet die Gerber-Dateien im
 Unterordner selbst. (Falls nicht: nur den Inhalt von <code>gerber/</code> als
 eigene ZIP hochladen.)</li>
-<li>Die Vorschau prüfen: L-förmiger Umriss, 118 × 46 mm. Erkennt das Portal
+<li>Die Vorschau prüfen: T-förmiger Umriss, 88 × 42 mm. Erkennt das Portal
 <strong>4 Lagen</strong> und <strong>1,6 mm</strong> Dicke, passt alles — beide Werte
 stehen im mitgelieferten Jobfile.</li>
 <li>Optionen: Standardwerte genügen. Lötstopplack-Farbe nach Geschmack;
