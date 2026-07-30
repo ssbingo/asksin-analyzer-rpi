@@ -5238,7 +5238,7 @@
 			(at 147.32 234.95 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(property "Value" "0R"
+		(property "Value" "330"
 			(at 147.32 237.49 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)

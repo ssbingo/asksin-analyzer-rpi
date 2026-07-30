@@ -16,8 +16,9 @@ Positionsexport liefert dagegen Blattkoordinaten; die Umrechnung passiert hier.
 
 Ausgelassen werden:
   * R4 — seit 30.07.2026 unbestückt: die Analyzer-Software steuert die
-    WS2812 über SPI, bestückt wird deshalb R5 (0 Ω, GPIO10). R4 bleibt als
-    dokumentierte PWM-Alternative auf der Platine (bestückt wird R4 **oder** R5)
+    WS2812 auf dem Pi 5 über SPI, bestückt wird deshalb R5 (330 Ω, GPIO10).
+    R4 (390 Ω, PWM/GPIO18) bleibt als Alternative für Pi 3/4 auf der Platine —
+    bestückt wird immer genau einer von beiden
   * TP1–TP8, MH1–MH4, KB1/KB2 — Pads und Bohrungen ohne Bauteil
 
 Hinweis Drehwinkel: Die Werte folgen der KiCad-Konvention (Winkel der
@@ -51,9 +52,9 @@ BOARD_H = G.TOTAL_H          # Gesamthöhe inkl. Arm — Ursprung ist unten link
 
 DNP = {"R4"}
 
-# Werte-Korrektur für die Ausgabe: Auf der (unveränderten) Platine trägt R5
-# noch den Wert „0R DNP" aus der alten Bestückungsvariante.
-WERT_KORREKTUR = {"R5": "0R", "R4": "390 (DNP)"}
+# Werte-Korrektur für die Ausgabe: R4 ist unbestückt und soll in der
+# dokumentierenden Stückliste als solcher erkennbar sein.
+WERT_KORREKTUR = {"R4": "390 (DNP)"}
 VIRTUAL_PREFIXES = ("TP", "MH", "KB")
 
 # Bezugsquellen aus der geprüften Bestellliste (../bestellliste-reichelt.md).
@@ -71,7 +72,7 @@ SOURCE = {
     "D1": "Reichelt EVL 17-21USRC",
     "S1": "JLCPCB C231329 (B3U-1000P)",
     "R1": "Reichelt WAL WR08X3300FTL",
-    "R5": "JLCPCB C17477 (0R 0805)",
+    "R5": "JLCPCB C17630 (330R 0805) — wie R1",
     "R2": "Reichelt WAL WR08X1002FTL",
     "R3": "Reichelt WAL WR08X1002FTL",
     "C1": "Reichelt CL21A106KOQNNNG",
@@ -111,7 +112,7 @@ JLC = {
     "R1": ("C17630", "330R 1% 0805", True),
     "R2": ("C17414", "10K 1% 0805", True),
     "R3": ("C17414", "10K 1% 0805", True),
-    "R5": ("C17477", "0R 0805 SPI-Bruecke", True),
+    "R5": ("C17630", "330R 1% 0805 (Datenleitung WS2812)", True),
     "C1": ("C15850", "CL21A106KAYNNNE 10uF 25V X5R", True),
     "C2": ("C15850", "CL21A106KAYNNNE 10uF 25V X5R", True),
     "C3": ("C49678", "CC0805KRX7R9BB104 100nF 50V X7R", True),

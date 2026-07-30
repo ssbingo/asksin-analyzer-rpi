@@ -170,14 +170,14 @@ COMPONENTS = {
     "J7":  ("Connector_Generic:Conn_01x03", "WS2812",
             "Connector_JST:JST_PH_B3B-PH-K_1x03_P2.00mm_Vertical", 90, 265),
 
-    # Datenleitung der WS2812 — bisher fliegend verdrahtet, jetzt auf der
-    # Platine. Bestückt wird genau einer von beiden; seit 30.07.2026 ist das
-    # R5 (0 Ohm, SPI/GPIO10 — den Weg nutzt die Analyzer-Software), R4 ist
-    # die unbestückte PWM-Alternative (GPIO18). Nur Werte-Text geändert —
-    # Netzliste und Fußabdrücke sind identisch zum Produktionsstand, die
-    # gefertigte Platine (AskSin-Analyzer-V3.kicad_pcb) bleibt unberührt.
+    # Datenleitung der WS2812. Bestückt wird genau einer der beiden:
+    #   R5 → SPI/GPIO10  (Vorgabe auf dem Pi 5, dort scheidet PWM aus)
+    #   R4 → PWM/GPIO18  (Vorgabe auf Pi 3/4, dort ist der SPI-Takt instabil)
+    # **Beide 330 Ω**: Das Vorbild (Status-LED-OLED) führt die Datenleitung für
+    # beide Methoden über 330–470 Ω. R5 war anfangs eine 0-Ω-Brücke — damit
+    # fehlte auf dem SPI-Weg genau dieser Widerstand.
     "R4":  ("Device:R", "390 DNP", "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder", 120, 240),
-    "R5":  ("Device:R", "0R", "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder", 145, 240),
+    "R5":  ("Device:R", "330", "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder", 145, 240),
 
     # --- Versorgung -------------------------------------------------------
     "U1":  ("Regulator_Linear:MCP1754S-3302xCB", "MCP1754S-3302xCB",
