@@ -46,6 +46,7 @@ hardware/                 Platine, Bestelllisten, Setup-Skripte
 ├── bestellliste-reichelt.md
 ├── setup-uart.sh         richtet den Pi-UART ein (Pi 3/4/5)
 ├── 99-asksin-analyzer.rules   udev: fester Gerätename
+├── 3d-druck/             Druckvorlagen 19″-Einbaurahmen (folgen nach Testdruck)
 ├── datasheets/           Ebyte-E07-Serienspezifikation
 └── kicad/                KiCad-9-Projekt, generiert & maschinell geprüft
     ├── generate_*.py     Schaltplan, Layout, Symbole, Footprints, BOM/CPL
