@@ -170,14 +170,20 @@ COMPONENTS = {
     "J7":  ("Connector_Generic:Conn_01x03", "WS2812",
             "Connector_JST:JST_PH_B3B-PH-K_1x03_P2.00mm_Vertical", 90, 265),
 
-    # Datenleitung der WS2812. Bestückt wird genau einer der beiden:
-    #   R5 → SPI/GPIO10  (Vorgabe auf dem Pi 5, dort scheidet PWM aus)
-    #   R4 → PWM/GPIO18  (Vorgabe auf Pi 3/4, dort ist der SPI-Takt instabil)
-    # **Beide 330 Ω**: Das Vorbild (Status-LED-OLED) führt die Datenleitung für
-    # beide Methoden über 330–470 Ω. R5 war anfangs eine 0-Ω-Brücke — damit
-    # fehlte auf dem SPI-Weg genau dieser Widerstand.
-    "R4":  ("Device:R", "390 DNP", "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder", 120, 240),
-    "R5":  ("Device:R", "330", "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder", 145, 240),
+    # Datenleitung der WS2812 — seit v0.2.0 **umschaltbar** statt zweier
+    # Bestückungsvarianten:
+    #   SW1 in Stellung PWM  → GPIO18. Vorgabe auf Pi 3/4; dort leitet sich der
+    #                          SPI-Takt vom Kerntakt ab und wandert mit dessen
+    #                          Skalierung, was das WS2812-Timing zerreißt.
+    #   SW1 in Stellung SPI  → GPIO10. Vorgabe auf dem Pi 5; dort bedienen die
+    #                          PWM/DMA-Bibliotheken den RP1-Chip nicht.
+    # Dahinter EIN gemeinsamer Serienwiderstand von 330 Ω, wie ihn das Vorbild
+    # (Status-LED-OLED) für beide Methoden vorsieht. Damit entfallen R5 und die
+    # DNP-Regel; der Anwender schiebt den Schalter, statt umzulöten.
+    # Winkelschalter: der Schieber ragt seitlich heraus und gehört an die Kante.
+    "SW1": ("Switch:SW_SPDT", "PWM/SPI",
+            "Button_Switch_SMD:SW_SPDT_CK_JS102011SAQN", 120, 235),
+    "R4":  ("Device:R", "330", "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder", 145, 240),
 
     # --- Versorgung -------------------------------------------------------
     "U1":  ("Regulator_Linear:MCP1754S-3302xCB", "MCP1754S-3302xCB",
@@ -263,9 +269,11 @@ NETS: dict[str, list[tuple[str, str]]] = {
     "I2C_SCL": [("J1", "5"), ("J5", "3")],
 
     "BTN": [("J1", "11"), ("J6", "1")],
-    "LED_PWM": [("J1", "12"), ("R4", "1")],
-    "LED_SPI": [("J1", "19"), ("R5", "1")],
-    "WS_DATA": [("R4", "2"), ("R5", "2"), ("J7", "2")],
+    # Pin 2 des SPDT ist der gemeinsame Anschluss (KiCad: A=1, B=2, C=3).
+    "LED_PWM": [("J1", "12"), ("SW1", "1")],
+    "LED_SPI": [("J1", "19"), ("SW1", "3")],
+    "WS_WAHL": [("SW1", "2"), ("R4", "1")],
+    "WS_DATA": [("R4", "2"), ("J7", "2")],
     "VREG_OUT": [("U1", "2"), ("C1", "1"), ("L1", "1")],
     "+3V3": [
         ("L1", "2"), ("C2", "1"),

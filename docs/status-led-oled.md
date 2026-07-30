@@ -14,7 +14,7 @@ Die Analyzer-Platine V4 wurde dafür bereits vorbereitet:
 | --- | --- | --- |
 | **J5** | OLED (I²C, SSD1306) | GPIO2/3 — deshalb wurde der Reset auf GPIO4 gelegt |
 | **J6** | Taster | zum Blättern der OLED-Seiten |
-| **J7** | WS2812-Status-LED | SPI/GPIO10 (R5) **oder** PWM/GPIO18 (R4) — je nach Pi |
+| **J7** | WS2812-Status-LED | SPI/GPIO10 **oder** PWM/GPIO18 — per Schiebeschalter SW1 |
 
 ## Umfang
 
@@ -78,7 +78,7 @@ erkannten Modells vor; in den Einstellungen ist beides umstellbar.
 
 | | **SPI** (GPIO10) | **PWM** (GPIO18) |
 | --- | --- | --- |
-| Platine | **R5** bestückt | **R4** bestückt |
+| Schalter SW1 | Stellung **SPI** | Stellung **PWM** |
 | Vorgabe auf | **Pi 5** | **Pi 3 und Pi 4** |
 | Rechte | läuft im Analyzer-Dienst, ohne Root | Root — eigener Hilfsdienst `asksin-analyzer-led` |
 | Onboard-Audio | egal | muss aus (`dtparam=audio=off`) |
@@ -98,8 +98,14 @@ Ergebnis nur als `r,g,b` nach `/var/lib/asksin-analyzer/led-farbe`. Der kleine
 Root-Dienst [`deploy/led-pwm.py`](../deploy/led-pwm.py) liest die Datei und
 setzt die LED. Dasselbe Muster wie bei Update und Netzwerkeinstellungen.
 
+**Umschalten ohne Lötkolben:** Seit Hardware v0.2.0 wählt der
+SMD-Schiebeschalter **SW1** an der Außenkante der Platine zwischen GPIO18
+(PWM) und GPIO10 (SPI); dahinter liegt ein gemeinsamer 330-Ω-Serien-
+widerstand. Die frühere Bestückungsvariante R4 **oder** R5 entfällt damit —
+und mit ihr die Gefahr, den falschen Widerstand zu bestücken.
+
 **Die LED ist immer eine WS2812B**, versorgt mit **3,3 V** vom Pi (J7 Pin 1).
 Das ist bewusst so: Bei 5 V Versorgung erwartet die LED rund 3,5 V für „High",
 die der Pi mit seinen 3,3 V nicht liefert. Mit 3,3-V-Versorgung passt der
-Pegel wieder. Der Serienwiderstand in der Datenleitung beträgt 330 Ω (R4
-bzw. R5) — genau wie im Vorbildprojekt.
+Pegel wieder. Der Serienwiderstand in der Datenleitung beträgt 330 Ω (R4)
+— genau wie im Vorbildprojekt.

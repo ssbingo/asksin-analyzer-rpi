@@ -39,18 +39,28 @@ Peripherie des Status-LED-OLED-Projekts: Stecker für Display, Taster und
 WS2812-LED samt deren Vorwiderstand. Die Antenne verlässt das Funkmodul über
 dessen IPEX-Buchse — auf der Platine gibt es **keine einzige HF-Leitung**.
 
-**Bauform seit v0.2.0:** T-förmig und **liegend neben dem Pi**. Der Körper
-(88 × 34 mm) liegt parallel zur Header-Seite des Pi, steht nach hinten
-(SD-Karten-Seite) 20 mm über und deckt **keine Buchsen ab**; der schmale Arm
-(65 × 8 mm) ragt nur so weit über den Pi, wie die 2×20-Buchse und die beiden
-HAT-Bohrungen es verlangen. Das Funkmodul mit der IPEX-Buchse sitzt im
-hinteren Überstand — im 19-Zoll-Einbau direkt am rückwärtigen
-Antennen-Keystone und maximal weit weg vom Störnebel aus Schaltreglern,
-HDMI und USB. Die drei Peripheriestecker liegen an der Frontkante, kurze
-Wege zum OLED-/LED-/Taster-Einsatz.
+**Bauform seit v0.2.0:** L-förmig und **liegend neben dem Pi**. Der Streifen
+(80 × 20 mm) liegt parallel zur Header-Seite und ist **höchstens 20 mm breit**;
+der Schenkel (12 mm) läuft an der SD-Kante entlang nach hinten. Über dem Pi
+liegt nur zweierlei: der 8 mm tiefe **Arm** für die 2×20-Buchse und die beiden
+HAT-Bohrungen, sowie eine 7 × 9 mm große **Nase** am hinteren
+Befestigungsloch des Pi. Der Lüfter des PoE-HAT bleibt dadurch frei —
+geprüft gegen den Waveshare **PoE HAT (F)** (Pi 5; dessen Lüfter beginnt rund
+20 mm hinter der SD-Kante) und konstruktiv unabhängig vom **PoE HAT (C)**
+(Pi 3B/4), für den Waveshare keine Maßzeichnung veröffentlicht.
 
-*(Bis v0.0.1 war der Umriss L-förmig und der Körper ragte über die
-USB-/Ethernet-Buchsen des Pi — das kollidierte mit dem 19-Zoll-Einbau.)*
+Das Funkmodul sitzt am hinteren Ende des Streifens, die IPEX-Buchse zeigt zum
+Schenkel — dort läuft das Antennenkabel, mit Kabelbinder entlastet, zum
+rückwärtigen Keystone. Die drei Peripheriestecker liegen am vorderen Ende
+(Rack-Front), der Umschalter SW1 an der Außenkante.
+
+Maße des Pi aus den amtlichen Zeichnungen: **85 × 56 mm**, Befestigungslöcher
+ø2,7 mm im Raster **58 × 49 mm**, je 3,5 mm von den Kanten — bei **Pi 3B+, 4
+und 5 identisch**.
+
+*(Bis v0.0.1 war der Umriss L-förmig mit dem Körper über den USB-/Ethernet-
+Buchsen des Pi — das kollidierte mit dem 19-Zoll-Einbau. Die T-Form
+dazwischen war 34 mm breit und passte nicht in den Einbaurahmen.)*
 
 Zielaufbau: Pi (4 oder 5) → PoE-HAT mit durchgeschleiftem 40-poligem
 Header → diese Platine. Mehrere solcher Einheiten an verschiedenen Stellen im
@@ -271,18 +281,19 @@ Drei verriegelnde JST-PH-Stecker an der dem Pi zugewandten Kante:
 | J6 | Taster | 1 GPIO17 · 2 GND |
 | J7 | WS2812 | 1 3V3 · 2 Daten · 3 GND |
 
-Die Datenleitung der WS2812 führt **über die Platine**, wahlweise über
-**R5** (SPI, GPIO10) oder **R4** (PWM, GPIO18) — bestückt wird genau einer
-von beiden, **beide 330 Ω**. Welcher, hängt am Rechner:
+Die Datenleitung der WS2812 führt **über die Platine** und ist seit v0.2.0
+per **Schiebeschalter SW1** umschaltbar — kein Umlöten mehr:
 
-- **Pi 5 → R5 (SPI).** Die PWM/DMA-Bibliotheken bedienen den RP1-Chip nicht;
-  der SPI-Takt ist dort stabil.
-- **Pi 3/4 → R4 (PWM).** Dort leitet sich der SPI-Takt vom Kerntakt ab und
-  wandert mit dessen Skalierung, was das WS2812-Timing zerreißt.
+- **Stellung SPI** → GPIO10. Vorgabe auf dem **Pi 5**; die PWM/DMA-Bibliotheken
+  bedienen den RP1-Chip nicht.
+- **Stellung PWM** → GPIO18. Vorgabe auf **Pi 3/4**; dort leitet sich der
+  SPI-Takt vom Kerntakt ab und wandert mit dessen Skalierung, was das
+  WS2812-Timing zerreißt.
 
-Der Installer erkennt das Modell und wählt vor; umstellbar ist es in den
-Einstellungen der Weboberfläche. Einzelheiten:
-[`../docs/status-led-oled.md`](../docs/status-led-oled.md)
+Dahinter liegt ein gemeinsamer Serienwiderstand **R4 = 330 Ω**, wie ihn das
+Vorbildprojekt für beide Methoden vorsieht. Der Installer erkennt das Modell
+und stellt die Software passend ein; der Schalter muss dazu passen.
+Einzelheiten: [`../docs/status-led-oled.md`](../docs/status-led-oled.md)
 
 ### 3.4 Funk-Frontend
 
@@ -532,8 +543,8 @@ Erzeugt aus dem Schaltplan, nicht von Hand gepflegt:
 | L1 | BLM21PG300 Ferrit | 0805 | 1 |
 | R1 | 330 Ω | 0805 | 1 |
 | R2, R3 | 10 kΩ | 0805 | 2 |
-| R4 | 330 Ω — WS2812-Daten über PWM/GPIO18 (Pi 3/4) | 0805 | (1) |
-| R5 | 330 Ω — WS2812-Daten über SPI/GPIO10 (Pi 5) | 0805 | 1 |
+| R4 | 330 Ω — Serienwiderstand der WS2812-Datenleitung | 0805 | 1 |
+| SW1 | Schiebeschalter SPDT **C&K JS102011SAQN** — wählt PWM/GPIO18 oder SPI/GPIO10 | SMD | 1 |
 | C1, C2 | 10 µF | 0805 | 2 |
 | C3, C4, C5, C8, C9 | 100 nF | 0805 | 5 |
 | D1 | LED rot, U_F ≈ 2 V | 0805 | 1 |

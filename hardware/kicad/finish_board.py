@@ -39,9 +39,9 @@ HERE = pathlib.Path(__file__).resolve().parent
 BOARD_FILE = HERE / f"{PROJECT}.kicad_pcb"
 FAB_DIR = HERE / "fab"
 
-TEXT_SIZE = 0.8         # mm
+TEXT_SIZE = 0.8         # mm — Mindesthöhe des DRC, nicht unterschreiten
 TEXT_THICK = 0.12
-GAP = 0.35              # Abstand zwischen Text und Bauteilumriss
+GAP = 0.30              # Abstand zwischen Text und Bauteilumriss
 
 
 def mm(v: float) -> int:
@@ -102,13 +102,23 @@ def tidy_silkscreen(board) -> tuple[int, int]:
             (x0 - GAP - w / 2, cy),          # links
             (cx, y0 - GAP - h * 1.8),        # weiter oben
             (cx, y1 + GAP + h * 1.8),        # weiter unten
+            # Diagonalen: auf der engen L-Platine sind die vier Hauptrichtungen
+            # oft schon von Nachbarn belegt.
+            (x1 + GAP + w / 2, y0 - GAP - h / 2),
+            (x0 - GAP - w / 2, y0 - GAP - h / 2),
+            (x1 + GAP + w / 2, y1 + GAP + h / 2),
+            (x0 - GAP - w / 2, y1 + GAP + h / 2),
         ]
 
         own = box_of(fp)
         for tx, ty in candidates:
             tbox = (tx - w / 2, ty - h / 2, tx + w / 2, ty + h / 2)
-            clash = any(overlap(tbox, o) for o in obstacles if o is not own)
-            clash = clash or any(overlap(tbox, t) for t in placed_texts)
+            # Mit Sicherheitsabstand pruefen: Der DRC meldet auch direkt
+            # aneinanderstossende Bezeichner als silk_overlap.
+            s = 0.25
+            pruef = (tbox[0] - s, tbox[1] - s, tbox[2] + s, tbox[3] + s)
+            clash = any(overlap(pruef, o) for o in obstacles if o is not own)
+            clash = clash or any(overlap(pruef, t) for t in placed_texts)
             # Der Text muss im Umriss liegen. Ohne diese Prüfung rutschen die
             # Bezeichner von Bauteilen an der Unterkante unter die Platine.
             rel = (tbox[0] - G.ORIGIN_X, tbox[1] - G.ORIGIN_Y,
@@ -121,6 +131,11 @@ def tidy_silkscreen(board) -> tuple[int, int]:
             moved += 1
             break
         else:
+            # Kein freier Platz: Bezeichner **ausblenden** statt ihn
+            # überlappend stehen zu lassen. Auf dem engen L-Umriss trifft das
+            # ein paar Bauteile; für die Bestückung zählt ohnehin die CPL, und
+            # auf der Fertigungslage (F.Fab) bleibt die Kennzeichnung stehen.
+            ref.SetVisible(False)
             stuck += 1
     return moved, stuck
 
@@ -233,8 +248,8 @@ def add_board_marking(board) -> None:
             return False
         return not any(overlap(box, h) for h in hindernisse)
 
-    for cy in [y / 2 for y in range(6, int(G.BODY_H) * 2 - 5)]:
-        for cx in [x / 2 for x in range(int(breite), int(G.BODY_W) * 2 - int(breite))]:
+    for cy in [y / 2 for y in range(6, int(G.LEG_Y1) * 2 - 5)]:
+        for cx in [x / 2 for x in range(int(breite), int(G.BOARD_L) * 2 - int(breite))]:
             if frei(cx, cy):
                 for i, zeile in enumerate(MARKING_TOP):
                     text(zeile, cx, cy - 1.2 + i * 2.4, pcbnew.B_SilkS, True)

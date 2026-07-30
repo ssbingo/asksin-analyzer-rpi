@@ -44,55 +44,86 @@ OUT = HERE / f"{PROJECT}.kicad_pcb"
 ORIGIN_X, ORIGIN_Y = 100.0, 60.0
 
 # --- Umriss -----------------------------------------------------------------
-# Der Körper liegt neben dem Pi (nördlich der Header-Kante), der Arm ragt von
-# der Körper-Unterkante 8 mm über den Pi. Der Pi liegt südlich der Linie
-# y = BODY_H; seine SD-Kanten-Ecke bei (PI_X0, BODY_H).
-BODY_W = 88.0       # Körperbreite (entlang des Headers)
-BODY_H = 34.0       # Körpertiefe (von der Header-Kante weg)
-PI_X0 = 20.0        # SD-Kante des Pi — der Körper steht 20 mm nach hinten über
-ARM_X0 = PI_X0      # Arm exakt über der 65-mm-HAT-Zone
-ARM_X1 = PI_X0 + 65.0
-ARM_D = 8.0         # Armtiefe über dem Pi: Buchse + Bohrungen, mehr nicht
-TOTAL_H = BODY_H + ARM_D
+# L-Form, liegend neben dem Raspberry Pi. Maße des Pi aus den amtlichen
+# Zeichnungen (rpi3-b-plus / rpi4 / rpi5, alle gleich): 85 × 56 mm,
+# Befestigungslöcher ø2,7 im Raster 58 × 49 mm, je 3,5 mm von den Kanten.
+#
+#   Streifen  neben der Header-Kante, höchstens 20 mm breit
+#   Arm       nur so tief über den Pi, wie Buchse und HAT-Bohrungen brauchen
+#   Schenkel  neben der SD-Kante, außerhalb des Pi
+#   Nasen     zwei kleine Vorsprünge über den Pi, ausschließlich an dessen
+#             hinteren Befestigungslöchern — dadurch liegt über dem PoE-HAT
+#             fast nichts, und der Lüfter bleibt unabhängig vom HAT-Modell frei
+#             (Waveshare (F) für Pi 5, (C) für Pi 3B/4).
+LEG_W = 12.0        # Breite des Schenkels neben der SD-Kante
+STRIP_H = 20.0      # Breite des Streifens neben dem Pi — Obergrenze!
+ARM_D = 8.0         # Tiefe des Arms über dem Pi (Buchse + Bohrungen)
+NASE_D = 7.0        # Tiefe der Nasen über dem Pi
+NASE_H = 9.0        # Höhe der Nasen
+BOARD_L = 80.0      # Gesamtlänge — Obergrenze!
 
+PI_X0 = LEG_W       # SD-Kante des Pi in Platinenkoordinaten
+PI_Y0 = STRIP_H     # Header-Kante des Pi
+PI_W, PI_H = 85.0, 56.0
+ARM_X0 = PI_X0
+ARM_X1 = PI_X0 + 65.0            # Armlänge = HAT-Breite
+LEG_Y1 = PI_Y0 + PI_H            # Schenkel bis zur hinteren Pi-Kante
+
+# Befestigungslöcher des Pi, in Platinenkoordinaten
+PI_LOCH = [(PI_X0 + 3.5, PI_Y0 + 3.5), (PI_X0 + 61.5, PI_Y0 + 3.5),
+           (PI_X0 + 3.5, PI_Y0 + 52.5)]
+
+# Umriss gegen den Uhrzeigersinn ab der linken oberen Ecke. Die zweite Nase
+# sitzt am unteren Ende des Schenkels, die erste liegt bereits im Arm.
+# Die Nase schließt bündig mit der Schenkelunterkante ab — das spart eine
+# Innenecke und legt das Loch (y = PI_Y0 + 52,5) mittig hinein.
+NASE_Y0 = LEG_Y1 - NASE_H
 OUTLINE = [
-    (0.0, 0.0), (BODY_W, 0.0), (BODY_W, BODY_H),
-    (ARM_X1, BODY_H), (ARM_X1, TOTAL_H),
-    (ARM_X0, TOTAL_H), (ARM_X0, BODY_H), (0.0, BODY_H),
+    (0.0, 0.0), (BOARD_L, 0.0), (BOARD_L, PI_Y0),
+    (ARM_X1, PI_Y0), (ARM_X1, PI_Y0 + ARM_D),
+    (ARM_X0, PI_Y0 + ARM_D),
+    (ARM_X0, NASE_Y0), (ARM_X0 + NASE_D, NASE_Y0),
+    (ARM_X0 + NASE_D, LEG_Y1), (0.0, LEG_Y1),
 ]
 
 
 def inset_ring(inset: float) -> list[tuple[float, float]]:
     """Der Umriss, um `inset` nach innen versetzt — für Kupferflächen und den
-    Specctra-Export. Die Innenecken am Armansatz sind konkav; die Vorzeichen
-    sind deshalb je Ecke von Hand gesetzt (eine Pauschalregel kippt dort und
-    erzeugt ein sich selbst schneidendes Polygon)."""
+    Specctra-Export. Die Innenecken sind konkav; die Vorzeichen sind deshalb je
+    Ecke von Hand gesetzt (eine Pauschalregel kippt dort und erzeugt ein sich
+    selbst schneidendes Polygon)."""
     i = inset
+    # An den beiden **einspringenden** Ecken (Armunterkante/Schenkelkante und
+    # Schenkelkante/Nasenoberkante) liegt das Platinenmaterial jeweils LINKS
+    # der Kante x = ARM_X0. Der Versatz muss dort also nach links gehen
+    # (ARM_X0 − i). Ging er nach rechts, lag die Kontur außerhalb der Platine
+    # und Freerouting legte Bahnen über die Kante hinaus.
     return [
-        (i, i), (BODY_W - i, i), (BODY_W - i, BODY_H - i),
-        (ARM_X1 - i, BODY_H - i), (ARM_X1 - i, TOTAL_H - i),
-        (ARM_X0 + i, TOTAL_H - i), (ARM_X0 + i, BODY_H - i), (i, BODY_H - i),
+        (i, i), (BOARD_L - i, i), (BOARD_L - i, PI_Y0 - i),
+        (ARM_X1 - i, PI_Y0 - i), (ARM_X1 - i, PI_Y0 + ARM_D - i),
+        (ARM_X0 - i, PI_Y0 + ARM_D - i),
+        (ARM_X0 - i, NASE_Y0 + i), (ARM_X0 + NASE_D - i, NASE_Y0 + i),
+        (ARM_X0 + NASE_D - i, LEG_Y1 - i), (i, LEG_Y1 - i),
     ]
 
 
-# MH1/MH2 stammen aus dem HAT-Bohrbild und greifen in die Abstandsbolzen des
-# Pi; MH3/MH4 halten den Körper im 19-Zoll-Tray (Verschraubung von unten).
-HOLES = [(PI_X0 + 3.5, BODY_H + 3.5), (PI_X0 + 61.5, BODY_H + 3.5),
-         (3.5, 30.5), (84.5, 29.5)]
+# MH1/MH2 greifen in die vorderen Abstandsbolzen des Pi (im Arm), MH3 in das
+# hintere Loch derselben Seite (in der unteren Nase). MH4 hält den Streifen im
+# 19-Zoll-Tray und liegt neben dem Pi.
+HOLES = [PI_LOCH[0], PI_LOCH[1], PI_LOCH[2], (6.0, 38.0)]
 HOLE_FP = "MountingHole:MountingHole_2.7mm_M2.5"
 
 # Zugentlastung für das Antennenkabel: zwei Löcher für einen Kabelbinder,
 # direkt neben der IPEX-Buchse des Moduls. Der U.FL-Stecker ist auf rund
 # 30 Steckzyklen ausgelegt und springt unter Zug ab — bei fest verbauten
 # Geräten ist die Entlastung billiger als ein Serviceeinsatz.
-TIE_HOLES = [(10.7, 29.5), (16.2, 29.5)]
+TIE_HOLES = [(4.0, 21.5), (9.5, 21.5)]
 TIE_FP = "MountingHole:MountingHole_2.1mm"
 
 # Position der 2×20-Buchse aus der offiziellen HAT-Vorlage: Pin 1 liegt
 # 8,37 mm hinter der SD-Kante und 4,77 mm unter der Header-Kante des Pi.
-# Drehung −90° und Flip auf die Unterseite wie in der Vorlage; die gerade
-# Reihe liegt dann bei 2,23 mm — zwischen Pin-1-Reihe und Platinenkante.
-J1_POS = (PI_X0 + 8.37, BODY_H + 4.77, -90.0)
+# Drehung −90° und Flip auf die Unterseite wie in der Vorlage.
+J1_POS = (PI_X0 + 8.37, PI_Y0 + 4.77, -90.0)
 
 EDGE_MARGIN = 0.4
 
@@ -117,50 +148,59 @@ def at(x: float, y: float) -> pcbnew.VECTOR2I:
 PLACEMENT: dict[str, tuple[float, float, float]] = {
     "J1":  J1_POS,
 
-    # --- Funk-Frontend im hinteren Überstand ------------------------------
-    "U3":  (11.0, 14.5, 0),
-    "C5":  (21.8, 9.0, 90),
-    "R3":  (25.5, 28.5, 0),
+    # --- Funk-Frontend ganz hinten; die IPEX-Buchse zeigt zum Schenkel, das
+    #     Antennenkabel laeuft dort nach unten zum rueckwaertigen Keystone.
+    #     Gedreht, weil das Modul 17,5 x 21,1 mm misst und quer nicht in den
+    #     20 mm breiten Streifen passt.
+    "U3":  (12.5, 10.0, 90),
+    "C5":  (25.5, 3.0, 0),
+    "R3":  (25.5, 6.5, 0),
 
-    # --- Mikrocontroller in der Mitte --------------------------------------
-    "U2":  (36.0, 19.0, 0),
-    "Y1":  (27.0, 15.0, 90),
-    "C3":  (29.5, 23.5, 90),
-    "C4":  (43.0, 14.5, 90),
-    "C9":  (43.0, 23.5, 90),
+    # --- Mikrocontroller, Takt und Abblockung -------------------------------
+    "U2":  (36.0, 7.0, 0),
+    "Y1":  (27.0, 16.0, 0),
+    "C3":  (36.0, 15.0, 0),
+    "C4":  (44.0, 3.0, 0),
+    "C9":  (44.0, 7.0, 0),
+    "R2":  (44.0, 11.0, 0),
 
-    # --- Reset-Strecke -----------------------------------------------------
-    "C8":  (26.0, 7.0, 0),
-    "R2":  (43.0, 9.0, 90),
-    "TP1": (46.5, 4.5, 0),
-    "S1":  (57.0, 24.0, 0),
+    # --- Reset-Strecke ------------------------------------------------------
+    "C8":  (25.5, 10.0, 0),
+    "TP1": (44.0, 15.0, 0),
+    "S1":  (50.0, 16.0, 0),
 
-    # --- Versorgung im vorderen Nordstreifen --------------------------------
-    "U1":  (56.0, 5.0, 0),
-    "C1":  (61.5, 5.5, 90),
-    "L1":  (67.0, 5.0, 0),
-    "C2":  (72.5, 5.5, 90),
+    # --- Versorgung ---------------------------------------------------------
+    "U1":  (50.0, 3.0, 0),
+    "C1":  (50.0, 7.0, 0),
+    "L1":  (54.5, 3.0, 0),
+    "C2":  (54.5, 7.0, 0),
 
-    # --- Status-LED --------------------------------------------------------
-    "R1":  (52.0, 11.0, 0),
-    "D1":  (58.0, 11.0, 0),
+    # --- Status-LED ---------------------------------------------------------
+    "R1":  (50.0, 11.0, 0),
+    "D1":  (56.0, 11.0, 0),
 
-    # --- Peripherie an der vorderen Kante ----------------------------------
-    "J5":  (77.5, 9.5, 90),       # OLED, I²C
-    "J6":  (77.5, 19.0, 90),      # Taster
-    "J7":  (77.5, 28.5, 90),      # WS2812
-    "R4":  (72.0, 28.5, 0),       # PWM-Alternative GPIO18, unbestückt
-    "R5":  (72.0, 24.5, 0),       # 0 Ω, SPI/GPIO10 — bestückt
+    # --- ISP in den Schenkel: nur einmal beim Bootloader gebraucht ---------
+    "J2":  (6.0, 28.0, 0),
 
-    # --- ISP und Prüfpunkte -------------------------------------------------
-    "J2":  (50.0, 18.0, 0),
-    "TP2": (52.0, 31.5, 0),
-    "TP3": (55.0, 31.5, 0),
-    "TP4": (58.0, 31.5, 0),
-    "TP5": (61.0, 31.5, 0),
-    "TP6": (64.0, 31.5, 0),
-    "TP7": (67.0, 31.5, 0),
-    "TP8": (70.0, 31.5, 0),
+
+    # --- LED-Weg: Schiebeschalter an der Aussenkante, Schieber zeigt nach
+    #     aussen; dahinter der gemeinsame Serienwiderstand.
+    "SW1": (62.0, 5.0, 180),
+    "R4":  (62.0, 12.0, 0),
+
+    # --- Peripheriestecker am vorderen Ende (Rack-Front) --------------------
+    "J5":  (70.5, 3.5, 0),        # OLED, I2C
+    "J6":  (72.0, 10.0, 0),       # Taster
+    "J7":  (72.5, 16.0, 0),       # WS2812
+
+    # --- Pruefpunkte im Schenkel -------------------------------------------
+    "TP2": (6.0, 44.0, 0),
+    "TP3": (6.0, 47.5, 0),
+    "TP4": (6.0, 51.0, 0),
+    "TP5": (6.0, 54.5, 0),
+    "TP6": (6.0, 58.0, 0),
+    "TP7": (6.0, 61.5, 0),
+    "TP8": (6.0, 65.0, 0),
 }
 
 
@@ -176,13 +216,23 @@ def load_footprint(fp_id: str) -> pcbnew.FOOTPRINT:
 
 
 def inside_board(x0: float, y0: float, x1: float, y1: float) -> bool:
-    """Liegt das Rechteck vollständig im T-Umriss, mit Randabstand?"""
+    """Liegt das Rechteck vollständig im L-Umriss, mit Randabstand?
+
+    Geprüft wird gegen die vier **größtmöglichen** Rechtecke, die die Form
+    überdecken. Ein Bauteil ist zulässig, wenn es in mindestens eines davon
+    ganz hineinpasst — konservativ, aber niemals falsch positiv.
+    """
     m = EDGE_MARGIN
-    if y0 < m or x0 < m or x1 > BODY_W - m:
-        return False
-    if y1 <= BODY_H - m:
-        return True                      # Körper, über die volle Breite
-    return x0 >= ARM_X0 + m and x1 <= ARM_X1 - m and y1 <= TOTAL_H - m
+    bereiche = [
+        (0.0, 0.0, LEG_W, LEG_Y1),                       # Schenkel + Streifen
+        (0.0, 0.0, BOARD_L, PI_Y0),                      # Streifen
+        (ARM_X0, 0.0, ARM_X1, PI_Y0 + ARM_D),            # Arm + Streifen
+        (ARM_X0, NASE_Y0, ARM_X0 + NASE_D, LEG_Y1),       # untere Nase
+    ]
+    return any(
+        x0 >= bx0 + m and y0 >= by0 + m and x1 <= bx1 - m and y1 <= by1 - m
+        for bx0, by0, bx1, by1 in bereiche
+    )
 
 
 def build_board():
@@ -360,10 +410,10 @@ def check_j1_geometry(fp: pcbnew.FOOTPRINT) -> None:
     if not fp.IsFlipped():
         raise SystemExit("J1 liegt nicht auf der Unterseite — Flip fehlt!")
     soll = {
-        "1":  (PI_X0 + 8.37, BODY_H + 4.77),
-        "2":  (PI_X0 + 8.37, BODY_H + 2.23),
-        "39": (PI_X0 + 8.37 + 19 * 2.54, BODY_H + 4.77),
-        "40": (PI_X0 + 8.37 + 19 * 2.54, BODY_H + 2.23),
+        "1":  (PI_X0 + 8.37, PI_Y0 + 4.77),
+        "2":  (PI_X0 + 8.37, PI_Y0 + 2.23),
+        "39": (PI_X0 + 8.37 + 19 * 2.54, PI_Y0 + 4.77),
+        "40": (PI_X0 + 8.37 + 19 * 2.54, PI_Y0 + 2.23),
     }
     for nr, (sx, sy) in soll.items():
         p = fp.FindPadByNumber(nr).GetPosition()
@@ -455,13 +505,10 @@ def add_zones(board, nets, stack) -> None:
         outline.Outline(0).SetClosed(True)
         board.Add(zone)
 
-    # Nur die beiden Innenlagen tragen Masseflächen. Auf dem kompakten
-    # T-Umriss zerfielen Außenlagen-Füllungen zwischen den Leiterbahnen in
-    # Splitter, die sich weder zuverlässig verankern noch sauber entfernen
-    # ließen (isolierte Inseln, verhungerte Thermal-Speichen — je nach
-    # Routing-Zufall). Die Abschirmwirkung liefern die durchgehenden
-    # Innenlagen; jedes SMD-Massepad wird beim Routen explizit über ein
-    # Stützvia an die Flächen gebunden (route_pcb.stitch_plane_net).
+    # Beide Innenlagen tragen Masse. Ein Versuch, In2.Cu als dritte
+    # Signallage freizugeben, ging nach hinten los: Die Stützvias sind
+    # durchgehend und schlagen dann quer durch die Signale — 120 Verstöße,
+    # darunter echte Kurzschlüsse. Zwei durchgehende Masseflächen bleiben.
     for layer in list(stack)[1:-1]:
         make_zone(layer, "GND")
 
@@ -529,11 +576,14 @@ def main() -> int:
     board.Save(str(OUT))
     write_project_settings()
 
-    area = BODY_W * BODY_H + (ARM_X1 - ARM_X0) * ARM_D
+    area = (BOARD_L * PI_Y0 + LEG_W * (LEG_Y1 - PI_Y0)
+            + (ARM_X1 - ARM_X0) * ARM_D + NASE_D * NASE_H)
     print(f"geschrieben: {OUT.name}")
-    print(f"  Umriss    : T-Form, Körper {BODY_W:.0f} × {BODY_H:.0f} mm neben "
-          f"dem Pi, Arm {ARM_X1 - ARM_X0:.0f} × {ARM_D:.0f} mm über dem "
-          f"Header, {area:.0f} mm²")
+    print(f"  Umriss    : L-Form {BOARD_L:.0f} × {LEG_Y1:.0f} mm — Streifen "
+          f"{BOARD_L:.0f} × {PI_Y0:.0f} neben dem Pi, Schenkel {LEG_W:.0f} mm "
+          f"breit, {area:.0f} mm²")
+    print(f"  ueber dem Pi: Arm {ARM_X1 - ARM_X0:.0f} × {ARM_D:.0f} mm (Buchse), "
+          f"Nase {NASE_D:.0f} × {NASE_H:.0f} mm (hinteres Loch) — Luefter frei")
     print("  J1        : Unterseite, −90° — Pads gegen das Pi-Raster geprüft")
     print(f"  Footprints: {len(placed)} + {len(HOLES)} Bohrungen + "
           f"{len(TIE_HOLES)} Zugentlastung")

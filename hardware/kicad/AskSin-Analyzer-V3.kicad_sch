@@ -4477,6 +4477,183 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "Switch:SW_SPDT"
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "SW"
+				(at 0 5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Value" "SW_SPDT"
+				(at 0 -5.08 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "~"
+				(at 0 -7.62 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Switch, single pole double throw"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "switch single-pole double-throw spdt ON-ON"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "SW_SPDT_0_1"
+				(circle
+					(center -2.032 0)
+					(radius 0.4572)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.651 0.254)
+						(xy 1.651 2.286)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 2.032 2.54)
+					(radius 0.4572)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(circle
+					(center 2.032 -2.54)
+					(radius 0.4572)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "SW_SPDT_1_1"
+				(rectangle
+					(start -3.175 3.81)
+					(end 3.175 -3.81)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type background)
+					)
+				)
+				(pin passive line
+					(at -5.08 0 0)
+					(length 2.54)
+					(name "B"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 2.54 180)
+					(length 2.54)
+					(name "A"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 5.08 -2.54 180)
+					(length 2.54)
+					(name "C"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "3"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "power:+3V3"
 			(power)
 			(pin_numbers
@@ -5187,40 +5364,41 @@
 		)
 	)
 	(symbol
-		(lib_id "Device:R")
-		(at 119.38 240.03 0)
+		(lib_id "Switch:SW_SPDT")
+		(at 119.38 234.95 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "7579dc5a-38f4-e36f-f117-67a685a5d54a")
-		(property "Reference" "R4"
-			(at 121.92 234.95 0)
+		(uuid "32761b28-c5f0-a464-6956-bbbd9e906358")
+		(property "Reference" "SW1"
+			(at 121.92 229.86999999999998 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(property "Value" "390 DNP"
-			(at 121.92 237.49 0)
+		(property "Value" "PWM/SPI"
+			(at 121.92 232.41 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
-		(property "Footprint" "Resistor_SMD:R_0805_2012Metric_Pad1.20x1.40mm_HandSolder"
-			(at 119.38 240.03 0)
+		(property "Footprint" "Button_Switch_SMD:SW_SPDT_CK_JS102011SAQN"
+			(at 119.38 234.95 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Datasheet" "~"
-			(at 119.38 240.03 0)
+			(at 119.38 234.95 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
 		(property "Description" ""
-			(at 119.38 240.03 0)
+			(at 119.38 234.95 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
-		(pin "1" (uuid "a946fe83-71ab-c84a-6dfc-62897dae10d9"))
-		(pin "2" (uuid "68777b31-15cf-18c0-d6f4-fb7db7f3942c"))
+		(pin "1" (uuid "f1ce9a16-f229-8d2e-fa62-875b5b97b910"))
+		(pin "2" (uuid "e6af8f11-1f3f-d942-d7ce-c64a39e1e17b"))
+		(pin "3" (uuid "a40ea2db-ee39-0ee8-202e-2ca1de175baf"))
 		(instances
 			(project "AskSin-Analyzer-V3"
 				(path "/63a9f0ea-7bb9-8050-796b-649e85481845"
-					(reference "R4") (unit 1)
+					(reference "SW1") (unit 1)
 				)
 			)
 		)
@@ -5233,8 +5411,8 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "77ed3ae4-3c07-f5eb-315d-04a2f4bb15cd")
-		(property "Reference" "R5"
+		(uuid "7579dc5a-38f4-e36f-f117-67a685a5d54a")
+		(property "Reference" "R4"
 			(at 147.32 234.95 0)
 			(effects (font (size 1.27 1.27)) (justify left))
 		)
@@ -5254,12 +5432,12 @@
 			(at 144.78 240.03 0)
 			(effects (font (size 1.27 1.27)) (hide yes))
 		)
-		(pin "1" (uuid "9c6fa798-4581-7a0e-ed5b-d2484f661c9a"))
-		(pin "2" (uuid "a77778ba-85a6-d64a-9a7e-dbce0458a253"))
+		(pin "1" (uuid "a946fe83-71ab-c84a-6dfc-62897dae10d9"))
+		(pin "2" (uuid "68777b31-15cf-18c0-d6f4-fb7db7f3942c"))
 		(instances
 			(project "AskSin-Analyzer-V3"
 				(path "/63a9f0ea-7bb9-8050-796b-649e85481845"
-					(reference "R5") (unit 1)
+					(reference "R4") (unit 1)
 				)
 			)
 		)
@@ -6651,15 +6829,15 @@
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "810636bd-606a-d54b-9f40-225b9740a1d0")
 	)
-	(wire (pts (xy 119.38 236.22) (xy 119.38 232.41))
+	(wire (pts (xy 124.46 232.41) (xy 128.27 232.41))
 		(stroke (width 0) (type default))
-		(uuid "d7f6d590-a727-0fb0-2cff-ee2744865c05")
+		(uuid "3318fe63-4c6f-8599-8d63-4c6211371180")
 	)
 	(label "LED_PWM"
-		(at 119.38 232.41 0)
+		(at 128.27 232.41 0)
 		(fields_autoplaced yes)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
-		(uuid "a5c6cde3-ec87-4a61-5b5d-10cb279fed83")
+		(uuid "6eae1b78-f966-555a-828d-a381a9ee1a6d")
 	)
 	(wire (pts (xy 34.29 149.86) (xy 30.48 149.86))
 		(stroke (width 0) (type default))
@@ -6671,35 +6849,45 @@
 		(effects (font (size 1.27 1.27)) (justify left bottom))
 		(uuid "8f202635-1eb1-b0e8-5c86-723e9d0c9b05")
 	)
-	(wire (pts (xy 144.78 236.22) (xy 144.78 232.41))
+	(wire (pts (xy 124.46 237.49) (xy 128.27 237.49))
 		(stroke (width 0) (type default))
-		(uuid "3638eb03-b974-b9a1-6b71-fbbd9f632686")
+		(uuid "f8e83b3a-4117-0a7b-ad31-e7e52a6f8217")
 	)
 	(label "LED_SPI"
+		(at 128.27 237.49 0)
+		(fields_autoplaced yes)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "1f218d07-b071-be90-5a25-940b77b4b625")
+	)
+	(wire (pts (xy 114.3 234.95) (xy 110.49 234.95))
+		(stroke (width 0) (type default))
+		(uuid "4792323e-55e7-d14a-dc09-fa0c52807c2b")
+	)
+	(label "WS_WAHL"
+		(at 110.49 234.95 0)
+		(fields_autoplaced yes)
+		(effects (font (size 1.27 1.27)) (justify left bottom))
+		(uuid "d2e21d5f-d8f2-28ed-a394-3f3dfd783751")
+	)
+	(wire (pts (xy 144.78 236.22) (xy 144.78 232.41))
+		(stroke (width 0) (type default))
+		(uuid "23b09474-5a43-8f0a-70ca-ed41c0933acb")
+	)
+	(label "WS_WAHL"
 		(at 144.78 232.41 0)
 		(fields_autoplaced yes)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
-		(uuid "e555a2ef-70e1-dc07-0185-35e24b0c4039")
-	)
-	(wire (pts (xy 119.38 243.84) (xy 119.38 247.65))
-		(stroke (width 0) (type default))
-		(uuid "6e1fd8e0-7cda-4cec-47f1-660fa95f85ec")
-	)
-	(label "WS_DATA"
-		(at 119.38 247.65 0)
-		(fields_autoplaced yes)
-		(effects (font (size 1.27 1.27)) (justify left bottom))
-		(uuid "faf1d5dd-32c8-10fa-9d5f-ad1a1d388bb1")
+		(uuid "b01ad5f5-be6c-0c7f-2958-87e36aeb2259")
 	)
 	(wire (pts (xy 144.78 243.84) (xy 144.78 247.65))
 		(stroke (width 0) (type default))
-		(uuid "74d02e31-b1f3-a035-b63a-8b338ac91d29")
+		(uuid "6e1fd8e0-7cda-4cec-47f1-660fa95f85ec")
 	)
 	(label "WS_DATA"
 		(at 144.78 247.65 0)
 		(fields_autoplaced yes)
 		(effects (font (size 1.27 1.27)) (justify left bottom))
-		(uuid "8f699151-a8bd-dfbe-ce2d-21b279171575")
+		(uuid "faf1d5dd-32c8-10fa-9d5f-ad1a1d388bb1")
 	)
 	(wire (pts (xy 85.09 265.43) (xy 81.28 265.43))
 		(stroke (width 0) (type default))

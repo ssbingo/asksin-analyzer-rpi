@@ -48,7 +48,7 @@ FAB_DIR = HERE / "fab"
 import generate_pcb as G
 
 ORIGIN_X, ORIGIN_Y = G.ORIGIN_X, G.ORIGIN_Y
-BOARD_H = G.TOTAL_H          # Gesamthöhe inkl. Arm — Ursprung ist unten links
+BOARD_H = G.LEG_Y1          # Gesamthöhe inkl. Schenkel — Ursprung unten links
 
 DNP = {"R4"}
 
@@ -71,6 +71,7 @@ SOURCE = {
     "L1": "Reichelt BLM21PG300SN1D",
     "D1": "Reichelt EVL 17-21USRC",
     "S1": "JLCPCB C231329 (B3U-1000P)",
+    "SW1": "JLCPCB C221660 (C&K JS102011SAQN)",
     "R1": "Reichelt WAL WR08X3300FTL",
     "R5": "JLCPCB C17630 (330R 0805) — wie R1",
     "R2": "Reichelt WAL WR08X1002FTL",
@@ -105,6 +106,10 @@ JLC = {
     # C231330 (B3U-1000P-B) war nicht lieferbar; C231329 ist die Variante
     # ohne Zentrierstift — gleiche Pads, die Stiftbohrung bleibt leer.
     "S1": ("C231329", "B3U-1000P", False),
+    # Umschalter PWM/SPI. Amtlicher KiCad-Footprint, deshalb dieser Typ und
+    # nicht der billigere MSK-12C02, fuer den ein Footprint von Hand haette
+    # gezeichnet werden muessen.
+    "SW1": ("C221660", "JS102011SAQN SPDT-Schiebeschalter", False),
     # THT-Ausnahme: passt exakt auf den CSTLS-Footprint (SIP-3 RM 2.5mm).
     "Y1": ("C83707", "CSTLS8M00G53-B0 8MHz", False),
     "L1": ("C16903", "BLM21PG300SN1D", False),

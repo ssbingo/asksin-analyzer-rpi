@@ -514,8 +514,8 @@ const demoUmschalten = (): Promise<void> | undefined => {
       <label v-if="anzeige.led" class="zeile" style="gap: 0.4rem">
         Ansteuerung
         <select v-model="anzeige.methode">
-          <option value="ws2812-spi">SPI / GPIO10 — Pi 5, Platine R5</option>
-          <option value="ws2812-pwm">PWM / GPIO18 — Pi 3/4, Platine R4</option>
+          <option value="ws2812-spi">SPI / GPIO10 — Pi 5, Schalter SW1 auf SPI</option>
+          <option value="ws2812-pwm">PWM / GPIO18 — Pi 3/4, Schalter SW1 auf PWM</option>
         </select>
       </label>
       <label><input type="checkbox" v-model="anzeige.oled" /> OLED-Anzeige</label>
@@ -529,13 +529,13 @@ const demoUmschalten = (): Promise<void> | undefined => {
     <div class="fussnote">
       Voraussetzungen: I²C/SPI aktiviert (macht der Installer bei „Status-LED
       einrichten? Ja"; nachträglich: <code>sudo raspi-config</code> →
-      Interface Options). Für die LED gilt: <strong>SPI</strong> braucht den
-      bestückten <strong>R5</strong> und läuft ohne Root — auf dem
-      <strong>Pi 5</strong> der einzige Weg. <strong>PWM</strong> braucht
-      <strong>R4</strong>, abgeschaltetes Onboard-Audio und den Hilfsdienst
+      Interface Options). Für die LED gilt: <strong>SPI</strong> läuft ohne
+      Root und ist auf dem <strong>Pi 5</strong> der einzige Weg.
+      <strong>PWM</strong> braucht abgeschaltetes Onboard-Audio und den Hilfsdienst
       <code>asksin-analyzer-led</code>; auf <strong>Pi 3/4</strong> ist das der
-      stabile Weg, weil dort der SPI-Takt mit dem Kerntakt wandert. Gestörte
-      Teile meldet die Übersicht.
+      stabile Weg, weil dort der SPI-Takt mit dem Kerntakt wandert. Wichtig:
+      Der <strong>Schiebeschalter SW1</strong> auf der Platine muss zur hier
+      gewählten Betriebsart passen. Gestörte Teile meldet die Übersicht.
     </div>
   </div>
 

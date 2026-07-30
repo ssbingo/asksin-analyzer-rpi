@@ -276,7 +276,7 @@ if [ "$STATUSANZEIGE" -eq 1 ]; then
         fi
         systemctl disable --now asksin-analyzer-led.service 2>/dev/null || true
         c_ok "LED ueber SPI (GPIO10) - der Analyzer-Dienst treibt sie selbst."
-        c_warn "Auf der Platine muss dafuer R5 bestueckt sein (nicht R4)."
+        c_warn "Schiebeschalter SW1 auf der Platine auf Stellung SPI schieben."
     else
         # PWM braucht die PWM-Hardware exklusiv -> Onboard-Audio abschalten,
         # und rpi_ws281x braucht Root. Beides erledigt der Hilfsdienst.
@@ -308,10 +308,10 @@ if [ "$STATUSANZEIGE" -eq 1 ]; then
             systemctl enable --now asksin-analyzer-led.service \
                 || c_warn "LED-Hilfsdienst startete nicht - 'journalctl -u asksin-analyzer-led'."
             c_ok "LED ueber PWM (GPIO18), Hilfsdienst asksin-analyzer-led laeuft."
-            c_warn "Auf der Platine muss dafuer R4 bestueckt sein (nicht R5)."
+            c_warn "Schiebeschalter SW1 auf der Platine auf Stellung PWM schieben."
         else
             c_warn "rpi_ws281x liess sich nicht installieren - LED bleibt dunkel."
-            c_warn "Alternative: in den Einstellungen auf SPI umstellen (dann R5 bestuecken)."
+            c_warn "Alternative: in den Einstellungen auf SPI umstellen (SW1 auf SPI)."
         fi
     fi
     c_ok "Status-LED/OLED vorbereitet."

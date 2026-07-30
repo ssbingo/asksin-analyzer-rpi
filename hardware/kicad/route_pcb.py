@@ -49,7 +49,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 BOARD_FILE = HERE / f"{PROJECT}.kicad_pcb"
 
 ORIGIN_X, ORIGIN_Y = G.ORIGIN_X, G.ORIGIN_Y
-BOARD_W, BOARD_H = G.BODY_W, G.TOTAL_H   # umschließendes Rechteck des T
+BOARD_W, BOARD_H = G.BOARD_L, G.LEG_Y1   # umschließendes Rechteck des L
 
 GRID = 0.1                    # mm je Rasterschritt
 NX = int(BOARD_W / GRID) + 1
@@ -83,9 +83,14 @@ DIAG = math.sqrt(2)
 # existiert nur der Arm (x zwischen ARM_X0 und ARM_X1). Ohne diese Sperren
 # würde der Router seelenruhig durch die Luft routen — die Randprüfung in
 # collect_geometry() kennt nur das umschließende Rechteck.
+# Alles unterhalb des Streifens, was weder Schenkel noch Arm noch Nase ist:
 KEEPOUTS = [
-    (-5.0, G.BODY_H - 0.5, G.ARM_X0 + 0.5, BOARD_H + 5.0),
-    (G.ARM_X1 - 0.5, G.BODY_H - 0.5, BOARD_W + 5.0, BOARD_H + 5.0),
+    # rechts vom Arm (dort ist nur noch der Streifen)
+    (G.ARM_X1 - 0.5, G.PI_Y0 - 0.5, BOARD_W + 5.0, BOARD_H + 5.0),
+    # zwischen Armunterkante und Nasenoberkante, rechts vom Schenkel
+    (G.ARM_X0 - 0.5, G.PI_Y0 + G.ARM_D - 0.5, G.ARM_X1 + 5.0, G.NASE_Y0 + 0.5),
+    # rechts neben der Nase
+    (G.ARM_X0 + G.NASE_D - 0.5, G.NASE_Y0 - 0.5, G.ARM_X1 + 5.0, BOARD_H + 5.0),
 ]
 
 # Netze, die über die Flächen versorgt werden statt über Bahnen.
