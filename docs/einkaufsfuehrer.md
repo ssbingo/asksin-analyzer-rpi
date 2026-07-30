@@ -8,7 +8,7 @@ Root-README **und** im Handbuch.
 
 | Position | Zweck im Projekt |
 | --- | --- |
-| **SSD-Wechselrahmen** | Boot-SSD der Pis (SD nur Notbehelf), wartungsfreundlich im Datenschrank |
+| **SSD-Wechselrahmen** | Boot-SSD der Pis (SD nur Notbehelf), wartungsfreundlich im Datenschrank; am schnellsten bei AliExpress zu finden (30.07.2026) — Einsatz im 19″-Rahmen: [`hardware/3d-druck/19-zoll-rahmen/`](../hardware/3d-druck/19-zoll-rahmen/README.md) |
 | **OLED-Display** | Statusanzeige an J5 (I²C, Phase M11) |
 | **WS2812B** | Status-LED an J7 (Phase M11) |
 | **Keystone-Module** | saubere Durchführungen im Datenschrank (RJ45/USB) |
