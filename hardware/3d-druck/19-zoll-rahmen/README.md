@@ -1,7 +1,12 @@
 # 3D-Druck: 19″-Einbaurahmen
 
-Hier kommen die Druckvorlagen für den 19-Zoll-Rahmen hin, mit dem der
-Analyzer (Raspberry Pi 4 + HAT, Boot-SSD) in den Datenschrank einzieht.
+Druckvorlagen für den 19-Zoll-Rahmen, mit dem der Analyzer in den
+Datenschrank einzieht.
+
+> **Nur für den Raspberry Pi 5** (mit dem dazu passenden PoE-HAT):
+> Die Vorlagen sind explizit für den Pi 5 erstellt. Beim Pi 4 sind
+> PoE-HAT und Abmessungen ähnlich, aber abweichend — dafür bräuchte es
+> leicht angepasste Varianten, die es derzeit nicht gibt.
 
 ## Herkunft und Lizenz
 
@@ -45,8 +50,8 @@ kommen je nach Ausstattung des Analyzers dazu.
 
 1. **Vor dem Einsetzen** OLED, WS2812B und Taster einbauen. OLED und
    WS2812B am besten mit etwas Heißkleber arretieren.
-2. Der **Raspberry Pi 5 mit PoE-HAT und der Analyzer-Platine** wird mit
-   **M2-Schrauben von unten** an die Halterung geschraubt.
+2. Der **Raspberry Pi 5 mit seinem PoE-HAT und der Analyzer-Platine**
+   wird mit **M2-Schrauben von unten** an die Halterung geschraubt.
 3. Im **oberen Teil** des Drucks sitzen **zwei Keystone-Module**:
    - 1 × **USB3/USB3**
    - 1 × **Antenne** — SMA oder RP-SMA, je nachdem, welchem Standard
