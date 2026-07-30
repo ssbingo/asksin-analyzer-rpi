@@ -3,10 +3,11 @@
 Druckvorlagen für den 19-Zoll-Rahmen, mit dem der Analyzer in den
 Datenschrank einzieht.
 
-> **Nur für den Raspberry Pi 5** (mit dem dazu passenden PoE-HAT):
-> Die Vorlagen sind explizit für den Pi 5 erstellt. Beim Pi 4 sind
-> PoE-HAT und Abmessungen ähnlich, aber abweichend — dafür bräuchte es
-> leicht angepasste Varianten, die es derzeit nicht gibt.
+> **Der Front-Einsatz gibt es in zwei Varianten** — `_RPI4` und `_RPI5`.
+> Sie unterscheiden sich in der Frontplatte, weil Pi 4 und Pi 5 ihre
+> Anschlüsse unterschiedlich anordnen. Rahmen und SSD-Einsatz sind für
+> beide gleich. Silvios eigener Aufbau nutzt den **Pi 5** mit dem dazu
+> passenden PoE-HAT.
 
 ## Herkunft und Lizenz
 
@@ -38,11 +39,19 @@ Analyzer-Hardware steht ohnehin unter CC BY-NC-SA 4.0.
 | `Asksin-Analyzer Rahmen 19Zoll-Mitte.stl` | Rahmen, mittleres Segment | 149 × 50 × 76 mm |
 | `Asksin-Analyzer Rahmen 19Zoll-Rechts.stl` | Rahmen, rechtes Segment | 169 × 50 × 76 mm |
 | `Asksin-Analyzer Rahmen 19Zoll-SSD.stl` | Einsatz für den 2,5″-SSD-Wechselrahmen | 140 × 144 × 69 mm |
-| `Asksin-Analyzer Rahmen 19Zoll-OLED-LED-SWITCH.stl` | Front-Einsatz für OLED, Status-LED und Taster | 140 × 40 × 69 mm |
+| `Asksin-Analyzer Rahmen 19Zoll-OLED-LED-SWITCH_RPI4.stl` | Front-Einsatz für OLED, Status-LED und Taster — **Raspberry Pi 4** | 140 × 40 × 69 mm |
+| `Asksin-Analyzer Rahmen 19Zoll-OLED-LED-SWITCH_RPI5.stl` | dasselbe für den **Raspberry Pi 5** | 140 × 40 × 69 mm |
 
 **Der reine Rahmen besteht aus drei Dateien:** Links + Mitte + Rechts —
-zusammengesetzt ergeben sie die 19″-Front. SSD- und OLED-LED-SWITCH-Einsatz
-kommen je nach Ausstattung des Analyzers dazu.
+zusammengesetzt ergeben sie die 19″-Front (169 + 149 + 169 mm ergeben mit
+den Überlappungen die 482,6 mm eines 19-Zoll-Einschubs). SSD- und
+OLED-LED-SWITCH-Einsatz kommen je nach Ausstattung dazu — vom
+Front-Einsatz **genau eine** der beiden Varianten, passend zum verbauten Pi.
+
+Die beiden Varianten sind außen maßgleich und unterscheiden sich fast
+ausschließlich in der **Frontplatte**: 87 % der Geometrieunterschiede liegen
+in den vordersten 6 mm, also bei den Ausschnitten. Innen sind sie bis auf
+Kleinigkeiten identisch (Materialvolumen 36,2 gegen 36,3 cm³).
 
 ## Montage
 
@@ -77,6 +86,29 @@ kommen je nach Ausstattung des Analyzers dazu.
   Toleranzen (folgt aus den Erfahrungen der Testdrucke)
 - Austausch-/Quellformate (`*.step`, bearbeitbares Original), falls
   vorhanden
+
+## Prüfstand der Dateien
+
+Geprüft am 30.07.2026 (binäres STL, Dreieckszahl gegen Dateigröße,
+Kantenpaarung, Materialvolumen):
+
+| Datei | Dreiecke | Volumen | Netz |
+| --- | ---: | ---: | --- |
+| Links | 1 200 | 95,9 cm³ | geschlossen |
+| Mitte | 1 392 | 87,6 cm³ | geschlossen |
+| Rechts | 1 480 | 96,0 cm³ | geschlossen¹ |
+| SSD | 3 880 | 59,4 cm³ | geschlossen |
+| OLED-LED-SWITCH RPI4 | 6 658 | 36,2 cm³ | geschlossen¹ |
+| OLED-LED-SWITCH RPI5 | 7 226 | 36,3 cm³ | geschlossen¹ |
+
+¹ Diese Dateien enthalten drei bis vier **entartete Dreiecke** (drei Punkte
+auf einer Linie, Fläche null). Jeder Slicer verwirft sie stillschweigend;
+sie sind kein Loch im Netz und kein Grund, etwas zu ändern. Nur der Vollständigkeit
+halber vermerkt, damit eine entsprechende Meldung im Slicer niemanden beunruhigt.
+
+Gesamtmaterial für einen kompletten Analyzer (Rahmen + SSD- +
+Front-Einsatz): rund 375 cm³ Vollkörper, also je nach Füllgrad grob
+150–250 g Filament.
 
 ## Rahmenbedingungen
 
