@@ -24,6 +24,8 @@ STATUS_DATEI="$DATA_DIR/update-status.json"
 LOG_DATEI="$DATA_DIR/update.log"
 TRIGGER="$DATA_DIR/update-anstoss"
 DIST="$INSTALL_DIR/webui/dist"
+# Dienstbenutzer wie in install.sh und in der systemd-Unit:
+SERVICE_USER="asksin"
 export npm_config_update_notifier=false
 
 c_info() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
@@ -75,6 +77,11 @@ installiere_dateien() {
     command -v jq >/dev/null 2>&1 || apt-get install -y -qq jq || true
     # i2c-/spi-tools für die Statusanzeige (M11, per WebUI aktivierbar):
     command -v i2ctransfer >/dev/null 2>&1 || apt-get install -y -qq i2c-tools spi-tools || true
+    # Gerätegruppen auf Bestandsanlagen nachziehen: ohne spi/i2c meldet die
+    # Statusanzeige „Permission denied" auf /dev/spidev0.0 bzw. /dev/i2c-1.
+    for g in dialout gpio spi i2c; do
+        getent group "$g" >/dev/null 2>&1 && usermod -aG "$g" "$SERVICE_USER" || true
+    done
     systemctl daemon-reload
     systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-netz.path >/dev/null 2>&1 || true

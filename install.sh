@@ -126,9 +126,20 @@ if ! id -u "$SERVICE_USER" >/dev/null 2>&1; then
     useradd -r -s /usr/sbin/nologin "$SERVICE_USER"
     c_ok "Benutzer '$SERVICE_USER' angelegt."
 fi
-# dialout: serieller Port; gpio: 328P-Reset ueber GPIO4 beim Firmware-Flash
+# Geraetegruppen. Fehlt eine davon, laeuft der Dienst zwar, aber die
+# betroffene Funktion meldet "Permission denied":
+#   dialout  serieller Port zum Sniffer
+#   gpio     328P-Reset ueber GPIO4 (Firmware-Flash) und Taster an GPIO17
+#   spi      /dev/spidev0.0 fuer die WS2812-Status-LED
+#   i2c      /dev/i2c-1 fuer das OLED
 usermod -aG dialout "$SERVICE_USER"
-getent group gpio >/dev/null 2>&1 && usermod -aG gpio "$SERVICE_USER"
+for g in gpio spi i2c; do
+    if getent group "$g" >/dev/null 2>&1; then
+        usermod -aG "$g" "$SERVICE_USER"
+    else
+        c_warn "Gruppe '$g' existiert nicht — Zugriff auf die zugehoerigen Geraete fehlt."
+    fi
+done
 mkdir -p "$DATA_DIR" "$CONFIG_DIR"
 chown -R "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 
@@ -173,10 +184,32 @@ fi
 if [ "$KONFIGURIEREN" -eq 1 ]; then
     if have_tty; then
         c_info "Konfigurations-Assistent (Enter = Vorgabe uebernehmen)"
+        printf '\n  \033[1m1. Dieser Analyzer\033[0m\n'
         STANDORT="$(ask_tty "  Standortname (reine Anzeige, aendert den Hostnamen NICHT), z. B. Keller [$(hostname)]: ")"
         STANDORT="${STANDORT:-$(hostname)}"
-        CCU="$(ask_tty '  IP/Hostname der CCU/RaspberryMatic (leer = keine Namensaufloesung): ')"
-        PORT="$(ask_tty '  HTTP-Port [8080]: ')"; PORT="${PORT:-8080}"
+
+        printf '\n  \033[1m2. Verbindung zur CCU / RaspberryMatic\033[0m\n'
+        printf '     Nur fuer die Geraetenamen. Der Port ist dort fest 80 und wird nicht gefragt.\n'
+        CCU="$(ask_tty '  IP/Hostname der CCU (leer = keine Namensaufloesung): ')"
+
+        printf '\n  \033[1m3. Weboberflaeche DIESES Analyzers\033[0m\n'
+        printf '     Unter diesem Port erreichst du spaeter die Oberflaeche im Browser.\n'
+        printf '     Das hat mit der CCU nichts zu tun.\n'
+        PORT="$(ask_tty "  Port der Analyzer-Weboberflaeche [8080] -> http://$(hostname):PORT : ")"
+        PORT="${PORT:-8080}"
+        case "$PORT" in
+            ''|*[!0-9]*)
+                c_warn "'$PORT' ist keine Portnummer — nehme 8080."
+                PORT=8080 ;;
+            *) if [ "$PORT" -lt 1 ] || [ "$PORT" -gt 65535 ]; then
+                   c_warn "Port $PORT liegt ausserhalb 1-65535 — nehme 8080."
+                   PORT=8080
+               elif [ "$PORT" -lt 1024 ]; then
+                   # Die Unit bringt dafuer CAP_NET_BIND_SERVICE mit; ohne die
+                   # Faehigkeit scheiterte der Dienst frueher mit EACCES.
+                   c_info "Port $PORT ist privilegiert — die Unit erhaelt CAP_NET_BIND_SERVICE."
+               fi ;;
+        esac
         a="$(ask_tty '  Weboberflaeche im LAN erreichbar machen? (J/n): ')"
         case "${a,,}" in n|nein|no) HOST="127.0.0.1" ;; *) HOST="0.0.0.0" ;; esac
         a="$(ask_tty '  Schreibzugriffe (Einstellungen, Loeschen) mit Token schuetzen? (J/n): ')"

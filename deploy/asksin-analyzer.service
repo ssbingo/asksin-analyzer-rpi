@@ -15,6 +15,14 @@ ExecStart=/usr/bin/node /opt/asksin-analyzer/core/bin/analyzerd.ts /etc/asksin-a
 Restart=always
 RestartSec=3
 
+# Ports unter 1024 sind privilegiert. Ohne diese Fähigkeit scheitert der
+# Dienst beim Binden auf Port 80 mit „listen EACCES" — und zwar erst nach
+# dem vollständigen Hochlauf, was die Fehlersuche unnötig schwer macht.
+# CAP_NET_BIND_SERVICE erlaubt genau das eine und sonst nichts; die
+# Bounding-Set-Zeile nimmt dem Dienst alle übrigen Fähigkeiten dauerhaft.
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+
 # Härtung — der Dienst braucht nur sein Datenverzeichnis beschreibbar
 NoNewPrivileges=true
 ProtectSystem=strict

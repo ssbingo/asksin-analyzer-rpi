@@ -905,7 +905,27 @@ const api = new ApiServer({
 analyzer.start();
 await statusAnzeigeAufbauen();
 await influxAufbauen();
-const { host, port } = await api.listen(konfig.http.port, konfig.http.host);
+// Beim Binden schiefgehen kann viel — und ein roher Stacktrace hilft am
+// Datenschrank niemandem. Deshalb hier die drei Fälle im Klartext, bevor
+// der Dienst mit Code 1 endet und systemd ihn endlos neu startet.
+const { host, port } = await api.listen(konfig.http.port, konfig.http.host).catch(
+  (err: NodeJS.ErrnoException) => {
+    const p = konfig.http.port;
+    if (err.code === 'EACCES' && p < 1024) {
+      log(`Port ${p} ist ein privilegierter Port und der Dienst läuft ohne Rechte dafür.`);
+      log('Abhilfe: entweder einen Port ab 1024 eintragen (z. B. 8080) in');
+      log('  /etc/asksin-analyzer/config.json  →  "http": { "port": 8080 }');
+      log('oder der Unit die Fähigkeit geben:  AmbientCapabilities=CAP_NET_BIND_SERVICE');
+      log('(die mitgelieferte Unit bringt sie mit — dann genügt "sudo asksin-analyzer update").');
+    } else if (err.code === 'EADDRINUSE') {
+      log(`Port ${p} ist bereits belegt — ein anderer Dienst hört dort schon.`);
+      log(`Belegung zeigen:  sudo ss -tlnp | grep :${p}`);
+    } else if (err.code === 'EADDRNOTAVAIL') {
+      log(`Adresse ${konfig.http.host} gibt es auf diesem Gerät nicht.`);
+    }
+    throw err;
+  },
+);
 log(`AskSin-Analyzer ${paketVersion()} — API auf http://${host}:${port}`);
 if (existsSync(uiDir)) log(`Web-UI: ${uiDir}`);
 else log('Kein Web-UI gefunden (webui/dist fehlt) — nur API');
