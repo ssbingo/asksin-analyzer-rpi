@@ -106,21 +106,23 @@ def export_dsn(board_file: pathlib.Path, dsn: pathlib.Path) -> None:
     # Umrandung dann als Linie statt als geschlossene Grenze und routet quer
     # durch die Aussparung des L. Stattdessen wird der Umriss selbst um den
     # geforderten Abstand nach innen geschrumpft.
-    inset = EDGE_CLEARANCE
-    ring = [
-        (G.BODY_X1 - inset, G.BODY_H - inset),
-        (G.BODY_X0 + inset, G.BODY_H - inset),
-        (G.BODY_X0 + inset, G.ARM_H - inset),
-        (inset, G.ARM_H - inset),
-        (inset, inset),
-        (G.BODY_X1 - inset, inset),
-    ]
+    ring = list(reversed(G.inset_ring(EDGE_CLEARANCE)))
     coords = " ".join(
         f"{int(round((G.ORIGIN_X + x) * 1000))} {int(round(-(G.ORIGIN_Y + y) * 1000))}"
         for x, y in ring + [ring[0]])
     text, n = re.subn(r"\(path pcb 0 [^)]*\)", f"(path pcb 0 {coords})", text)
     if n != 1:
         raise SystemExit("Umrandung im DSN nicht gefunden")
+    # Masse aus dem Autorouter herausnehmen: Sie liegt auf den beiden
+    # Innenlagen, und jedes SMD-Massepad hat schon in generate_pcb.py sein
+    # Stützvia dorthin bekommen. Ließe man GND im DSN, zöge Freerouting
+    # zusätzliche Bahnen quer über die Platine, deren Enden hinterher als
+    # „unverbunden" gemeldet werden — es kennt die Flächen nicht als
+    # Verbindung. Die Pads bleiben als Hindernisse selbstverständlich aktiv.
+    text, n = re.subn(r"\(net GND\s*\n\s*\(pins[^)]*\)\s*\n\s*\)\s*\n",
+                      "", text)
+    if n != 1:
+        raise SystemExit("GND-Netzblock im DSN nicht gefunden")
     dsn.write_text(text)
 
 
@@ -150,9 +152,26 @@ def run_freerouting(jar: pathlib.Path, major: int) -> None:
             print("  " + line)
     if not SES.exists():
         raise SystemExit("Freerouting hat keine Sitzungsdatei erzeugt")
+    # Freerouting nennt am Ende jede offen gebliebene Verbindung:
+    #     Net 'I2C_SDA' (1 unrouted connection):
+    #       - J1-3  ->  J5-4
+    # Diese Reste routet der eigene A*-Router nach — Freerouting arbeitet
+    # mit festem Startwert, ein bloßer Neustart ändert am Ergebnis nichts.
+    reste = []
+    netz = None
+    for line in res.stdout.splitlines():
+        m = re.search(r"Net '([^']+)'", line)
+        if m:
+            netz = m.group(1)
+            continue
+        m = re.search(r"-\s*(\S+)-(\S+)\s*->\s*(\S+)-(\S+)", line)
+        if m and netz:
+            reste.append((netz, (m.group(1), m.group(2)),
+                          (m.group(3), m.group(4))))
+    return reste
 
 
-def stitch_planes(board) -> dict[str, tuple[int, int]]:
+def stitch_planes(board, reste=()) -> dict[str, tuple[int, int]]:
     """Versorgungspads über Durchkontaktierungen an ihre Innenlage binden.
 
     Freerouting behandelt In1.Cu und In2.Cu als Versorgungslagen und lässt sie
@@ -191,14 +210,46 @@ def stitch_planes(board) -> dict[str, tuple[int, int]]:
                 pads_by_net.setdefault(pad.GetNetname(), []).append(pad)
 
     result = {}
-    # Nur noch Masse: +3V3 wird seit dem Wegfall der 3,3-V-Fläche wie jedes
-    # andere Netz geroutet.
-    for net_name in ("GND",):
-        pads = pads_by_net.get(net_name, [])
-        result[net_name] = R.stitch_plane_net(board, obs, net_name, pads, layers)
 
+    # Von Freerouting offen gelassene Signalverbindungen zuerst nachrouten —
+    # mit vollständiger Hinderniskarte kollidiert der A*-Router mit nichts.
+    # **Masse ausgenommen**: Freerouting kennt die Masseflächen der Innenlagen
+    # nicht als Verbindung und meldet deshalb Massepins als „offen", die über
+    # ihre Stützvias längst zusammenhängen. Ein Nachrouten wäre unnötiges
+    # Kupfer — oder scheitert schlicht, weil es keinen freien Korridor gibt.
+    for net_name, (ra, na), (rb, nb) in reste:
+        if net_name == "GND":
+            continue
+        net_obj = board.FindNet(net_name)
+        pa = board.FindFootprintByReference(ra).FindPadByNumber(na)
+        pb = board.FindFootprintByReference(rb).FindPadByNumber(nb)
+        path = R.astar(obs, net_name, R.pad_cells(pa, layers),
+                       R.pad_cells(pb, layers), layers)
+        if path is None:
+            raise SystemExit(f"Nachrouten {net_name} {ra}-{na} -> {rb}-{nb} "
+                             "fehlgeschlagen")
+        R.emit_path(board, net_obj, net_name, path, obs, layers)
+        print(f"  nachgeroutet: {net_name} ({ra}-{na} -> {rb}-{nb})")
+
+    # Erst das Masseraster — es liefert flächendeckend Ankerpunkte —, dann
+    # die Massepads: bevorzugt mit eigenem Stützvia direkt daneben, sonst
+    # per kurzer Bahn zum nächsten Raster-Via.
     grid = R.stitch_ground_grid(board, obs, layers)
     result["Raster"] = (grid, 0)
+
+    anker = set()
+    for item in board.GetTracks():
+        if item.Type() == pcbnew.PCB_VIA_T and item.GetNetname() == "GND":
+            pos = item.GetPosition()
+            cell = R.to_cell(pcbnew.ToMM(pos.x) - R.ORIGIN_X,
+                             pcbnew.ToMM(pos.y) - R.ORIGIN_Y)
+            for lay in layers:
+                anker.add((lay, cell[0], cell[1]))
+
+    for net_name in ("GND",):
+        pads = pads_by_net.get(net_name, [])
+        result[net_name] = R.stitch_plane_net(board, obs, net_name, pads,
+                                              layers, anker)
     return result
 
 
@@ -272,6 +323,7 @@ def anchor_islands(board, layers, rounds: int = 8) -> int:
                             continue
                         R.add_via(board, net_obj, vx, vy, layers,
                                   R.STITCH_VIA_D, R.STITCH_VIA_DRILL)
+                        obs.add_hole(vx, vy, R.STITCH_VIA_DRILL)
                         inflate = (R.STITCH_VIA_D / 2 + R.CLEARANCE
                                    + R.TRACK_W / 2 + R.MARGIN)
                         for lay in layers:
@@ -286,12 +338,13 @@ def anchor_islands(board, layers, rounds: int = 8) -> int:
     return added
 
 
-def import_ses(board_file: pathlib.Path, ses: pathlib.Path) -> tuple[int, int]:
+def import_ses(board_file: pathlib.Path, ses: pathlib.Path,
+               reste=()) -> tuple[int, int]:
     board = pcbnew.LoadBoard(str(board_file))
     if not pcbnew.ImportSpecctraSES(board, str(ses)):
         raise SystemExit("Import der Sitzungsdatei fehlgeschlagen")
 
-    for net_name, (done, failed) in stitch_planes(board).items():
+    for net_name, (done, failed) in stitch_planes(board, reste).items():
         state = "alle" if not failed else f"{failed} ohne Platz"
         print(f"  Fläche {net_name:<6} {done:3d} Pads angebunden ({state})")
 
@@ -300,6 +353,18 @@ def import_ses(board_file: pathlib.Path, ses: pathlib.Path) -> tuple[int, int]:
     # Teilflächen erzeugen — deshalb wiederholt, bis nichts mehr übrig ist.
     extra = anchor_islands(board, [stack[0], stack[-1]])
     print(f"  Teilflächen nachträglich angebunden: {extra}")
+
+    # Doppelte Durchkontaktierungen (gleiche Position) entfernen — die können
+    # entstehen, wenn zwei Stütz-Schritte denselben freien Fleck wählen.
+    gesehen = set()
+    for item in list(board.GetTracks()):
+        if item.Type() != pcbnew.PCB_VIA_T:
+            continue
+        key = (item.GetPosition().x, item.GetPosition().y)
+        if key in gesehen:
+            board.Delete(item)
+        else:
+            gesehen.add(key)
 
     # Konnektivität neu aufbauen, bevor gefüllt wird: die eben eingefügten
     # Durchkontaktierungen sind dem Verbindungsmodell sonst unbekannt, und die
@@ -328,10 +393,13 @@ def main() -> int:
     print(f"  {DSN.name}, Innenlagen als Versorgungslagen markiert")
 
     print(f"Route (bis zu {MAX_PASSES} Durchläufe) …")
-    run_freerouting(jar, major)
+    reste = run_freerouting(jar, major)
+    if len(reste) > 5:
+        raise SystemExit(f"{len(reste)} Verbindungen ungeroutet — das ist "
+                         "kein Nachrout-Fall, das Layout ist zu eng.")
 
     print("Importiere Sitzung und fülle Flächen …")
-    tracks, vias = import_ses(BOARD_FILE, SES)
+    tracks, vias = import_ses(BOARD_FILE, SES, reste)
     print(f"  {tracks} Leiterbahnen, {vias} Durchkontaktierungen")
     print(f"\ngespeichert: {BOARD_FILE.name}")
     return 0

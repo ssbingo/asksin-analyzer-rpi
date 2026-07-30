@@ -44,8 +44,10 @@ BOARD_FILE = HERE / f"{PROJECT}.kicad_pcb"
 FAB_DIR = HERE / "fab"
 
 # Ursprung und Höhe der Platine in Blattkoordinaten (aus generate_pcb.py).
-ORIGIN_X, ORIGIN_Y = 100.0, 60.0
-BOARD_H = 46.0
+import generate_pcb as G
+
+ORIGIN_X, ORIGIN_Y = G.ORIGIN_X, G.ORIGIN_Y
+BOARD_H = G.TOTAL_H          # Gesamthöhe inkl. Arm — Ursprung ist unten links
 
 DNP = {"R4"}
 

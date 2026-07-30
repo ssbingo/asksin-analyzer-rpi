@@ -121,11 +121,15 @@ def build() -> str:
         line(a[0], a[1], b[0], b[1], "F.Fab", 0.1, f"fab{i}")
 
     # Siebdruck nur an Ober- und Unterkante — an den Seiten liegen die Pads.
+    # Die Linien enden vor den äußersten Halblöchern, sonst laufen sie über
+    # deren Lötstoppöffnung (DRC: silk_over_copper).
     silk_y = hh + 0.2
-    line(-half_w, -silk_y, half_w, -silk_y, "F.SilkS", 0.12, "silk_top")
-    line(-half_w, silk_y, half_w, silk_y, "F.SilkS", 0.12, "silk_bottom")
-    # Pin-1-Markierung unten rechts
-    line(half_w + 0.4, silk_y, half_w + 0.4, silk_y - 1.0, "F.SilkS", 0.12, "silk_pin1")
+    silk_x = pad_cx - PAD_W / 2 - 0.25
+    line(-silk_x, -silk_y, silk_x, -silk_y, "F.SilkS", 0.12, "silk_top")
+    line(-silk_x, silk_y, silk_x, silk_y, "F.SilkS", 0.12, "silk_bottom")
+    # Pin-1-Markierung unten rechts — **nach außen** gezogen. Nach innen
+    # liefe sie über die Halbloch-Pads (DRC: silk_over_copper).
+    line(silk_x, silk_y, silk_x, silk_y + 0.8, "F.SilkS", 0.12, "silk_pin1")
 
     # Sperrfläche/Courtyard
     cx = pad_cx + PAD_W / 2 + COURTYARD

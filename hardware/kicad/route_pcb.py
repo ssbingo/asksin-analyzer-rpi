@@ -42,13 +42,14 @@ import sys
 
 import pcbnew
 
+import generate_pcb as G
 from generate_schematic import NETS, PROJECT
 
 HERE = pathlib.Path(__file__).resolve().parent
 BOARD_FILE = HERE / f"{PROJECT}.kicad_pcb"
 
-ORIGIN_X, ORIGIN_Y = 100.0, 60.0
-BOARD_W, BOARD_H = 118.0, 46.0
+ORIGIN_X, ORIGIN_Y = G.ORIGIN_X, G.ORIGIN_Y
+BOARD_W, BOARD_H = G.BODY_W, G.TOTAL_H   # umschließendes Rechteck des T
 
 GRID = 0.1                    # mm je Rasterschritt
 NX = int(BOARD_W / GRID) + 1
@@ -78,13 +79,13 @@ EDGE_KEEPOUT = 0.75
 VIA_COST = 32.0               # in Rasterschritten; Lagenwechsel soll wehtun
 DIAG = math.sqrt(2)
 
-# Der fehlende Quadrant des L ist keine Platine. Ohne diese Sperre würde der
-# Router seelenruhig durch die Luft routen — die Randprüfung in
+# Die fehlenden Quadranten des T sind keine Platine: unterhalb des Körpers
+# existiert nur der Arm (x zwischen ARM_X0 und ARM_X1). Ohne diese Sperren
+# würde der Router seelenruhig durch die Luft routen — die Randprüfung in
 # collect_geometry() kennt nur das umschließende Rechteck.
-ARM_H = 14.0
-BODY_X0 = 64.0
 KEEPOUTS = [
-    (-5.0, ARM_H - 0.5, BODY_X0 + 0.5, BOARD_H + 5.0),
+    (-5.0, G.BODY_H - 0.5, G.ARM_X0 + 0.5, BOARD_H + 5.0),
+    (G.ARM_X1 - 0.5, G.BODY_H - 0.5, BOARD_W + 5.0, BOARD_H + 5.0),
 ]
 
 # Netze, die über die Flächen versorgt werden statt über Bahnen.
@@ -116,6 +117,8 @@ class Obstacles:
         # (layer, cx, cy) -> Menge der Netze, die diese Zelle sperren
         self.cells: dict[tuple[int, int, int], set[str]] = {}
         self.static: set[tuple[int, int]] = set()   # Rand und Sperrflächen
+        # Bohrungen (x, y, Radius) — netzunabhängig, für Loch-zu-Loch-Abstand
+        self.holes: list[tuple[float, float, float]] = []
 
     def add_rect(self, layer: int, x0: float, y0: float, x1: float, y1: float,
                  net: str, inflate: float) -> None:
@@ -149,7 +152,17 @@ class Obstacles:
     # Bahnmitte gerechnet, eine Durchkontaktierung ist aber breiter.
     VIA_CHECK_CELLS = int(round((VIA_D / 2 - TRACK_W / 2) / GRID))
 
+    def add_hole(self, x: float, y: float, drill: float) -> None:
+        self.holes.append((x, y, drill / 2))
+
     def via_blocked(self, cx: int, cy: int, net: str, diameter=None) -> bool:
+        # Bohrloch-zu-Bohrloch ist netzunabhängig: auch ein Via im eigenen
+        # Netz darf einem Durchsteckpad nicht näher kommen, als es die
+        # Fertigung erlaubt (0,25 mm Steg + Reserve auf den Via-Bohrer).
+        vx, vy = to_mm(cx, cy)
+        for hx, hy, hr in self.holes:
+            if (vx - hx) ** 2 + (vy - hy) ** 2 < (hr + 0.45) ** 2:
+                return True
         r = (self.VIA_CHECK_CELLS if diameter is None
              else max(0, int(round((diameter / 2 - TRACK_W / 2) / GRID))))
         for dx in range(-r, r + 1):
@@ -173,8 +186,20 @@ def collect_geometry(board: pcbnew.BOARD, layers: list[int]) -> Obstacles:
     for x0, y0, x1, y1 in KEEPOUTS:
         obs.add_static_rect(x0, y0, x1, y1)
 
+    for item in board.GetTracks():
+        if item.Type() == pcbnew.PCB_VIA_T:
+            pos = item.GetPosition()
+            obs.add_hole(pcbnew.ToMM(pos.x) - ORIGIN_X,
+                         pcbnew.ToMM(pos.y) - ORIGIN_Y,
+                         pcbnew.ToMM(item.GetDrillValue()))
+
     for fp in board.GetFootprints():
         for pad in fp.Pads():
+            d = pad.GetDrillSize().x
+            if d:
+                pp = pad.GetPosition()
+                obs.add_hole(pcbnew.ToMM(pp.x) - ORIGIN_X,
+                             pcbnew.ToMM(pp.y) - ORIGIN_Y, pcbnew.ToMM(d))
             net = pad.GetNetname() or f"__{fp.GetReference()}_{pad.GetNumber()}"
             bb = pad.GetBoundingBox()
             x0 = pcbnew.ToMM(bb.GetLeft()) - ORIGIN_X
@@ -341,6 +366,7 @@ def emit_path(board, net_obj, net_name, path, obs, layers) -> int:
         if node[0] != prev[0]:
             x, y = to_mm(prev[1], prev[2])
             add_via(board, net_obj, x, y, layers)
+            obs.add_hole(x, y, VIA_DRILL)
             for layer in layers:
                 obs.add_rect(layer, x, y, x, y, net_name, INFLATE_VIA)
             vias += 1
@@ -376,12 +402,67 @@ def line_clear(obs, net_name, layer, c0, c1) -> bool:
     return True
 
 
-def stitch_plane_net(board, obs, net_name, pads, layers) -> tuple[int, int]:
-    """Jeden Pad des Netzes über eine Durchkontaktierung an seine Fläche binden."""
+def via_in_pad_ok(board, pad, px, py, obs) -> bool:
+    """Passt ein Stützvia mitten in diesen Pad? Geprüft werden echte
+    Abstände zu Fremdkupfer (Pads, Bahnen, Vias) und zu Bohrungen."""
+    eigenes = pad.GetNetname()
+    via_r = STITCH_VIA_D / 2
+    brauch_kupfer = via_r + 0.16          # 0,15 Abstand + Rundungsreserve
+    for hx, hy, hr in obs.holes:
+        if (px - hx) ** 2 + (py - hy) ** 2 < (hr + 0.45) ** 2:
+            return False
+    for fp in board.GetFootprints():
+        for p2 in fp.Pads():
+            if p2.GetNetname() == eigenes:
+                continue
+            bb = p2.GetBoundingBox()
+            x0, y0 = pcbnew.ToMM(bb.GetLeft()) - ORIGIN_X, pcbnew.ToMM(bb.GetTop()) - ORIGIN_Y
+            x1, y1 = pcbnew.ToMM(bb.GetRight()) - ORIGIN_X, pcbnew.ToMM(bb.GetBottom()) - ORIGIN_Y
+            dx = max(x0 - px, 0.0, px - x1)
+            dy = max(y0 - py, 0.0, py - y1)
+            if dx * dx + dy * dy < brauch_kupfer ** 2:
+                return False
+    for item in board.GetTracks():
+        if (item.GetNetname() or "__anon") == eigenes:
+            continue
+        s, e = item.GetStart(), item.GetEnd()
+        x0, x1 = sorted((pcbnew.ToMM(s.x) - ORIGIN_X, pcbnew.ToMM(e.x) - ORIGIN_X))
+        y0, y1 = sorted((pcbnew.ToMM(s.y) - ORIGIN_Y, pcbnew.ToMM(e.y) - ORIGIN_Y))
+        breite = pcbnew.ToMM(item.GetWidth()) / 2
+        dx = max(x0 - px, 0.0, px - x1)
+        dy = max(y0 - py, 0.0, py - y1)
+        if dx * dx + dy * dy < (brauch_kupfer + breite) ** 2:
+            return False
+    return True
+
+
+def stitch_plane_net(board, obs, net_name, pads, layers,
+                     anker_zellen=frozenset()) -> tuple[int, int]:
+    """Jeden Pad des Netzes über eine Durchkontaktierung an seine Fläche binden.
+
+    Findet sich kein Platz für ein eigenes Stützvia, darf der Pad ersatzweise
+    mit einer kurzen Bahn an ein bereits vorhandenes Via desselben Netzes
+    anschließen (`anker_zellen`, z. B. das Masseraster).
+    """
     net_obj = board.FindNet(net_name)
     done = failed = 0
+
+    # Pads, die in generate_pcb.py schon ihr Stützvia samt Stichleitung
+    # bekommen haben, erkennt man an einer Bahn, die exakt im Padmittelpunkt
+    # beginnt oder endet. Ohne diese Prüfung suchte der Stitcher hier
+    # vergeblich weiter — der Platz ist ja durch das eigene Via belegt.
+    versorgt = set()
+    for item in board.GetTracks():
+        if item.Type() == pcbnew.PCB_VIA_T or item.GetNetname() != net_name:
+            continue
+        for punkt in (item.GetStart(), item.GetEnd()):
+            versorgt.add((punkt.x, punkt.y))
+
     for pad in pads:
         pos = pad.GetPosition()
+        if (pos.x, pos.y) in versorgt:
+            done += 1
+            continue
         px = pcbnew.ToMM(pos.x) - ORIGIN_X
         py = pcbnew.ToMM(pos.y) - ORIGIN_Y
         pc = to_cell(px, py)
@@ -393,7 +474,7 @@ def stitch_plane_net(board, obs, net_name, pads, layers) -> tuple[int, int]:
         # freien Platz zu suchen reicht nicht: in einer fertig gerouteten
         # Platine ist der oft von Bahnen eingeschlossen.
         candidates = []
-        for r in range(0, 45):
+        for r in range(0, 90):
             for dx in range(-r, r + 1):
                 for dy in ((-r, r) if r else (0,)):
                     for cand in ((pc[0] + dx, pc[1] + dy), (pc[0] + dy, pc[1] + dx)):
@@ -420,12 +501,38 @@ def stitch_plane_net(board, obs, net_name, pads, layers) -> tuple[int, int]:
                 spot, route = cand, path
                 break
         if spot is None:
+            # Letzte Rettung: Stützvia direkt in den Pad (getentet, 0,3-mm-
+            # Bohrer — bei Hand- und Economic-Bestückung unkritisch, üblich
+            # bei TQFP-Massepins). Die Zellkarte taugt hier nicht als
+            # Prüfer: ihre aufgeblähten Fremdkupferzonen reichen bis in den
+            # eigenen Pad hinein. Stattdessen echte Geometrieabstände.
+            if via_in_pad_ok(board, pad, px, py, obs):
+                add_via(board, net_obj, px, py, layers,
+                        STITCH_VIA_D, STITCH_VIA_DRILL)
+                obs.add_hole(px, py, STITCH_VIA_DRILL)
+                inflate = STITCH_VIA_D / 2 + CLEARANCE + TRACK_W / 2 + MARGIN
+                for layer in layers:
+                    obs.add_rect(layer, px, py, px, py, net_name, inflate)
+                done += 1
+                continue
+
+        if spot is None and anker_zellen:
+            path = astar(obs, net_name, pad_cells(pad, layers),
+                         anker_zellen, layers)
+            if path is not None:
+                emit_path(board, net_obj, net_name, path, obs, layers)
+                done += 1
+                continue
+        if spot is None:
+            fp = pad.GetParentFootprint()
+            print(f"    kein Anschluss: {fp.GetReference()}-{pad.GetNumber()}")
             failed += 1
             continue
         vx, vy = to_mm(*spot)
         if route is not None:
             emit_path(board, net_obj, net_name, route, obs, layers)
         add_via(board, net_obj, vx, vy, layers, STITCH_VIA_D, STITCH_VIA_DRILL)
+        obs.add_hole(vx, vy, STITCH_VIA_DRILL)
         stitch_inflate = STITCH_VIA_D / 2 + CLEARANCE + TRACK_W / 2 + MARGIN
         for layer in layers:
             obs.add_rect(layer, vx, vy, vx, vy, net_name, stitch_inflate)
@@ -566,6 +673,7 @@ def stitch_ground_grid(board, obs, layers, pitch: float = 3.0) -> int:
                 continue
             vx, vy = to_mm(cx, cy)
             add_via(board, net_obj, vx, vy, layers, STITCH_VIA_D, STITCH_VIA_DRILL)
+            obs.add_hole(vx, vy, STITCH_VIA_DRILL)
             inflate = STITCH_VIA_D / 2 + CLEARANCE + TRACK_W / 2 + MARGIN
             for layer in layers:
                 obs.add_rect(layer, vx, vy, vx, vy, "GND", inflate)

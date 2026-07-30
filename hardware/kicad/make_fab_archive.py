@@ -43,12 +43,22 @@ LAYOUT = {
 }
 
 LIESMICH = """\
-AskSin-Analyzer V4 — Fertigungspaket
-Erzeugt am {datum} aus AskSin-Analyzer-V3.kicad_pcb (Produktionsstand).
+AskSin-Analyzer — Fertigungspaket Hardware v0.1.0
+Erzeugt am {datum} aus AskSin-Analyzer-V3.kicad_pcb.
+
+WICHTIG — Unterschied zu v0.0.1:
+    In v0.0.1 war die 2x20-Buchse J1 gespiegelt (die gerade Pinreihe lag
+    auf der falschen Seite). Platinen dieser Charge duerfen NUR ueber den
+    J1-Adapter (kicad/adapter/) betrieben werden. In v0.1.0 ist J1
+    korrigiert -- geprueft gegen die offizielle KiCad-Vorlage
+    RaspberryPi-HAT -- und die Platine liegt jetzt PARALLEL neben dem Pi
+    an der Header-Seite statt ueber dessen Buchsen.
 
 gerber/
     Kupfer F.Cu / In1.Cu / In2.Cu / B.Cu (4 Lagen, 1,6 mm,
-    beide Innenlagen Masse, keine Impedanzvorgabe noetig),
+    beide Innenlagen durchgehend Masse -- die Aussenlagen tragen
+    keine Massefläche, jedes Massepad haengt ueber ein eigenes
+    Stuetzvia an den Innenlagen; keine Impedanzvorgabe noetig),
     Loetstopplack beidseitig, Bestueckungsdruck beidseitig,
     Loetpastenmaske oben, Umriss, Bohrdaten (PTH/NPTH getrennt),
     Gerber-Jobfile mit Lagenaufbau.
@@ -84,8 +94,10 @@ doku/
     schaltplan.pdf   vollstaendiger Schaltplan
 
 Pruefstand bei Erstellung: ERC 0 Fehler / 0 Warnungen,
-DRC 0 Verstoesse, Netzliste maschinell gegen die Spezifikation
-geprueft (hardware/README.md im Projekt).
+DRC 0 Fehler / 0 Warnungen / 0 unverbundene Elemente, Netzliste
+maschinell gegen die Spezifikation geprueft, J1-Pad-Geometrie
+maschinell gegen die KiCad-Vorlage RaspberryPi-HAT geprueft
+(hardware/README.md im Projekt).
 """
 
 

@@ -62,20 +62,32 @@ def overlap(a, b) -> bool:
 def tidy_silkscreen(board) -> tuple[int, int]:
     """Bezeichner so setzen, dass sie weder Bauteile noch einander überdecken."""
     footprints = list(board.GetFootprints())
-    obstacles = [box_of(fp) for fp in footprints]
+    # 0,3 mm Zuschlag: der Bestückungsdruck mancher Footprints (etwa der
+    # Rahmen von S1) reicht über die Abstandsfläche hinaus.
+    obstacles = [(b[0] - 0.3, b[1] - 0.3, b[2] + 0.3, b[3] + 0.3)
+                 for b in (box_of(fp) for fp in footprints)]
+    # Vorhandene Platinen-Texte (Markierung, Lizenz) sind ebenfalls tabu.
+    # Box aus Position und Textlänge gerechnet — GetBoundingBox() stürzt in
+    # dieser pcbnew-Version auf frisch hinzugefügten Texten ab (Segfault).
     placed_texts: list[tuple[float, float, float, float]] = []
+    for item in board.GetDrawings():
+        if item.GetClass() == "PCB_TEXT":
+            pos = item.GetPosition()
+            tw = len(item.GetText()) * 1.0 * 0.72 + 1.0
+            px, py = pcbnew.ToMM(pos.x), pcbnew.ToMM(pos.y)
+            placed_texts.append((px - tw / 2, py - 0.8, px + tw / 2, py + 0.8))
 
     moved = stuck = 0
     for fp in footprints:
         ref = fp.Reference()
-        ref.SetLayer(pcbnew.F_SilkS)
+        ref.SetLayer(pcbnew.B_SilkS if fp.IsFlipped() else pcbnew.F_SilkS)
         ref.SetTextSize(pcbnew.VECTOR2I(mm(TEXT_SIZE), mm(TEXT_SIZE)))
         ref.SetTextThickness(mm(TEXT_THICK))
         ref.SetVisible(True)
         # Werte gehören auf die Fertigungslage, nicht in den Bestückungsdruck —
         # sonst wird es auf einer Platine dieser Größe unleserlich.
         val = fp.Value()
-        val.SetLayer(pcbnew.F_Fab)
+        val.SetLayer(pcbnew.B_Fab if fp.IsFlipped() else pcbnew.F_Fab)
         val.SetVisible(True)
 
         x0, y0, x1, y1 = box_of(fp)
@@ -113,6 +125,25 @@ def tidy_silkscreen(board) -> tuple[int, int]:
     return moved, stuck
 
 
+def tent_vias(board) -> int:
+    """Alle Durchkontaktierungen mit Lötstopplack abdecken.
+
+    Zwei Gründe: Offene Vias sind blankes Kupfer im Datenschrank (Kondensat,
+    Kriechströme), und sie zwingen jeden Text auf der Platine zum Ausweichen —
+    eine Lötstoppöffnung unter dem Bestückungsdruck meldet der DRC als
+    `silk_over_copper`. Auf dieser Platine liegt ein Masse-Via-Raster, dem
+    kein Text ausweichen könnte.
+    """
+    n = 0
+    for item in board.GetTracks():
+        if item.Type() != pcbnew.PCB_VIA_T:
+            continue
+        item.SetFrontTentingMode(pcbnew.TENTING_MODE_TENTED)
+        item.SetBackTentingMode(pcbnew.TENTING_MODE_TENTED)
+        n += 1
+    return n
+
+
 def set_thermal_relief(board) -> int:
     """Masseflächen auf thermische Entlastung umstellen.
 
@@ -124,14 +155,14 @@ def set_thermal_relief(board) -> int:
     n = 0
     for zone in board.Zones():
         zone.SetPadConnection(pcbnew.ZONE_CONNECTION_THT_THERMAL)
-        zone.SetThermalReliefGap(mm(0.3))
-        zone.SetThermalReliefSpokeWidth(mm(0.5))
+        zone.SetThermalReliefGap(mm(0.25))
+        zone.SetThermalReliefSpokeWidth(mm(0.4))
         n += 1
     pcbnew.ZONE_FILLER(board).Fill(board.Zones())
     return n
 
 
-HW_VERSION = "0.0.1"
+HW_VERSION = "0.1.0"
 HW_DATUM = "07/2026"
 MARKING_TOP = [
     f"AskSin-Analyzer · HW v{HW_VERSION} · {HW_DATUM}",
@@ -148,7 +179,10 @@ def add_board_marking(board) -> None:
     kennungen = ("AskSin-Analyzer", "CC BY-NC-SA", "S. Sternitzke", "HW v")
     for item in list(board.GetDrawings()):
         if item.GetClass() == "PCB_TEXT" and                 any(k in item.GetText() for k in kennungen):
-            board.Remove(item)
+            # board.Remove() hinterlässt hier eine korrupte Liste — der
+            # nächste Zugriff auf GetFootprints() stürzt ab. Delete() räumt
+            # das Element sauber aus der Platine.
+            board.Delete(item)
 
     def text(inhalt, x, y, layer, mirrored):
         item = pcbnew.PCB_TEXT(board)
@@ -160,13 +194,52 @@ def add_board_marking(board) -> None:
         item.SetMirrored(mirrored)
         board.Add(item)
 
-    # Oberseite: im freien Streifen des Arms unter dem Header.
-    for i, zeile in enumerate(MARKING_TOP):
-        text(zeile, 32.0, 9.6 + i * 2.3, pcbnew.F_SilkS, False)
-    # Unterseite: an der Unterkante des Körpers, gespiegelt, damit der Text
-    # beim Blick auf die Platinenunterseite lesbar ist.
-    for i, zeile in enumerate(MARKING_TOP):
-        text(zeile, 91.0, 42.6 + i * 2.3, pcbnew.B_SilkS, True)
+    # Beide Zeilen auf die **Unterseite**: Die Oberseite ist mit Bauteilen und
+    # deren Bezeichnern voll, unten liegt außer der Buchse nichts. Gespiegelt,
+    # damit der Text beim Blick auf die Platinenunterseite lesbar ist.
+    #
+    # Der Platz wird gesucht, nicht geraten: Nach jedem Routing-Lauf liegen
+    # Bahnen und Vias anders, und ein Text über einer Lötstoppöffnung ist ein
+    # DRC-Verstoß. Geprüft wird gegen alles, was auf der Unterseite eine
+    # Öffnung erzeugt — Durchsteckpads und nicht abgedeckte Vias.
+    breite = max(len(z) for z in MARKING_TOP) * 0.72 + 1.0
+    hoehe = 2.4 * len(MARKING_TOP) + 1.0
+
+    hindernisse = []
+    for fp in board.GetFootprints():
+        for pad in fp.Pads():
+            if pad.GetAttribute() == pcbnew.PAD_ATTRIB_SMD and fp.IsFlipped() is False:
+                continue
+            bb = pad.GetBoundingBox()
+            hindernisse.append((pcbnew.ToMM(bb.GetLeft()) - G.ORIGIN_X,
+                                pcbnew.ToMM(bb.GetTop()) - G.ORIGIN_Y,
+                                pcbnew.ToMM(bb.GetRight()) - G.ORIGIN_X,
+                                pcbnew.ToMM(bb.GetBottom()) - G.ORIGIN_Y))
+    for item in board.GetTracks():
+        if item.Type() == pcbnew.PCB_VIA_T and not item.IsTented(pcbnew.B_Mask):
+            pos = item.GetPosition()
+            r = pcbnew.ToMM(item.GetWidth()) / 2 + 0.1
+            x = pcbnew.ToMM(pos.x) - G.ORIGIN_X
+            y = pcbnew.ToMM(pos.y) - G.ORIGIN_Y
+            hindernisse.append((x - r, y - r, x + r, y + r))
+
+    def frei(cx: float, cy: float) -> bool:
+        box = (cx - breite / 2, cy - hoehe / 2, cx + breite / 2, cy + hoehe / 2)
+        # Zusätzlicher Rand: Bestückungsdruck darf die Platinenkante nicht
+        # berühren (DRC silk_edge_clearance), inside_board() prüft nur den
+        # Kupferabstand.
+        if not G.inside_board(box[0] - 0.6, box[1] - 0.6,
+                              box[2] + 0.6, box[3] + 0.6):
+            return False
+        return not any(overlap(box, h) for h in hindernisse)
+
+    for cy in [y / 2 for y in range(6, int(G.BODY_H) * 2 - 5)]:
+        for cx in [x / 2 for x in range(int(breite), int(G.BODY_W) * 2 - int(breite))]:
+            if frei(cx, cy):
+                for i, zeile in enumerate(MARKING_TOP):
+                    text(zeile, cx, cy - 1.2 + i * 2.4, pcbnew.B_SilkS, True)
+                return
+    raise SystemExit("Kein freier Platz für die Platinenmarkierung gefunden")
 
 
 def export_fab() -> list[str]:
@@ -203,8 +276,9 @@ def main() -> int:
     board = pcbnew.LoadBoard(str(BOARD_FILE))
     zones = set_thermal_relief(board)
     print(f"Flächen auf thermische Entlastung umgestellt: {zones}")
-    moved, stuck = tidy_silkscreen(board)
+    print(f"Durchkontaktierungen abgedeckt (getentet): {tent_vias(board)}")
     add_board_marking(board)
+    moved, stuck = tidy_silkscreen(board)
     board.Save(str(BOARD_FILE))
     print(f"Bestückungsdruck: {moved} Bezeichner platziert"
           + (f", {stuck} ohne freien Platz" if stuck else ", alle frei"))
@@ -212,10 +286,9 @@ def main() -> int:
     for line in export_fab():
         print(f"  {line}")
 
-    fixed = fix_gerber_job(board)
-    if fixed:
-        print(f"  Jobfile: {fixed} Lagenangabe(n) richtiggestellt")
-    print(f"  Archiv: {make_archive()}")
+    # Das Fertigungsarchiv packt make_fab_archive.py — nach diesem Skript
+    # aufrufen (früher stand hier ein Aufruf nie definierter Helfer, der das
+    # Skript nach den Exporten abstürzen ließ).
     files = sorted(p.name for p in FAB_DIR.iterdir())
     print(f"\nfab/: {len(files)} Dateien")
     return 0
