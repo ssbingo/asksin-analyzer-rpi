@@ -41,6 +41,7 @@ nutzeTakt(async () => {
       <RouterLink to="/list">Telegramme</RouterLink>
       <RouterLink to="/verbund">Verbund</RouterLink>
       <RouterLink to="/settings">Einstellungen</RouterLink>
+      <RouterLink to="/wartung">Wartung</RouterLink>
       <RouterLink to="/info">Info</RouterLink>
     </nav>
     <span v-if="demo" class="demo-badge">DEMO</span>

@@ -437,7 +437,12 @@ export class ApiServer {
           } catch {
             return this.#text(res, 400, 'Body muss JSON sein');
           }
-          await hooks.einstellen(auftrag);
+          // Ungültige Werte sind Eingabefehler des Aufrufers, kein Serverfehler:
+          try {
+            await hooks.einstellen(auftrag);
+          } catch (err) {
+            return this.#text(res, 400, err instanceof Error ? err.message : String(err));
+          }
           return this.#text(res, 200, 'OK — sofort wirksam');
         }
         case '/api/influx': {

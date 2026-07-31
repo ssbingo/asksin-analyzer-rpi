@@ -4,6 +4,7 @@ import HomeView from './views/HomeView.vue';
 import ListeView from './views/ListeView.vue';
 import VerbundView from './views/VerbundView.vue';
 import EinstellungenView from './views/EinstellungenView.vue';
+import WartungView from './views/WartungView.vue';
 import InfoView from './views/InfoView.vue';
 import NotFoundView from './views/NotFoundView.vue';
 
@@ -16,6 +17,7 @@ export const router = createRouter({
     { path: '/list', component: ListeView },
     { path: '/verbund', component: VerbundView },
     { path: '/settings', component: EinstellungenView },
+    { path: '/wartung', component: WartungView },
     { path: '/info', component: InfoView },
     { path: '/:rest(.*)', component: NotFoundView },
   ],
