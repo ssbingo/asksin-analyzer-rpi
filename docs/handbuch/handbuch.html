@@ -164,8 +164,9 @@ sudo apt update</pre>
   <li><span class="nr">19</span> Langzeitdaten: InfluxDB und Grafana</li>
   <li><span class="nr">20</span> Der ioBroker-Adapter</li>
   <li><span class="nr">21</span> Sicherheit: Token, Netzwerk, Grenzen</li>
-  <li><span class="nr">22</span> Fehlersuche</li>
-  <li><span class="nr">23</span> Anhang: Belegungen, Glossar, Quellen</li>
+  <li><span class="nr">22</span> Protokoll: wenn etwas nicht stimmt</li>
+  <li><span class="nr">23</span> Fehlersuche</li>
+  <li><span class="nr">24</span> Anhang: Belegungen, Glossar, Quellen</li>
 </ol>
 </div>
 
@@ -360,9 +361,12 @@ es da sitzt.</p>
 
 <figure class="rahmen">
   <img src="img/platine-oben.png" alt="Platine von oben">
-  <figcaption>Die Platine von oben. Der schmale <strong>Arm</strong> unten trägt die
-  2×20-Buchse (J1) und ragt über den Pi; der breite <strong>Körper</strong> mit allen
-  Bauteilen liegt daneben.</figcaption>
+  <figcaption>Die Platine von oben, 100 × 76 mm. Der schmale <strong>Arm</strong>
+  trägt die 2×20-Buchse (J1) und ragt 8 mm über den Pi; der <strong>Streifen</strong>
+  darüber liegt neben dem Pi (höchstens 20 mm breit), der <strong>Schenkel</strong>
+  links steht 32 mm hinter der SD-Kante und trägt das Funkmodul. Über dem Pi liegt
+  sonst nur eine kleine Nase am hinteren Befestigungsloch — der Lüfter des PoE-HAT
+  bleibt frei.</figcaption>
 </figure>
 
 <h2>4.1 Warum diese T-Form?</h2>
@@ -405,16 +409,28 @@ der Platinenunterseite.</div>
 <tr><td><strong>Reset-Strecke</strong></td><td>C8, R2, S1, TP1</td><td>Über GPIO4 des Pi kann der Mikrocontroller neu gestartet werden (für Firmware-Updates, Kapitel 11). C8 koppelt nur den Impuls, R2 hält die Leitung in Ruhe oben, S1 ist der Taster für den Handreset.</td></tr>
 <tr><td><strong>SPI-Verteilung</strong></td><td>R3</td><td>Mikrocontroller, Funkmodul und Programmieranschluss teilen sich den SPI-Bus. R3 sorgt dafür, dass das Funkmodul still ist, während programmiert wird.</td></tr>
 <tr><td><strong>Status-LED</strong></td><td>R1, D1</td><td>Blitzt bei jedem empfangenen Telegramm kurz auf.</td></tr>
-<tr><td><strong>Peripherie</strong></td><td>J5, J6, J7, R5, (R4)</td><td>Stecker für OLED-Display, Taster und WS2812-LED des Status-LED-Projekts. R5 (0 Ω) führt die LED-Datenleitung zum SPI-Pin des Pi.</td></tr>
+<tr><td><strong>Peripherie</strong></td><td>J5, J6, J7, SW1, R4</td><td>Stecker für OLED-Display, Taster und WS2812-LED des Status-LED-Projekts. Der Schiebeschalter SW1 an der Außenkante wählt, über welchen Pi-Pin die LED-Daten laufen; R4 (330 Ω) ist der gemeinsame Serienwiderstand dahinter.</td></tr>
 <tr><td><strong>Prüfpunkte</strong></td><td>TP1–TP8</td><td>Kleine Messpads für Multimeter und Fehlersuche (Belegung im Anhang).</td></tr>
 </table>
 
-<div class="hinweis box"><span class="titel">ℹ R5 oder R4 — nie beide</span>
-Die WS2812-LED kann vom Pi über zwei verschiedene Pins angesteuert werden:
-<strong>GPIO10</strong> (SPI, der Normalfall → R5 bestückt — diesen Weg nutzt die
-Analyzer-Software) oder <strong>GPIO18</strong> (PWM-Variante → stattdessen R4
-bestücken). R4 bleibt in der Standardbestückung leer — die leeren Pads sind
-kein Fehler.</div>
+<div class="hinweis box"><span class="titel">ℹ Der Schalter SW1: PWM oder SPI</span>
+Die WS2812-LED kann vom Pi über zwei verschiedene Pins angesteuert werden, und
+seit Hardware v0.2.0 wählt das ein kleiner Schiebeschalter an der Außenkante —
+kein Umlöten mehr. Der Bestückungsdruck beschriftet beide Stellungen:
+<ul style="margin:1mm 0">
+<li><strong>SPI</strong> (GPIO10) — Vorgabe auf dem <strong>Raspberry Pi 5</strong>.
+Dort scheiden die PWM-Bibliotheken aus, weil die Anschlüsse am RP1-Chip hängen.</li>
+<li><strong>PWM</strong> (GPIO18) — Vorgabe auf <strong>Pi 3 und Pi 4</strong>.
+Dort wandert der SPI-Takt mit dem Kerntakt des Prozessors, was das empfindliche
+Zeitraster der LED zerreißt (Flackern, Farbsprünge).</li>
+</ul>
+Der Installer erkennt das Modell und stellt die Software passend ein; der
+Schalter muss dazu passen. Umstellen lässt sich beides jederzeit unter
+<strong>Einstellungen → Status-LED &amp; OLED</strong>.
+<br><br>Die Beschriftung benennt die <em>Anschlüsse</em>. Ob der Schieber zur
+beschrifteten Seite hin schaltet oder von ihr weg, gibt der Hersteller nicht
+frei zugänglich an — mit einem Durchgangsprüfer ist es beim ersten Aufbau in
+zehn Sekunden geklärt.</div>
 
 <figure class="rahmen">
   <img src="img/platine-unten.png" alt="Platine von unten">
@@ -449,7 +465,7 @@ funktionieren analog.</p>
 wählen. Die komplette ZIP hochladen — das Portal findet die Gerber-Dateien im
 Unterordner selbst. (Falls nicht: nur den Inhalt von <code>gerber/</code> als
 eigene ZIP hochladen.)</li>
-<li>Die Vorschau prüfen: T-förmiger Umriss, 88 × 42 mm. Erkennt das Portal
+<li>Die Vorschau prüfen: <strong>L-förmiger</strong> Umriss, 100 × 76 mm. Erkennt das Portal
 <strong>4 Lagen</strong> und <strong>1,6 mm</strong> Dicke, passt alles — beide Werte
 stehen im mitgelieferten Jobfile.</li>
 <li>Optionen: Standardwerte genügen. Lötstopplack-Farbe nach Geschmack;
@@ -475,15 +491,17 @@ Resonator Y1 — es fehlen nur noch Funkmodul und Steckverbinder.</li>
 <tr><td>Y1</td><td>Resonator Murata CSTLS8M00G53-B0 <span class="klein">(bedrahtet — JLCPCB lötet ihn in der Welle mit)</span></td><td>C83707</td><td>Extended</td></tr>
 <tr><td>L1</td><td>Ferrit BLM21PG300SN1D</td><td>C16903</td><td>Extended</td></tr>
 <tr><td>D1</td><td>LED rot 0805</td><td>C84256</td><td>Basic</td></tr>
-<tr><td>R1 / R5 / R2,R3</td><td>330 Ω / 0 Ω / 10 kΩ</td><td>C17630 / C17477 / C17414</td><td>Basic</td></tr>
+<tr><td>R1, R4 / R2, R3</td><td>330 Ω / 10 kΩ</td><td>C17630 / C17414</td><td>Basic</td></tr>
+<tr><td>SW1</td><td>Schiebeschalter C&amp;K JS102011SAQN <span class="klein">(wählt PWM oder SPI für die LED-Daten)</span></td><td>C221660</td><td>Extended</td></tr>
 <tr><td>C1,C2</td><td>10 µF 25 V</td><td>C15850</td><td>Basic</td></tr>
 <tr><td>C3–C5,C8,C9</td><td>100 nF 50 V</td><td>C49678</td><td>Basic</td></tr>
 </table>
 
-<p><strong>Nicht bestückt werden:</strong> das Funkmodul U3 (führt JLCPCB nicht),
-R4 (absichtlich leer — die PWM-Alternative zu R5) sowie die bedrahteten
-Steckverbinder J1, J2 und J5–J7. Die kommen in Kapitel 6 von Hand drauf.
-Der Resonator Y1 ist zwar auch bedrahtet, wird aber von JLCPCB mitbestückt.</p>
+<p><strong>Nicht bestückt werden:</strong> das Funkmodul U3 (führt JLCPCB nicht)
+und die bedrahteten Steckverbinder J1, J2 und J5–J7. Die kommen in Kapitel 6
+von Hand drauf. Der Resonator Y1 ist zwar auch bedrahtet, wird aber von JLCPCB
+mitbestückt. Unbestückte Plätze gibt es seit v0.2.0 keine mehr — die frühere
+Regel „R4 oder R5" hat der Schiebeschalter SW1 abgelöst.</p>
 
 <h2>5.4 Die Bestückungsvorschau richtig prüfen</h2>
 <div class="achtung box"><span class="titel">⚠ Zwei Minuten, die eine Charge retten</span>
@@ -983,15 +1001,19 @@ passt richtig. Softwareseitig sind Display, Taster und LED inzwischen
 Dienst, keine eigene Anleitung mehr nötig. Alles Weitere (Aktivieren,
 Farben, Anzeigeseiten) steht in Kapitel 18.</p>
 
-<div class="achtung box"><span class="titel">⚠ Für die LED: R5 muss bestückt sein</span>
-Die WS2812-Datenleitung an J7 kann von zwei Pi-Pins kommen:
-<strong>R5</strong> (0 Ω, GPIO10/SPI) oder <strong>R4</strong> (390 Ω,
-GPIO18/PWM) — genau <em>einer</em> von beiden wird bestückt. Die
-Analyzer-Software steuert die LED über <strong>SPI</strong>, braucht also
-<strong>R5</strong>. Platinen aus der JLCPCB-Bestückung (Kapitel 5) haben
-R5 bereits drauf. Nur falls deine Platine noch nach der alten Vorgabe mit
-R4 bestückt ist: R4 auslöten, an R5 einen 0-Ω-Widerstand (oder eine
-Lötbrücke) setzen.</div>
+<div class="achtung box"><span class="titel">⚠ Für die LED: Schalter SW1 richtig stellen</span>
+Die WS2812-Datenleitung an J7 kann von zwei Pi-Pins kommen. Welcher es ist,
+wählt der Schiebeschalter <strong>SW1</strong> an der Außenkante der Platine —
+seine beiden Stellungen sind im Bestückungsdruck mit <strong>PWM</strong> und
+<strong>SPI</strong> beschriftet:
+<ul style="margin:1mm 0">
+<li>Auf einem <strong>Raspberry Pi 5</strong>: Stellung <strong>SPI</strong>.</li>
+<li>Auf einem <strong>Pi 3 oder Pi 4</strong>: Stellung <strong>PWM</strong>.</li>
+</ul>
+Der Installer erkennt das Modell und stellt die Software passend ein — der
+Schalter muss zur eingestellten Betriebsart passen, sonst bleibt die LED
+dunkel. Nachträglich umstellen: <strong>Einstellungen → Status-LED &amp;
+OLED</strong>, dort steht die gewählte Ansteuerung im Klartext.</div>
 
 <!-- ==================================================== KAPITEL 11 -->
 <h1 class="kapitel"><span class="knr">11</span>Firmware-Updates im laufenden Betrieb</h1>
@@ -1373,7 +1395,7 @@ Token-Pflicht muss deren Token beim Verknüpfen hinterlegt sein.</p>
 <h1 class="kapitel"><span class="knr">18</span>Status-LED und OLED-Anzeige</h1>
 <div class="kapitelband"></div>
 
-<p>Mit dem Zubehör an J5–J7 (Anschluss: Kapitel 10.3, <strong>R5-Hinweis
+<p>Mit dem Zubehör an J5–J7 (Anschluss: Kapitel 10.3, <strong>SW1-Hinweis
 beachten!</strong>) zeigt der Analyzer seinen Zustand direkt am Gerät — ein
 Blick in den Schrank genügt.</p>
 
@@ -1509,7 +1531,94 @@ nutze VPN (z. B. WireGuard) — keine Portfreigabe ins Internet.</li>
 </ul>
 
 <!-- ==================================================== KAPITEL 22 -->
-<h1 class="kapitel"><span class="knr">22</span>Fehlersuche</h1>
+<h1 class="kapitel"><span class="knr">22</span>Protokoll: wenn etwas nicht stimmt</h1>
+<div class="kapitelband"></div>
+
+<p>Manche Störungen zeigen sich erst nach Stunden — der Analyzer ist plötzlich
+nicht mehr erreichbar, und hinterher weiß niemand, warum. Genau dafür führt die
+Software ein <strong>Protokoll</strong>: eine Textdatei je Tag, in der
+mitgeschrieben wird, was passiert ist. Zu finden unter
+<strong>Wartung</strong> in der Weboberfläche.</p>
+
+<h2>22.1 Die vier Stufen</h2>
+<table>
+<tr><th>Stufe</th><th>Was hineinkommt</th><th>Wann sinnvoll</th></tr>
+<tr><td><strong>Fehler</strong></td><td>Nur Störungen</td><td>Dauerbetrieb, kleinste Datei</td></tr>
+<tr><td><strong>Info</strong></td><td>Störungen und wichtige Ereignisse</td><td><strong>Vorgabe</strong></td></tr>
+<tr><td><strong>Debug</strong></td><td>Zusätzlich Abläufe im Inneren</td><td>Fehlersuche</td></tr>
+<tr><td><strong>Alles</strong></td><td>Auch einzelne Telegramme</td><td>Kurzzeitig, wächst schnell</td></tr>
+</table>
+
+<p>Daneben stellst du ein, wie viele <strong>Tage</strong> aufgehoben werden
+(1 bis 365). Beim Tageswechsel legt der Dienst eine neue Datei an und löscht,
+was älter ist als die Frist. Beides wirkt sofort, ohne Neustart.</p>
+
+<h2>22.2 Was mitgeschrieben wird</h2>
+
+<p>Neben den Meldungen der Anwendung selbst erhebt der Analyzer <strong>jede
+Minute</strong> die Werte, an denen sich ein Ausfall im Nachhinein festmachen
+lässt — und schreibt sie alle 15 Minuten in eine Zeile:</p>
+
+<table>
+<tr><th>Wert</th><th>Warum er zählt</th></tr>
+<tr><td><strong>Unterspannung und Drosselung</strong></td><td>Mit PoE-HAT und SSD am USB die häufigste Ursache für Einfrieren und harte Neustarts. Der Pi merkt sich auch, ob es seit dem Einschalten <em>schon einmal</em> vorkam.</td></tr>
+<tr><td>Temperatur</td><td>Ab etwa 80 °C drosselt der Pi, ab 85 °C hart.</td></tr>
+<tr><td>Arbeitsspeicher</td><td>Wird er knapp, räumt das System Programme ab — ohne dass diese eine Fehlermeldung hinterlassen.</td></tr>
+<tr><td>Freier Plattenplatz</td><td>Eine volle Systempartition legt Dienste still.</td></tr>
+<tr><td>Systemlast und Laufzeit</td><td>Springt die Laufzeit auf wenige Sekunden, hat das Gerät neu gestartet.</td></tr>
+</table>
+
+<div class="hinweis box"><span class="titel">ℹ Auffälliges kommt sofort</span>
+Wird einer dieser Werte auffällig, landet er <strong>augenblicklich und als
+Fehler</strong> in der Datei — auch dann, wenn die sparsamste Stufe eingestellt
+ist. Man muss also nicht vorsorglich auf „Debug" stellen, um Unterspannung zu
+bemerken.</div>
+
+<h2>22.3 Kam es von uns oder vom System?</h2>
+
+<p>Das eigene Protokoll zeigt nur, was der Analyzer selbst mitbekommt. Ob eine
+Störung <em>aus dem System</em> kam, steht im Journal des Betriebssystems — in
+Zeilen, die unser Programm nie zu sehen bekommt. Der Dienst liest sie deshalb
+mit und übernimmt sie unter <code>[systemlog]</code>: Unterspannungsmeldungen
+des Kernels, abgeräumte Programme bei Speichermangel, neu angemeldete
+USB-Geräte (die Boot-SSD!), Dateisystemfehler, Temperaturnotabschaltungen,
+Kernel-Abstürze.</p>
+
+<p><strong>Nach jedem Start</strong> bewertet der Dienst außerdem, wie der
+vorherige Lauf endete. Fand sich dort keine Abmeldung, steht ganz oben in der
+neuen Tagesdatei:</p>
+
+<pre>FEHLER  [systemlog]  Der vorherige Systemlauf wurde NICHT sauber beendet —
+                     Hinweis auf Stromausfall, Spannungseinbruch oder
+                     Kernel-Absturz, nicht auf einen Fehler dieser Anwendung</pre>
+
+<p>Damit das funktioniert, richtet der Installer zweierlei ein: Der Dienst darf
+das Journal lesen, und das Journal wird <strong>dauerhaft</strong> gespeichert.
+Ab Werk legt Raspberry Pi OS es nur flüchtig im Arbeitsspeicher ab — nach einem
+harten Absturz wäre genau der interessante Teil verloren.</p>
+
+<h2>22.4 So gehst du bei einem Ausfall vor</h2>
+<ol class="schritte">
+<li><strong>Wartung</strong> öffnen, Stufe auf <strong>Debug</strong> stellen.</li>
+<li>Nach dem nächsten Ausfall die Datei des Tages <strong>herunterladen</strong>
+(Spalte „Herunterladen" in der Dateiliste).</li>
+<li>In der Datei nach <code>FEHLER</code> und nach <code>[system]</code> suchen.
+Steht dort <em>Unterspannung</em>, ist die Stromversorgung die Ursache — dann
+hilft kein Software-Update, sondern ein kräftigeres Netzteil beziehungsweise
+ein PoE-Injektor mit mehr Reserve.</li>
+<li>Bricht das Protokoll <strong>mitten im Betrieb</strong> ab, ohne Fehlerzeile
+davor, war es kein Programmfehler: Dann hat das System selbst ausgesetzt. Die
+letzten Systemzeilen davor zeigen, wie die Lage kurz vorher war.</li>
+</ol>
+
+<p>Die Datei ist bewusst in festen Spalten geschrieben, damit sie sich sowohl
+lesen als auch durchsuchen lässt:</p>
+
+<pre>2026-07-31 08:12:33.123  FEHLER  [ingest]     Port weg (EIO)
+2026-07-31 08:12:34.001  INFO    [system]     Temperatur 62,3 °C · Speicher frei 940 MB</pre>
+
+<!-- ==================================================== KAPITEL 23 -->
+<h1 class="kapitel"><span class="knr">23</span>Fehlersuche</h1>
 <div class="kapitelband"></div>
 
 <table>
@@ -1531,13 +1640,13 @@ nutze VPN (z. B. WireGuard) — keine Portfreigabe ins Internet.</li>
 <tr><td>Flotten-Update meldet „Auth-Token fehlt"</td><td>Peer verlangt Token, keines hinterlegt</td><td>Peer entfernen und mit seinem Token neu verknüpfen (<em>Einstellungen → Verbund</em>)</td></tr>
 <tr><td>Dienst startet nicht, Journal zeigt <code>listen EACCES … :80</code></td><td>Port unter 1024 gewählt; der Dienst läuft ohne Rechte dafür</td><td>Seit dieser Fassung bringt die Unit <code>AmbientCapabilities=CAP_NET_BIND_SERVICE</code> mit — <code>sudo asksin-analyzer update</code> genügt. Alternativ in <code>/etc/asksin-analyzer/config.json</code> einen Port ab 1024 eintragen (8080) und <code>sudo asksin-analyzer restart</code></td></tr>
 <tr><td><code>Permission denied</code> auf <code>/dev/spidev0.0</code> oder <code>/dev/i2c-1</code></td><td>Dienstbenutzer nicht in den Gruppen <code>spi</code>/<code>i2c</code></td><td><code>sudo asksin-analyzer update</code> zieht die Gruppen nach; danach <code>sudo systemctl restart asksin-analyzer</code></td></tr>
-<tr><td>Status-LED bleibt dunkel</td><td>R4 statt R5 bestückt oder SPI aus</td><td>Kapitel 10.3 (R5-Kasten!); SPI per Installer-Frage oder <code>raspi-config</code> aktivieren; Übersicht zeigt „LED gestört" mit Ursache</td></tr>
+<tr><td>Status-LED bleibt dunkel</td><td>Schalter SW1 steht auf der anderen Betriebsart, oder SPI bzw. das Onboard-Audio ist nicht passend eingestellt</td><td>Kapitel 10.3 (SW1-Kasten): Schalterstellung mit <strong>Einstellungen → Status-LED &amp; OLED</strong> abgleichen. Auf Pi 3/4 muss zusätzlich das Onboard-Audio aus sein, auf Pi 5 der SPI-Bus an. Die Übersicht zeigt „LED gestört" mit Ursache</td></tr>
 <tr><td>OLED bleibt dunkel</td><td>I²C nicht aktiv oder Kabelbelegung</td><td><code>sudo raspi-config</code> → I²C aktivieren; <code>i2cdetect -y 1</code> muss <code>3c</code> zeigen; J5-Belegung gegen Kapitel 10.3 prüfen</td></tr>
 <tr><td>1-Wire-Sensoren funktionieren nicht mehr</td><td><code>w1-gpio</code> kollidiert mit GPIO4 (Reset)</td><td>In <code>config.txt</code>: <code>dtoverlay=w1-gpio,gpiopin=17</code> o. ä. — nicht GPIO4</td></tr>
 </table>
 
 <!-- ==================================================== KAPITEL 14 -->
-<h1 class="kapitel"><span class="knr">23</span>Anhang</h1>
+<h1 class="kapitel"><span class="knr">24</span>Anhang</h1>
 <div class="kapitelband"></div>
 
 <h2>23.1 Belegung des Pi-Headers (genutzte Pins)</h2>
@@ -1550,8 +1659,8 @@ nutze VPN (z. B. WireGuard) — keine Portfreigabe ins Internet.</li>
 <tr><td>8</td><td>GPIO14 (TXD)</td><td>Pi sendet → Mikrocontroller</td></tr>
 <tr><td>10</td><td>GPIO15 (RXD)</td><td>Mikrocontroller sendet → Pi (der Telegrammstrom)</td></tr>
 <tr><td>11</td><td>GPIO17</td><td>Taster (J6)</td></tr>
-<tr><td>12</td><td>GPIO18</td><td>WS2812-Alternative über R4 (unbestückt)</td></tr>
-<tr><td>19</td><td>GPIO10</td><td>WS2812-Daten über R5 (J7)</td></tr>
+<tr><td>12</td><td>GPIO18</td><td>WS2812-Daten, Schalter SW1 auf PWM (J7)</td></tr>
+<tr><td>19</td><td>GPIO10</td><td>WS2812-Daten, Schalter SW1 auf SPI (J7)</td></tr>
 <tr><td>6, 9, 14, 20, 25, 30, 34, 39</td><td>GND</td><td>Masse</td></tr>
 </table>
 

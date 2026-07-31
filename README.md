@@ -24,7 +24,7 @@ laufenden Gerät.
 
 | Baustein | Stand |
 | --- | --- |
-| **Hardware v0.2.0** (T-Platine neben dem Pi) | ✅ fertig entworfen, DRC 0 Fehler / 0 Warnungen — J1 korrigiert |
+| **Hardware v0.2.0** (L-Platine neben dem Pi) | ✅ **in Produktion** (31.07.2026) — DRC/ERC 0/0, 26 Fertigungsprüfungen bestanden |
 | Fertigungsdaten (Gerber, BOM, CPL, JLCPCB) | ✅ [`hardware/kicad/fab/`](hardware/kicad/fab/) + Archiv |
 | J1-Rettungsadapter für die Chargen v0.0.1 | ✅ [`hardware/kicad/adapter/`](hardware/kicad/adapter/README.md) |
 | Firmware | ✅ unveränderter `AskSinSniffer328P` (jp112sdl) |
@@ -38,6 +38,7 @@ laufenden Gerät.
 | Status-LED + OLED integriert | ✅ Software fertig (M11) — Hardware-Test steht aus ([`docs/status-led-oled.md`](docs/status-led-oled.md)) |
 | Einkaufsführer Zubehör (README + Handbuch) | 📋 geplant (M12, [`docs/einkaufsfuehrer.md`](docs/einkaufsfuehrer.md)) |
 | Verbund: 5 Analyzer als Gesamtsystem | ✅ komplett: Dashboard, Matrix+Dedup, Flotten-Update, Langzeitdaten nach InfluxDB (M9.1–M9.5, [`docs/verbund.md`](docs/verbund.md)) |
+| Protokoll und Absturzsuche (Tab „Wartung“) | ✅ fertig (M13): Stufen, Tagesrotation, Download, Systemjournal ([`docs/protokoll.md`](docs/protokoll.md)) |
 | ioBroker-Adapter | 🔨 Grundgerüst steht (M6, eigenes Repo [`ioBroker.asksinanalyzer-rpi`](https://github.com/ssbingo/ioBroker.asksinanalyzer-rpi), MIT, mehrinstanzfähig) |
 
 ## Installation auf dem Raspberry Pi
@@ -74,6 +75,8 @@ docs/
 ├── raspberry-pi-uart.md  UART-Konfiguration Pi 3/4/5
 ├── webui-und-updates.md  API-Vertrag der Web-UI, Update-Pfade, Lizenzlage
 ├── verbund.md            Phase M9: fünf Analyzer als Gesamtsystem (Föderation)
+├── protokoll.md          Phase M13: Protokoll, Systemjournal, Absturzsuche
+├── status-led-oled.md    Phase M11: Status-LED (PWM/SPI) und OLED
 └── handbuch/             das Handbuch (HTML-Quelle, Bilder, PDF)
 reference/                Originalprojekte (nicht eingecheckt — siehe unten)
 ```
@@ -82,10 +85,12 @@ reference/                Originalprojekte (nicht eingecheckt — siehe unten)
 
 Die Funkseite bleibt beim bewährten Gespann **ATmega328P + CC1101** mit der
 unveränderten `AskSinSniffer328P`-Firmware — kein Fork, wer will flasht die
-Original-HEX. Die Platine ist ein T-förmiger Aufsatz, der auf den
-durchgeschleiften Header des PoE-HAT gesteckt wird; der Körper liegt
-**parallel neben dem Pi** an der Header-Seite und deckt keine Buchse ab —
-das Funkmodul sitzt im hinteren Überstand, weit weg vom Störnebel. Die Antenne verlässt das
+Original-HEX. Die Platine ist ein **L-förmiger** Aufsatz, der auf den
+durchgeschleiften Header des PoE-HAT gesteckt wird; der Streifen liegt
+**parallel neben dem Pi** an der Header-Seite, höchstens 20 mm breit, und
+deckt keine Buchse ab. Der Schenkel steht 32 mm **hinter** der SD-Kante —
+dort sitzt das Funkmodul, weit weg vom Störnebel und direkt am rückwärtigen
+Antennen-Keystone. Die Antenne verlässt das
 Ebyte-Modul per IPEX — auf der Platine existiert **keine einzige HF-Leitung**.
 Der bekannte 2,12-%-Baudratenfehler der 8-MHz-Klasse wird nicht in der
 Firmware „repariert", sondern auf der Pi-Seite kompensiert: der Port läuft mit
@@ -139,11 +144,20 @@ treibt ihren Pin aktiv auf HIGH, der Strom hätte gegen die Diodenrichtung
 fließen müssen. Die LED konnte nie leuchten. Betrifft ebenfalls alle bisher
 gefertigten Platinen; rein kosmetisch, der Funkempfang war nie beeinträchtigt.
 
-**Neue Bauform:** T-förmig statt L-förmig. Der Körper (88 × 34 mm) liegt
-parallel neben dem Pi an der Header-Seite und steht nach hinten 20 mm über —
-er deckt **keine Buchse** mehr ab, was den 19-Zoll-Einbau erst möglich macht.
-Das Funkmodul sitzt im hinteren Überstand (Antennen-Keystone), die
-Peripheriestecker an der Frontkante (OLED-/LED-/Taster-Einsatz).
+**Neue Bauform:** L-förmig, 100 × 76 mm. Der Streifen (100 × 20 mm) liegt
+parallel neben dem Pi an der Header-Seite und ist **höchstens 20 mm breit**;
+der Schenkel steht **32 mm hinter der SD-Kante**. Über dem Pi liegt nur der
+8 mm tiefe Arm für die 2×20-Buchse und eine 7 × 9 mm große Nase am hinteren
+Befestigungsloch — der Lüfter des PoE-HAT bleibt frei. Nach vorn endet die
+Platine 17 mm **vor** dem Pi, damit sie den Keystone-Modulen im 19-Zoll-Einbau
+nicht in die Quere kommt. Das Funkmodul sitzt im Schenkel (Antennen-Keystone),
+die Peripheriestecker an der Frontkante (OLED-/LED-/Taster-Einsatz).
+
+**Umschalter statt Bestückungsvariante:** Der SMD-Schiebeschalter **SW1** an
+der Außenkante wählt zwischen PWM (GPIO18) und SPI (GPIO10) für die
+WS2812-Datenleitung; dahinter liegt ein gemeinsamer 330-Ω-Widerstand. Die
+frühere Regel „R4 **oder** R5 bestücken" entfällt — der Bestückungsdruck ist
+mit **PWM** und **SPI** beschriftet.
 
 Routing-Kette überarbeitet: Masseflächen nur noch auf den Innenlagen, jedes
 SMD-Massepad bekommt sein Stützvia vor dem Routen, alle Vias getentet, und
@@ -173,7 +187,7 @@ Status-LED und OLED (M11): die Funktionen des Status-LED-OLED-Projekts,
 vollständig integriert. Hardware unverändert (0.0.1).
 
 **Core/Web-UI 0.0.6**
-- **Status-LED** (WS2812 an J7 über SPI — R5 statt R4 bestücken):
+- **Status-LED** (WS2812 an J7; seit v0.2.0 wählt der Schalter SW1 zwischen PWM und SPI):
   Prioritätsleiter Duty-Cycle-Alarm (rot schnell) > getrennt (rot) >
   Persistenzfehler (gelb) > Demo (orange) > Update (blau atmend) > ok
   (grün); eigene SPI-Bit-Kodierung, keine native Bibliothek
