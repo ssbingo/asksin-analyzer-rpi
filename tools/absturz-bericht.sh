@@ -190,8 +190,17 @@ else
 fi
 zeile ""
 zeile "Lesefehler seit dem Start (dmesg):"
-dmesg 2>/dev/null | grep -icE "i/o error|blk_update_request|ext4-fs error" \
-    | sed 's/^/  Treffer: /' >> "$BERICHT" || zeile "  dmesg nicht lesbar"
+# grep -c meldet bei null Treffern "0" UND Exitcode 1 — ein "||"-Zweig
+# feuerte dadurch immer und behauptete "dmesg nicht lesbar", obwohl er
+# gelesen hatte. Erst pruefen, ob dmesg ueberhaupt geht.
+if DMESG="$(dmesg 2>/dev/null)" && [ -n "$DMESG" ]; then
+    zeile "  Treffer: $(printf '%s' "$DMESG" \
+        | grep -icE 'i/o error|blk_update_request|ext4-fs error' | head -1)"
+    printf '%s' "$DMESG" | grep -iE 'i/o error|blk_update_request|ext4-fs error|usb.*reset' \
+        | tail -8 | sed 's/^/    /' >> "$BERICHT"
+else
+    zeile "  dmesg nicht lesbar (Root-Rechte? Puffer leer?)"
+fi
 
 abschnitt "Journalgröße"
 journalctl --disk-usage --no-pager 2>/dev/null >> "$BERICHT" || zeile "unbekannt"
