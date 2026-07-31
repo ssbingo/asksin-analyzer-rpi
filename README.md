@@ -117,8 +117,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.0.7** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.0.7** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.8.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.8.0** |
 
 Die **Firmware wird bewusst nicht eigenständig versioniert**: Sie ist
 byte-identisch der `AskSinSniffer328P` von jp112sdl (Stand des
@@ -128,6 +128,79 @@ werden, beginnt ab dann `firmware-v0.0.1`. Der ioBroker-Adapter bekommt ein
 eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.8.0 — 31.07.2026
+
+Der Analyzer sagt jetzt selbst, was ihm fehlt. Anlass war ein Raspberry Pi, der
+reproduzierbar ausfiel und danach nicht mehr erreichbar war — ohne Aufzeichnung
+ist so etwas nicht zu finden. Dazu die neue Platine (Hardware v0.2.0, unten
+eigens beschrieben), die 3D-Druckvorlagen für den 19-Zoll-Einbau und eine
+Oberfläche, die auch am Telefon bedienbar ist.
+
+**Protokoll und Wartung (M13)**
+- Neuer Reiter **Wartung**: Stufe (`Fehler` / `Info` / `Debug` / `alles`),
+  Aufbewahrung in Tagen, Liste der Dateien, Download — alles im Browser
+- Eine Datei je Tag (`asksin-JJJJ-MM-TT.log`), feste Spalten, umgeschaltet
+  beim ersten Eintrag nach Mitternacht; ältere Dateien räumt die
+  Aufbewahrungsfrist ab. Ohne Fremdbibliothek, der Core bleibt
+  abhängigkeitsfrei
+- Schreibfehler beenden den Dienst **nie** — ein volles Dateisystem wird
+  gemerkt und angezeigt, nicht zum Absturz erhoben
+- **Systemjournal wird mitgelesen**, damit sich „lag es an uns oder am
+  System?" beantworten lässt: Unterspannung, OOM-Killer, USB-Neuanmeldungen,
+  Dateisystemfehler, Temperaturnotabschaltung, Kernel-Panik. Nach jedem Start
+  wird zusätzlich der **vorherige** Systemlauf zusammengefasst — endete er
+  unsauber, steht genau das im Protokoll
+- Der Installer schaltet das Journal auf **dauerhaft**; ab Werk ist es auf
+  Raspberry Pi OS flüchtig und nach jedem Absturz verloren
+- Regelmäßige Selbstdiagnose: Temperatur, Drosselung, Speicher, Laufzeit —
+  bei Auffälligkeiten sofort, sonst alle 15 Minuten
+- Neu: [`tools/absturz-bericht.sh`](tools/absturz-bericht.sh) sammelt nach
+  einem Ausfall alles Relevante ein und gibt eine Einschätzung aus
+
+**Status-LED**
+- Die Ansteuerung richtet sich nach der Pi-Generation: **PWM (GPIO18)** auf
+  Pi 3/4, **SPI (GPIO10)** auf Pi 5. Auf Pi 3/4 leitet sich der SPI-Takt vom
+  Kerntakt ab und wandert mit dessen Skalierung — das zerreißt das
+  WS2812-Timing
+- PWM/DMA braucht Root, der Analyzer läuft unprivilegiert: Der Core rechnet
+  die Farbe aus, der kleine Dienst `asksin-analyzer-led` setzt sie
+- Auf dem Pi 5 ist der PWM-Weg **dreifach gesperrt**. Hinter dem RP1 liegt die
+  Peripherie anderswo, während `rpi_ws281x` die alte Speicherlage anspricht;
+  im ungünstigen Fall schreibt ein DMA-Kanal in fremden Speicher
+
+**Betrieb**
+- **Der Dienst startete auf Port 80 nicht** (`listen EACCES`). Behoben mit
+  `AmbientCapabilities=CAP_NET_BIND_SERVICE`; scheitert der Start dennoch,
+  erklärt der Dienst den Grund im Klartext statt mit einem Stapelabzug
+- Der Einrichtungsassistent ist in nummerierte Abschnitte gegliedert — die
+  Frage nach dem Port las sich vorher, als sei die CCU gemeint
+
+**Weboberfläche**
+- **Am Telefon und Tablet nutzbar.** Die Oberfläche enthielt bis dahin keine
+  einzige Media Query: Die Kopfzeile lief über, breite Tabellen schoben die
+  Seite zur Seite, iOS zoomte beim Antippen eines Feldes hinein. Die
+  Navigation bekommt eine eigene, scrollbare Zeile; breite Tabellen scrollen
+  im Panel, **ohne** eine Spalte auszublenden; Fingerbedienung hängt an
+  `pointer: coarse`, nicht an der Fensterbreite. Die Schriftgröße bleibt
+- Token-Felder haben einen Umschalter **anzeigen / verbergen** (Auge), damit
+  sich ein Tippfehler prüfen lässt. Liegt die Eingabe offen, ist der Knopf
+  farblich hervorgehoben
+
+**Hardware und Fertigung** (Platine selbst siehe *Hardware v0.2.0*)
+- Die drei Peripheriestecker tragen ihre Funktion im Bestückungsdruck:
+  **OLED I2C**, **TASTER**, **WS2812**
+- Neu: `hardware/kicad/pruefe_fertigung.py` — 30 maschinelle Prüfungen von den
+  Lagen über die Einbaumaße und die J1-Geometrie bis zum Abgleich von BOM und
+  CPL gegen die Platine. Unbestückte Plätze werden aus dem Schaltplan
+  abgeleitet statt von Hand gepflegt; genau eine handgepflegte Liste hatte
+  zuvor R4 aus der Bestückung geworfen
+
+**Einbau**
+- 3D-Druckvorlagen für den 19-Zoll-Rahmen (Front-Einsatz je für Pi 4 und
+  Pi 5, SSD-Einsatz), Herkunft und Lizenz der Remixe dokumentiert
+- J1-Adapter für die fehlerhafte Charge der Hardware v0.0.1 mit eigenem
+  Fertigungspaket
 
 ### Hardware v0.2.0 — 30.07.2026
 
