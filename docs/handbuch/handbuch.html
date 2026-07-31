@@ -35,7 +35,9 @@
      bemessener unterer Seitenrand. */
   .fusssteg {
     position: fixed;
-    bottom: 0;
+    /* 2 mm statt 0: Bei 0 endete der Rahmen genau an der Unterkante des
+       Satzspiegels und blitzte unter der Deckblatt-Abdeckung hervor. */
+    bottom: 2mm;
     left: 0;
     right: 0;
     z-index: 1;
@@ -85,7 +87,13 @@
   .deckblatt {
     position: relative;
     z-index: 3;
-    min-height: 265mm;
+    /* Genau der Satzspiegel: A4 297 mm minus 16 mm oben minus 26 mm unten.
+       Mit 265 mm lief das Deckblatt auf Seite 2 aus und hinterliess dort
+       einen Petrolbalken. Weniger als 254 mm deckt den Fusssteg nicht mehr
+       ab — der sitzt am unteren Ende des Satzspiegels. */
+    min-height: 254mm;
+    max-height: 254mm;
+    overflow: hidden;
   }
   .deckblatt { background: var(--petrol-dunkel); }
   html { font-size: 10.6pt; }
