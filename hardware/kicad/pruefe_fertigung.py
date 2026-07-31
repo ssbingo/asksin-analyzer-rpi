@@ -25,7 +25,7 @@ import zipfile
 import pcbnew
 
 import generate_pcb as G
-from generate_schematic import NETS, PROJECT
+from generate_schematic import COMPONENTS, NETS, PROJECT
 
 HERE = pathlib.Path(__file__).resolve().parent
 BOARD_FILE = HERE / f"{PROJECT}.kicad_pcb"
@@ -350,6 +350,42 @@ def pruefe_archiv() -> None:
                     "LIESMICH.txt"):
         if pflicht not in namen:
             fail(f"Im Archiv fehlt {pflicht}")
+    pruefe_liesmich(zpfad)
+
+
+def pruefe_liesmich(zpfad: pathlib.Path) -> None:
+    """
+    Der Begleittext im Archiv ist das, was der Bestücker liest — er muss zum
+    Schaltplan passen. Hier ist schon einmal die längst abgeschaffte Variante
+    „R4 als DNP, dafür R5" stehen geblieben, während BOM und Platine bereits
+    den Schiebeschalter trugen. Ein widersprüchlicher Begleittext ist
+    gefährlicher als gar keiner: Er verleitet dazu, einen Platz frei zu lassen.
+    """
+    with zipfile.ZipFile(zpfad) as z:
+        text = z.read("LIESMICH.txt").decode("utf8")
+
+    # 1. Keine Bauteilbezeichner erfinden, die es im Schaltplan nicht gibt.
+    # Höchstens zwei Ziffern: LCSC-Nummern wie C231329 oder C5446 sind
+    # Bestellnummern, keine Bauteilbezeichner, und dürfen hier nicht anschlagen.
+    erfunden = sorted(
+        {r for r in re.findall(r"\b(?:R|C|D|U|J|Y|SW|S|L)\d{1,2}\b", text)}
+        - set(COMPONENTS)
+    )
+    if erfunden:
+        fail(f"LIESMICH nennt Bauteile, die es nicht gibt: {', '.join(erfunden)}")
+    else:
+        ok("Begleittext nennt nur Bauteile, die es im Schaltplan gibt")
+
+    # 2. Behauptet der Text unbestückte Plätze, muss der Schaltplan sie führen.
+    dnp_laut_schaltplan = {r for r, (_l, w, *_x) in COMPONENTS.items()
+                           if "DNP" in w.upper()}
+    behauptet_dnp = re.search(r"ist als DNP|wird nicht best|bleibt unbest|"
+                              r"ODER R\d|nie beide", text, re.I)
+    if behauptet_dnp and not dnp_laut_schaltplan:
+        fail("LIESMICH spricht von unbestückten Plätzen — laut Schaltplan "
+             f"gibt es keine (Fundstelle: {behauptet_dnp.group(0)!r})")
+    else:
+        ok("Begleittext und Schaltplan sind sich über die Bestückung einig")
 
 
 def pruefe_bom_cpl(board: pcbnew.BOARD) -> None:
@@ -417,7 +453,6 @@ def pruefe_bom_cpl(board: pcbnew.BOARD) -> None:
     # drei Gruppen angehören, und „unbestückt" gilt nur, wenn der Schaltplan
     # es selbst so sagt.
     import generate_bom_cpl as B
-    from generate_schematic import COMPONENTS
 
     bestueckt, handarbeit, unbestueckt, offen = [], [], [], []
     for fp in board.GetFootprints():

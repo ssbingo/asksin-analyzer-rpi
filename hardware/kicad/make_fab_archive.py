@@ -68,9 +68,12 @@ gerber/
 
 bestueckung/
     bom.csv          Stueckliste, gruppiert, mit Bezugsquellen.
-                     R4 ist als DNP ausgewiesen: bestueckt wird
-                     R5 (0 Ohm, SPI/GPIO10) ODER R4 (PWM/GPIO18),
-                     nie beide. Vorgabe seit 30.07.2026 ist R5.
+                     KEIN Bauteil ist unbestueckt, es gibt keine
+                     Bestueckungsvarianten und kein DNP: Jeder Platz
+                     auf der Platine wird belegt. Zwischen PWM
+                     (GPIO18) und SPI (GPIO10) waehlt der
+                     Schiebeschalter SW1, dahinter liegt R4 = 330 Ohm
+                     als gemeinsamer Serienwiderstand.
     cpl.csv          Pick-&-Place: Designator, Mid X, Mid Y, Layer,
                      Rotation. Ursprung linke untere Platinenecke,
                      X nach rechts, Y nach oben, Millimeter.
@@ -85,9 +88,10 @@ bestueckung/
                      pinkompatibler Ersatz fuer den MCP1754S.
                      S1 ist C231329 (B3U-1000P ohne Zentrierstift,
                      gleiche Pads — die Stiftbohrung bleibt leer).
-    jlcpcb_cpl.csv   Pick-&-Place passend zur jlcpcb_bom.csv.
-                     Nach dem Upload die Bauteilvorschau pruefen:
-                     Drehlage von U1/U2/S1 und Polung von D1.
+    jlcpcb_cpl.csv   Pick-&-Place passend zur jlcpcb_bom.csv,
+                     18 Bauteile. Nach dem Upload die
+                     Bauteilvorschau pruefen: Drehlage von U1, U2,
+                     S1 und SW1 sowie die Polung von D1.
 
 doku/
     layout.pdf       Bestueckungsseite mit Umriss und Druck
