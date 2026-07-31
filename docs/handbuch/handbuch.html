@@ -217,7 +217,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.9.0</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.10.0</span>
 </div>
 
 
@@ -233,7 +233,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.9.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.10.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -1354,14 +1354,14 @@ Platine steckt oder eine Homematic-Zentrale existiert</strong> — ideal zum
 Kennenlernen, zum Vorführen und um die Weboberfläche zu erkunden, während die
 Platine noch beim Fertiger liegt.</p>
 
-<h2 id="k23-1">23.1 Ein- und ausschalten</h2>
+<h2 id="k14-1">14.1 Ein- und ausschalten</h2>
 <p><em>Einstellungen → Demo-Modus → einschalten</em>, Rückfrage bestätigen — der
 Dienst startet neu (die Seite verbindet sich nach wenigen Sekunden von
 selbst), und in der Kopfzeile erscheint die orange <strong>DEMO</strong>-Plakette.
 Ausschalten geht genauso; danach liest der Analyzer wieder die echte
 Hardware.</p>
 
-<h2 id="k23-2">23.2 Was simuliert wird — und wie ehrlich</h2>
+<h2 id="k14-2">14.2 Was simuliert wird — und wie ehrlich</h2>
 <p>Die Simulation setzt am untersten Ende an: Sie erzeugt exakt die Zeilen,
 die der echte Sniffer über die serielle Schnittstelle schicken würde —
 Telegramme, die 750-ms-Rauschzeilen, sogar gelegentliche Störimpulse.
@@ -1857,13 +1857,57 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>Status-LED bleibt dunkel</td><td>Schalter SW1 steht auf der anderen Betriebsart, oder SPI bzw. das Onboard-Audio ist nicht passend eingestellt</td><td>Kapitel 10.3 (SW1-Kasten): Schalterstellung mit <strong>Einstellungen → Status-LED &amp; OLED</strong> abgleichen. Auf Pi 3/4 muss zusätzlich das Onboard-Audio aus sein, auf Pi 5 der SPI-Bus an. Die Übersicht zeigt „LED gestört" mit Ursache</td></tr>
 <tr><td>OLED bleibt dunkel</td><td>I²C nicht aktiv oder Kabelbelegung</td><td><code>sudo raspi-config</code> → I²C aktivieren; <code>i2cdetect -y 1</code> muss <code>3c</code> zeigen; J5-Belegung gegen Kapitel 10.3 prüfen</td></tr>
 <tr><td>1-Wire-Sensoren funktionieren nicht mehr</td><td><code>w1-gpio</code> kollidiert mit GPIO4 (Reset)</td><td>In <code>config.txt</code>: <code>dtoverlay=w1-gpio,gpiopin=17</code> o. ä. — nicht GPIO4</td></tr>
+<tr><td>Der Pi fällt hart aus und startet neu — im Journal steht nichts</td><td>Lässt sich aus dem Gerät heraus nicht klären: Was die Ursache erklären würde, wird nicht mehr geschrieben</td><td>Abschnitt 23.1 — Kernel-Meldungen auf einen zweiten Rechner mitschneiden</td></tr>
 </table>
+
+<h2 class="umbruch" id="k23-1">23.1 Wenn nichts im Journal steht: Mitschnitt übers Netz</h2>
+
+<p>Es gibt eine Sorte Ausfall, bei der die üblichen Mittel versagen: Der Pi ist
+schlagartig weg und startet neu, und das Journal endet mitten im Satz oder
+meldet beim nächsten Start <code>system.journal corrupted or uncleanly shut
+down</code>. Der Grund ist einfach — was die Ursache erklären würde, hätte auf
+die Platte geschrieben werden müssen, und dazu kam es nicht mehr. Man sucht in
+Protokollen nach einem Ereignis, das per Definition kein Protokoll hinterlässt.</p>
+
+<p>Der Ausweg heißt <strong>netconsole</strong>. Damit schickt der Kernel jede
+Meldung zusätzlich als Netzwerkpaket an einen zweiten Rechner — ohne Umweg über
+ein Dateisystem, ohne beteiligten Dienst. Was dort ankommt, ist der Stand
+unmittelbar vor dem Ausfall.</p>
+
+<p>Auf dem Analyzer, mit der Adresse des Rechners, der mitschreiben soll:</p>
+
+<pre>sudo bash /opt/asksin-analyzer/tools/netconsole-einrichten.sh 192.168.1.50</pre>
+
+<p>Das Skript sucht sich Schnittstelle, Absenderadresse und Ziel-MAC selbst,
+bleibt über Neustarts hinweg aktiv und schickt zum Schluss eine Probezeile. An
+der Netzwerkeinrichtung des Geräts ändert es <strong>nichts</strong> — weder
+Adresse noch Name noch Route; es kommt allein ein weiteres Ziel für die
+Kernel-Ausgabe hinzu. Rückgängig mit <code>--aus</code>.</p>
+
+<p>Auf dem mitschreibenden Rechner — das kann jeder Linux-Rechner im selben
+Netz sein, auch die ioBroker-Maschine:</p>
+
+<pre>python3 tools/netconsole-empfaenger.py --port 6666 --datei kernel.log</pre>
+
+<p>Jede Zeile bekommt die Uhrzeit des <em>empfangenden</em> Rechners. Genau
+dieser Zeitstempel ist die eigentliche Information:</p>
+
+<table>
+<tr><th>Was der Mitschnitt zeigt</th><th>Was daraus folgt</th></tr>
+<tr><td>Meldungen bis zur letzten Millisekunde vor dem Ausfall</td><td>Der Kernel war bis zuletzt handlungsfähig. Dann steht dort auch, worüber er sich beschwert hat — ein Oops, ein Watchdog, ein USB-Reset, ein Speicherfehler. Die Ursache ist damit benannt.</td></tr>
+<tr><td>Schlagartig Stille mitten im normalen Betrieb</td><td>Der Kernel kam nicht einmal mehr zum Senden eines einzigen Zeichens. Das ist kein Softwarefehler, sondern Strom oder Hardware — Netzteil, Steckverbindungen, im Zweifel ein anderer Pi.</td></tr>
+</table>
+
+<p class="klein">Der Mitschnitt läuft dauerhaft und kostet praktisch nichts. Es
+spricht nichts dagegen, ihn bei einem Gerät mit unklarem Verhalten einfach
+liegen zu lassen, bis der nächste Ausfall kommt — das ist deutlich billiger,
+als jedes Mal aufs Neue zu raten.</p>
 
 <!-- ==================================================== KAPITEL 14 -->
 <h1 class="kapitel" id="k24"><span class="knr">24</span>Anhang</h1>
 <div class="kapitelband"></div>
 
-<h2 id="k23-1">23.1 Belegung des Pi-Headers (genutzte Pins)</h2>
+<h2 id="k24-1">24.1 Belegung des Pi-Headers (genutzte Pins)</h2>
 <table class="schmal">
 <tr><th>Pi-Pin</th><th>Signal</th><th>Verwendung</th></tr>
 <tr><td>1</td><td>3V3</td><td>durchgereicht an OLED (J5) und LED (J7)</td></tr>
@@ -1878,7 +1922,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>6, 9, 14, 20, 25, 30, 34, 39</td><td>GND</td><td>Masse</td></tr>
 </table>
 
-<h2 id="k23-2">23.2 Prüfpunkte</h2>
+<h2 class="umbruch" id="k24-2">24.2 Prüfpunkte</h2>
 <table class="schmal">
 <tr><th>Pad</th><th>Signal</th><th>Sollwert im Betrieb</th></tr>
 <tr><td>TP1</td><td>RESET</td><td>3,3 V (Ruhe)</td></tr>
@@ -1891,7 +1935,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>TP8</td><td>CS</td><td>SPI-Auswahl Funkmodul</td></tr>
 </table>
 
-<h2 class="umbruch" id="k23-3">23.3 Glossar</h2>
+<h2 class="umbruch" id="k24-3">24.3 Glossar</h2>
 <table>
 <tr><th>Begriff</th><th>Bedeutung</th></tr>
 <tr><td>BidCoS</td><td>„Bidirectional Communication Standard" — das Funkprotokoll klassischer Homematic-Geräte</td></tr>
@@ -1907,7 +1951,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>UART</td><td>serielle Schnittstelle (zwei Drähte: senden, empfangen)</td></tr>
 </table>
 
-<h2 class="umbruch" id="k23-4">23.4 Quellen und Dank</h2>
+<h2 class="umbruch" id="k24-4">24.4 Quellen und Dank</h2>
 <p>Dieses Projekt wäre ohne die Vorarbeit dieser Autoren nicht denkbar:</p>
 <ul>
 <li><strong>jp112sdl</strong> — AskSinAnalyzer und die Sniffer-Firmware
@@ -1922,7 +1966,7 @@ lesen als auch durchsuchen lässt:</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.9.0 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.10.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>
