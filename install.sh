@@ -260,6 +260,22 @@ else
     esac
 fi
 
+# Die Konfiguration darf die Hardware nicht ueberstimmen. Auf dem Pi 5 sitzt
+# die Peripherie hinter dem RP1-Chip; die PWM/DMA-Ansteuerung von rpi_ws281x
+# zielt weiterhin auf die alte Speicherlage. Im guenstigen Fall startet sie
+# gar nicht erst, im unguenstigen schreibt ein DMA-Kanal in fremden Speicher -
+# und das haengt den Rechner hart auf, ohne eine Zeile zu hinterlassen.
+# Eine aus einem Pi 3/4 uebernommene Konfiguration darf das nie ausloesen.
+if [ "$PI_GEN" = "5" ] && [ "$LED_METHODE" = "ws2812-pwm" ]; then
+    c_warn "PWM ist auf dem Pi 5 nicht moeglich (RP1) - stelle auf SPI um."
+    LED_METHODE="ws2812-spi"
+    if [ -f "$CONFIG_FILE" ]; then
+        sed -i 's/"led"[[:space:]]*:[[:space:]]*"ws2812-pwm"/"led": "ws2812-spi"/' \
+            "$CONFIG_FILE"
+    fi
+    systemctl disable --now asksin-analyzer-led.service 2>/dev/null || true
+fi
+
 # --- Status-LED / OLED (M11) --------------------------------------------------
 if [ "$STATUSANZEIGE" -eq 1 ]; then
     c_info "Richte Status-LED/OLED ein (Methode: $LED_METHODE)..."

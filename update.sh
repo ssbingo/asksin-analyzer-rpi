@@ -80,8 +80,27 @@ installiere_dateien() {
     # LED-Hilfsdienst (PWM auf Pi 3/4) nur nachziehen, wenn er schon
     # eingerichtet ist — auf dem Pi 5 gibt es ihn bewusst nicht.
     if [ -f /etc/systemd/system/asksin-analyzer-led.service ]; then
-        install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-led.service" \
-            /etc/systemd/system/asksin-analyzer-led.service
+        # Sicherheitsnetz: Ist der Dienst auf einem Pi 5 gelandet — etwa weil
+        # eine vom Pi 3/4 uebernommene Konfiguration "ws2812-pwm" trug —, dann
+        # hier abschalten und auf SPI stellen. PWM/DMA zielt dort auf eine
+        # Speicherlage, die es hinter dem RP1 nicht gibt; im schlimmsten Fall
+        # haengt das den Rechner hart auf, ohne Spur im Journal.
+        MODELL="$( { tr -d '\0' < /proc/device-tree/model; } 2>/dev/null )"
+        case "$MODELL" in
+            *"Raspberry Pi 5"*|*"Compute Module 5"*)
+                echo "  Pi 5 erkannt: LED-Hilfsdienst (PWM) wird abgeschaltet, LED laeuft ueber SPI."
+                systemctl disable --now asksin-analyzer-led.service 2>/dev/null || true
+                rm -f /etc/systemd/system/asksin-analyzer-led.service
+                [ -f "$CONFIG_FILE" ] && sed -i \
+                    's/"led"[[:space:]]*:[[:space:]]*"ws2812-pwm"/"led": "ws2812-spi"/' \
+                    "$CONFIG_FILE"
+                systemctl daemon-reload
+                ;;
+            *)
+                install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-led.service" \
+                    /etc/systemd/system/asksin-analyzer-led.service
+                ;;
+        esac
     fi
     # jq braucht netz-anwenden.sh (M7.6); auf Bestandsanlagen nachziehen:
     command -v jq >/dev/null 2>&1 || apt-get install -y -qq jq || true

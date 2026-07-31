@@ -54,6 +54,23 @@ def lies_farbe(pfad: str) -> tuple[int, int, int] | None:
     return (werte[0], werte[1], werte[2])
 
 
+def ist_pi5() -> bool:
+    """
+    Läuft das hier auf einem Pi 5? Dort sitzt die Peripherie hinter dem
+    RP1-Chip, und die PWM/DMA-Ansteuerung von rpi_ws281x zielt weiterhin auf
+    die alte Speicherlage. Im günstigen Fall verweigert die Bibliothek den
+    Start, im ungünstigen schreibt ein DMA-Kanal in fremden Speicher — und
+    das hängt den Rechner hart auf, ohne eine Zeile im Journal zu hinterlassen.
+    Deshalb hier eine eigene Sperre, unabhängig davon, was die Bibliothek tut.
+    """
+    try:
+        with open("/proc/device-tree/model", "rb") as f:
+            modell = f.read().decode("ascii", "replace")
+    except OSError:
+        return False
+    return "Raspberry Pi 5" in modell or "Compute Module 5" in modell
+
+
 class Treiber:
     """Kapselt rpi_ws281x, damit der Rest ohne Hardware testbar bleibt."""
 
@@ -81,6 +98,13 @@ def main() -> int:
 
     if os.geteuid() != 0:
         print("led-pwm: PWM/DMA braucht Root-Rechte", file=sys.stderr)
+        return 1
+
+    if ist_pi5():
+        print("led-pwm: Auf dem Raspberry Pi 5 wird dieser Dienst NICHT "
+              "verwendet — die LED laeuft dort ueber SPI. Beende mich, statt "
+              "einen DMA-Kanal auf eine Speicherlage zu richten, die es hier "
+              "nicht gibt.", file=sys.stderr)
         return 1
 
     try:
