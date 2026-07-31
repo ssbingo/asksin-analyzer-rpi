@@ -223,6 +223,8 @@ export interface StatusAnzeigeZustand {
   seite: number;
   /** Gesamtzahl der Displayseiten — kommt vom Core, nicht fest verdrahtet. */
   seiten: number;
+  /** Bauhöhe des OLED in Pixeln: 32 (Adafruit PiOLED) oder 64. */
+  oledHoehe?: 32 | 64;
   fehler: Record<string, string>;
   ledMuster: { farbe: [number, number, number]; blinken: string; grund: string };
   system: {

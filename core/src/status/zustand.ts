@@ -86,101 +86,117 @@ export function blinkPhase(blinken: Blinken, t: number): number {
   }
 }
 
-export const SEITEN_ANZAHL = 7;
+/**
+ * Seitenaufbau nach dem Vorbild des Status-LED-OLED-Projekts.
+ *
+ * Dort trägt jede Wertseite **nur zwei Dinge**: ein kurzes Label oben und
+ * darunter den Wert, waagerecht zentriert und in der größten Schrift, die noch
+ * in die Breite passt (`_fit_font` probiert von 28 px abwärts). Kopf- und
+ * Fußzeilen gibt es nicht — und genau die waren hier das Problem: Sie liefen
+ * auf der Grundschrift 5 × 7 und waren auf einem 0,96-Zoll-Panel nicht mehr zu
+ * entziffern.
+ *
+ * Deshalb jetzt auch hier: kein Kopf, kein Fuß, ein Wert je Seite, Größe
+ * gesucht statt gesetzt. Die Seitennummer steht als Punktreihe am unteren
+ * Rand — drei Pixel hoch und trotzdem aus der Entfernung zu erfassen. Statt
+ * Zeilen zu quetschen gibt es lieber eine Seite mehr.
+ */
+export const SEITEN_ANZAHL = 9;
 
-// Seitenraster für 128 × 64 Pixel.
-//
-// Die Grundschrift ist 5 × 7 Pixel — auf einem 0,96-Zoll-Display rund 1,7 mm
-// hoch und damit aus zwei Metern nicht mehr zu lesen. Deshalb ist der Aufbau
-// jeder Seite gleich und großzügig: kleine Kopfzeile, **mittelgroße
-// Beschriftung**, **großer Wert**, darunter höchstens eine kleine Fußzeile.
-// Lieber eine Seite mehr zum Durchblättern als eine, die niemand entziffert.
-//
-//   0 …  8   Kopfzeile (Standort, Seitenzähler) — Stufe 1
-//   9        Trennlinie
-//  12 … 25   Beschriftung — Stufe 2 (10 Zeichen)
-//  30 … 50   Wert — Stufe 3 (7 Zeichen)
-//  55 … 62   Fußzeile — Stufe 1 (21 Zeichen)
-const LABEL: Skala = 2;
-const WERT: Skala = 3;
-const LABEL_Y = 12;
-const WERT_Y = 30;
-const FUSS_Y = 55;
-
-/** Eine Seite: Beschriftung, großer Wert, optionale Fußzeile. */
-function seiteZeichnen(
-  bild: OledBild,
-  label: string,
-  wert: string,
-  fuss = '',
-): void {
-  bild.text(0, LABEL_Y, label.slice(0, zeichenProZeile(LABEL)), LABEL);
-  bild.text(0, WERT_Y, wert.slice(0, zeichenProZeile(WERT)), WERT);
-  if (fuss !== '') bild.text(0, FUSS_Y, fuss.slice(0, zeichenProZeile(1)));
+/** Kandidaten für den großen Wert: erst so groß wie möglich, dann umbrechen. */
+export function passeWertAn(
+  text: string,
+  hoechste: Skala = 3,
+): { zeilen: string[]; skala: Skala } {
+  const stufen: Skala[] = hoechste === 3 ? [3, 2] : [2];
+  for (const skala of stufen) {
+    if (text.length <= zeichenProZeile(skala)) return { zeilen: [text], skala };
+  }
+  // Zu lang für eine Zeile — an einem Trenner umbrechen, damit etwa eine
+  // IP-Adresse groß bleibt, statt auf die Grundschrift zu fallen.
+  const breite = zeichenProZeile(2);
+  const trenner = ['.', ' ', '-', '_'];
+  for (let i = Math.min(breite, text.length - 1); i > 0; i--) {
+    if (trenner.includes(text[i - 1]!)) {
+      const rest = text.slice(i);
+      if (rest.length <= breite) return { zeilen: [text.slice(0, i), rest], skala: 2 };
+    }
+  }
+  return { zeilen: [text.slice(0, zeichenProZeile(1))], skala: 1 };
 }
 
-/** Zeichnet die OLED-Seite `nummer` (0-basiert) in das Bild. */
+/** Label, Wert und Zusatz je Seite — die Reihenfolge ist die Blätterreihenfolge. */
+export function seitenFelder(s: StatusDaten): Array<[string, string, string]> {
+  const dc = s.maxDutyCycle;
+  return [
+    ['Standort', s.standort, `v${s.version}`],
+    ['Sniffer', s.connected ? 'BEREIT' : 'GETRENNT', s.demo ? 'Demo-Modus' : ''],
+    ['IP', s.ip, ''],
+    ['Telegr/min', String(s.telegramsPerMinute), ''],
+    ['Rauschen', s.noiseFloor === null ? '\u2014' : `${s.noiseFloor} dBm`, ''],
+    ['Geräte', String(s.deviceCount), 'im Funknetz'],
+    [
+      'Duty-Cycle',
+      dc === null ? '\u2014' : `${dc.percent.toFixed(1)}%`,
+      dc === null ? 'keine Daten' : dc.percent >= 80 ? '! ALARM !' : dc.name,
+    ],
+    [
+      'Temperatur',
+      s.system.tempC === null ? '\u2014' : `${s.system.tempC.toFixed(0)}\u00b0C`,
+      `Last ${s.system.cpuLast.toFixed(2)}`,
+    ],
+    [
+      'Lüfter',
+      s.system.luefterUpm === null ? '\u2014' : String(Math.round(s.system.luefterUpm)),
+      s.system.luefterUpm === null ? 'keiner' : 'U/min',
+    ],
+  ];
+}
+
+/**
+ * Zeichnet die OLED-Seite `nummer` (0-basiert).
+ *
+ * Aufbau wie beim Vorbild: kleines Label oben links, darunter **ein** Wert,
+ * waagerecht zentriert und in der größten Schrift, die in die Breite passt.
+ * Keine Kopf-, keine Fußzeile — die liefen auf der Grundschrift und waren auf
+ * dem Panel nicht mehr zu entziffern.
+ *
+ * Auf dem 128 × 32 (Adafruit PiOLED, die Vorgabe) ist Platz für genau diese
+ * zwei Elemente. Auf einem 128 × 64 kommt der Zusatz und eine Punktreihe als
+ * Seitenanzeige hinzu.
+ */
 export function zeichneSeite(bild: OledBild, nummer: number, s: StatusDaten): void {
   bild.leeren();
   const seite = ((nummer % SEITEN_ANZAHL) + SEITEN_ANZAHL) % SEITEN_ANZAHL;
+  const [label, wert, zusatz] = seitenFelder(s)[seite]!;
+  const klein = bild.hoehe <= 32;
+  const angepasst = passeWertAn(wert);
 
-  // Kopfzeile: Standort links, Seitenzähler rechts, Trennlinie.
-  bild.text(0, 0, s.standort.slice(0, 16));
-  bild.textRechts(0, `${seite + 1}/${SEITEN_ANZAHL}`);
-  bild.linie(9);
-
-  switch (seite) {
-    case 0:
-      seiteZeichnen(
-        bild,
-        s.demo ? 'Demo-Modus' : 'Sniffer',
-        s.connected ? 'BEREIT' : 'GETRENNT',
-        `${s.ip} v${s.version}`,
-      );
-      break;
-    case 1:
-      seiteZeichnen(bild, 'Telegramme', String(s.telegramsPerMinute), 'je Minute');
-      break;
-    case 2:
-      seiteZeichnen(
-        bild,
-        'Rauschen',
-        s.noiseFloor === null ? '—' : String(s.noiseFloor),
-        'dBm Grundrauschen',
-      );
-      break;
-    case 3:
-      seiteZeichnen(bild, 'Geräte', String(s.deviceCount), 'aktiv im Funknetz');
-      break;
-    case 4:
-      seiteZeichnen(
-        bild,
-        'Duty-Cycle',
-        s.maxDutyCycle === null ? '—' : `${s.maxDutyCycle.percent.toFixed(1)}%`,
-        s.maxDutyCycle === null
-          ? 'noch keine Daten'
-          : s.maxDutyCycle.percent >= 80
-            ? '!! ALARM !!'
-            : s.maxDutyCycle.name,
-      );
-      break;
-    case 5:
-      seiteZeichnen(
-        bild,
-        'Temperatur',
-        s.system.tempC === null ? '—' : `${s.system.tempC.toFixed(0)}\u00b0C`,
-        `Last ${s.system.cpuLast.toFixed(2)}  RAM ${s.system.ramFreiProzent.toFixed(0)}%`,
-      );
-      break;
-    case 6:
-      seiteZeichnen(
-        bild,
-        'Lüfter',
-        s.system.luefterUpm === null ? '—' : String(Math.round(s.system.luefterUpm)),
-        s.system.luefterUpm === null
-          ? 'kein Lüfter gemeldet'
-          : `U/min${s.system.diskFreiProzent === null ? '' : `  SSD ${s.system.diskFreiProzent.toFixed(0)}%`}`,
-      );
-      break;
+  if (klein) {
+    // 32 Zeilen sind knapp. Einzeiliger Wert: Label 0–6, Wert 10–30.
+    // Zweizeiliger Wert: zwei Zeilen à 14 Pixel füllen die Höhe bereits aus —
+    // dann entfällt das Label, sonst würde die zweite Zeile unten abgeschnitten.
+    // Der Verlust ist gering: Eine IP-Adresse und ein Standortname erklären
+    // sich von selbst, ein halb abgeschnittener Wert nicht.
+    const z = angepasst.zeilen;
+    if (z.length > 1) {
+      bild.textMitte(1, z[0]!, 2);
+      bild.textMitte(17, z[1]!, 2);
+      return;
+    }
+    bild.text(0, 0, label.slice(0, zeichenProZeile(1)));
+    bild.textMitte(angepasst.skala === 3 ? 10 : 13, z[0]!, angepasst.skala);
+    return;
   }
+
+  bild.text(0, 2, label.slice(0, zeichenProZeile(2)), 2);
+
+  if (angepasst.zeilen.length === 1) {
+    bild.textMitte(24, angepasst.zeilen[0]!, angepasst.skala);
+    if (zusatz !== '') bild.textMitte(48, zusatz.slice(0, zeichenProZeile(2)), 2);
+  } else {
+    bild.textMitte(20, angepasst.zeilen[0]!, angepasst.skala);
+    bild.textMitte(40, angepasst.zeilen[1]!, angepasst.skala);
+  }
+  bild.punktreihe(60, SEITEN_ANZAHL, seite);
 }

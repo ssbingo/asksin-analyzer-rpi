@@ -4,7 +4,7 @@ export {
   AUS_KOMMANDO,
   OLED_ADRESSE,
   OLED_BREITE,
-  OLED_HOEHE,
+  OLED_HOEHE_VORGABE,
   OledBild,
   i2cTransferArgs,
   initKommandos,

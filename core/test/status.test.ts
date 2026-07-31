@@ -5,7 +5,13 @@ import { StatusAnzeige } from '../src/status/anzeige.ts';
 import { glyphe } from '../src/status/font.ts';
 import { OledBild, i2cTransferArgs, initKommandos } from '../src/status/ssd1306.ts';
 import { kodiereWs2812 } from '../src/status/ws2812.ts';
-import { blinkPhase, ledMuster, zeichneSeite } from '../src/status/zustand.ts';
+import {
+  SEITEN_ANZAHL,
+  blinkPhase,
+  ledMuster,
+  passeWertAn,
+  zeichneSeite,
+} from '../src/status/zustand.ts';
 import type { StatusDaten } from '../src/status/zustand.ts';
 import { FakeTime, tick } from './helpers/fakes.ts';
 
@@ -70,16 +76,51 @@ test('Blinkphasen folgen der Wanduhr', () => {
   assert.ok(blinkPhase('puls', 1000) > blinkPhase('puls', 100), 'Atmen steigt an');
 });
 
-test('OLED-Seiten: Kopfzeile + Trennlinie auf jeder Seite, Alarm sichtbar', () => {
-  const bild = new OledBild();
-  for (let s = 0; s < 4; s++) {
-    zeichneSeite(bild, s, DATEN);
-    assert.ok(bild.hatPixel(0, 9), `Trennlinie Seite ${s}`);
-    assert.ok(
-      bild.puffer.some((b) => b !== 0),
-      `Seite ${s} ist nicht leer`,
-    );
+test('OLED-Seiten: jede Seite ist gefüllt und nichts wird abgeschnitten', () => {
+  // Der Aufbau folgt dem Vorbild: kein Kopf, keine Fußzeile, ein grosser Wert.
+  // Geprueft wird deshalb nicht mehr auf eine Trennlinie, sondern darauf, dass
+  // jede Seite etwas zeigt und in der untersten Pixelzeile nichts angeschnitten
+  // stehen bleibt — genau dieser Fall trat beim 128x32 mit zweizeiligen Werten
+  // auf (Standortname, IP-Adresse).
+  for (const hoehe of [32, 64] as const) {
+    const bild = new OledBild(hoehe);
+    for (let s = 0; s < SEITEN_ANZAHL; s++) {
+      zeichneSeite(bild, s, DATEN);
+      assert.ok(
+        bild.puffer.some((b) => b !== 0),
+        `Seite ${s} (128x${hoehe}) ist nicht leer`,
+      );
+      let unten = 0;
+      for (let x = 0; x < 128; x++) if (bild.hatPixel(x, hoehe - 1)) unten++;
+      // Die Punktreihe auf dem 64er endet bei y = 62, Text nie in der letzten
+      // Zeile: Was hier steht, ist abgeschnitten.
+      assert.equal(unten, 0, `Seite ${s} (128x${hoehe}) stoesst unten an`);
+    }
   }
+});
+
+test('Grosse Werte: Stufe so gross wie moeglich, Umbruch statt Winzschrift', () => {
+  assert.deepEqual(passeWertAn('137'), { zeilen: ['137'], skala: 3 });
+  assert.deepEqual(passeWertAn('GETRENNT'), { zeilen: ['GETRENNT'], skala: 2 });
+  // Zu lang fuer eine Zeile: am Trenner umbrechen, aber gross bleiben.
+  assert.deepEqual(passeWertAn('192.168.1.71'), {
+    zeilen: ['192.168.1.', '71'],
+    skala: 2,
+  });
+  assert.deepEqual(passeWertAn('Büro Keller'), {
+    zeilen: ['Büro ', 'Keller'],
+    skala: 2,
+  });
+});
+
+test('Init-Sequenz: Multiplex und COM-Pins haengen an der Bauhoehe', () => {
+  // Falsche Werte machen aus einem 128x32 ein verdoppeltes, unleserliches Bild.
+  const k32 = initKommandos(40, 32);
+  assert.equal(k32[k32.indexOf(0xa8) + 1], 31, 'Multiplex 32 Zeilen');
+  assert.equal(k32[k32.indexOf(0xda) + 1], 0x02, 'COM-Pins sequenziell');
+  const k64 = initKommandos(40, 64);
+  assert.equal(k64[k64.indexOf(0xa8) + 1], 63, 'Multiplex 64 Zeilen');
+  assert.equal(k64[k64.indexOf(0xda) + 1], 0x12, 'COM-Pins alternierend');
 });
 
 test('i2cTransferArgs: Steuerbyte + Nutzdaten als ein Schreibvorgang', () => {
@@ -127,7 +168,7 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
   const gruen = kodiereWs2812([0, 255, 40], 100);
   assert.deepEqual([...geschrieben[0]![1]], [...gruen], 'grün = alles ok');
   const oledDaten = kommandos.filter(
-    ([cmd, args]) => cmd === 'i2ctransfer' && args[2] === 'w1025@0x3c',
+    ([cmd, args]) => cmd === 'i2ctransfer' && args[2] === 'w513@0x3c',
   );
   assert.ok(oledDaten.length >= 1, 'ganzer Framebuffer in einem Transfer');
 

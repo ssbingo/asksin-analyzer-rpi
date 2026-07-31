@@ -11,7 +11,22 @@
 import { ZEICHEN_BREITE, glyphe } from './font.ts';
 
 export const OLED_BREITE = 128;
-export const OLED_HOEHE = 64;
+
+/**
+ * Bauhöhe des Panels in Pixeln.
+ *
+ * **128 × 32** ist die Adafruit PiOLED und die Vorgabe des Vorbilds
+ * (Status-LED-OLED) — und damit auch hier die Vorgabe. 128 × 64 gibt es als
+ * 0,96-Zoll-Modul ebenfalls häufig.
+ *
+ * Die Unterscheidung ist nicht kosmetisch: Multiplex-Verhältnis, COM-Pin-Lage
+ * und der Seitenbereich der Init-Sequenz hängen daran, und der Framebuffer ist
+ * doppelt so groß. Wird ein 32-zeiliges Panel mit den Werten für 64 Zeilen
+ * angesprochen, zeigt es ein verdoppeltes, unleserliches Bild — genau danach
+ * sah es aus.
+ */
+export type OledHoehe = 32 | 64;
+export const OLED_HOEHE_VORGABE: OledHoehe = 32;
 
 /** Vergrößerungsstufe der Pixelschrift. */
 export type Skala = 1 | 2 | 3;
@@ -22,27 +37,46 @@ export function zeichenProZeile(skala: Skala): number {
 }
 export const OLED_ADRESSE = 0x3c;
 
-/** Init-Sequenz für 128×64 mit horizontalem Adressmodus. */
-export function initKommandos(helligkeit: number): number[] {
+/**
+ * Init-Sequenz, Reihenfolge und Werte nach `Adafruit_CircuitPython_SSD1306`
+ * — derselben Bibliothek, die das Vorbild (Status-LED-OLED) verwendet.
+ *
+ * Zwei Werte hängen an der Bauhöhe, und beide falsch zu setzen macht das Bild
+ * unbrauchbar statt bloß unschön:
+ *   * **Multiplex** = Höhe − 1 (0x1f bei 32, 0x3f bei 64).
+ *   * **COM-Pin-Lage**: 0x02, wenn Breite > 2 × Höhe (also beim 128 × 32),
+ *     sonst 0x12. Genau diese Bedingung steht auch in der Bibliothek.
+ *
+ * `0xad, 0x30` schaltet die interne Referenzstromquelle ein. Die
+ * Adafruit-Bibliothek sendet das seit der SSD1315-Welle mit; viele günstige
+ * Module bleiben ohne sie auffällig dunkel.
+ */
+export function initKommandos(
+  helligkeit: number,
+  hoehe: OledHoehe = OLED_HOEHE_VORGABE,
+): number[] {
   const kontrast = Math.max(1, Math.min(255, Math.round(helligkeit * 2.55)));
+  const comPins = OLED_BREITE > 2 * hoehe ? 0x02 : 0x12;
   return [
-    0xae,             // Display aus
-    0xd5, 0x80,       // Takt
-    0xa8, 0x3f,       // Multiplex 64
-    0xd3, 0x00,       // kein Offset
-    0x40,             // Startzeile 0
-    0x8d, 0x14,       // Ladungspumpe an
-    0x20, 0x00,       // horizontaler Adressmodus
-    0xa1, 0xc8,       // Segment-/COM-Richtung (Kopfzeile oben)
-    0xda, 0x12,       // COM-Pins
-    0x81, kontrast,   // Kontrast (≙ Helligkeit)
-    0xd9, 0xf1,       // Precharge
-    0xdb, 0x40,       // VCOM
-    0xa4,             // RAM anzeigen
-    0xa6,             // nicht invertiert
-    0x21, 0x00, 0x7f, // Spalten 0–127
-    0x22, 0x00, 0x07, // Seiten 0–7
-    0xaf,             // Display an
+    0xae,               // Display aus
+    0x20, 0x00,         // horizontaler Adressmodus
+    0x40,               // Startzeile 0
+    0xa1,               // Spalte 127 auf SEG0 — Kopfzeile oben
+    0xa8, hoehe - 1,    // Multiplex-Verhältnis
+    0xc8,               // COM-Abtastung von COM[N] nach COM0
+    0xd3, 0x00,         // kein Offset
+    0xda, comPins,      // COM-Pin-Lage
+    0xd5, 0x80,         // Takt
+    0xd9, 0xf1,         // Precharge
+    0xdb, 0x30,         // VCOM-Abwahlpegel
+    0x81, kontrast,     // Kontrast (≙ Helligkeit)
+    0xa4,               // RAM anzeigen
+    0xa6,               // nicht invertiert
+    0xad, 0x30,         // interne Referenzstromquelle einschalten
+    0x8d, 0x14,         // Ladungspumpe an
+    0x21, 0x00, 0x7f,           // Spalten 0–127
+    0x22, 0x00, hoehe / 8 - 1,  // Seitenbereich
+    0xaf,               // Display an
   ];
 }
 
@@ -66,14 +100,20 @@ export function i2cTransferArgs(
 
 /** Der Framebuffer: 8 Seiten × 128 Spalten, Bit 0 = oberste Zeile der Seite. */
 export class OledBild {
-  readonly puffer = new Uint8Array((OLED_BREITE * OLED_HOEHE) / 8);
+  readonly hoehe: OledHoehe;
+  readonly puffer: Uint8Array;
+
+  constructor(hoehe: OledHoehe = OLED_HOEHE_VORGABE) {
+    this.hoehe = hoehe;
+    this.puffer = new Uint8Array((OLED_BREITE * hoehe) / 8);
+  }
 
   leeren(): void {
     this.puffer.fill(0);
   }
 
   pixel(x: number, y: number, an = true): void {
-    if (x < 0 || x >= OLED_BREITE || y < 0 || y >= OLED_HOEHE) return;
+    if (x < 0 || x >= OLED_BREITE || y < 0 || y >= this.hoehe) return;
     const index = (y >> 3) * OLED_BREITE + x;
     const maske = 1 << (y & 7);
     if (an) this.puffer[index]! |= maske;
@@ -81,7 +121,7 @@ export class OledBild {
   }
 
   hatPixel(x: number, y: number): boolean {
-    if (x < 0 || x >= OLED_BREITE || y < 0 || y >= OLED_HOEHE) return false;
+    if (x < 0 || x >= OLED_BREITE || y < 0 || y >= this.hoehe) return false;
     return ((this.puffer[(y >> 3) * OLED_BREITE + x]! >> (y & 7)) & 1) === 1;
   }
 
@@ -120,5 +160,35 @@ export class OledBild {
   /** Rechtsbündiger Text an der rechten Kante. */
   textRechts(y: number, inhalt: string, skala: Skala = 1): void {
     this.text(OLED_BREITE - inhalt.length * ZEICHEN_BREITE * skala, y, inhalt, skala);
+  }
+
+  /** Waagerecht mittig — so setzt auch das Vorbild seine großen Werte. */
+  textMitte(y: number, inhalt: string, skala: Skala = 1): void {
+    const breite = inhalt.length * ZEICHEN_BREITE * skala;
+    this.text(Math.max(0, Math.round((OLED_BREITE - breite) / 2)), y, inhalt, skala);
+  }
+
+  /**
+   * Seitenanzeige als Punktreihe am unteren Rand.
+   *
+   * Als Text („3/9") bräuchte der Zähler eine eigene kleine Zeile — und genau
+   * die kleinen Zeilen sind auf diesem Display nicht zu entziffern. Punkte
+   * sagen dasselbe auf drei Pixel Höhe und werden auch aus der Entfernung
+   * noch als Position erkannt.
+   */
+  punktreihe(y: number, anzahl: number, aktiv: number): void {
+    const abstand = 7;
+    const gesamt = anzahl * abstand - (abstand - 3);
+    let x = Math.max(0, Math.round((OLED_BREITE - gesamt) / 2));
+    for (let i = 0; i < anzahl; i++) {
+      if (i === aktiv) {
+        for (let dy = 0; dy < 3; dy++) {
+          for (let dx = 0; dx < 3; dx++) this.pixel(x + dx, y + dy);
+        }
+      } else {
+        this.pixel(x + 1, y + 1);
+      }
+      x += abstand;
+    }
   }
 }

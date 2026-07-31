@@ -36,8 +36,9 @@ import type { Stufe } from '../src/log/protokoll.ts';
 import { auffaelligkeiten, erhebeSystemwerte, leseLuefterUpm } from '../src/log/diagnose.ts';
 import { Systemlog } from '../src/log/systemlog.ts';
 import { StatusAnzeige } from '../src/status/anzeige.ts';
-import { OledBild } from '../src/status/ssd1306.ts';
-import { ledMuster, zeichneSeite } from '../src/status/zustand.ts';
+import { OLED_HOEHE_VORGABE, OledBild } from '../src/status/ssd1306.ts';
+import type { OledHoehe } from '../src/status/ssd1306.ts';
+import { SEITEN_ANZAHL, ledMuster, zeichneSeite } from '../src/status/zustand.ts';
 import type { StatusDaten } from '../src/status/zustand.ts';
 import { flashFirmware, siehtNachIntelHexAus } from '../src/update/firmware.ts';
 
@@ -93,6 +94,8 @@ interface Konfiguration {
     led?: 'ws2812-spi' | 'ws2812-pwm' | 'aus';
     oled?: boolean;
     helligkeit?: number;
+    /** Bauhöhe des OLED: 32 (Adafruit PiOLED, Vorgabe) oder 64. */
+    oledHoehe?: 32 | 64;
   };
 }
 
@@ -736,6 +739,8 @@ interface StatusKonfig {
   led: 'ws2812-spi' | 'ws2812-pwm' | 'aus';
   oled: boolean;
   helligkeit: number;
+  /** Bauhöhe des Panels: 32 (Adafruit PiOLED, Vorgabe) oder 64. */
+  oledHoehe: OledHoehe;
 }
 
 function statusKonfigLesen(): StatusKonfig {
@@ -743,6 +748,7 @@ function statusKonfigLesen(): StatusKonfig {
     led: konfig.statusanzeige?.led ?? 'aus',
     oled: konfig.statusanzeige?.oled === true,
     helligkeit: konfig.statusanzeige?.helligkeit ?? 40,
+    oledHoehe: konfig.statusanzeige?.oledHoehe === 64 ? 64 : OLED_HOEHE_VORGABE,
   };
   try {
     const ui = JSON.parse(readFileSync(statusKonfigDatei, 'utf8')) as Partial<StatusKonfig>;
@@ -753,6 +759,7 @@ function statusKonfigLesen(): StatusKonfig {
           : basis.led,
       oled: typeof ui.oled === 'boolean' ? ui.oled : basis.oled,
       helligkeit: typeof ui.helligkeit === 'number' ? ui.helligkeit : basis.helligkeit,
+      oledHoehe: ui.oledHoehe === 32 || ui.oledHoehe === 64 ? ui.oledHoehe : basis.oledHoehe,
     };
   } catch {
     /* keine UI-Datei — config.json/Vorgaben gelten */
@@ -771,6 +778,7 @@ async function statusAnzeigeAufbauen(): Promise<void> {
     led: k.led,
     oled: k.oled,
     helligkeit: k.helligkeit,
+    oledHoehe: k.oledHoehe,
     // Im PWM-Modus schreibt der Core nur die Farbe hierhin; der Root-Dienst
     // asksin-analyzer-led liest sie und treibt GPIO18.
     pwmDatei: join(dirname(konfig.db), 'led-farbe'),
@@ -786,13 +794,17 @@ const statusAnzeigeHooks = {
   zustand: (): Record<string, unknown> => {
     const k = statusKonfigLesen();
     const daten = statusDaten();
-    const bild = new OledBild();
+    const bild = new OledBild(k.oledHoehe);
     zeichneSeite(bild, statusAnzeige?.zustandFuerApi().seite ?? 0, daten);
     return {
       konfig: k,
+      // Die Vorschau in der Weboberflaeche muss wissen, wie hoch das Bild ist —
+      // sonst zeichnet sie fuer ein 128x32-Panel die doppelte Hoehe.
+      oledHoehe: k.oledHoehe,
       ...(statusAnzeige?.zustandFuerApi() ?? {
         aktiv: { led: false, oled: false },
         seite: 0,
+        seiten: SEITEN_ANZAHL,
         fehler: {},
       }),
       ledMuster: ledMuster(daten),
@@ -810,14 +822,23 @@ const statusAnzeigeHooks = {
     if (!Number.isFinite(helligkeit) || helligkeit < 1 || helligkeit > 100) {
       throw new Error('helligkeit: 1–100 erwartet');
     }
+    // Bauhöhe: nur 32 und 64 sind zulässig; ohne Angabe bleibt der
+    // bisherige Wert stehen, damit ältere Oberflächen ihn nicht wegwerfen.
+    const hoeheRoh = auftrag['oledHoehe'];
+    const oledHoehe: OledHoehe =
+      hoeheRoh === 32 || hoeheRoh === 64 ? hoeheRoh : statusKonfigLesen().oledHoehe;
     const neu: StatusKonfig = {
       led,
       oled: auftrag['oled'] === true,
       helligkeit: Math.round(helligkeit),
+      oledHoehe,
     };
     writeFileSync(statusKonfigDatei, JSON.stringify(neu, null, 2));
     await statusAnzeigeAufbauen();
-    log(`Statusanzeige umkonfiguriert (LED: ${neu.led}, OLED: ${neu.oled})`);
+    log(
+      `Statusanzeige umkonfiguriert (LED: ${neu.led}, OLED: ${neu.oled}` +
+        `, Panel 128x${neu.oledHoehe})`,
+    );
   },
   seiteWeiter: (): void => {
     statusAnzeige?.naechsteSeite();

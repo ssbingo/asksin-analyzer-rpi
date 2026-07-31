@@ -31,6 +31,7 @@ REBOOT_NEEDED=0
 NEUES_TOKEN=""
 VERBUND_MASTER=0
 STATUSANZEIGE=0
+OLED_HOEHE=32          # Adafruit PiOLED; 64 fuer 0,96-Zoll-Module
 
 c_info()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 c_ok()    { printf '\033[1;32m  ok\033[0m %s\n' "$*"; }
@@ -170,7 +171,7 @@ schreibe_konfig() {
     cat > "$CONFIG_FILE" <<EOF
 {
   "standort": "$standort",
-  "statusanzeige": { "led": "$led", "oled": $oled, "helligkeit": 40 },
+  "statusanzeige": { "led": "$led", "oled": $oled, "helligkeit": 40, "oledHoehe": ${OLED_HOEHE:-32} },
   "device": "/dev/asksin-hat",
   "baud": 58824,
   "db": "$DATA_DIR/analyzer.db",
@@ -240,6 +241,13 @@ if [ "$KONFIGURIEREN" -eq 1 ]; then
         case "${a,,}" in j|ja|y|yes) VERBUND_MASTER=1 ;; *) VERBUND_MASTER=0 ;; esac
         a="$(ask_tty '  Status-LED und OLED-Anzeige (Zubehoer an J5-J7) einrichten? (j/N): ')"
         case "${a,,}" in j|ja|y|yes) STATUSANZEIGE=1 ;; *) STATUSANZEIGE=0 ;; esac
+        if [ "$STATUSANZEIGE" -eq 1 ]; then
+            # Bauhoehe des Panels. Multiplex-Verhaeltnis und COM-Pin-Lage der
+            # Init-Sequenz haengen daran; mit den falschen Werten zeigt das
+            # Display ein verdoppeltes, unleserliches Bild.
+            a="$(ask_tty '  OLED-Bauhoehe - [1] 128x32 (Adafruit PiOLED) oder [2] 128x64? [1]: ')"
+            case "$a" in 2) OLED_HOEHE=64 ;; *) OLED_HOEHE=32 ;; esac
+        fi
     else
         c_warn "Kein Terminal - schreibe Vorgabe-Konfiguration (nur 127.0.0.1, ohne CCU)."
         CCU=""; PORT=8080; HOST="127.0.0.1"; TOKEN=""; STANDORT="$(hostname)"
@@ -279,12 +287,30 @@ fi
 # --- Status-LED / OLED (M11) --------------------------------------------------
 if [ "$STATUSANZEIGE" -eq 1 ]; then
     c_info "Richte Status-LED/OLED ein (Methode: $LED_METHODE)..."
+    # Das OLED wird direkt ueber den I2C-Bus angesprochen (i2ctransfer aus
+    # i2c-tools). Eine Python-Bibliothek wie Adafruit-CircuitPython-SSD1306
+    # wird dafuer NICHT gebraucht: Der Analyzer bringt seinen eigenen
+    # SSD1306-Treiber mit und schiebt den Framebuffer selbst auf den Bus.
+    # Gebraucht werden nur diese beiden Pakete und ein eingeschalteter Bus.
     apt-get install -y -qq i2c-tools spi-tools
     if command -v raspi-config >/dev/null 2>&1; then
         raspi-config nonint do_i2c 0 || c_warn "I2C konnte nicht aktiviert werden."
         REBOOT_NEEDED=1
     else
         c_warn "raspi-config fehlt - I2C ggf. manuell aktivieren."
+    fi
+
+    c_ok "Panel: 128x${OLED_HOEHE}"
+
+    # Antwortet das Display? Direkt nach dem Einschalten von I2C oft noch
+    # nicht - dann ist der Hinweis wichtiger als eine Fehlermeldung.
+    if command -v i2cdetect >/dev/null 2>&1; then
+        if i2cdetect -y 1 2>/dev/null | grep -qiE ' 3c| 3d'; then
+            c_ok "OLED auf dem I2C-Bus gefunden."
+        else
+            c_warn "Auf dem I2C-Bus meldet sich kein Display (Adresse 0x3C/0x3D)."
+            c_warn "Nach dem Neustart pruefen: sudo i2cdetect -y 1"
+        fi
     fi
 
     if [ "$LED_METHODE" = "ws2812-spi" ]; then

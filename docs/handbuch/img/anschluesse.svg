@@ -14,7 +14,7 @@
     <rect x="85" y="230" width="30" height="30" rx="5" fill="#e2e8f0" stroke="#94a3b8"/><text x="100" y="250" text-anchor="middle">4</text>
     <text x="130" y="250">SDA (GPIO2)</text>
   </g>
-  <text x="185" y="288" text-anchor="middle" font-size="10.5" fill="#64748b">SSD1306 128×64, Adresse 0x3C</text>
+  <text x="185" y="288" text-anchor="middle" font-size="10.5" fill="#64748b">SSD1306 128×32, Adresse 0x3C</text>
   <!-- J6 Taster -->
   <rect x="345" y="60" width="250" height="240" rx="12" fill="#ffffff" stroke="#0e7490" stroke-width="2"/>
   <text x="470" y="90" text-anchor="middle" font-size="14" font-weight="bold" fill="#155e75">J6 — Taster</text>

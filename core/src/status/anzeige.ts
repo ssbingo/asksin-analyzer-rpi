@@ -22,10 +22,12 @@ import { standardRunner } from '../update/firmware.ts';
 import {
   AUS_KOMMANDO,
   OLED_ADRESSE,
+  OLED_HOEHE_VORGABE,
   OledBild,
   i2cTransferArgs,
   initKommandos,
 } from './ssd1306.ts';
+import type { OledHoehe } from './ssd1306.ts';
 import { SPI_HZ, kodiereWs2812 } from './ws2812.ts';
 import type { Farbe } from './ws2812.ts';
 import { SEITEN_ANZAHL, blinkPhase, ledMuster, zeichneSeite } from './zustand.ts';
@@ -52,6 +54,8 @@ export interface StatusAnzeigeOptions {
   pwmDatei?: string;
   i2cBus?: number;
   oledAdresse?: number;
+  /** Bauhöhe des Panels: 32 (Adafruit PiOLED, Vorgabe) oder 64. */
+  oledHoehe?: OledHoehe;
   /** Taster an J6 — GPIO17 laut Platine V4. */
   tasterGpio?: number;
   gpioChip?: string;
@@ -114,7 +118,9 @@ export class StatusAnzeige {
     }
 
     if (this.#o.oled) {
-      const ok = await this.#oledKommando(initKommandos(this.#helligkeit));
+      const ok = await this.#oledKommando(
+        initKommandos(this.#helligkeit, this.#o.oledHoehe ?? OLED_HOEHE_VORGABE),
+      );
       if (!ok) this.#oledFehler = MAX_FEHLER;
       this.#takte.push(this.#oledTakt(signal));
       // Der Taster wird nur abonniert, wenn das OLED tatsächlich geantwortet
@@ -208,7 +214,7 @@ export class StatusAnzeige {
   // ---- OLED ------------------------------------------------------------
 
   async #oledTakt(signal: AbortSignal): Promise<void> {
-    const bild = new OledBild();
+    const bild = new OledBild(this.#o.oledHoehe ?? OLED_HOEHE_VORGABE);
     let letzteSeite = -1;
     let letzterInhalt = '';
     for (;;) {

@@ -44,10 +44,15 @@ function zeichneOledVorschau(): void {
   const ctx = canvas.getContext('2d');
   if (ctx === null) return;
   const bytes = Uint8Array.from(atob(z.oledBild), (c) => c.charCodeAt(0));
+  // Die Bauhöhe kommt vom Core: Ein Adafruit PiOLED hat 32 Zeilen, ein
+  // 0,96-Zoll-Modul 64. Fest verdrahtete 8 Speicherseiten zeichneten für das
+  // kleinere Panel die doppelte Höhe.
+  const hoehe = z.oledHoehe ?? 32;
+  canvas.height = hoehe * 2;
   ctx.fillStyle = '#001018';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
   ctx.fillStyle = '#9fdcff';
-  for (let seite8 = 0; seite8 < 8; seite8++) {
+  for (let seite8 = 0; seite8 < hoehe / 8; seite8++) {
     for (let x = 0; x < 128; x++) {
       const byte = bytes[seite8 * 128 + x] ?? 0;
       for (let bit = 0; bit < 8; bit++) {
@@ -231,7 +236,7 @@ nutzeTakt(async () => {
         </div>
       </div>
       <div>
-        <canvas ref="oledCanvas" width="256" height="128"
+        <canvas ref="oledCanvas" width="256" height="64"
                 style="border: 1px solid var(--border); border-radius: 6px; image-rendering: pixelated"></canvas>
         <div class="zeile" style="margin-top: 0.4rem">
           <button @click="blaettern">Blättern (Seite {{ status.seite + 1 }}/{{ status.seiten }})</button>

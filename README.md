@@ -265,7 +265,7 @@ vollständig integriert. Hardware unverändert (0.0.1).
   Persistenzfehler (gelb) > Demo (orange) > Update (blau atmend) > ok
   (grün); eigene SPI-Bit-Kodierung, keine native Bibliothek
 - **OLED** (SSD1306 an J5): eigener Treiber mit 5×7-Schrift (visuell
-  verifiziert, inkl. Umlauten), sieben Seiten (Sniffer-Zustand, Telegramme, Rauschen, Geräte,
+  verifiziert, inkl. Umlauten), neun Seiten (Standort, Sniffer-Zustand, IP, Telegramme, Rauschen, Geräte,
   Duty-Cycle-Spitze, System), Taster an J6 blättert
 - **Statusseite im WebUI**: LED-Punkt in Echtfarbe mit Grund,
   Systemwerte, Störungs-Diagnose und pixelgenaue OLED-Live-Vorschau

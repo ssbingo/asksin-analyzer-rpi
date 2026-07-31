@@ -14,7 +14,8 @@
 import { deflateSync } from 'node:zlib';
 import { writeFileSync } from 'node:fs';
 
-import { OLED_BREITE, OLED_HOEHE, OledBild } from '../src/status/ssd1306.ts';
+import { OLED_BREITE, OLED_HOEHE_VORGABE, OledBild } from '../src/status/ssd1306.ts';
+import type { OledHoehe } from '../src/status/ssd1306.ts';
 import { SEITEN_ANZAHL, zeichneSeite } from '../src/status/zustand.ts';
 import type { StatusDaten } from '../src/status/zustand.ts';
 
@@ -83,23 +84,24 @@ function crc32(daten: Buffer): number {
 
 const ziel = process.argv[2] ?? 'oled-seiten.png';
 const zoom = Number(process.argv[3] ?? 4);
+const hoehe: OledHoehe = process.argv[4] === '64' ? 64 : OLED_HOEHE_VORGABE;
 const ABSTAND = 6;                                    // Rand und Lücke zwischen Seiten
 
 const spalten = 2;
 const zeilen = Math.ceil(SEITEN_ANZAHL / spalten);
 const kachelB = OLED_BREITE * zoom;
-const kachelH = OLED_HOEHE * zoom;
+const kachelH = hoehe * zoom;
 const breite = spalten * kachelB + (spalten + 1) * ABSTAND;
-const hoehe = zeilen * kachelH + (zeilen + 1) * ABSTAND;
+const leinwandHoehe = zeilen * kachelH + (zeilen + 1) * ABSTAND;
 
-const leinwand = new Uint8Array(breite * hoehe).fill(210);   // heller Grund
+const leinwand = new Uint8Array(breite * leinwandHoehe).fill(210);   // heller Grund
 
-const bild = new OledBild();
+const bild = new OledBild(hoehe);
 for (let seite = 0; seite < SEITEN_ANZAHL; seite++) {
   zeichneSeite(bild, seite, BEISPIEL);
   const sx = ABSTAND + (seite % spalten) * (kachelB + ABSTAND);
   const sy = ABSTAND + Math.floor(seite / spalten) * (kachelH + ABSTAND);
-  for (let y = 0; y < OLED_HOEHE; y++) {
+  for (let y = 0; y < hoehe; y++) {
     for (let x = 0; x < OLED_BREITE; x++) {
       const an = bild.hatPixel(x, y);
       for (let dy = 0; dy < zoom; dy++) {
@@ -112,5 +114,5 @@ for (let seite = 0; seite < SEITEN_ANZAHL; seite++) {
   }
 }
 
-schreibePng(ziel, breite, hoehe, leinwand);
-console.log(`${ziel}: ${breite}×${hoehe} Pixel, ${SEITEN_ANZAHL} Seiten à ${zoom}×`);
+schreibePng(ziel, breite, leinwandHoehe, leinwand);
+console.log(`${ziel}: ${breite}×${leinwandHoehe} Pixel, ${SEITEN_ANZAHL} Seiten (${OLED_BREITE}×${hoehe}) à ${zoom}×`);

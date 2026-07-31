@@ -1425,23 +1425,34 @@ I²C/SPI müssen einmal freigeschaltet sein (macht der Installer; nachträglich
 der wichtigste Zustand.</p>
 
 <h2>18.3 Die OLED-Seiten</h2>
-<figure class="rahmen"><img src="img/oled-seiten.png" alt="Die sieben OLED-Seiten">
-<figcaption>Die sieben Seiten in Originalauflösung (128 × 64 Pixel, hier vierfach
+<figure class="rahmen"><img src="img/oled-seiten.png" alt="Die neun OLED-Seiten">
+<figcaption>Die neun Seiten in Originalauflösung (128 × 32 Pixel, hier fünffach
 vergrößert). Jede Seite zeigt <strong>einen</strong> großen Wert — genau dieses
 Bild erzeugt auch die Live-Vorschau in der Weboberfläche.</figcaption></figure>
-<p>Der Taster an J6 blättert durch <strong>sieben Seiten</strong>:
-<strong>1</strong> Sniffer-Zustand (BEREIT/GETRENNT) mit IP und Version ·
-<strong>2</strong> Telegramme je Minute · <strong>3</strong> Grundrauschen ·
-<strong>4</strong> Geräte im Funknetz · <strong>5</strong> Duty-Cycle-Spitze mit
-Gerätename (und „!! ALARM !!" ab 80 %) · <strong>6</strong> Temperatur mit Last
-und freiem RAM · <strong>7</strong> Lüfterdrehzahl mit freiem Plattenplatz.</p>
+<p>Der Taster an J6 blättert durch <strong>neun Seiten</strong>:
+<strong>1</strong> Standort mit Version · <strong>2</strong> Sniffer-Zustand
+(BEREIT/GETRENNT) · <strong>3</strong> IP-Adresse · <strong>4</strong>
+Telegramme je Minute · <strong>5</strong> Grundrauschen · <strong>6</strong>
+Geräte im Funknetz · <strong>7</strong> Duty-Cycle-Spitze mit Gerätename (und
+„! ALARM !" ab 80 %) · <strong>8</strong> Temperatur · <strong>9</strong>
+Lüfterdrehzahl.</p>
 
-<p>Der Aufbau ist auf jeder Seite gleich: kleine Kopfzeile mit Standort und
-Seitenzähler, darunter die Beschriftung in mittlerer Größe und <strong>ein
-großer Wert</strong>. Die Grundschrift des Displays ist 5 × 7 Pixel und damit
-auf einem 0,96-Zoll-Panel nur etwa 1,7 mm hoch — aus zwei Metern im Schrank
-nicht mehr zu entziffern. Die großen Werte sind dreifach vergrößert, gut 5 mm
-hoch. Lieber eine Seite mehr zum Durchblättern als eine, die niemand liest.</p>
+<p>Der Aufbau folgt dem Vorbild aus dem Status-LED-OLED-Projekt: eine kurze
+Beschriftung oben links, darunter <strong>ein</strong> Wert, waagerecht
+zentriert und in der größten Schrift, die noch in die Breite passt. Kopf- und
+Fußzeilen gibt es bewusst nicht — sie müssten in der Grundschrift von 5 × 7
+Pixeln stehen, und die ist auf diesem Panel rund 1,7 mm hoch und aus zwei
+Metern nicht mehr zu entziffern. Passt ein Wert nicht in eine Zeile, wird er
+umgebrochen statt verkleinert; so bleibt auch eine IP-Adresse groß.</p>
+
+<p><strong>Die Bauhöhe muss stimmen.</strong> Vorgabe ist das
+<strong>128 × 32</strong> der Adafruit PiOLED; 0,96-Zoll-Module sind meist
+128 × 64. Multiplex-Verhältnis und COM-Pin-Lage der Init-Sequenz hängen daran
+— mit den falschen Werten zeigt das Panel ein verdoppeltes, unleserliches
+Bild. Der Installer fragt die Höhe ab, ändern lässt sie sich später in den
+Einstellungen. Eine Python-Bibliothek wird <em>nicht</em> gebraucht: Der
+Analyzer bringt seinen eigenen SSD1306-Treiber mit und schiebt den Framebuffer
+über <code>i2ctransfer</code> selbst auf den Bus.</p>
 
 <p>Die Übersicht der Weboberfläche zeigt eine <strong>pixelgenaue
 Live-Vorschau</strong> desselben Bildes — inklusive Blättern-Knopf; du siehst
