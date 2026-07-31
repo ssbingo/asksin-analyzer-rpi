@@ -73,6 +73,10 @@ installiere_dateien() {
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.service" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
+    # Ausfuehrungsrecht der Root-Helfer sicherstellen. Fehlt es, scheitert die
+    # Unit mit "Permission denied" und die Path-Unit feuert endlos nach.
+    chmod +x "$INSTALL_DIR/deploy/netz-anwenden.sh" "$INSTALL_DIR/deploy/led-pwm.py" \
+        "$INSTALL_DIR/update.sh" 2>/dev/null || true
     # LED-Hilfsdienst (PWM auf Pi 3/4) nur nachziehen, wenn er schon
     # eingerichtet ist — auf dem Pi 5 gibt es ihn bewusst nicht.
     if [ -f /etc/systemd/system/asksin-analyzer-led.service ]; then

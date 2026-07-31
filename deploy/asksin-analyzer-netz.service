@@ -7,3 +7,9 @@ Description=AskSin-Analyzer: Netzwerkeinstellungen anwenden
 [Service]
 Type=oneshot
 ExecStart=/opt/asksin-analyzer/deploy/netz-anwenden.sh
+# Auftragsdateien in JEDEM Fall wegraeumen — auch wenn das Skript gar nicht
+# erst startet. Ohne das feuert die Path-Unit endlos nach, weil die Datei
+# liegen bleibt; genau das ist am 31.07.2026 passiert, als netz-anwenden.sh
+# ohne Ausfuehrungsrecht ausgeliefert war ("Failed at step EXEC ...
+# Permission denied", danach "Start request repeated too quickly").
+ExecStopPost=-/bin/rm -f /var/lib/asksin-analyzer/netz-auftrag.json /var/lib/asksin-analyzer/netz-bestaetigen

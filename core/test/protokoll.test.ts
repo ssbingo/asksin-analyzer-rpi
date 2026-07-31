@@ -282,3 +282,24 @@ test('Systemlog ohne journalctl: leise leer, kein Absturz', async () => {
     zeilen: [],
   });
 });
+
+test('Systemlog: ohne dauerhaftes Journal kein falscher Absturzverdacht', async () => {
+  // journalctl endet hier mit Code 0 und schreibt nur einen Hinweis — ohne
+  // Erkennung meldete der Dienst faelschlich „nicht sauber beendet".
+  const log = new Systemlog({
+    run: (_cmd, args) => {
+      if (args.includes('-n') && args.includes('1')) {
+        return Promise.resolve({ code: 0, output: 'ok\n' });
+      }
+      return Promise.resolve({
+        code: 0,
+        output: 'Specifying boot ID or boot offset has no effect, '
+          + 'no persistent journal was found.\n',
+      });
+    },
+  });
+  const v = await log.vorherigerStart();
+  assert.equal(v.vorhanden, false, 'kein vorheriger Start bekannt');
+  assert.equal(v.sauberBeendet, null, 'und damit auch keine Aussage darueber');
+  assert.deepEqual(v.zeilen, []);
+});

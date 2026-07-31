@@ -371,6 +371,12 @@ esac
 
 # --- systemd-Dienst + Update-Ausloeser ----------------------------------------
 c_info "Richte systemd-Dienste ein..."
+# Ausfuehrungsrecht der Root-Helfer sicherstellen. Fehlt es, scheitert die
+# zugehoerige Unit mit "Permission denied", und weil die Auftragsdatei dann
+# liegen bleibt, feuert die Path-Unit endlos nach (31.07.2026 beobachtet).
+chmod +x "$INSTALL_DIR/deploy/netz-anwenden.sh" "$INSTALL_DIR/deploy/led-pwm.py" \
+    "$INSTALL_DIR/update.sh" 2>/dev/null || true
+
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer.service" "$SERVICE_FILE"
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.service" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.path" /etc/systemd/system/

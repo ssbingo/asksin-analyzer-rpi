@@ -57,6 +57,14 @@ const MUSTER: Array<[RegExp, string]> = [
   [/segfault|general protection/i, 'Absturz eines Prozesses'],
 ];
 
+/**
+ * Journalctl meldet so, dass es keinen vorherigen Systemstart gibt — und
+ * endet dabei mit Code 0. Ohne diese Erkennung sähe der Hinweistext wie ein
+ * Logeintrag aus und der fehlende Abmeldevermerk wie ein Absturz.
+ */
+const KEIN_VORLAUF =
+  /no persistent journal|Specifying boot ID|Data from the specified boot|not (been )?found/i;
+
 export function bewerte(zeile: string): string | null {
   for (const [muster, text] of MUSTER) {
     if (muster.test(zeile)) return text;
@@ -156,10 +164,12 @@ export class Systemlog {
     const res = await this.#run('journalctl', [
       '--no-pager', '-q', '-b', '-1', '-p', '3', '-n', '40', '-o', 'short-iso',
     ]);
-    if (res.code !== 0) {
-      // Kein vorheriger Start im Journal: entweder erster Start nach der
-      // Installation — oder das Journal ist flüchtig und wurde beim Neustart
-      // verworfen. Beides ist eine Aussage wert.
+    // Ohne dauerhaftes Journal gibt es keinen vorherigen Start — journalctl
+    // sagt das als Hinweistext und endet trotzdem mit Code 0. Wer das nicht
+    // abfängt, meldet fälschlich „nicht sauber beendet": genau das ist am
+    // 31.07.2026 passiert und hat einen Systemabsturz vorgetäuscht, den es
+    // nie gab.
+    if (res.code !== 0 || KEIN_VORLAUF.test(res.output)) {
       return { vorhanden: false, sauberBeendet: null, zeilen: [] };
     }
     const zeilen = this.#zerlege(res.output);
@@ -185,6 +195,7 @@ export class Systemlog {
       // Kopf- und Hinweiszeilen von journalctl überspringen.
       if (zeile.startsWith('-- ')) continue;
       if (/^(Hint:|\s+(Users in groups|Pass -q))/.test(zeile)) continue;
+      if (KEIN_VORLAUF.test(zeile)) continue;
       out.push({ text: zeile, auffaellig: bewerte(zeile) });
     }
     return out;
