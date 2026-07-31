@@ -177,6 +177,24 @@ if [ -n "$PLATTE" ]; then
         esac
     done
 fi
+# Aushandlungsgeschwindigkeit der USB-Verbindung. 480M heisst USB 2.0 — bei
+# einer SATA-SSD ein Warnzeichen: falscher Port, schlechtes Kabel oder eine
+# Verbindung, die auf die langsamere Stufe zurueckgefallen ist.
+if command -v lsusb >/dev/null 2>&1; then
+    zeile ""
+    zeile "USB-Verbindungsgeschwindigkeit:"
+    lsusb -t 2>/dev/null | grep -iE "Mass Storage|uas|usb-storage" \
+        | sed 's/^/  /' >> "$BERICHT" || zeile "  nicht ermittelbar"
+    for d in /sys/bus/usb/devices/*/speed; do
+        geraet="$(dirname "$d")"
+        [ -f "$geraet/product" ] || continue
+        case "$(cat "$geraet/product" 2>/dev/null)" in
+            *SATA*|*SSD*|*Disk*|*Bridge*)
+                zeile "  $(cat "$geraet/product"): $(cat "$d") MBit/s" ;;
+        esac
+    done
+fi
+
 if command -v smartctl >/dev/null 2>&1 && [ -n "$PLATTE" ]; then
     zeile ""
     zeile "SMART:"
