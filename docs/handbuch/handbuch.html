@@ -97,7 +97,19 @@
       display: flex; justify-content: space-between; font-size: 10pt; color: #cffafe; }
 
   /* Inhaltsverzeichnis */
+  /* ---- Umbruchregeln (Grundregel der Handbuchgestaltung) --------------
+     1. Major-Kapitel beginnen immer auf einer neuen Seite  (h1.kapitel oben)
+     2. Minor-Kapitel beginnen immer auf einer neuen Seite
+     3. Ausnahme: das ERSTE Minor-Kapitel eines Major-Kapitels bleibt bei
+        seinem Major-Kapitel — solange es in der oberen Seitenhaelfte beginnt.
+        Ob das der Fall ist, weiss man erst nach dem Satz; das misst
+        umbrueche.py und setzt notfalls die Klasse `umbruch`.
+     4. "Ueber dieses Handbuch" und "Inhalt" beginnen auf eigenen Seiten. */
   .toc { break-before: page; }
+  #inhalt { break-before: page; }
+  h2 { break-before: page; }
+  h2.erste { break-before: auto; }
+  h2.erste.umbruch { break-before: page; }
   /* Ueberschriften nie allein am Seitenende: Ohne diese Regel stand eine
      Zwischenueberschrift schon einmal als letzte Zeile einer Seite, waehrend
      der zugehoerige Text erst auf der naechsten begann. */
@@ -160,7 +172,7 @@ sind Kommentare und werden nicht eingetippt:</p>
 <pre><span class="c"># Das ist ein Kommentar — nur zur Erklärung</span>
 sudo apt update</pre>
 
-<h1 style="margin-top:10mm">Inhalt</h1>
+<h1 id="inhalt" style="margin-top:10mm">Inhalt</h1>
 <ol>
   <li><span class="nr">1</span> Was ist der AskSin-Analyzer?</li>
   <li><span class="nr">2</span> Wie das System funktioniert</li>
@@ -217,7 +229,7 @@ auf ihr baut die Firmware unseres Empfängers auf. Das Projekt steht auf den
 Schultern von <strong>jp112sdl</strong> (AskSinAnalyzer), <strong>psi-4ward</strong>
 (AskSinAnalyzerXS) und <strong>der-pw</strong> (Raspberry-Pi-Aufsteckplatine).</div>
 
-<h2>Was dieses Projekt anders macht</h2>
+<h2 class="erste">Was dieses Projekt anders macht</h2>
 <p>Die bekannten AskSinAnalyzer-Varianten laufen auf einem ESP32 mit Display.
 Unser Aufbau zielt auf <strong>Dauerbetrieb im Verteilerschrank</strong>:</p>
 <ul>
@@ -242,7 +254,7 @@ in Netzen mit klassischen Homematic-Geräten.</div>
   <figcaption>Der Weg eines Telegramms: vom Funkgerät bis in den Browser.</figcaption>
 </figure>
 
-<h2>Die Arbeitsteilung</h2>
+<h2 class="erste">Die Arbeitsteilung</h2>
 <p>Das System besteht aus zwei Rechnern, die sich die Arbeit teilen — und genau
 diese Teilung macht es zuverlässig:</p>
 
@@ -306,7 +318,7 @@ gehört 58&nbsp;824 hin. Das ist kein Tippfehler.</strong></div>
 SMD-Bestückung kommen aus der Fertigung (Kapitel&nbsp;5), der Rest wird bestellt
 und selbst aufgelötet.</p>
 
-<h2>3.1 Basis</h2>
+<h2 class="erste">3.1 Basis</h2>
 <table>
 <tr><th>Menge</th><th>Teil</th><th>Bemerkung</th></tr>
 <tr><td>1</td><td>Raspberry Pi 4</td><td>Modell B, RAM-Größe egal — der Analyzer selbst braucht wenig</td></tr>
@@ -388,7 +400,7 @@ es da sitzt.</p>
   bleibt frei.</figcaption>
 </figure>
 
-<h2>4.1 Warum diese L-Form?</h2>
+<h2 class="erste umbruch">4.1 Warum diese L-Form?</h2>
 <p>Nur der schmale <strong>Arm</strong> liegt über dem Pi — 8 mm tief, gerade
 so viel, wie die 2×20-Buchse und die Befestigungsbohrungen brauchen. Alle
 Bauteile sitzen im <strong>Streifen</strong>, der <strong>parallel neben dem
@@ -472,7 +484,7 @@ gleich mitbestückt — das ist günstiger und zuverlässiger, als 0805-Widerst�
 von Hand zu löten. Beschrieben ist der Weg über JLCPCB; andere Fertiger
 funktionieren analog.</p>
 
-<h2>5.1 Was du hochlädst</h2>
+<h2 class="erste">5.1 Was du hochlädst</h2>
 <p>Alles Nötige steckt in einer Datei im Projektordner:</p>
 <pre>hardware/kicad/AskSin-Analyzer-V3-fertigung.zip
 ├── gerber/        ← die Platine selbst (für den Fertiger)
@@ -556,7 +568,7 @@ Solange die Platine flach ist, liegt sie stabil auf dem Tisch. Die hohen
 Steckverbinder kommen deshalb zuletzt — allen voran J1, auf dem die Platine
 sonst wackelt.</div>
 
-<h2>6.1 Vorbereitung</h2>
+<h2 class="erste">6.1 Vorbereitung</h2>
 <ol class="schritte">
 <li>Arbeitsplatz: helle Beleuchtung, feuerfeste Unterlage, Lötkolben auf
 ca. 330 °C.</li>
@@ -656,7 +668,7 @@ Firmware-Update und lassen sich nur über ISP ändern. Falsche Fuse-Werte könne
 den Chip „aussperren" (z. B. auf einen nicht vorhandenen Takt stellen) — mit
 unseren Werten passiert das nicht, sie passen exakt zur Platine.</div>
 
-<h2>7.1 Den USBasp vorbereiten</h2>
+<h2 class="erste">7.1 Den USBasp vorbereiten</h2>
 <div class="gefahr box"><span class="titel">✋ Zuerst der Spannungs-Jumper!</span>
 Fast jeder USBasp hat einen Jumper (oft „JP21" oder „VCC"), der wählt, ob er
 das Zielgerät mit <strong>5 V oder 3,3 V</strong> versorgt. Er MUSS auf
@@ -783,7 +795,7 @@ Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 jp112sdl — bewährt, tausendfach im Einsatz, und genau deshalb übernehmen wir
 ihn Byte für Byte statt einen eigenen zu pflegen.</p>
 
-<h2>8.1 Quellen besorgen</h2>
+<h2 class="erste">8.1 Quellen besorgen</h2>
 <ol class="schritte">
 <li>Das Repository <code>github.com/jp112sdl/AskSinAnalyzer</code> als ZIP
 herunterladen und entpacken. Der Sketch liegt im Ordner
@@ -843,7 +855,7 @@ seriellen Schnittstelle — erledigt der Installer selbst. Dieses Kapitel
 erklärt jeden Schritt und <em>jede</em> Frage, damit du weißt, was du
 antwortest und warum.</p>
 
-<h2>9.1 Betriebssystem — SSD zuerst</h2>
+<h2 class="erste">9.1 Betriebssystem — SSD zuerst</h2>
 <div class="hinweis box"><span class="titel">ℹ SSD statt SD-Karte</span>
 Der Analyzer schreibt rund um die Uhr in seine Datenbank. SD-Karten nutzen
 sich dabei ab — deshalb ist in diesem Projekt der <strong>Betrieb von einer
@@ -985,7 +997,7 @@ Bild (die 2,1 % Abweichung aus Kapitel 2 in Aktion).</div>
   <figcaption>Pi, PoE-HAT und Analyzer im Schnitt: Der Arm sitzt auf dem Header, Streifen und Schenkel liegen daneben bzw. dahinter.</figcaption>
 </figure>
 
-<h2>10.1 Der Stapel</h2>
+<h2 class="erste">10.1 Der Stapel</h2>
 <ol class="schritte">
 <li>Raspberry Pi auf die Montageplatte schrauben (Abstandsbolzen M2,5).</li>
 <li>PoE-HAT aufstecken und mit seinen Bolzen sichern. Netzwerkkabel vom
@@ -1049,7 +1061,7 @@ normalerweise in den Bootloader schickt. Dafür hat die Platine die
 <strong>GPIO4-Reset-Strecke</strong>: Ein kurzer Low-Impuls auf GPIO4 wird über den
 Kondensator C8 als Reset-Puls an den Mikrocontroller weitergereicht.</p>
 
-<h2>11.1 Der bequeme Weg: über die Weboberfläche</h2>
+<h2 class="erste">11.1 Der bequeme Weg: über die Weboberfläche</h2>
 <p>Seit Software 0.0.4 flasht der Analyzer den 328P <strong>selbst</strong> —
 du lädst nur die HEX-Datei im Browser hoch:</p>
 <ol class="schritte">
@@ -1127,7 +1139,7 @@ wird, kann nicht kaputtgehen, keine Sicherheitslücke einschleppen und keine
 Update-Kette blockieren — bei einem Gerät, das jahrelang unbeaufsichtigt im
 Schrank läuft, ist das Gold wert.</div>
 
-<h2>12.1 Lizenz-Architektur</h2>
+<h2 class="erste umbruch">12.1 Lizenz-Architektur</h2>
 <table>
 <tr><th>Teil</th><th>Lizenz</th><th>Warum</th></tr>
 <tr><td>Core-Dienst (Analyse)</td><td>CC BY-NC-SA</td><td>Parser-/Formel-Herkunft aus den Analyzer-Vorprojekten</td></tr>
@@ -1155,7 +1167,7 @@ Verbund-Peers, Demo, Statusanzeige, Langzeitdaten), landet in
 Ansichten (Übersicht, Telegramme, Verbund, Einstellungen, Info) und einer
 Kopfzeile, die auf jeder Seite dieselben Informationen trägt.</p>
 
-<h2>13.1 Die Kopfzeile</h2>
+<h2 class="erste">13.1 Die Kopfzeile</h2>
 <ul>
 <li><strong>Standort-Plakette</strong> neben dem Titel — bei mehreren Analyzern
 siehst du sofort, auf welchem du bist; auch der Browser-Tab trägt den Namen.</li>
@@ -1247,7 +1259,7 @@ Platine steckt oder eine Homematic-Zentrale existiert</strong> — ideal zum
 Kennenlernen, zum Vorführen und um die Weboberfläche zu erkunden, während die
 Platine noch beim Fertiger liegt.</p>
 
-<h2>23.1 Ein- und ausschalten</h2>
+<h2 class="erste">23.1 Ein- und ausschalten</h2>
 <p><em>Einstellungen → Demo-Modus → einschalten</em>, Rückfrage bestätigen — der
 Dienst startet neu (die Seite verbindet sich nach wenigen Sekunden von
 selbst), und in der Kopfzeile erscheint die orange <strong>DEMO</strong>-Plakette.
@@ -1277,7 +1289,7 @@ ist alles exakt wie vorher.</div>
 <h1 class="kapitel"><span class="knr">15</span>Software-Updates: Glocke, Ein-Klick-Update, Rollback</h1>
 <div class="kapitelband"></div>
 
-<h2>15.1 Der tägliche Selbstcheck</h2>
+<h2 class="erste">15.1 Der tägliche Selbstcheck</h2>
 <p>Eine Minute nach jedem Dienststart und danach alle 24 Stunden vergleicht
 der Analyzer seinen Software-Stand mit dem Projekt auf GitHub. Gibt es etwas
 Neues, erscheint in der Kopfzeile die pulsierende
@@ -1321,7 +1333,7 @@ Adresse, Gateway, DNS, Hostname und NTP-Server. Die Seite zeigt zuerst nur
 den <strong>Ist-Zustand</strong> (bei DHCP inklusive der zugewiesenen Werte);
 geändert wird erst, wenn du ausdrücklich „Übernehmen" klickst.</p>
 
-<h2>16.1 Die 90-Sekunden-Probezeit</h2>
+<h2 class="erste">16.1 Die 90-Sekunden-Probezeit</h2>
 <p>Wer die IP-Adresse ändert, sägt am Ast, auf dem seine Browser-Verbindung
 sitzt. Deshalb gelten neue Netzwerkeinstellungen zunächst <strong>nur auf
 Probe</strong>:</p>
@@ -1367,7 +1379,7 @@ Funk-Landkarte des Hauses.</p>
 <figure class="rahmen"><img src="img/ui-verbund.png" alt="Die Verbund-Ansicht">
 <figcaption>Die Verbund-Ansicht mit zwei Standorten: Kacheln, Flotten-Update, Empfangsmatrix und zusammengeführte Telegrammliste.</figcaption></figure>
 
-<h2>17.1 Einrichten — zwei Klicks, keine Konsole</h2>
+<h2 class="erste umbruch">17.1 Einrichten — zwei Klicks, keine Konsole</h2>
 <p>Jeder Analyzer ist von Haus aus verbundfähig. „Master" wird schlicht der,
 bei dem du die anderen einträgst:</p>
 <ol class="schritte">
@@ -1422,7 +1434,7 @@ Token-Pflicht muss deren Token beim Verknüpfen hinterlegt sein.</p>
 beachten!</strong>) zeigt der Analyzer seinen Zustand direkt am Gerät — ein
 Blick in den Schrank genügt.</p>
 
-<h2>18.1 Aktivieren</h2>
+<h2 class="erste">18.1 Aktivieren</h2>
 <p>Entweder im Installer („Status-LED und OLED einrichten? Ja") oder jederzeit
 nachträglich: <em>Einstellungen → Status-LED &amp; OLED</em> — LED und OLED
 einzeln schaltbar, Helligkeitsregler, sofort wirksam. Einzige Voraussetzung:
@@ -1542,7 +1554,7 @@ NAS-Container). Die lokale Datenbank bleibt dabei die primäre Aufzeichnung;
 fällt die InfluxDB aus, merkt der Analyzer sich das nur als Zähler und macht
 unbeirrt weiter.</p>
 
-<h2>19.1 Einrichten</h2>
+<h2 class="erste">19.1 Einrichten</h2>
 <ol class="schritte">
 <li>In der InfluxDB einen Bucket (z. B. <code>asksin</code>) und ein API-Token
 mit Schreibrecht darauf anlegen.</li>
@@ -1575,7 +1587,7 @@ für Visualisierung, Benachrichtigungen und Automatik-Regeln. Er enthält
 bewusst keinerlei Analyse-Logik: Er fragt nur die API des Analyzers ab und
 spiegelt die Werte.</p>
 
-<h2>20.1 Installation und Einrichtung</h2>
+<h2 class="erste">20.1 Installation und Einrichtung</h2>
 <ol class="schritte">
 <li>ioBroker-Admin → Adapter → „Installieren aus eigener URL" →
 <code>https://github.com/ssbingo/ioBroker.asksinanalyzer-rpi</code>
@@ -1605,7 +1617,7 @@ sich das Kontingent leer"), bei <code>info.connection = false</code> länger als
 <h1 class="kapitel"><span class="knr">21</span>Sicherheit: Token, Netzwerk, Grenzen</h1>
 <div class="kapitelband"></div>
 
-<h2>21.1 Das Auth-Token</h2>
+<h2 class="erste">21.1 Das Auth-Token</h2>
 <p><strong>Lesen ist frei, Ändern braucht das Token.</strong> Alle
 Anzeige-Endpunkte (Übersicht, Listen, Verbund) sind im LAN offen — das ist
 gewollt, ein Funkanalyzer zeigt keine Geheimnisse. Alles, was etwas
@@ -1647,7 +1659,7 @@ mitgeschrieben wird, was passiert ist. Zu finden unter
   Unten steht der Ablageort auf dem Gerät.</figcaption>
 </figure>
 
-<h2>22.1 Die vier Stufen</h2>
+<h2 class="erste umbruch">22.1 Die vier Stufen</h2>
 <table>
 <tr><th>Stufe</th><th>Was hineinkommt</th><th>Wann sinnvoll</th></tr>
 <tr><td><strong>Fehler</strong></td><td>Nur Störungen</td><td>Dauerbetrieb, kleinste Datei</td></tr>
@@ -1756,7 +1768,7 @@ lesen als auch durchsuchen lässt:</p>
 <h1 class="kapitel"><span class="knr">24</span>Anhang</h1>
 <div class="kapitelband"></div>
 
-<h2>23.1 Belegung des Pi-Headers (genutzte Pins)</h2>
+<h2 class="erste">23.1 Belegung des Pi-Headers (genutzte Pins)</h2>
 <table class="schmal">
 <tr><th>Pi-Pin</th><th>Signal</th><th>Verwendung</th></tr>
 <tr><td>1</td><td>3V3</td><td>durchgereicht an OLED (J5) und LED (J7)</td></tr>
