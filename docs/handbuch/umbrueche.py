@@ -43,7 +43,14 @@ MAX_RUNDEN = 12
 SEITE_HOEHE = 841.92
 MITTE = SEITE_HOEHE / 2
 
-H2 = re.compile(r'^<h2(?: class="[^"]*")?>(\d+\.\d+)')
+# Die Ueberschriften tragen inzwischen auch eine id (Sprungmarke fuers PDF).
+# Das Muster muss beliebige Attribute vertragen — mit der frueheren, engeren
+# Fassung fand das Skript gar keine Ueberschrift mehr und meldete trotzdem
+# "stabil". Ein Suchmuster, das still nichts findet, ist schlimmer als eines,
+# das scheitert: Deshalb prueft main() zusaetzlich, dass ueberhaupt welche
+# gefunden wurden.
+H2 = re.compile(r'^<h2([^>]*)>(\d+\.\d+)')
+ID = re.compile(r'\sid="([^"]*)"')
 
 
 def markiere(text: str, umbruch: set[str]) -> str:
@@ -53,16 +60,17 @@ def markiere(text: str, umbruch: set[str]) -> str:
         m = H2.match(z)
         if m is None:
             continue
-        nummer = m.group(1)
-        inhalt = z[z.index(">", z.index("<h2")) + 1:]
-        zeilen[i] = (
-            f'<h2 class="umbruch">{inhalt}' if nummer in umbruch else f"<h2>{inhalt}"
-        )
+        attribute, nummer = m.group(1), m.group(2)
+        marke = ID.search(attribute)
+        kennung = f' id="{marke.group(1)}"' if marke else ""
+        klasse = ' class="umbruch"' if nummer in umbruch else ""
+        inhalt = z[m.end(1) + 1:]
+        zeilen[i] = f"<h2{klasse}{kennung}>{inhalt}"
     return "\n".join(zeilen) + "\n"
 
 
 def alle_minor(text: str) -> list[str]:
-    return [m.group(1) for z in text.splitlines() if (m := H2.match(z))]
+    return [m.group(2) for z in text.splitlines() if (m := H2.match(z))]
 
 
 def baue_pdf() -> None:
@@ -105,6 +113,14 @@ def seitenzahl() -> str:
 
 def main() -> int:
     umbruch: set[str] = set()
+    gefunden = alle_minor(HTML.read_text(encoding="utf8"))
+    if not gefunden:
+        print("Keine Minor-Ueberschrift gefunden — passt das Suchmuster noch "
+              "zum HTML? (Abbruch statt stiller Erfolgsmeldung.)",
+              file=sys.stderr)
+        return 1
+    print(f"{len(gefunden)} Minor-Ueberschriften gefunden.")
+
     for runde in range(1, MAX_RUNDEN + 1):
         text = markiere(HTML.read_text(encoding="utf8"), umbruch)
         HTML.write_text(text, encoding="utf8")

@@ -119,6 +119,10 @@
   figure img { break-inside: avoid; }
   .toc h1 { color: var(--petrol-dunkel); font-size: 21pt; }
   .toc ol { list-style: none; padding: 0; margin: 5mm 0; column-count: 1; }
+  /* Die Eintraege sind Sprungmarken ins jeweilige Kapitel — im PDF anklickbar.
+     Sie sollen aber wie Inhaltsverzeichnis aussehen und nicht wie Weblinks,
+     deshalb erben sie Farbe und Auszeichnung vom Text. */
+  .toc ol a { color: inherit; text-decoration: none; display: block; }
   .toc li { padding: 1.6mm 0; border-bottom: 1px dotted var(--linie); font-size: 11.5pt; }
   .toc .nr { display:inline-block; width: 9mm; color: var(--petrol); font-weight: bold; }
   .toc .u { padding-left: 12mm; font-size: 10pt; color: var(--grau); border-bottom: none; }
@@ -175,35 +179,35 @@ sudo apt update</pre>
 
 <h1 id="inhalt" style="margin-top:10mm">Inhalt</h1>
 <ol>
-  <li><span class="nr">1</span> Was ist der AskSin-Analyzer?</li>
-  <li><span class="nr">2</span> Wie das System funktioniert</li>
-  <li><span class="nr">3</span> Einkaufsliste: Material und Werkzeug</li>
-  <li><span class="nr">4</span> Die Platine verstehen</li>
-  <li><span class="nr">5</span> Die Platine fertigen lassen</li>
-  <li><span class="nr">6</span> Handbestückung: die restlichen Bauteile auflöten</li>
-  <li><span class="nr">7</span> Fuses setzen und Bootloader brennen</li>
-  <li><span class="nr">8</span> Die Firmware aufspielen</li>
-  <li><span class="nr">9</span> Den Raspberry Pi einrichten — Installation mit einem Befehl</li>
-  <li><span class="nr">10</span> Zusammenbau und Montage im Schrank</li>
-  <li><span class="nr">11</span> Firmware-Updates im laufenden Betrieb</li>
-  <li><span class="nr">12</span> Die Software: Überblick und Architektur</li>
-  <li><span class="nr">13</span> Die Weboberfläche im Detail</li>
-  <li><span class="nr">14</span> Der Demo-Modus — testen ohne Hardware</li>
-  <li><span class="nr">15</span> Software-Updates: Glocke, Ein-Klick-Update, Rollback</li>
-  <li><span class="nr">16</span> Netzwerkeinstellungen mit Aussperr-Schutz</li>
-  <li><span class="nr">17</span> Der Verbund: mehrere Analyzer als Gesamtsystem</li>
-  <li><span class="nr">18</span> Status-LED und OLED-Anzeige</li>
-  <li><span class="nr">19</span> Langzeitdaten: InfluxDB und Grafana</li>
-  <li><span class="nr">20</span> Der ioBroker-Adapter</li>
-  <li><span class="nr">21</span> Sicherheit: Token, Netzwerk, Grenzen</li>
-  <li><span class="nr">22</span> Protokoll: wenn etwas nicht stimmt</li>
-  <li><span class="nr">23</span> Fehlersuche</li>
-  <li><span class="nr">24</span> Anhang: Belegungen, Glossar, Quellen</li>
+  <li><a href="#k1"><span class="nr">1</span> Was ist der AskSin-Analyzer?</a></li>
+  <li><a href="#k2"><span class="nr">2</span> Wie das System funktioniert</a></li>
+  <li><a href="#k3"><span class="nr">3</span> Einkaufsliste: Material und Werkzeug</a></li>
+  <li><a href="#k4"><span class="nr">4</span> Die Platine verstehen</a></li>
+  <li><a href="#k5"><span class="nr">5</span> Die Platine fertigen lassen</a></li>
+  <li><a href="#k6"><span class="nr">6</span> Handbestückung: die restlichen Bauteile auflöten</a></li>
+  <li><a href="#k7"><span class="nr">7</span> Fuses setzen und Bootloader brennen</a></li>
+  <li><a href="#k8"><span class="nr">8</span> Die Firmware aufspielen</a></li>
+  <li><a href="#k9"><span class="nr">9</span> Den Raspberry Pi einrichten — Installation mit einem Befehl</a></li>
+  <li><a href="#k10"><span class="nr">10</span> Zusammenbau und Montage im Schrank</a></li>
+  <li><a href="#k11"><span class="nr">11</span> Firmware-Updates im laufenden Betrieb</a></li>
+  <li><a href="#k12"><span class="nr">12</span> Die Software: Überblick und Architektur</a></li>
+  <li><a href="#k13"><span class="nr">13</span> Die Weboberfläche im Detail</a></li>
+  <li><a href="#k14"><span class="nr">14</span> Der Demo-Modus — testen ohne Hardware</a></li>
+  <li><a href="#k15"><span class="nr">15</span> Software-Updates: Glocke, Ein-Klick-Update, Rollback</a></li>
+  <li><a href="#k16"><span class="nr">16</span> Netzwerkeinstellungen mit Aussperr-Schutz</a></li>
+  <li><a href="#k17"><span class="nr">17</span> Der Verbund: mehrere Analyzer als Gesamtsystem</a></li>
+  <li><a href="#k18"><span class="nr">18</span> Status-LED und OLED-Anzeige</a></li>
+  <li><a href="#k19"><span class="nr">19</span> Langzeitdaten: InfluxDB und Grafana</a></li>
+  <li><a href="#k20"><span class="nr">20</span> Der ioBroker-Adapter</a></li>
+  <li><a href="#k21"><span class="nr">21</span> Sicherheit: Token, Netzwerk, Grenzen</a></li>
+  <li><a href="#k22"><span class="nr">22</span> Protokoll: wenn etwas nicht stimmt</a></li>
+  <li><a href="#k23"><span class="nr">23</span> Fehlersuche</a></li>
+  <li><a href="#k24"><span class="nr">24</span> Anhang: Belegungen, Glossar, Quellen</a></li>
 </ol>
 </div>
 
 <!-- ==================================================== KAPITEL 1 -->
-<h1 class="kapitel"><span class="knr">1</span>Was ist der AskSin-Analyzer?</h1>
+<h1 class="kapitel" id="k1"><span class="knr">1</span>Was ist der AskSin-Analyzer?</h1>
 <div class="kapitelband"></div>
 
 <p>Wer ein Homematic-Funksystem betreibt, kennt das Gefühl: Ein Fensterkontakt
@@ -247,7 +251,7 @@ Pegel) — ihr Inhalt ist aber nicht entschlüsselbar. Der volle Nutzen entsteht
 in Netzen mit klassischen Homematic-Geräten.</div>
 
 <!-- ==================================================== KAPITEL 2 -->
-<h1 class="kapitel"><span class="knr">2</span>Wie das System funktioniert</h1>
+<h1 class="kapitel" id="k2"><span class="knr">2</span>Wie das System funktioniert</h1>
 <div class="kapitelband"></div>
 
 <figure>
@@ -312,14 +316,14 @@ Original-Firmware bleibt unverändert. <strong>Merke: Überall auf der Pi-Seite
 gehört 58&nbsp;824 hin. Das ist kein Tippfehler.</strong></div>
 
 <!-- ==================================================== KAPITEL 3 -->
-<h1 class="kapitel"><span class="knr">3</span>Einkaufsliste: Material und Werkzeug</h1>
+<h1 class="kapitel" id="k3"><span class="knr">3</span>Einkaufsliste: Material und Werkzeug</h1>
 <div class="kapitelband"></div>
 
 <p>Alles, was du für <strong>einen</strong> Analyzer brauchst. Die Platine und ihre
 SMD-Bestückung kommen aus der Fertigung (Kapitel&nbsp;5), der Rest wird bestellt
 und selbst aufgelötet.</p>
 
-<h2>3.1 Basis</h2>
+<h2 id="k3-1">3.1 Basis</h2>
 <table>
 <tr><th>Menge</th><th>Teil</th><th>Bemerkung</th></tr>
 <tr><td>1</td><td>Raspberry Pi 4</td><td>Modell B, RAM-Größe egal — der Analyzer selbst braucht wenig</td></tr>
@@ -328,7 +332,7 @@ und selbst aufgelötet.</p>
 <tr><td>1</td><td>Analyzer-Platine V4, SMD-bestückt</td><td>Fertigung nach Kapitel 5</td></tr>
 </table>
 
-<h2>3.2 Bauteile für die Handbestückung (Reichelt)</h2>
+<h2 id="k3-2">3.2 Bauteile für die Handbestückung (Reichelt)</h2>
 <p>Die geprüften Artikelnummern — Details und Alternativen stehen in
 <code>hardware/bestellliste-reichelt.md</code> im Projektordner:</p>
 <table>
@@ -345,7 +349,7 @@ Crimpkontakte gehen beim Quetschen gern kaputt — nimm großzügig Reserve. Und
 Zum Crimpen braucht es eine <strong>Crimpzange für JST-PH</strong> oder fertig
 konfektionierte PH-Kabel.</div>
 
-<h2>3.3 Bauteile aus anderen Quellen</h2>
+<h2 id="k3-3">3.3 Bauteile aus anderen Quellen</h2>
 <table>
 <tr><th>Menge</th><th>Teil</th><th>Quelle / Bezeichnung</th></tr>
 <tr><td>1</td><td><strong>Funkmodul Ebyte E07-900M10S</strong></td><td>cdebyte.com, Antratek, AliExpress. <strong>Genau diese Bezeichnung!</strong> Das ähnlich heißende <em>E07-900MM10S</em> ist kleiner und hat keinen Antennenanschluss.</td></tr>
@@ -363,7 +367,7 @@ Kabel und Einbaubuchse müssen alle derselben Familie angehören. Vor dem Kauf
 prüfen: SMA-Stecker (male) hat einen Stift in der Mitte, RP-SMA-Stecker hat ein
 Loch.</div>
 
-<h2 class="umbruch">3.4 Werkzeug</h2>
+<h2 class="umbruch" id="k3-4">3.4 Werkzeug</h2>
 <div class="zwei-spalten">
 <ul>
 <li><strong>Lötkolben</strong> mit feiner Spitze (0,8–1,5 mm), geregelt, ~330 °C</li>
@@ -384,7 +388,7 @@ Ein USBasp kostet unter 10 €. Achte darauf, dass er einen
 Kapitel 7.</div>
 
 <!-- ==================================================== KAPITEL 4 -->
-<h1 class="kapitel"><span class="knr">4</span>Die Platine verstehen</h1>
+<h1 class="kapitel" id="k4"><span class="knr">4</span>Die Platine verstehen</h1>
 <div class="kapitelband"></div>
 
 <p>Man kann die Platine bestücken, ohne sie zu verstehen — aber mit diesem
@@ -401,7 +405,7 @@ es da sitzt.</p>
   bleibt frei.</figcaption>
 </figure>
 
-<h2 class="umbruch">4.1 Warum diese L-Form?</h2>
+<h2 class="umbruch" id="k4-1">4.1 Warum diese L-Form?</h2>
 <p>Nur der schmale <strong>Arm</strong> liegt über dem Pi — 8 mm tief, gerade
 so viel, wie die 2×20-Buchse und die Befestigungsbohrungen brauchen. Alle
 Bauteile sitzen im <strong>Streifen</strong>, der <strong>parallel neben dem
@@ -433,7 +437,7 @@ aufstecken und einschalten</strong> (Bauanleitung:
 Ab Hardware 0.2.0 ist der Fehler behoben; erkennbar am Bestückungsdruck auf
 der Platinenunterseite.</div>
 
-<h2 class="umbruch">4.2 Die Funktionsblöcke</h2>
+<h2 class="umbruch" id="k4-2">4.2 Die Funktionsblöcke</h2>
 <table>
 <tr><th>Block</th><th>Bauteile</th><th>Aufgabe</th></tr>
 <tr><td><strong>Stromversorgung</strong></td><td>U1, C1, C2, L1</td><td>Aus den 5 V des Pi macht der Regler U1 saubere 3,3 V. Die Ferritperle L1 hält hochfrequenten Schmutz vom Funkteil fern, C1/C2 puffern.</td></tr>
@@ -470,14 +474,14 @@ zehn Sekunden geklärt.</div>
   <figcaption>Die Unterseite: nur Leiterbahnen und Masseflächen — bestückt wird ausschließlich oben.</figcaption>
 </figure>
 
-<h2>4.3 Der Schaltplan</h2>
+<h2 id="k4-3">4.3 Der Schaltplan</h2>
 <figure class="rahmen">
   <img src="img/schaltplan-1.png" alt="Schaltplan">
   <figcaption>Der vollständige Schaltplan (auch als PDF im Fertigungspaket: <code>doku/schaltplan.pdf</code>).</figcaption>
 </figure>
 
 <!-- ==================================================== KAPITEL 5 -->
-<h1 class="kapitel"><span class="knr">5</span>Die Platine fertigen lassen</h1>
+<h1 class="kapitel" id="k5"><span class="knr">5</span>Die Platine fertigen lassen</h1>
 <div class="kapitelband"></div>
 
 <p>Die Platine wird industriell gefertigt und die kleinteiligen SMD-Bauteile
@@ -485,14 +489,14 @@ gleich mitbestückt — das ist günstiger und zuverlässiger, als 0805-Widerst�
 von Hand zu löten. Beschrieben ist der Weg über JLCPCB; andere Fertiger
 funktionieren analog.</p>
 
-<h2>5.1 Was du hochlädst</h2>
+<h2 id="k5-1">5.1 Was du hochlädst</h2>
 <p>Alles Nötige steckt in einer Datei im Projektordner:</p>
 <pre>hardware/kicad/AskSin-Analyzer-V3-fertigung.zip
 ├── gerber/        ← die Platine selbst (für den Fertiger)
 ├── bestueckung/   ← jlcpcb_bom.csv + jlcpcb_cpl.csv (für die Bestückung)
 └── doku/          ← Schaltplan und Layout als PDF (für dich)</pre>
 
-<h2>5.2 Bestellung Schritt für Schritt</h2>
+<h2 id="k5-2">5.2 Bestellung Schritt für Schritt</h2>
 <ol class="schritte">
 <li>Auf <strong>jlcpcb.com</strong> ein Konto anlegen und <em>„Add gerber file"</em>
 wählen. Die komplette ZIP hochladen — das Portal findet die Gerber-Dateien im
@@ -515,7 +519,7 @@ Vier Positionen sind „Extended" und kosten eine kleine Einrichtungsgebühr.</l
 Resonator Y1 — es fehlen nur noch Funkmodul und Steckverbinder.</li>
 </ol>
 
-<h2>5.3 Was bestückt wird — und was nicht</h2>
+<h2 id="k5-3">5.3 Was bestückt wird — und was nicht</h2>
 <table>
 <tr><th>Ref</th><th>Bauteil</th><th>LCSC-Nr.</th><th>Status</th></tr>
 <tr><td>U1</td><td>Spannungsregler XC6206P332MR-G <span class="klein">(pinkompatibler Ersatz für MCP1754S)</span></td><td>C5446</td><td>Basic</td></tr>
@@ -536,7 +540,7 @@ von Hand drauf. Der Resonator Y1 ist zwar auch bedrahtet, wird aber von JLCPCB
 mitbestückt. Unbestückte Plätze gibt es seit v0.2.0 keine mehr — die frühere
 Regel „R4 oder R5" hat der Schiebeschalter SW1 abgelöst.</p>
 
-<h2 class="umbruch">5.4 Die Bestückungsvorschau richtig prüfen</h2>
+<h2 class="umbruch" id="k5-4">5.4 Die Bestückungsvorschau richtig prüfen</h2>
 <div class="achtung box"><span class="titel">⚠ Zwei Minuten, die eine Charge retten</span>
 Vor dem Bezahlen zeigt das Portal jede Bauteilposition grafisch an. Prüfe:
 <ul style="margin:1mm 0">
@@ -550,7 +554,7 @@ JLCPCB korrigiert bekannte Drehungs-Abweichungen automatisch und meldet
 Unklarheiten — im Zweifel deren Hinweis lesen statt wegklicken.</div>
 
 <!-- ==================================================== KAPITEL 6 -->
-<h1 class="kapitel"><span class="knr">6</span>Handbestückung: die restlichen Bauteile auflöten</h1>
+<h1 class="kapitel" id="k6"><span class="knr">6</span>Handbestückung: die restlichen Bauteile auflöten</h1>
 <div class="kapitelband"></div>
 
 <p>Aus der Fertigung kommt die Platine mit allen Kleinteilen. Von Hand fehlen
@@ -569,7 +573,7 @@ Solange die Platine flach ist, liegt sie stabil auf dem Tisch. Die hohen
 Steckverbinder kommen deshalb zuletzt — allen voran J1, auf dem die Platine
 sonst wackelt.</div>
 
-<h2>6.1 Vorbereitung</h2>
+<h2 id="k6-1">6.1 Vorbereitung</h2>
 <ol class="schritte">
 <li>Arbeitsplatz: helle Beleuchtung, feuerfeste Unterlage, Lötkolben auf
 ca. 330 °C.</li>
@@ -580,7 +584,7 @@ Bauteil Position und Referenz. Bei Steckern markiert ein Punkt bzw. das
 eckige Pad <strong>Pin 1</strong>.</li>
 </ol>
 
-<h2>6.2 Das Funkmodul (U3) — Löten an Halblöchern</h2>
+<h2 id="k6-2">6.2 Das Funkmodul (U3) — Löten an Halblöchern</h2>
 <p>Das E07-Modul hat keine Beinchen, sondern <strong>Halblöcher</strong>
 (halbrunde, metallisierte Kerben an den Kanten — englisch „castellated holes").
 Das lötet sich leichter, als es aussieht:</p>
@@ -609,7 +613,7 @@ Platine ist das sichergestellt — kritisch wird es nur beim Programmieren mit
 falsch gejumpertem USBasp (Kapitel 7) oder bei Experimenten mit externer
 Versorgung.</div>
 
-<h2>6.3 Resonator, Stecker, Buchsenleiste</h2>
+<h2 id="k6-3">6.3 Resonator, Stecker, Buchsenleiste</h2>
 <ol class="schritte">
 <li><strong>Y1 (Resonator):</strong> kommt bereits bestückt von JLCPCB
 (C83707). Nur bei einer komplett handbestückten Platine selbst einlöten:
@@ -636,7 +640,7 @@ Platine hat dafür thermische Entlastungen — wenn ein Pin trotzdem zäh ist:
 Spitze 2–3 Sekunden vorheizen lassen, dann Zinn zugeben. Nicht mit Gewalt und
 viel Zinn „zukleistern".</div>
 
-<h2 class="umbruch">6.4 Endkontrolle vor dem ersten Strom</h2>
+<h2 class="umbruch" id="k6-4">6.4 Endkontrolle vor dem ersten Strom</h2>
 <table>
 <tr><th>Prüfung</th><th>Multimeter</th><th>Sollwert</th></tr>
 <tr><td>Kurzschluss 5 V ↔ Masse?</td><td>Widerstand zwischen TP3 (+5V) und TP4 (GND)</td><td>deutlich &gt; 1 kΩ, nicht 0 Ω</td></tr>
@@ -646,7 +650,7 @@ viel Zinn „zukleistern".</div>
 </table>
 
 <!-- ==================================================== KAPITEL 7 -->
-<h1 class="kapitel"><span class="knr">7</span>Fuses setzen und Bootloader brennen</h1>
+<h1 class="kapitel" id="k7"><span class="knr">7</span>Fuses setzen und Bootloader brennen</h1>
 <div class="kapitelband"></div>
 
 <p>Ein fabrikneuer ATmega328P ist ein unbeschriebenes Blatt: Er läuft auf einem
@@ -669,7 +673,7 @@ Firmware-Update und lassen sich nur über ISP ändern. Falsche Fuse-Werte könne
 den Chip „aussperren" (z. B. auf einen nicht vorhandenen Takt stellen) — mit
 unseren Werten passiert das nicht, sie passen exakt zur Platine.</div>
 
-<h2>7.1 Den USBasp vorbereiten</h2>
+<h2 id="k7-1">7.1 Den USBasp vorbereiten</h2>
 <div class="gefahr box"><span class="titel">✋ Zuerst der Spannungs-Jumper!</span>
 Fast jeder USBasp hat einen Jumper (oft „JP21" oder „VCC"), der wählt, ob er
 das Zielgerät mit <strong>5 V oder 3,3 V</strong> versorgt. Er MUSS auf
@@ -692,7 +696,7 @@ Finden).</li>
 Versorgung — sie läuft über den Programmer.</li>
 </ol>
 
-<h2 class="umbruch">7.2 avrdude installieren</h2>
+<h2 class="umbruch" id="k7-2">7.2 avrdude installieren</h2>
 <p><code>avrdude</code> ist das Standardwerkzeug zum Programmieren von
 AVR-Chips. Auf einem Linux-Rechner (auch dem Pi selbst):</p>
 <pre>sudo apt update
@@ -711,7 +715,7 @@ avrdude <code>target doesn't answer</code> — der häufigste Anfängerstolperer
 überhaupt. Nach dem Setzen der Fuses (8 MHz) ist <code>-B 8</code> nicht mehr
 nötig, schadet aber auch nie.</div>
 
-<h2 class="umbruch">7.3 Die Fuses setzen</h2>
+<h2 class="umbruch" id="k7-3">7.3 Die Fuses setzen</h2>
 <p>Unsere Werte — sie stellen den Chip auf den externen 8-MHz-Resonator,
 aktivieren die Spannungsüberwachung und reservieren Platz für den Bootloader:</p>
 
@@ -734,7 +738,7 @@ Manche avrdude-Versionen zeigen die extended Fuse als <code>0x05</code> statt
 physisch, der Rest ist undefiniert und wird mal als 1, mal als 0 gelesen.
 0x05 und 0xFD sind derselbe Wert.</div>
 
-<h2 class="umbruch">7.4 Den Bootloader brennen</h2>
+<h2 class="umbruch" id="k7-4">7.4 Den Bootloader brennen</h2>
 <p>Wir verwenden <strong>Optiboot</strong> aus dem MiniCore-Projekt — die Variante
 für ATmega328P, externe 8 MHz, serielle Schnittstelle UART0, 57 600 Baud.
 Zwei Wege führen zum Ziel; nimm den, der dir näher liegt.</p>
@@ -779,7 +783,7 @@ Nach Fuses + Bootloader startet der Chip mit dem Resonator. Ein schneller
 Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 <code>-B 8</code> — antwortet flott. Vorher (1-MHz-Takt) ging das nur gebremst.</div>
 
-<h2 class="umbruch">7.5 Wenn es klemmt</h2>
+<h2 class="umbruch" id="k7-5">7.5 Wenn es klemmt</h2>
 <table>
 <tr><th>Meldung</th><th>Ursache</th><th>Abhilfe</th></tr>
 <tr><td><code>target doesn't answer</code></td><td>Programmiertakt zu schnell oder Verkabelung</td><td><code>-B 8</code> (oder <code>-B 32</code>) verwenden; alle 6 Leitungen gegen das Bild prüfen — MISO/MOSI vertauscht ist Klassiker</td></tr>
@@ -789,14 +793,14 @@ Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 </table>
 
 <!-- ==================================================== KAPITEL 8 -->
-<h1 class="kapitel"><span class="knr">8</span>Die Firmware aufspielen</h1>
+<h1 class="kapitel" id="k8"><span class="knr">8</span>Die Firmware aufspielen</h1>
 <div class="kapitelband"></div>
 
 <p>Die Firmware ist der unveränderte <strong>AskSinSniffer328P</strong>-Sketch von
 jp112sdl — bewährt, tausendfach im Einsatz, und genau deshalb übernehmen wir
 ihn Byte für Byte statt einen eigenen zu pflegen.</p>
 
-<h2>8.1 Quellen besorgen</h2>
+<h2 id="k8-1">8.1 Quellen besorgen</h2>
 <ol class="schritte">
 <li>Das Repository <code>github.com/jp112sdl/AskSinAnalyzer</code> als ZIP
 herunterladen und entpacken. Der Sketch liegt im Ordner
@@ -810,7 +814,7 @@ herunterladen und entpacken. Der Sketch liegt im Ordner
 </table></li>
 </ol>
 
-<h2 class="umbruch">8.2 Kompilieren und flashen (Arduino IDE)</h2>
+<h2 class="umbruch" id="k8-2">8.2 Kompilieren und flashen (Arduino IDE)</h2>
 <ol class="schritte">
 <li><code>AskSinSniffer328P.ino</code> in der IDE öffnen.</li>
 <li>Board-Einstellungen wie in Kapitel 7.4/Weg A (MiniCore, ATmega328,
@@ -828,7 +832,7 @@ Bootloader übrigens unversehrt — MiniCore-Uploads über ISP erhalten ihn.)
 Später, wenn die Platine auf dem Pi sitzt, laufen Updates über den Bootloader —
 Kapitel 11.</div>
 
-<h2 class="umbruch">8.3 Alternative: PlatformIO</h2>
+<h2 class="umbruch" id="k8-3">8.3 Alternative: PlatformIO</h2>
 <p>Wer lieber auf der Kommandozeile arbeitet: Dem Sketch liegt eine
 <code>platformio.ini</code> bei.</p>
 <pre><span class="c"># einmalig: PlatformIO-CLI installieren (python3 vorausgesetzt)</span>
@@ -838,7 +842,7 @@ cd AskSinAnalyzer/AskSinSniffer328P
 pio run
 pio run -t program</pre>
 
-<h2>8.4 Der erste Lebenszeichen-Test</h2>
+<h2 id="k8-4">8.4 Der erste Lebenszeichen-Test</h2>
 <p>Noch am USBasp (der versorgt die Platine mit 3,3 V) muss jetzt die
 <strong>LED D1 beim Empfang blitzen</strong>, sobald ein Homematic-Gerät in der Nähe
 sendet — zum Provozieren reicht es, einen Fensterkontakt zu öffnen. Kein
@@ -846,7 +850,7 @@ Blitzen ist noch kein Beinbruch: Ohne Antenne ist die Reichweite winzig.
 Der belastbare Test folgt in Kapitel 9 am Pi.</p>
 
 <!-- ==================================================== KAPITEL 9 -->
-<h1 class="kapitel"><span class="knr">9</span>Den Raspberry Pi einrichten — Installation mit einem Befehl</h1>
+<h1 class="kapitel" id="k9"><span class="knr">9</span>Den Raspberry Pi einrichten — Installation mit einem Befehl</h1>
 <div class="kapitelband"></div>
 
 <p>Die gute Nachricht vorweg: Die gesamte Software-Installation ist
@@ -856,7 +860,7 @@ seriellen Schnittstelle — erledigt der Installer selbst. Dieses Kapitel
 erklärt jeden Schritt und <em>jede</em> Frage, damit du weißt, was du
 antwortest und warum.</p>
 
-<h2>9.1 Betriebssystem — SSD zuerst</h2>
+<h2 id="k9-1">9.1 Betriebssystem — SSD zuerst</h2>
 <div class="hinweis box"><span class="titel">ℹ SSD statt SD-Karte</span>
 Der Analyzer schreibt rund um die Uhr in seine Datenbank. SD-Karten nutzen
 sich dabei ab — deshalb ist in diesem Projekt der <strong>Betrieb von einer
@@ -876,7 +880,7 @@ Netzwerkstruktur; die Software ändert ihn nie von sich aus.</li>
 anmelden: <code>ssh benutzer@asksin-analyzer-01</code>.</li>
 </ol>
 
-<h2 class="umbruch">9.2 Die Ein-Befehl-Installation</h2>
+<h2 class="umbruch" id="k9-2">9.2 Die Ein-Befehl-Installation</h2>
 <pre>curl -fsSL https://raw.githubusercontent.com/ssbingo/asksin-analyzer-rpi/main/install.sh | sudo bash</pre>
 <p>Der Installer ist <strong>idempotent</strong>: Du kannst ihn jederzeit
 erneut ausführen — er aktualisiert dann die Installation und stellt die Fragen
@@ -966,7 +970,7 @@ Weboberfläche. Falls doch, installiert der Installer den Befehl
 <tr><td><code>sudo asksin-analyzer update</code></td><td>Update von Hand (geht auch per Klick, Kapitel 15)</td></tr>
 </table>
 
-<h2 class="umbruch">9.3 Platine aufstecken und lauschen</h2>
+<h2 class="umbruch" id="k9-3">9.3 Platine aufstecken und lauschen</h2>
 <ol class="schritte">
 <li>Pi <strong>stromlos</strong> machen. Analyzer-Platine auf den Header des
 PoE-HAT stecken (Kapitel 10 zeigt die Mechanik im Detail), Antenne über das
@@ -990,7 +994,7 @@ Prüfe, ob wirklich <strong>58824</strong> gesetzt ist — 57600 liefert genau d
 Bild (die 2,1 % Abweichung aus Kapitel 2 in Aktion).</div>
 
 <!-- ==================================================== KAPITEL 10 -->
-<h1 class="kapitel"><span class="knr">10</span>Zusammenbau und Montage im Schrank</h1>
+<h1 class="kapitel" id="k10"><span class="knr">10</span>Zusammenbau und Montage im Schrank</h1>
 <div class="kapitelband"></div>
 
 <figure>
@@ -998,7 +1002,7 @@ Bild (die 2,1 % Abweichung aus Kapitel 2 in Aktion).</div>
   <figcaption>Pi, PoE-HAT und Analyzer im Schnitt: Der Arm sitzt auf dem Header, Streifen und Schenkel liegen daneben bzw. dahinter.</figcaption>
 </figure>
 
-<h2>10.1 Der Stapel</h2>
+<h2 id="k10-1">10.1 Der Stapel</h2>
 <ol class="schritte">
 <li>Raspberry Pi auf die Montageplatte schrauben (Abstandsbolzen M2,5).</li>
 <li>PoE-HAT aufstecken und mit seinen Bolzen sichern. Netzwerkkabel vom
@@ -1014,7 +1018,7 @@ zusätzliche Punkte: Dort zwei Abstandsbolzen gegen die Montageplatte setzen,
 damit die Platine über ihre ganze Länge aufliegt.</li>
 </ol>
 
-<h2 class="umbruch">10.2 Antenne</h2>
+<h2 class="umbruch" id="k10-2">10.2 Antenne</h2>
 <ol class="schritte">
 <li>IPEX-Stecker des Kabels senkrecht auf die Buchse des Funkmoduls setzen und
 mit sanftem Daumendruck einrasten („Klick"). Nicht hebeln — die Buchse hält
@@ -1026,7 +1030,7 @@ aufsetzen. Metallschrank + Antenne <em>innen</em> funktioniert nicht — 868 MHz
 kommt da kaum heraus.</li>
 </ol>
 
-<h2>10.3 OLED, Taster, Status-LED anschließen</h2>
+<h2 id="k10-3">10.3 OLED, Taster, Status-LED anschließen</h2>
 <figure>
   <img src="img/anschluesse.svg" alt="Belegung J5, J6, J7">
 </figure>
@@ -1052,7 +1056,7 @@ dunkel. Nachträglich umstellen: <strong>Einstellungen → Status-LED &amp;
 OLED</strong>, dort steht die gewählte Ansteuerung im Klartext.</div>
 
 <!-- ==================================================== KAPITEL 11 -->
-<h1 class="kapitel"><span class="knr">11</span>Firmware-Updates im laufenden Betrieb</h1>
+<h1 class="kapitel" id="k11"><span class="knr">11</span>Firmware-Updates im laufenden Betrieb</h1>
 <div class="kapitelband"></div>
 
 <p>Dank Bootloader (Kapitel 7) braucht ein Firmware-Update später weder
@@ -1062,7 +1066,7 @@ normalerweise in den Bootloader schickt. Dafür hat die Platine die
 <strong>GPIO4-Reset-Strecke</strong>: Ein kurzer Low-Impuls auf GPIO4 wird über den
 Kondensator C8 als Reset-Puls an den Mikrocontroller weitergereicht.</p>
 
-<h2>11.1 Der bequeme Weg: über die Weboberfläche</h2>
+<h2 id="k11-1">11.1 Der bequeme Weg: über die Weboberfläche</h2>
 <p>Seit Software 0.0.4 flasht der Analyzer den 328P <strong>selbst</strong> —
 du lädst nur die HEX-Datei im Browser hoch:</p>
 <ol class="schritte">
@@ -1076,7 +1080,7 @@ Aufzeichnung danach automatisch wieder auf. Das komplette avrdude-Protokoll
 erscheint anschließend auf der Seite.</li>
 </ol>
 
-<h2 class="umbruch">11.2 Der Handweg (Hintergrundwissen)</h2>
+<h2 class="umbruch" id="k11-2">11.2 Der Handweg (Hintergrundwissen)</h2>
 <p>Wer sehen will, was dabei technisch passiert — oder es ohne Weboberfläche
 braucht:</p>
 <pre><span class="c"># 1. Analyse-Dienst anhalten (er belegt den Port)</span>
@@ -1115,7 +1119,7 @@ exportieren</em> erzeugt sie direkt im Sketch-Ordner
 <code>pio run</code> unter <code>.pio/build/…/firmware.hex</code>.</div>
 
 <!-- ==================================================== KAPITEL 12 -->
-<h1 class="kapitel"><span class="knr">12</span>Die Software: Überblick und Architektur</h1>
+<h1 class="kapitel" id="k12"><span class="knr">12</span>Die Software: Überblick und Architektur</h1>
 <div class="kapitelband"></div>
 
 <p>Die Software auf dem Pi ist ein einziger, dauerhaft laufender Dienst
@@ -1140,7 +1144,7 @@ wird, kann nicht kaputtgehen, keine Sicherheitslücke einschleppen und keine
 Update-Kette blockieren — bei einem Gerät, das jahrelang unbeaufsichtigt im
 Schrank läuft, ist das Gold wert.</div>
 
-<h2 class="umbruch">12.1 Lizenz-Architektur</h2>
+<h2 class="umbruch" id="k12-1">12.1 Lizenz-Architektur</h2>
 <table>
 <tr><th>Teil</th><th>Lizenz</th><th>Warum</th></tr>
 <tr><td>Core-Dienst (Analyse)</td><td>CC BY-NC-SA</td><td>Parser-/Formel-Herkunft aus den Analyzer-Vorprojekten</td></tr>
@@ -1148,7 +1152,7 @@ Schrank läuft, ist das Gold wert.</div>
 <tr><td>ioBroker-Adapter</td><td>MIT</td><td>eigenes Repo, spiegelt nur States, keinerlei Analyse-Logik</td></tr>
 </table>
 
-<h2>12.2 Wichtige Pfade auf dem Pi</h2>
+<h2 id="k12-2">12.2 Wichtige Pfade auf dem Pi</h2>
 <table class="schmal">
 <tr><th>Pfad</th><th>Inhalt</th></tr>
 <tr><td><code>/opt/asksin-analyzer</code></td><td>die Software (Git-Arbeitskopie)</td></tr>
@@ -1160,7 +1164,7 @@ Verbund-Peers, Demo, Statusanzeige, Langzeitdaten), landet in
 <code>/var/lib/asksin-analyzer/</code> und überlebt Updates wie Neustarts.</p>
 
 <!-- ==================================================== KAPITEL 13 -->
-<h1 class="kapitel"><span class="knr">13</span>Die Weboberfläche im Detail</h1>
+<h1 class="kapitel" id="k13"><span class="knr">13</span>Die Weboberfläche im Detail</h1>
 <div class="kapitelband"></div>
 
 <p>Die Weboberfläche ist die Schaltzentrale des Analyzers — erreichbar unter
@@ -1168,7 +1172,7 @@ Verbund-Peers, Demo, Statusanzeige, Langzeitdaten), landet in
 Ansichten (Übersicht, Telegramme, Verbund, Einstellungen, Info) und einer
 Kopfzeile, die auf jeder Seite dieselben Informationen trägt.</p>
 
-<h2>13.1 Die Kopfzeile</h2>
+<h2 id="k13-1">13.1 Die Kopfzeile</h2>
 <ul>
 <li><strong>Standort-Plakette</strong> neben dem Titel — bei mehreren Analyzern
 siehst du sofort, auf welchem du bist; auch der Browser-Tab trägt den Namen.</li>
@@ -1182,7 +1186,7 @@ Info-Seite mit dem Installieren-Knopf (Kapitel 15).</li>
 „Core nicht erreichbar".</li>
 </ul>
 
-<h2>13.2 Übersicht</h2>
+<h2 id="k13-2">13.2 Übersicht</h2>
 <figure class="rahmen"><img src="img/ui-uebersicht.png" alt="Die Übersichtsseite">
 <figcaption>Die Übersicht (hier im Demo-Modus): Kacheln, Zeitchart, Duty-Cycle-Tabelle — darunter folgen Torte und ggf. Statusanzeige.</figcaption></figure>
 <ul>
@@ -1207,7 +1211,7 @@ LED-Farbe mit Klartext-Grund, Systemwerte und die pixelgenaue
 OLED-Live-Vorschau — Kapitel 18.</li>
 </ul>
 
-<h2>13.3 Telegramme</h2>
+<h2 id="k13-3">13.3 Telegramme</h2>
 <figure class="rahmen"><img src="img/ui-telegramme.png" alt="Die Telegrammliste">
 <figcaption>Live-Telegrammliste mit Filter — Namen kommen von der CCU, HmIP-Telegramme sind blau markiert.</figcaption></figure>
 <p>Die Liste füllt sich von selbst (neueste oben, maximal 500 im Speicher).
@@ -1223,7 +1227,7 @@ Gerätename ins Filterfeld, dann am Gerät eine Aktion auslösen (Fenster
 öffnen, Taste drücken) — du siehst live, ob und wie stark sein Telegramm
 ankommt. Das ist der schnellste Funktionstest für ein einzelnes Gerät.</div>
 
-<h2>13.4 Einstellungen</h2>
+<h2 id="k13-4">13.4 Einstellungen</h2>
 <figure class="rahmen"><img src="img/ui-einstellungen.png" alt="Die Einstellungen">
 <figcaption>Alle Verwaltung an einem Ort — Konsole nicht nötig.</figcaption></figure>
 <p>Jedes Panel dieser Seite hat sein eigenes Kapitel; hier der Überblick:</p>
@@ -1241,7 +1245,7 @@ ankommt. Das ist der schnellste Funktionstest für ein einzelnes Gerät.</div>
 <p>Alle Änderungen wirken sofort (nur der Demo-Schalter startet den Dienst
 kontrolliert neu) und überleben Neustarts wie Updates.</p>
 
-<h2>13.5 Info</h2>
+<h2 id="k13-5">13.5 Info</h2>
 <figure class="rahmen"><img src="img/ui-info.png" alt="Die Info-Seite">
 <figcaption>Version, Laufzeit, Empfangszähler — und die Update-Verwaltung.</figcaption></figure>
 <p>Kacheln mit Core-Version, Laufzeit, Datenbankgröße und Host-Daten; darunter
@@ -1252,7 +1256,7 @@ Strecke. Es folgen <strong>Software-Update</strong> und
 Original-Projekte, auf denen dieser Analyzer aufbaut.</p>
 
 <!-- ==================================================== KAPITEL 14 -->
-<h1 class="kapitel"><span class="knr">14</span>Der Demo-Modus — testen ohne Hardware</h1>
+<h1 class="kapitel" id="k14"><span class="knr">14</span>Der Demo-Modus — testen ohne Hardware</h1>
 <div class="kapitelband"></div>
 
 <p>Der Demo-Modus lässt den kompletten Analyzer laufen, <strong>ohne dass eine
@@ -1260,14 +1264,14 @@ Platine steckt oder eine Homematic-Zentrale existiert</strong> — ideal zum
 Kennenlernen, zum Vorführen und um die Weboberfläche zu erkunden, während die
 Platine noch beim Fertiger liegt.</p>
 
-<h2>23.1 Ein- und ausschalten</h2>
+<h2 id="k23-1">23.1 Ein- und ausschalten</h2>
 <p><em>Einstellungen → Demo-Modus → einschalten</em>, Rückfrage bestätigen — der
 Dienst startet neu (die Seite verbindet sich nach wenigen Sekunden von
 selbst), und in der Kopfzeile erscheint die orange <strong>DEMO</strong>-Plakette.
 Ausschalten geht genauso; danach liest der Analyzer wieder die echte
 Hardware.</p>
 
-<h2>23.2 Was simuliert wird — und wie ehrlich</h2>
+<h2 id="k23-2">23.2 Was simuliert wird — und wie ehrlich</h2>
 <p>Die Simulation setzt am untersten Ende an: Sie erzeugt exakt die Zeilen,
 die der echte Sniffer über die serielle Schnittstelle schicken würde —
 Telegramme, die 750-ms-Rauschzeilen, sogar gelegentliche Störimpulse.
@@ -1287,17 +1291,17 @@ Aufzeichnungen werden weder gelesen noch verändert — nach dem Ausschalten
 ist alles exakt wie vorher.</div>
 
 <!-- ==================================================== KAPITEL 15 -->
-<h1 class="kapitel"><span class="knr">15</span>Software-Updates: Glocke, Ein-Klick-Update, Rollback</h1>
+<h1 class="kapitel" id="k15"><span class="knr">15</span>Software-Updates: Glocke, Ein-Klick-Update, Rollback</h1>
 <div class="kapitelband"></div>
 
-<h2>15.1 Der tägliche Selbstcheck</h2>
+<h2 id="k15-1">15.1 Der tägliche Selbstcheck</h2>
 <p>Eine Minute nach jedem Dienststart und danach alle 24 Stunden vergleicht
 der Analyzer seinen Software-Stand mit dem Projekt auf GitHub. Gibt es etwas
 Neues, erscheint in der Kopfzeile die pulsierende
 <strong>🔔&nbsp;Update</strong>-Plakette — auf jeder Seite, nicht zu übersehen.
 Ein Klick darauf führt zur Info-Seite.</p>
 
-<h2>15.2 Das Update per Klick</h2>
+<h2 id="k15-2">15.2 Das Update per Klick</h2>
 <ol class="schritte">
 <li><em>Info → Software-Update → Nach Update suchen</em> zeigt installierte und
 verfügbare Version.</li>
@@ -1308,7 +1312,7 @@ prüfe</em>.</li>
 zurück und zeigt am Ende „Update fertig".</li>
 </ol>
 
-<h2>15.3 Das Sicherheitsnetz: automatischer Rollback</h2>
+<h2 id="k15-3">15.3 Das Sicherheitsnetz: automatischer Rollback</h2>
 <p>Das Update ist <strong>atomar und rückrollbar</strong> gebaut: Die neue
 Weboberfläche wird erst vollständig gebaut und dann in einem Zug getauscht;
 nach dem Neustart prüft ein Gesundheits-Check 30 Sekunden lang, ob der
@@ -1325,7 +1329,7 @@ systemd-Überwachung startet daraufhin das eigentliche Update-Skript mit
 Root-Rechten. Dasselbe Muster nutzen Netzwerkänderungen (Kapitel 16).</div>
 
 <!-- ==================================================== KAPITEL 16 -->
-<h1 class="kapitel"><span class="knr">16</span>Netzwerkeinstellungen mit Aussperr-Schutz</h1>
+<h1 class="kapitel" id="k16"><span class="knr">16</span>Netzwerkeinstellungen mit Aussperr-Schutz</h1>
 <div class="kapitelband"></div>
 
 <p>Unter <em>Einstellungen → Netzwerk</em> verwaltest du die
@@ -1334,7 +1338,7 @@ Adresse, Gateway, DNS, Hostname und NTP-Server. Die Seite zeigt zuerst nur
 den <strong>Ist-Zustand</strong> (bei DHCP inklusive der zugewiesenen Werte);
 geändert wird erst, wenn du ausdrücklich „Übernehmen" klickst.</p>
 
-<h2>16.1 Die 90-Sekunden-Probezeit</h2>
+<h2 id="k16-1">16.1 Die 90-Sekunden-Probezeit</h2>
 <p>Wer die IP-Adresse ändert, sägt am Ast, auf dem seine Browser-Verbindung
 sitzt. Deshalb gelten neue Netzwerkeinstellungen zunächst <strong>nur auf
 Probe</strong>:</p>
@@ -1351,7 +1355,7 @@ her</strong> — du erreichst ihn wieder unter der alten Adresse, als wäre nich
 gewesen.</li>
 </ol>
 
-<h2 class="umbruch">16.2 Hostname und NTP</h2>
+<h2 class="umbruch" id="k16-2">16.2 Hostname und NTP</h2>
 <ul>
 <li>Der <strong>Hostname</strong> gehört zur Netzwerkstruktur und wird von der
 Software nirgendwo sonst angefasst — <em>nur hier</em>, als bewusste
@@ -1369,7 +1373,7 @@ NetworkManager funktioniert die Anzeige trotzdem — das Ändern ist dann
 sauber deaktiviert statt halb kaputt.</div>
 
 <!-- ==================================================== KAPITEL 17 -->
-<h1 class="kapitel"><span class="knr">17</span>Der Verbund: mehrere Analyzer als Gesamtsystem</h1>
+<h1 class="kapitel" id="k17"><span class="knr">17</span>Der Verbund: mehrere Analyzer als Gesamtsystem</h1>
 <div class="kapitelband"></div>
 
 <p>Ab zwei Analyzern beginnt der eigentliche Zauber dieses Projekts: Jedes
@@ -1380,7 +1384,7 @@ Funk-Landkarte des Hauses.</p>
 <figure class="rahmen"><img src="img/ui-verbund.png" alt="Die Verbund-Ansicht">
 <figcaption>Die Verbund-Ansicht mit zwei Standorten: Kacheln, Flotten-Update, Empfangsmatrix und zusammengeführte Telegrammliste.</figcaption></figure>
 
-<h2 class="umbruch">17.1 Einrichten — zwei Klicks, keine Konsole</h2>
+<h2 class="umbruch" id="k17-1">17.1 Einrichten — zwei Klicks, keine Konsole</h2>
 <p>Jeder Analyzer ist von Haus aus verbundfähig. „Master" wird schlicht der,
 bei dem du die anderen einträgst:</p>
 <ol class="schritte">
@@ -1394,7 +1398,7 @@ bei dem du die anderen einträgst:</p>
 <p>Die Änderung wirkt sofort; der eigene Standort erscheint automatisch als
 erste Kachel. Hinterlegte Tokens werden nie wieder angezeigt.</p>
 
-<h2>17.2 Das Standort-Dashboard</h2>
+<h2 id="k17-2">17.2 Das Standort-Dashboard</h2>
 <p>Je Standort eine Kachel: Sniffer-Status, Telegramme/min, Grundrauschen,
 höchster Duty-Cycle, Software-Version — plus Plaketten für Demo-Modus und
 verfügbare Updates und ein Link direkt in die Weboberfläche des jeweiligen
@@ -1403,7 +1407,7 @@ stört aber die Übersicht nicht. Weicht die <strong>Uhr</strong> eines
 Standorts mehr als eine Sekunde ab, warnt die Kachel („NTP prüfen!") — denn
 die Telegramm-Zusammenführung braucht synchrone Uhren.</p>
 
-<h2 class="umbruch">17.3 Die Empfangsmatrix — die Funkloch-Karte</h2>
+<h2 class="umbruch" id="k17-3">17.3 Die Empfangsmatrix — die Funkloch-Karte</h2>
 <p>Zeile = Funkgerät, Spalte = Standort, Zelle = geglätteter Empfangspegel in
 Farbe; <strong>★</strong> markiert den besten Empfang, „—" heißt „an diesem
 Standort nie gehört". Damit beantwortest du auf einen Blick: Wo sind
@@ -1411,14 +1415,14 @@ Funklöcher? Welcher Analyzer „besitzt" welches Gerät? Wohin gehört die
 nächste Antenne? Der Knopf <em>CSV herunterladen</em> exportiert die Matrix
 für die Planung am Schreibtisch.</p>
 
-<h2 class="umbruch">17.4 Die zusammengeführte Telegrammliste</h2>
+<h2 class="umbruch" id="k17-4">17.4 Die zusammengeführte Telegrammliste</h2>
 <p>Gleicher Absender + gleiche laufende Nummer + gleicher Typ und Länge
 innerhalb von ±1,5 Sekunden = <strong>ein</strong> Funkereignis. Die Liste zeigt
 jedes Telegramm genau einmal, mit farbigen Chips je Standort:
 <span class="kv">Keller (−62)</span> <span class="kv">DG (−88)</span>. So siehst
 du je Ereignis sofort, wer es wie gut gehört hat.</p>
 
-<h2 class="umbruch">17.5 Das Flotten-Update</h2>
+<h2 class="umbruch" id="k17-5">17.5 Das Flotten-Update</h2>
 <p>Der Knopf <em>Alle Analyzer aktualisieren…</em> rollt ein Software-Update
 über alle Standorte aus — bewusst vorsichtig: <strong>nacheinander</strong>,
 jeder Analyzer erst nach bestandenem Gesundheits-Check des vorherigen.
@@ -1428,14 +1432,14 @@ unangetastet. Der Master aktualisiert sich zum Schluss. Für Peers mit
 Token-Pflicht muss deren Token beim Verknüpfen hinterlegt sein.</p>
 
 <!-- ==================================================== KAPITEL 18 -->
-<h1 class="kapitel"><span class="knr">18</span>Status-LED und OLED-Anzeige</h1>
+<h1 class="kapitel" id="k18"><span class="knr">18</span>Status-LED und OLED-Anzeige</h1>
 <div class="kapitelband"></div>
 
 <p>Mit dem Zubehör an J5–J7 (Anschluss: Kapitel 10.3, <strong>SW1-Hinweis
 beachten!</strong>) zeigt der Analyzer seinen Zustand direkt am Gerät — ein
 Blick in den Schrank genügt.</p>
 
-<h2>18.1 Aktivieren</h2>
+<h2 id="k18-1">18.1 Aktivieren</h2>
 <p>Entweder im Installer („Status-LED und OLED einrichten? Ja") oder jederzeit
 nachträglich: <em>Einstellungen → Status-LED &amp; OLED</em> — LED und OLED
 einzeln schaltbar, Helligkeitsregler, sofort wirksam. Einzige Voraussetzung:
@@ -1463,7 +1467,7 @@ der Init-Sequenz hängen daran. Mit den falschen Werten zeigt das Panel ein
 sei die Schrift zu klein oder das Display defekt.</p>
 </div>
 
-<h2 class="umbruch">18.2 Die LED-Farbsprache</h2>
+<h2 class="umbruch" id="k18-2">18.2 Die LED-Farbsprache</h2>
 <table class="schmal">
 <tr><th>Farbe/Muster</th><th>Bedeutung</th></tr>
 <tr><td>🟢 grün, ruhig</td><td>alles in Ordnung</td></tr>
@@ -1476,7 +1480,7 @@ sei die Schrift zu klein oder das Display defekt.</p>
 <p class="klein">Die Reihenfolge ist eine Prioritätsleiter — es leuchtet immer
 der wichtigste Zustand.</p>
 
-<h2>18.3 Die OLED-Seiten</h2>
+<h2 id="k18-3">18.3 Die OLED-Seiten</h2>
 <figure class="rahmen"><img src="img/oled-seiten.png" alt="Die OLED-Seiten">
 <figcaption>Alle Seiten in Originalauflösung (128 × 32 Pixel, hier fünffach
 vergrößert) — erzeugt aus <strong>demselben Code, der auf dem Gerät
@@ -1518,7 +1522,7 @@ denen auch die LED rot blinkt. Höchstens fünf solcher Seiten — sonst wird da
 Durchblättern am Gerät zur Zumutung. Beruhigt sich ein Gerät wieder,
 verschwindet seine Seite von selbst.</p>
 
-<h2 class="umbruch">18.4 Der Taster — blättern und neu starten</h2>
+<h2 class="umbruch" id="k18-4">18.4 Der Taster — blättern und neu starten</h2>
 <table class="schmal">
 <tr><th>Haltedauer</th><th>Wirkung</th></tr>
 <tr><td>ab 50 ms (kurz)</td><td>eine Seite weiter</td></tr>
@@ -1545,7 +1549,7 @@ vermerkt das; ein Mensch drückt nicht 50-mal je Sekunde.</p>
 </div>
 
 <!-- ==================================================== KAPITEL 19 -->
-<h1 class="kapitel"><span class="knr">19</span>Langzeitdaten: InfluxDB und Grafana</h1>
+<h1 class="kapitel" id="k19"><span class="knr">19</span>Langzeitdaten: InfluxDB und Grafana</h1>
 <div class="kapitelband"></div>
 
 <p>Für Auswertungen über Wochen und Monate — und über alle Standorte hinweg —
@@ -1555,7 +1559,7 @@ NAS-Container). Die lokale Datenbank bleibt dabei die primäre Aufzeichnung;
 fällt die InfluxDB aus, merkt der Analyzer sich das nur als Zähler und macht
 unbeirrt weiter.</p>
 
-<h2>19.1 Einrichten</h2>
+<h2 id="k19-1">19.1 Einrichten</h2>
 <ol class="schritte">
 <li>In der InfluxDB einen Bucket (z. B. <code>asksin</code>) und ein API-Token
 mit Schreibrecht darauf anlegen.</li>
@@ -1566,7 +1570,7 @@ zeigt Schreibvorgänge und eventuelle Fehler. Das Token wird nach dem
 Speichern nie wieder angezeigt (leeres Feld = vorhandenes behalten).</li>
 </ol>
 
-<h2>19.2 Was geschrieben wird</h2>
+<h2 id="k19-2">19.2 Was geschrieben wird</h2>
 <table>
 <tr><th>Measurement</th><th>Tags</th><th>Felder</th></tr>
 <tr><td><code>analyzer</code></td><td><code>standort</code></td><td>connected, telegrammeProMinute, grundrauschen, geraete</td></tr>
@@ -1579,7 +1583,7 @@ Speichern nie wieder angezeigt (leeres Feld = vorhandenes behalten).</li>
 <code>docs/verbund.md</code> im Projekt.</p>
 
 <!-- ==================================================== KAPITEL 20 -->
-<h1 class="kapitel"><span class="knr">20</span>Der ioBroker-Adapter</h1>
+<h1 class="kapitel" id="k20"><span class="knr">20</span>Der ioBroker-Adapter</h1>
 <div class="kapitelband"></div>
 
 <p>Der Adapter <strong>ioBroker.asksinanalyzer-rpi</strong> (eigenes Repository,
@@ -1588,7 +1592,7 @@ für Visualisierung, Benachrichtigungen und Automatik-Regeln. Er enthält
 bewusst keinerlei Analyse-Logik: Er fragt nur die API des Analyzers ab und
 spiegelt die Werte.</p>
 
-<h2>20.1 Installation und Einrichtung</h2>
+<h2 id="k20-1">20.1 Installation und Einrichtung</h2>
 <ol class="schritte">
 <li>ioBroker-Admin → Adapter → „Installieren aus eigener URL" →
 <code>https://github.com/ssbingo/ioBroker.asksinanalyzer-rpi</code>
@@ -1599,7 +1603,7 @@ Fünf-Standorte-Verbund wird also zu fünf Instanzen.</li>
 Auth-Token des Analyzers, Abfrageintervall (Vorgabe 5 s).</li>
 </ol>
 
-<h2>20.2 Die States</h2>
+<h2 id="k20-2">20.2 Die States</h2>
 <table>
 <tr><th>Zweig</th><th>Inhalt</th></tr>
 <tr><td><code>info.*</code></td><td>connection (erreichbar <em>und</em> Sniffer verbunden), Standort, Version, Demo, Update verfügbar</td></tr>
@@ -1615,10 +1619,10 @@ sich das Kontingent leer"), bei <code>info.connection = false</code> länger als
 <code>verbund.*.zeitdriftWarnung = true</code>.</div>
 
 <!-- ==================================================== KAPITEL 21 -->
-<h1 class="kapitel"><span class="knr">21</span>Sicherheit: Token, Netzwerk, Grenzen</h1>
+<h1 class="kapitel" id="k21"><span class="knr">21</span>Sicherheit: Token, Netzwerk, Grenzen</h1>
 <div class="kapitelband"></div>
 
-<h2>21.1 Das Auth-Token</h2>
+<h2 id="k21-1">21.1 Das Auth-Token</h2>
 <p><strong>Lesen ist frei, Ändern braucht das Token.</strong> Alle
 Anzeige-Endpunkte (Übersicht, Listen, Verbund) sind im LAN offen — das ist
 gewollt, ein Funkanalyzer zeigt keine Geheimnisse. Alles, was etwas
@@ -1630,7 +1634,7 @@ diesem Browser gespeichert.</p>
 Es steht in der Konfigurationsdatei auf dem Pi:
 <code>sudo grep authToken /etc/asksin-analyzer/config.json</code></div>
 
-<h2>21.2 Grundsätze</h2>
+<h2 id="k21-2">21.2 Grundsätze</h2>
 <ul>
 <li>Keine Cloud, keine Fremdserver: Der Analyzer telefoniert nur zu GitHub
 (täglicher Update-Check) und — wenn konfiguriert — zu deiner CCU und deiner
@@ -1644,7 +1648,7 @@ nutze VPN (z. B. WireGuard) — keine Portfreigabe ins Internet.</li>
 </ul>
 
 <!-- ==================================================== KAPITEL 22 -->
-<h1 class="kapitel"><span class="knr">22</span>Protokoll: wenn etwas nicht stimmt</h1>
+<h1 class="kapitel" id="k22"><span class="knr">22</span>Protokoll: wenn etwas nicht stimmt</h1>
 <div class="kapitelband"></div>
 
 <p>Manche Störungen zeigen sich erst nach Stunden — der Analyzer ist plötzlich
@@ -1660,7 +1664,7 @@ mitgeschrieben wird, was passiert ist. Zu finden unter
   Unten steht der Ablageort auf dem Gerät.</figcaption>
 </figure>
 
-<h2 class="umbruch">22.1 Die vier Stufen</h2>
+<h2 class="umbruch" id="k22-1">22.1 Die vier Stufen</h2>
 <table>
 <tr><th>Stufe</th><th>Was hineinkommt</th><th>Wann sinnvoll</th></tr>
 <tr><td><strong>Fehler</strong></td><td>Nur Störungen</td><td>Dauerbetrieb, kleinste Datei</td></tr>
@@ -1673,7 +1677,7 @@ mitgeschrieben wird, was passiert ist. Zu finden unter
 (1 bis 365). Beim Tageswechsel legt der Dienst eine neue Datei an und löscht,
 was älter ist als die Frist. Beides wirkt sofort, ohne Neustart.</p>
 
-<h2>22.2 Was mitgeschrieben wird</h2>
+<h2 id="k22-2">22.2 Was mitgeschrieben wird</h2>
 
 <p>Neben den Meldungen der Anwendung selbst erhebt der Analyzer <strong>jede
 Minute</strong> die Werte, an denen sich ein Ausfall im Nachhinein festmachen
@@ -1694,7 +1698,7 @@ Fehler</strong> in der Datei — auch dann, wenn die sparsamste Stufe eingestell
 ist. Man muss also nicht vorsorglich auf „Debug" stellen, um Unterspannung zu
 bemerken.</div>
 
-<h2 class="umbruch">22.3 Kam es von uns oder vom System?</h2>
+<h2 class="umbruch" id="k22-3">22.3 Kam es von uns oder vom System?</h2>
 
 <p>Das eigene Protokoll zeigt nur, was der Analyzer selbst mitbekommt. Ob eine
 Störung <em>aus dem System</em> kam, steht im Journal des Betriebssystems — in
@@ -1717,7 +1721,7 @@ das Journal lesen, und das Journal wird <strong>dauerhaft</strong> gespeichert.
 Ab Werk legt Raspberry Pi OS es nur flüchtig im Arbeitsspeicher ab — nach einem
 harten Absturz wäre genau der interessante Teil verloren.</p>
 
-<h2>22.4 So gehst du bei einem Ausfall vor</h2>
+<h2 id="k22-4">22.4 So gehst du bei einem Ausfall vor</h2>
 <ol class="schritte">
 <li><strong>Wartung</strong> öffnen, Stufe auf <strong>Debug</strong> stellen.</li>
 <li>Nach dem nächsten Ausfall die Datei des Tages <strong>herunterladen</strong>
@@ -1738,7 +1742,7 @@ lesen als auch durchsuchen lässt:</p>
 2026-07-31 08:12:34.001  INFO    [system]     Temperatur 62,3 °C · Speicher frei 940 MB</pre>
 
 <!-- ==================================================== KAPITEL 23 -->
-<h1 class="kapitel"><span class="knr">23</span>Fehlersuche</h1>
+<h1 class="kapitel" id="k23"><span class="knr">23</span>Fehlersuche</h1>
 <div class="kapitelband"></div>
 
 <table>
@@ -1766,10 +1770,10 @@ lesen als auch durchsuchen lässt:</p>
 </table>
 
 <!-- ==================================================== KAPITEL 14 -->
-<h1 class="kapitel"><span class="knr">24</span>Anhang</h1>
+<h1 class="kapitel" id="k24"><span class="knr">24</span>Anhang</h1>
 <div class="kapitelband"></div>
 
-<h2>23.1 Belegung des Pi-Headers (genutzte Pins)</h2>
+<h2 id="k23-1">23.1 Belegung des Pi-Headers (genutzte Pins)</h2>
 <table class="schmal">
 <tr><th>Pi-Pin</th><th>Signal</th><th>Verwendung</th></tr>
 <tr><td>1</td><td>3V3</td><td>durchgereicht an OLED (J5) und LED (J7)</td></tr>
@@ -1784,7 +1788,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>6, 9, 14, 20, 25, 30, 34, 39</td><td>GND</td><td>Masse</td></tr>
 </table>
 
-<h2>23.2 Prüfpunkte</h2>
+<h2 id="k23-2">23.2 Prüfpunkte</h2>
 <table class="schmal">
 <tr><th>Pad</th><th>Signal</th><th>Sollwert im Betrieb</th></tr>
 <tr><td>TP1</td><td>RESET</td><td>3,3 V (Ruhe)</td></tr>
@@ -1797,7 +1801,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>TP8</td><td>CS</td><td>SPI-Auswahl Funkmodul</td></tr>
 </table>
 
-<h2 class="umbruch">23.3 Glossar</h2>
+<h2 class="umbruch" id="k23-3">23.3 Glossar</h2>
 <table>
 <tr><th>Begriff</th><th>Bedeutung</th></tr>
 <tr><td>BidCoS</td><td>„Bidirectional Communication Standard" — das Funkprotokoll klassischer Homematic-Geräte</td></tr>
@@ -1813,7 +1817,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>UART</td><td>serielle Schnittstelle (zwei Drähte: senden, empfangen)</td></tr>
 </table>
 
-<h2 class="umbruch">23.4 Quellen und Dank</h2>
+<h2 class="umbruch" id="k23-4">23.4 Quellen und Dank</h2>
 <p>Dieses Projekt wäre ohne die Vorarbeit dieser Autoren nicht denkbar:</p>
 <ul>
 <li><strong>jp112sdl</strong> — AskSinAnalyzer und die Sniffer-Firmware
