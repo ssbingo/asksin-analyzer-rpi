@@ -170,14 +170,34 @@ abschnitt "Neustarts unseres Dienstes im laufenden Start"
 journalctl -b 0 -u asksin-analyzer --no-pager -q 2>/dev/null \
     | grep -ciE 'Started|Stopped|Failed' >> "$BERICHT"
 
-abschnitt "Letzte 40 Zeilen unseres Protokolls"
+# Das Wertvollste ueberhaupt: unsere eigenen Zeilen UNMITTELBAR VOR dem
+# Ausfall. Der Tail der Datei zeigt den laufenden Betrieb — gebraucht wird
+# aber der Moment des Abrisses. Deshalb wird bis zum Zeitstempel der letzten
+# Journalzeile des vorherigen Starts geschnitten.
 LOGV=/var/lib/asksin-analyzer/protokoll
 NEUSTE=$(ls -1t "$LOGV"/asksin-*.log 2>/dev/null | head -1)
-if [ -n "$NEUSTE" ]; then
-    zeile "Datei: $NEUSTE"
-    tail -40 "$NEUSTE" >> "$BERICHT"
-else
+ENDE_VORHER=$(journalctl -b -1 -n 1 -o short-iso --no-pager -q 2>/dev/null \
+    | awk '{print $1}' | sed 's/T/ /; s/+.*//')
+
+abschnitt "Unser Protokoll UNMITTELBAR VOR dem Ausfall"
+if [ -z "$NEUSTE" ]; then
     zeile "Kein Protokoll gefunden unter $LOGV"
+elif [ -z "$ENDE_VORHER" ]; then
+    zeile "Zeitpunkt des Ausfalls unbekannt (kein vorheriger Start im Journal)."
+else
+    zeile "Datei: $NEUSTE"
+    zeile "Ausfall gegen: $ENDE_VORHER"
+    zeile ""
+    awk -v grenze="$ENDE_VORHER" '$0 <= grenze' "$NEUSTE" | tail -25 >> "$BERICHT"
+    zeile ""
+    zeile "^^^ Bricht die Aufzeichnung hier mitten in einer Aktion ab (etwa"
+    zeile "    zwischen \"LED-Frame wird geschrieben\" und \"LED-Frame"
+    zeile "    geschrieben\"), hat genau diese Aktion den Rechner geholt."
+fi
+
+abschnitt "Letzte 25 Zeilen unseres Protokolls (laufender Betrieb)"
+if [ -n "$NEUSTE" ]; then
+    tail -25 "$NEUSTE" >> "$BERICHT"
 fi
 
 abschnitt "Prozesse mit dem meisten Speicher"
