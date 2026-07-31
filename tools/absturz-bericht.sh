@@ -155,6 +155,44 @@ zeile ""
 zeile "Wurzeldateisystem: $(findmnt -no SOURCE / 2>/dev/null)"
 lsblk -o NAME,SIZE,TRAN,MODEL,MOUNTPOINT 2>/dev/null >> "$BERICHT"
 
+# ---------------------------------------------- Datentraeger im Detail ------
+# Anlass: Am 31.07.2026 meldete die Shell "sudo: Input/output error" — der Pi
+# konnte eine Programmdatei nicht mehr von der Platte lesen. Faellt die
+# Wurzelpartition weg, ist die Maschine augenblicklich tot und kann nichts
+# mehr protokollieren; genau so sahen die Ausfaelle aus. Wer per USB von einer
+# SSD bootet, sollte das hier zuerst pruefen.
+abschnitt "Datenträger: Anbindung und Gesundheit"
+WURZEL="$(findmnt -no SOURCE / 2>/dev/null)"
+PLATTE="$(lsblk -no PKNAME "$WURZEL" 2>/dev/null)"
+zeile "Wurzel: ${WURZEL:-unbekannt}   Datenträger: ${PLATTE:-unbekannt}"
+if [ -n "$PLATTE" ]; then
+    zeile "Anbindung: $(lsblk -dno TRAN,MODEL,SIZE "/dev/$PLATTE" 2>/dev/null | tr -s ' ')"
+    # Bei USB: der Bridge-Chip ist der haeufigste Wackelkandidat.
+    for u in /sys/bus/usb/devices/*/; do
+        [ -f "$u/idVendor" ] || continue
+        v=$(cat "$u/idVendor" 2>/dev/null); pr=$(cat "$u/idProduct" 2>/dev/null)
+        n=$(cat "$u/product" 2>/dev/null)
+        case "$n" in *SATA*|*SSD*|*Disk*|*Bridge*|*UASP*)
+            zeile "  USB-Gerät $v:$pr — $n" ;;
+        esac
+    done
+fi
+if command -v smartctl >/dev/null 2>&1 && [ -n "$PLATTE" ]; then
+    zeile ""
+    zeile "SMART:"
+    smartctl -H -A -d sat "/dev/$PLATTE" 2>/dev/null \
+        | grep -iE "SMART overall|Reallocated|Pending|Uncorrect|CRC|Power_On|Temperature" \
+        | sed 's/^/  /' >> "$BERICHT" \
+        || zeile "  nicht auslesbar (bei USB-Gehäusen oft nicht durchgereicht)"
+else
+    zeile ""
+    zeile "smartctl fehlt — installieren mit: sudo apt install smartmontools"
+fi
+zeile ""
+zeile "Lesefehler seit dem Start (dmesg):"
+dmesg 2>/dev/null | grep -icE "i/o error|blk_update_request|ext4-fs error" \
+    | sed 's/^/  Treffer: /' >> "$BERICHT" || zeile "  dmesg nicht lesbar"
+
 abschnitt "Journalgröße"
 journalctl --disk-usage --no-pager 2>/dev/null >> "$BERICHT" || zeile "unbekannt"
 
