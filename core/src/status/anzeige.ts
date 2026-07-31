@@ -96,6 +96,15 @@ const LANG_MS = 5000;
 const NEUSTART_MELDUNG_MS = 3000;
 /** Wie oft der Pegel während des Haltens abgefragt wird. */
 const HALTE_TAKT_MS = 200;
+/**
+ * Nach dieser Zeit ohne Tastendruck springt die Anzeige auf Seite 1 zurück.
+ *
+ * Das Vorbild macht dasselbe nach 30 Sekunden (`oled_page_timeout_s`); hier
+ * sind es 60 — Vorgabe von Silvio. Der Sinn ist derselbe: Wer im Vorbeigehen
+ * blättert, soll nicht dauerhaft eine Systemseite stehen lassen. Auf Seite 1
+ * steht der Standort, und die will man sehen, wenn man vor dem Schrank steht.
+ */
+const RUECKSPRUNG_MS = 60_000;
 
 export class StatusAnzeige {
   readonly #o: StatusAnzeigeOptions;
@@ -108,6 +117,7 @@ export class StatusAnzeige {
   #tasterStop: (() => void) | null = null;
   #seite = 0;
   #letzterTastendruck = 0;
+  #letzteSeitenaenderung = 0;
   #ledFehler = 0;
   #oledFehler = 0;
   #letzterLedSchluessel = '';
@@ -190,6 +200,7 @@ export class StatusAnzeige {
     const jetzt = this.#time.now();
     if (jetzt - this.#letzterTastendruck < 250) return;    // entprellen
     this.#letzterTastendruck = jetzt;
+    this.#letzteSeitenaenderung = jetzt;
     // Wie viele Seiten es gibt, weiss der Anzeigedienst — er kennt auch die
     // Felder, die nur manchmal vorhanden sind (Lüfter, Platte). Vorher stand
     // hier die Konstante des Core, und nach Seite 9 sprang es zurueck auf 1,
@@ -302,6 +313,15 @@ export class StatusAnzeige {
   async #oledTakt(signal: AbortSignal): Promise<void> {
     let letzter = '';
     for (;;) {
+      // Rücksprung auf Seite 1 nach Ablauf der Frist — geprüft im laufenden
+      // Takt, damit es keinen zweiten Zeitgeber braucht.
+      if (
+        this.#seite !== 0 &&
+        this.#time.now() - this.#letzteSeitenaenderung >= RUECKSPRUNG_MS
+      ) {
+        this.#seite = 0;
+        this.#letzteSeitenaenderung = this.#time.now();
+      }
       const zustand = this.#zustandFuerAnzeige();
       const text = JSON.stringify(zustand);
       if (text !== letzter) {

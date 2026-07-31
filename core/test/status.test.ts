@@ -428,3 +428,31 @@ test('Dauersender landen in den Anzeigedaten', async () => {
   ]);
   await anzeige.stop();
 });
+
+test('Anzeige springt nach 60 s ohne Tastendruck auf Seite 1 zurück', async () => {
+  // Wer im Vorbeigehen blättert, soll nicht dauerhaft eine Systemseite stehen
+  // lassen. Das Vorbild macht das nach 30 s; hier sind es 60 (Vorgabe).
+  const time = new FakeTime();
+  const anzeige = new StatusAnzeige({
+    led: 'aus',
+    oled: true,
+    daten: () => ({ ...DATEN }),
+    time,
+    runner: () => Promise.resolve({ code: 0, output: '' }),
+    schreibeGeraet: () => Promise.resolve(),
+    bildVorhanden: () => true,
+    leseDatei: () => JSON.stringify({ seiten: 9 }),
+  });
+  await anzeige.start();
+
+  anzeige.naechsteSeite();
+  assert.equal(anzeige.seite, 1, 'geblättert');
+
+  await time.advance(50_000);
+  assert.equal(anzeige.seite, 1, 'vor Ablauf der Frist bleibt die Seite stehen');
+
+  await time.advance(11_000);
+  assert.equal(anzeige.seite, 0, 'nach 60 s zurück auf Seite 1');
+
+  await anzeige.stop();
+});

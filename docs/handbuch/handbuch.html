@@ -13,7 +13,34 @@
     --code-bg: #0f172a; --code-fg: #e2e8f0;
   }
   * { box-sizing: border-box; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-  @page { size: A4; margin: 16mm 15mm 18mm 15mm; }
+  /* Unterer Rand von 18 auf 26 mm: Die Fusszeile sitzt am unteren Ende des
+     Satzspiegels. Weder ein negatives `bottom` noch ein negativer
+     Aussenabstand bringen sie zuverlaessig in den Rand — Chromium laesst sie
+     dann auf die naechste Seite umlaufen und zeichnet sie oben. Der groessere
+     Rand haelt stattdessen den Text von ihr fern. */
+  @page { size: A4; margin: 16mm 15mm 26mm 15mm; }
+
+  /* Fusszeile auf JEDER Seite.
+     Chromium unterstuetzt in den Randbereichen der Druckseite (@bottom-center
+     und Verwandte) keine eigenen Inhalte — der einzige Weg zu etwas, das auf
+     jeder Seite erscheint, ist ein fest positioniertes Element. Chromium
+     wiederholt solche Elemente beim Druck auf jeder Seite und erzeugt dabei
+     auch die Verweis-Annotationen; genau das ist nachgeprueft. */
+  .fusszeile {
+    position: fixed;
+    /* Gemessen statt geraten: `bottom: 0` setzt die Zeile an den unteren Rand
+       des Satzspiegels (y ≈ 766 von 842 pt). Ein negatives `bottom` laesst
+       Chromium umlaufen — die Zeile landete dann oben auf der Seite. Der
+       untere Seitenrand ist dafuer auf 22 mm vergroessert, damit unter der
+       Zeile noch Luft bleibt. */
+    bottom: 0;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 8.5pt;
+    color: var(--grau);
+  }
+  .fusszeile a { color: var(--petrol); text-decoration: none; }
   html { font-size: 10.6pt; }
   body { font-family: "DejaVu Sans", sans-serif; color: var(--tinte); line-height: 1.55; margin: 0; }
   h1, h2, h3 { font-family: "DejaVu Sans", sans-serif; line-height: 1.25; }
@@ -133,6 +160,8 @@
 </style>
 </head>
 <body>
+<div class="fusszeile"><a href="#inhalt">↑ Inhaltsverzeichnis</a></div>
+
 
 <!-- ==================================================== DECKBLATT -->
 <div class="deckblatt">
@@ -640,7 +669,7 @@ Platine hat dafür thermische Entlastungen — wenn ein Pin trotzdem zäh ist:
 Spitze 2–3 Sekunden vorheizen lassen, dann Zinn zugeben. Nicht mit Gewalt und
 viel Zinn „zukleistern".</div>
 
-<h2 class="umbruch" id="k6-4">6.4 Endkontrolle vor dem ersten Strom</h2>
+<h2 id="k6-4">6.4 Endkontrolle vor dem ersten Strom</h2>
 <table>
 <tr><th>Prüfung</th><th>Multimeter</th><th>Sollwert</th></tr>
 <tr><td>Kurzschluss 5 V ↔ Masse?</td><td>Widerstand zwischen TP3 (+5V) und TP4 (GND)</td><td>deutlich &gt; 1 kΩ, nicht 0 Ω</td></tr>
@@ -783,7 +812,7 @@ Nach Fuses + Bootloader startet der Chip mit dem Resonator. Ein schneller
 Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 <code>-B 8</code> — antwortet flott. Vorher (1-MHz-Takt) ging das nur gebremst.</div>
 
-<h2 class="umbruch" id="k7-5">7.5 Wenn es klemmt</h2>
+<h2 id="k7-5">7.5 Wenn es klemmt</h2>
 <table>
 <tr><th>Meldung</th><th>Ursache</th><th>Abhilfe</th></tr>
 <tr><td><code>target doesn't answer</code></td><td>Programmiertakt zu schnell oder Verkabelung</td><td><code>-B 8</code> (oder <code>-B 32</code>) verwenden; alle 6 Leitungen gegen das Bild prüfen — MISO/MOSI vertauscht ist Klassiker</td></tr>
@@ -832,7 +861,7 @@ Bootloader übrigens unversehrt — MiniCore-Uploads über ISP erhalten ihn.)
 Später, wenn die Platine auf dem Pi sitzt, laufen Updates über den Bootloader —
 Kapitel 11.</div>
 
-<h2 class="umbruch" id="k8-3">8.3 Alternative: PlatformIO</h2>
+<h2 id="k8-3">8.3 Alternative: PlatformIO</h2>
 <p>Wer lieber auf der Kommandozeile arbeitet: Dem Sketch liegt eine
 <code>platformio.ini</code> bei.</p>
 <pre><span class="c"># einmalig: PlatformIO-CLI installieren (python3 vorausgesetzt)</span>
@@ -842,7 +871,7 @@ cd AskSinAnalyzer/AskSinSniffer328P
 pio run
 pio run -t program</pre>
 
-<h2 id="k8-4">8.4 Der erste Lebenszeichen-Test</h2>
+<h2 class="umbruch" id="k8-4">8.4 Der erste Lebenszeichen-Test</h2>
 <p>Noch am USBasp (der versorgt die Platine mit 3,3 V) muss jetzt die
 <strong>LED D1 beim Empfang blitzen</strong>, sobald ein Homematic-Gerät in der Nähe
 sendet — zum Provozieren reicht es, einen Fensterkontakt zu öffnen. Kein
@@ -1144,7 +1173,7 @@ wird, kann nicht kaputtgehen, keine Sicherheitslücke einschleppen und keine
 Update-Kette blockieren — bei einem Gerät, das jahrelang unbeaufsichtigt im
 Schrank läuft, ist das Gold wert.</div>
 
-<h2 class="umbruch" id="k12-1">12.1 Lizenz-Architektur</h2>
+<h2 id="k12-1">12.1 Lizenz-Architektur</h2>
 <table>
 <tr><th>Teil</th><th>Lizenz</th><th>Warum</th></tr>
 <tr><td>Core-Dienst (Analyse)</td><td>CC BY-NC-SA</td><td>Parser-/Formel-Herkunft aus den Analyzer-Vorprojekten</td></tr>
@@ -1384,7 +1413,7 @@ Funk-Landkarte des Hauses.</p>
 <figure class="rahmen"><img src="img/ui-verbund.png" alt="Die Verbund-Ansicht">
 <figcaption>Die Verbund-Ansicht mit zwei Standorten: Kacheln, Flotten-Update, Empfangsmatrix und zusammengeführte Telegrammliste.</figcaption></figure>
 
-<h2 class="umbruch" id="k17-1">17.1 Einrichten — zwei Klicks, keine Konsole</h2>
+<h2 id="k17-1">17.1 Einrichten — zwei Klicks, keine Konsole</h2>
 <p>Jeder Analyzer ist von Haus aus verbundfähig. „Master" wird schlicht der,
 bei dem du die anderen einträgst:</p>
 <ol class="schritte">
