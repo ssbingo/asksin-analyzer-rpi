@@ -116,6 +116,8 @@ export class StatusAnzeige {
   #takte: Promise<void>[] = [];
   #tasterStop: (() => void) | null = null;
   #seite = 0;
+  /** Hat der Anzeigedienst zuletzt eine Seitenzahl gemeldet? */
+  #seitenGemeldet = true;
   #letzterTastendruck = 0;
   #letzteSeitenaenderung = 0;
   #ledFehler = 0;
@@ -211,16 +213,39 @@ export class StatusAnzeige {
     this.#schreibeZustand(this.#zustandFuerAnzeige());
   }
 
-  /** Seitenzahl laut Anzeigedienst; ohne dessen Meldung die eigene. */
+  /** Seitenzahl laut Anzeigedienst; ohne dessen Meldung die eigene.
+   *
+   * Beide Orte werden geprueft. Der Anzeigedienst kann starten, bevor der
+   * Core /run/asksin-analyzer angelegt hat, und landet dann in /var/lib —
+   * frueher lasen beide Seiten daraufhin aneinander vorbei, und die Anzeige
+   * fiel wortlos auf die Notfallzahl zurueck. Genau dieser Rueckfall wird
+   * jetzt einmal gemeldet, statt sich als "9 Seiten" zu tarnen.
+   */
   #seitenGesamt(): number {
-    const pfad = this.#o.oledBildDatei ?? '/var/lib/asksin-analyzer/oled-bild.b64';
-    try {
-      const roh = JSON.parse(
-        (this.#o.leseDatei ?? ((p: string) => readFileSync(p, 'utf8')))(pfad),
-      ) as { seiten?: number };
-      if (typeof roh.seiten === 'number' && roh.seiten > 0) return roh.seiten;
-    } catch {
-      /* Anzeigedienst laeuft nicht — dann zaehlt die eigene Vorgabe */
+    const lesen = this.#o.leseDatei ?? ((p: string) => readFileSync(p, 'utf8'));
+    const orte = [
+      this.#o.oledBildDatei,
+      '/run/asksin-analyzer/oled-bild.b64',
+      '/var/lib/asksin-analyzer/oled-bild.b64',
+    ].filter((p): p is string => typeof p === 'string');
+    for (const pfad of orte) {
+      try {
+        const roh = JSON.parse(lesen(pfad)) as { seiten?: number };
+        if (typeof roh.seiten === 'number' && roh.seiten > 0) {
+          this.#seitenGemeldet = true;
+          return roh.seiten;
+        }
+      } catch {
+        /* naechster Ort */
+      }
+    }
+    if (this.#seitenGemeldet) {
+      this.#seitenGemeldet = false;
+      console.warn(
+        `[anzeige] Anzeigedienst meldet keine Seitenzahl (gesucht: ` +
+          `${orte.join(', ')}) — es gelten ${SEITEN_ANZAHL} Seiten. ` +
+          `Laeuft asksin-analyzer-oled?`,
+      );
     }
     return SEITEN_ANZAHL;
   }

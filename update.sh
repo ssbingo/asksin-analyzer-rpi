@@ -81,7 +81,20 @@ installiere_dateien() {
         "$INSTALL_DIR/deploy/oled.py" "$INSTALL_DIR/deploy/oled-einrichten.sh" \
         "$INSTALL_DIR/update.sh" 2>/dev/null || true
     # OLED-Anzeigedienst nachziehen, wenn er eingerichtet ist:
+    # OLED-Unit MIT nachziehen, nicht nur neu starten. Genau das fehlte:
+    # Neue Einstellungen in der Unit (etwa RuntimeDirectory) kamen dadurch nie
+    # auf dem Geraet an, Core und Anzeigedienst benutzten verschiedene
+    # Verzeichnisse — und die Anzeige fiel auf die Notfall-Seitenzahl zurueck.
     if [ -f /etc/systemd/system/asksin-analyzer-oled.service ]; then
+        # Die Bauhoehe steht als Argument in der vorhandenen Unit; sie darf
+        # beim Ueberschreiben nicht verlorengehen.
+        HOEHE="$(grep -oE '\-\-hoehe [0-9]+' /etc/systemd/system/asksin-analyzer-oled.service \
+                 | grep -oE '[0-9]+' | head -1)"
+        install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-oled.service" \
+            /etc/systemd/system/asksin-analyzer-oled.service
+        sed -i "s|deploy/oled.py.*|deploy/oled.py --hoehe ${HOEHE:-32}|" \
+            /etc/systemd/system/asksin-analyzer-oled.service
+        systemctl daemon-reload
         systemctl restart asksin-analyzer-oled.service 2>/dev/null || true
     fi
     # LED-Hilfsdienst (PWM auf Pi 3/4) nur nachziehen, wenn er schon

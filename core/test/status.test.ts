@@ -456,3 +456,38 @@ test('Anzeige springt nach 60 s ohne Tastendruck auf Seite 1 zurück', async () 
 
   await anzeige.stop();
 });
+
+test('Seitenzahl wird auch gefunden, wenn der Anzeigedienst im anderen Verzeichnis liegt', async () => {
+  // Der Anzeigedienst kann starten, bevor der Core /run/asksin-analyzer
+  // angelegt hat, und schreibt dann nach /var/lib. Frueher las der Core nur
+  // den einen konfigurierten Ort, fand nichts und blaetterte wortlos durch
+  // die Notfallzahl von 9 Seiten — obwohl der Dienst 17 meldete.
+  const gelesen: string[] = [];
+  const time = new FakeTime();
+  const anzeige = new StatusAnzeige({
+    led: 'aus',
+    oled: true,
+    daten: () => ({ ...DATEN }),
+    time,
+    runner: () => Promise.resolve({ code: 0, output: '' }),
+    schreibeGeraet: () => Promise.resolve(),
+    bildVorhanden: () => true,
+    oledBildDatei: '/run/asksin-analyzer/oled-bild.b64',
+    leseDatei: (pfad: string) => {
+      gelesen.push(pfad);
+      if (pfad.startsWith('/run/')) throw new Error('ENOENT');
+      return JSON.stringify({ seiten: 17 });
+    },
+  });
+
+  // 16-mal blaettern: Bei nur 9 bekannten Seiten waere man laengst wieder
+  // bei 0 — mit den gemeldeten 17 steht man auf der letzten Seite.
+  // Zwischen den Druecken muss die Uhr laufen, sonst greift die Entprellung.
+  for (let i = 0; i < 16; i++) {
+    anzeige.naechsteSeite();
+    await time.advance(300);
+  }
+  assert.equal(anzeige.seite, 16);
+  assert.ok(gelesen.some((p) => p.startsWith('/var/lib/')),
+    'der zweite Ort muss geprueft werden');
+});

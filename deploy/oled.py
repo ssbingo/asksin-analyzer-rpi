@@ -58,14 +58,25 @@ TAKT_S = 0.1
 # geschrieben. Auf einem Pi, der ueber USB von einer SSD bootet, ist das
 # unnoetige Dauerlast auf genau der Verbindung, die als Wackelkandidat gilt.
 # Fehlt /run/asksin-analyzer, bleibt es beim Datenverzeichnis.
-def _vorgabe(name: str) -> str:
-    laufzeit = Path("/run/asksin-analyzer")
-    return str((laufzeit if laufzeit.is_dir() else
-                Path("/var/lib/asksin-analyzer")) / name)
+ORTE = (Path("/run/asksin-analyzer"), Path("/var/lib/asksin-analyzer"))
 
 
-VORGABE_ZUSTAND = _vorgabe("oled-state.json")
-VORGABE_BILD = _vorgabe("oled-bild.b64")
+def finde_zustand(vorgabe: str | None = None) -> Path:
+    """Wo liegt die Zustandsdatei — jetzt, nicht beim Programmstart?
+
+    Beim ersten Anlauf wurde der Ort einmalig beim Import bestimmt. Startete
+    der Dienst, bevor /run/asksin-analyzer existierte, fiel er auf
+    /var/lib zurueck und blieb dort — waehrend der Core nach /run schrieb.
+    Ergebnis: Der Anzeigedienst las eine Datei, die niemand mehr fuellte, und
+    der Core fand keine Seitenzahl. Deshalb wird bei jedem Takt geschaut.
+    """
+    if vorgabe:
+        return Path(vorgabe)
+    for ort in ORTE:
+        datei = ort / "oled-state.json"
+        if datei.exists():
+            return datei
+    return ORTE[0] / "oled-state.json"
 
 # Aus dem Original übernommen.
 TTF_KANDIDATEN = (
@@ -445,8 +456,8 @@ class OledAnzeige:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--zustand", default=VORGABE_ZUSTAND)
-    ap.add_argument("--bild", default=VORGABE_BILD)
+    ap.add_argument("--zustand", default="")
+    ap.add_argument("--bild", default="")
     ap.add_argument("--breite", type=int, default=128)
     ap.add_argument("--hoehe", type=int, default=32)
     ap.add_argument("--adresse", default="0x3c")
@@ -476,12 +487,16 @@ def main() -> int:
     signal.signal(signal.SIGTERM, beenden)
     signal.signal(signal.SIGINT, beenden)
 
-    print(f"oled: {args.breite}x{args.hoehe} an {args.adresse}, "
-          f"Zustand {args.zustand}", flush=True)
+    print(f"oled: {args.breite}x{args.hoehe} an {args.adresse}", flush=True)
 
     letzte = None
     while laeuft:
-        z = lies_zustand(args.zustand)
+        # Ort bei jedem Takt bestimmen: Der Core legt /run erst an, wenn er
+        # startet — der Anzeigedienst kann frueher dran sein.
+        zustandsdatei = finde_zustand(args.zustand)
+        bilddatei = (Path(args.bild) if args.bild
+                     else zustandsdatei.with_name("oled-bild.b64"))
+        z = lies_zustand(str(zustandsdatei))
         seite = int(z.get("seite", 0) or 0)
         # Seitenzahl bekanntgeben, damit der Core beim Blättern weiß, wie weit.
         z_seiten = seiten_anzahl(z)
@@ -491,7 +506,7 @@ def main() -> int:
             letzte = schluessel
             try:
                 anzeige.zeichne(z, seite, meldung)
-                Path(args.bild).write_text(
+                bilddatei.write_text(
                     json.dumps({
                         "seiten": z_seiten,
                         "hoehe": args.hoehe,
