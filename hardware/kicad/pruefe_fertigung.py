@@ -38,6 +38,9 @@ MIN_BAHN = 0.127           # mm (5 mil)
 MIN_ABSTAND = 0.127        # mm
 MIN_RINGBREITE = 0.13      # mm
 
+# Referenzen ohne eigenes Bauteil (Prüfpads, Bohrungen, Kabelbinder).
+VIRTUELL = ("TP", "MH", "KB")
+
 fehler: list[str] = []
 hinweise: list[str] = []
 
@@ -400,25 +403,54 @@ def pruefe_bom_cpl(board: pcbnew.BOARD) -> None:
     else:
         ok("CPL-Koordinaten stimmen mit der Platine überein (Ursprung unten links)")
 
-    # Jedes bestückte SMD-Bauteil muss entweder in der BOM stehen oder
-    # ausdrücklich als Handbestückung geführt sein.
+    # Vollständigkeit — und zwar **von der Platine aus** gedacht, nicht von
+    # den Listen des Generators aus.
+    #
+    # Vorher lief diese Prüfung gegen `generate_bom_cpl.DNP` und übersprang
+    # alles, was dort stand. Genau das ging am 31.07.2026 schief: In der Liste
+    # stand noch „R4" aus der Zeit, als R4 die unbestückte PWM-Alternative
+    # war. Nach dem Umbau auf den Schiebeschalter wurde R4 der einzige
+    # Serienwiderstand der LED-Datenleitung — und fehlte trotzdem in BOM und
+    # CPL, weil die Prüfung dieselbe falsche Liste benutzte wie der Erzeuger.
+    #
+    # Deshalb jetzt: Jedes Bauteil auf der Platine muss **genau einer** der
+    # drei Gruppen angehören, und „unbestückt" gilt nur, wenn der Schaltplan
+    # es selbst so sagt.
     import generate_bom_cpl as B
-    offen = []
+    from generate_schematic import COMPONENTS
+
+    bestueckt, handarbeit, unbestueckt, offen = [], [], [], []
     for fp in board.GetFootprints():
         ref = fp.GetReference()
-        if ref.startswith(("MH", "KB", "TP")) or ref in B.DNP:
+        if ref.startswith(VIRTUELL):
             continue
-        durchsteck = any(p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH
-                         for p in fp.Pads())
-        if ref in bom_refs or ref in B.JLC_HAND:
-            continue
-        if durchsteck and ref not in B.JLC:
-            continue                      # bedrahtet, von Hand — dokumentiert
-        offen.append(ref)
+        wert = COMPONENTS.get(ref, ("", "", ""))[1].upper()
+        if ref in bom_refs:
+            bestueckt.append(ref)
+        elif "DNP" in wert:
+            unbestueckt.append(ref)
+        elif ref in B.JLC_HAND or any(
+            p.GetAttribute() == pcbnew.PAD_ATTRIB_PTH for p in fp.Pads()
+        ):
+            handarbeit.append(ref)
+        else:
+            offen.append(ref)
+
     if offen:
-        fail(f"Bauteile ohne LCSC-Nummer und ohne Handbestückungs-Vermerk: {offen}")
+        fail(f"Nicht in der Bestückung und nirgends als Handarbeit oder DNP "
+             f"vermerkt: {sorted(offen)}")
     else:
-        ok("Jedes Bauteil ist entweder bestückt oder als Handarbeit vermerkt")
+        ok(f"Vollständig: {len(bestueckt)} bestückt, {len(handarbeit)} von Hand"
+           + (f", {len(unbestueckt)} laut Schaltplan unbestückt" if unbestueckt else ""))
+
+    # Gegenprobe: Die Liste der unbestückten Plätze darf nicht aus der Luft
+    # kommen — sie muss sich aus den Schaltplanwerten ergeben.
+    laut_schaltplan = {r for r, (_l, w, *_x) in COMPONENTS.items() if "DNP" in w.upper()}
+    if set(B.DNP) != laut_schaltplan:
+        fail(f"DNP-Liste des Erzeugers {sorted(B.DNP)} weicht vom Schaltplan "
+             f"{sorted(laut_schaltplan)} ab")
+    else:
+        ok("Unbestückte Plätze werden aus dem Schaltplan abgeleitet, nicht gepflegt")
 
 
 def pruefe_gerber_inhalt() -> None:

@@ -46,15 +46,24 @@ FAB_DIR = HERE / "fab"
 
 # Ursprung und Höhe der Platine in Blattkoordinaten (aus generate_pcb.py).
 import generate_pcb as G
+from generate_schematic import COMPONENTS
 
 ORIGIN_X, ORIGIN_Y = G.ORIGIN_X, G.ORIGIN_Y
 BOARD_H = G.LEG_Y1          # Gesamthöhe inkl. Schenkel — Ursprung unten links
 
-DNP = {"R4"}
+# Unbestückte Plätze werden **aus dem Schaltplan abgeleitet**, nicht von Hand
+# gepflegt: Ein Wert, der „DNP" enthält, gilt als nicht zu bestücken.
+#
+# Warum das wichtig ist: Bis zum 31.07.2026 stand hier `DNP = {"R4"}` — ein
+# Überbleibsel aus der Zeit, als R4 die unbestückte PWM-Alternative zu R5 war.
+# Nach dem Umbau auf den Schiebeschalter wurde R4 zum einzigen
+# Serienwiderstand der LED-Datenleitung, die Liste blieb aber stehen. Folge:
+# R4 fehlte in BOM und CPL. Eine von Hand gepflegte Liste driftet; eine
+# abgeleitete kann es nicht.
+DNP = {ref for ref, (_lib, wert, *_rest) in COMPONENTS.items()
+       if "DNP" in wert.upper()}
 
-# Werte-Korrektur für die Ausgabe: R4 ist unbestückt und soll in der
-# dokumentierenden Stückliste als solcher erkennbar sein.
-WERT_KORREKTUR = {"R4": "390 (DNP)"}
+WERT_KORREKTUR: dict[str, str] = {}
 VIRTUAL_PREFIXES = ("TP", "MH", "KB")
 
 # Bezugsquellen aus der geprüften Bestellliste (../bestellliste-reichelt.md).
@@ -73,6 +82,7 @@ SOURCE = {
     "S1": "JLCPCB C231329 (B3U-1000P)",
     "SW1": "JLCPCB C221660 (C&K JS102011SAQN)",
     "R1": "Reichelt WAL WR08X3300FTL",
+    "R4": "Reichelt WAL WR08X3300FTL",
     "R5": "JLCPCB C17630 (330R 0805) — wie R1",
     "R2": "Reichelt WAL WR08X1002FTL",
     "R3": "Reichelt WAL WR08X1002FTL",
@@ -115,6 +125,8 @@ JLC = {
     "L1": ("C16903", "BLM21PG300SN1D", False),
     "D1": ("C84256", "FC-2012HRK-620D rot", True),
     "R1": ("C17630", "330R 1% 0805", True),
+    # Serienwiderstand der WS2812-Datenleitung, hinter dem Schalter SW1.
+    "R4": ("C17630", "330R 1% 0805", True),
     "R2": ("C17414", "10K 1% 0805", True),
     "R3": ("C17414", "10K 1% 0805", True),
     "R5": ("C17630", "330R 1% 0805 (Datenleitung WS2812)", True),
