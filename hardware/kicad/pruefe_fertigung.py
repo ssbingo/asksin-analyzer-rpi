@@ -421,6 +421,100 @@ def pruefe_bom_cpl(board: pcbnew.BOARD) -> None:
         ok("Jedes Bauteil ist entweder bestückt oder als Handarbeit vermerkt")
 
 
+def pruefe_gerber_inhalt() -> None:
+    """Die Gerber selbst ansehen — bisher wurde nur ihre Existenz geprüft.
+
+    Eine leere oder halb geschriebene Lage fällt beim Hersteller erst auf,
+    wenn die Platine schon gefertigt ist.
+    """
+    def zeichenbefehle(name: str) -> int:
+        try:
+            return len(re.findall(r"D0[123]\*", (FAB / name).read_text(errors="replace")))
+        except OSError:
+            return -1
+
+    leer = []
+    for name in ("F_Cu.gtl", "In1_Cu.g1", "In2_Cu.g2", "B_Cu.gbl",
+                 "F_Mask.gts", "B_Mask.gbs", "F_Silkscreen.gto",
+                 "F_Paste.gtp", "Edge_Cuts.gm1"):
+        n = zeichenbefehle(f"{PROJECT}-{name}")
+        if n <= 0:
+            leer.append(f"{name} ({'fehlt' if n < 0 else 'leer'})")
+    if leer:
+        fail("Gerber ohne Inhalt: " + ", ".join(leer))
+    else:
+        ok("Alle neun Gerber-Lagen enthalten Zeichenbefehle")
+
+    # Umriss direkt aus dem Gerber lesen und mit der Platine vergleichen.
+    text = (FAB / f"{PROJECT}-Edge_Cuts.gm1").read_text(errors="replace")
+    koord = [(int(a) / 1e6, int(b) / 1e6)
+             for a, b in re.findall(r"X(-?\d+)Y(-?\d+)D0[12]", text)]
+    if not koord:
+        fail("Edge_Cuts-Gerber enthält keine Koordinaten")
+        return
+    breite = max(x for x, _ in koord) - min(x for x, _ in koord)
+    hoehe = max(y for _, y in koord) - min(y for _, y in koord)
+    if abs(breite - G.BOARD_L) > 0.05 or abs(hoehe - G.LEG_Y1) > 0.05:
+        fail(f"Umriss im Gerber {breite:.1f} × {hoehe:.1f} mm, "
+             f"Platine {G.BOARD_L:.1f} × {G.LEG_Y1:.1f} mm")
+    else:
+        ok(f"Umriss im Gerber gemessen: {breite:.1f} × {hoehe:.1f} mm")
+
+    for datei, art in (("PTH.drl", "durchkontaktiert"), ("NPTH.drl", "ohne Kontakt")):
+        roh = (FAB / f"{PROJECT}-{datei}").read_text(errors="replace")
+        loecher = len(re.findall(r"^X[-\d.]+Y[-\d.]+", roh, re.M))
+        durchmesser = [float(d) for _, d in re.findall(r"^T(\d+)C([\d.]+)", roh, re.M)]
+        if loecher == 0 or not durchmesser:
+            fail(f"Bohrdatei {datei} ist leer")
+        elif min(durchmesser) + 1e-9 < MIN_BOHRER:
+            fail(f"{datei}: kleinster Bohrer {min(durchmesser):.2f} mm < {MIN_BOHRER} mm")
+        else:
+            ok(f"{datei}: {loecher} Bohrungen {art}, "
+               f"{min(durchmesser):.2f}–{max(durchmesser):.2f} mm")
+
+
+def pruefe_modul_footprint() -> None:
+    """Der selbstgezeichnete Footprint des Funkmoduls gegen das Datenblatt.
+
+    Dieselbe Fehlerklasse wie die gespiegelte J1-Buchse: Stimmt die
+    Zählrichtung nicht, ist die Platine tot. Sollwerte aus
+    `datasheets/Ebyte_E07-M_series_specification.pdf`, Abschnitt 3.2:
+    22 Halblöcher, Raster 1,27 mm, Pin 1 unten rechts aufwärts bis 11,
+    Pin 12 oben links abwärts bis 22, Gruppenabstand 5,57 mm, erster Pad
+    2,00 mm unter der Oberkante, letzter 1,00 mm über der Unterkante.
+    """
+    pfad = HERE / "lib" / "AskSin-Analyzer-HAT.pretty" / "E07-900M10S.kicad_mod"
+    try:
+        text = pfad.read_text()
+    except OSError:
+        fail("Footprint des Funkmoduls fehlt")
+        return
+    pads: dict[int, tuple[float, float]] = {}
+    for blk in text.split("(pad ")[1:]:
+        nr = blk.split()[0].strip('"')
+        m = re.search(r"\(at ([-\d.]+) ([-\d.]+)", blk)
+        if m is not None and nr.isdigit():
+            pads[int(nr)] = (float(m.group(1)), float(m.group(2)))
+    if len(pads) != 22:
+        fail(f"Funkmodul: {len(pads)} Pads, Datenblatt nennt 22")
+        return
+    probleme = []
+    for nr, seite, lage in ((1, 1, 1), (11, 1, -1), (12, -1, -1), (22, -1, 1)):
+        x, y = pads[nr]
+        if (x > 0) != (seite > 0) or (y > 0) != (lage > 0):
+            probleme.append(f"Pin {nr} bei ({x:.2f}, {y:.2f})")
+    if abs(abs(pads[3][1] - pads[4][1]) - 5.57) > 0.02:
+        probleme.append(f"Gruppenabstand {abs(pads[3][1] - pads[4][1]):.2f} statt 5,57 mm")
+    if abs(abs(pads[1][1]) - 9.0) > 0.02:
+        probleme.append("Pin 1 nicht 1,00 mm über der Unterkante")
+    if abs(abs(pads[11][1]) - 8.0) > 0.02:
+        probleme.append("Pin 11 nicht 2,00 mm unter der Oberkante")
+    if probleme:
+        fail("Funkmodul-Footprint weicht vom Datenblatt ab: " + "; ".join(probleme))
+    else:
+        ok("Funkmodul-Footprint: 22 Pads, Zählrichtung und Maße wie im Datenblatt")
+
+
 def pruefe_netzliste() -> None:
     """Die Platine gegen die Soll-Netzliste aus generate_schematic.py."""
     board = pcbnew.LoadBoard(str(BOARD_FILE))
@@ -464,8 +558,10 @@ def main() -> int:
     pruefe_netzliste()
     pruefe_led_polung(board)
     pruefe_schalter(board)
+    pruefe_modul_footprint()
 
     print("\n\033[1mFertigungsdaten\033[0m")
+    pruefe_gerber_inhalt()
     pruefe_archiv()
     pruefe_bom_cpl(board)
 
