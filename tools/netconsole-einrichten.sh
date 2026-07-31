@@ -29,8 +29,14 @@ if [ "$(id -u)" -ne 0 ]; then
     exit 1
 fi
 
+PULS_SERVICE=/etc/systemd/system/asksin-netconsole-puls.service
+PULS_TIMER=/etc/systemd/system/asksin-netconsole-puls.timer
+
 if [ "${1:-}" = "--aus" ]; then
-    rm -f "$MODPROBE_CONF" "$LOAD_CONF" "$SYSCTL_CONF"
+    systemctl disable --now asksin-netconsole-puls.timer 2>/dev/null || true
+    rm -f "$MODPROBE_CONF" "$LOAD_CONF" "$SYSCTL_CONF" \
+          "$PULS_SERVICE" "$PULS_TIMER"
+    systemctl daemon-reload
     modprobe -r netconsole 2>/dev/null || true
     echo "netconsole entfernt. Die Netzwerkeinrichtung war nie betroffen."
     exit 0
@@ -93,10 +99,50 @@ if ! modprobe netconsole "$PARAM"; then
     exit 1
 fi
 
+# ---------------------------------------------------------------- Pulsschlag
+#
+# Ohne das hier bleibt eine Luecke: Ein untaetiger Kernel sagt nichts. Faellt
+# der Pi nachts um drei aus, waere die letzte empfangene Zeile womoeglich vom
+# Vorabend — und man weiss weder, wann er starb, noch ob der Mitschnitt
+# ueberhaupt noch lief. Eine Zeile pro Minute macht die Stille aussagekraeftig:
+# Der letzte Puls datiert den Ausfall auf die Minute genau.
+#
+# Mitgeschickt wird, was im Ernstfall zaehlt — Laufzeit, Last, Temperatur und
+# die Drossel-Meldung des Chips. Steigt eines davon vor dem Abriss auffaellig,
+# steht die Ursache im Mitschnitt statt in einer Vermutung.
+cat >"$PULS_SERVICE" <<'EOF'
+[Unit]
+Description=AskSin-Analyzer: Pulsschlag für den Kernel-Mitschnitt
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'T=$(cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null || echo 0); \
+  D=$(vcgencmd get_throttled 2>/dev/null || echo "throttled=?"); \
+  echo "AskSin-Puls up=$(cut -d. -f1 /proc/uptime)s load=$(cut -d" " -f1-3 /proc/loadavg) temp=$((T/1000))C $D" > /dev/kmsg'
+EOF
+
+cat >"$PULS_TIMER" <<'EOF'
+[Unit]
+Description=AskSin-Analyzer: Pulsschlag jede Minute
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=60s
+AccuracySec=1s
+
+[Install]
+WantedBy=timers.target
+EOF
+
+systemctl daemon-reload
+systemctl enable --now asksin-netconsole-puls.timer >/dev/null 2>&1 || \
+    echo "Hinweis: Pulsschlag liess sich nicht starten — Mitschnitt läuft trotzdem."
+
 echo "netconsole aktiv:"
 echo "  von  ${QUELL_IP} (${IFACE})"
 echo "  an   ${ZIEL_IP}:${PORT} [${ZIEL_MAC}]"
 echo "  bleibt auch nach einem Neustart aktiv."
+echo "  Pulsschlag: jede Minute eine Zeile mit Laufzeit, Last und Temperatur."
 echo
 echo "Probe — die Zeile muss beim Empfänger ankommen:"
 echo "  AskSin-Analyzer: netconsole-Probe $(date '+%Y-%m-%d %H:%M:%S')" \

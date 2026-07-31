@@ -1889,6 +1889,15 @@ Netz sein, auch die ioBroker-Maschine:</p>
 
 <pre>python3 tools/netconsole-empfaenger.py --port 6666 --datei kernel.log</pre>
 
+<p>Dazu richtet das Skript einen <strong>Pulsschlag</strong> ein: eine Zeile
+pro Minute mit Laufzeit, Systemlast, Temperatur und der Drossel-Meldung des
+Chips. Ohne ihn bliebe eine Lücke — ein untätiger Kernel sagt nichts, und
+fällt der Pi nachts um drei aus, wäre die letzte empfangene Zeile womöglich
+vom Vorabend. Man wüsste weder, wann er starb, noch ob der Mitschnitt
+überhaupt noch lief. Mit dem Puls wird die Stille aussagekräftig: Der letzte
+Schlag datiert den Ausfall auf die Minute genau, und die vier Werte darin
+zeigen, ob vorher etwas aus dem Ruder lief.</p>
+
 <p>Jede Zeile bekommt die Uhrzeit des <em>empfangenden</em> Rechners. Genau
 dieser Zeitstempel ist die eigentliche Information:</p>
 
