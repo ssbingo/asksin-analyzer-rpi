@@ -1,0 +1,13 @@
+# Beobachtet die Datei, die der Analyzer bei langem Tastendruck anlegt.
+# Neustarten darf der Dienst nicht selbst — er laeuft unprivilegiert. Dasselbe
+# Muster wie bei Update und Netzwerkeinstellungen: unprivilegierter Dienst
+# schreibt eine Datei, ein eng begrenzter Root-Helfer fuehrt aus.
+[Unit]
+Description=AskSin-Analyzer: Neustart-Ausloeser (langer Tastendruck)
+
+[Path]
+PathExists=/var/lib/asksin-analyzer/neustart-anstoss
+Unit=asksin-analyzer-neustart.service
+
+[Install]
+WantedBy=multi-user.target

@@ -151,6 +151,8 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
       return Promise.resolve();
     },
     bildVorhanden: () => true,
+    // Beim Loslassen abgefragt: kurzer Druck, also blättern.
+    tasteGedrueckt: () => Promise.resolve(false),
     taster: (cb) => {
       taste = cb;
       return () => {
@@ -182,14 +184,14 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
   const rot = kodiereWs2812([255, 0, 0], 100);
   assert.deepEqual([...ledFrames().at(-1)!], [...rot], 'rot bei getrennt');
 
-  // Taster blättert (mit Entprellung):
+  // Taster blättert. Der Druck wird jetzt nicht mehr sofort gewertet: Erst
+  // beim Loslassen steht fest, ob es kurz oder lang war.
   assert.equal(anzeige.seite, 0);
   taste!();
-  assert.equal(anzeige.seite, 1);
-  taste!();                                          // < 250 ms → entprellt
-  assert.equal(anzeige.seite, 1);
   await time.advance(300);
+  assert.equal(anzeige.seite, 1);
   taste!();
+  await time.advance(300);
   assert.equal(anzeige.seite, 2);
 
   await anzeige.stop();
@@ -340,5 +342,58 @@ test('Zeichnet der Anzeigedienst, wird der Taster abonniert', async () => {
 
   await anzeige.start();
   assert.equal(abonniert, 1);
+  await anzeige.stop();
+});
+
+test('Taster: kurz blättert, lang loest den Neustart aus', async () => {
+  // Zeiten wie im Vorbild: ab 50 ms kurz, ab 5 s lang, dann 3 s Meldung.
+  const time = new FakeTime();
+  const geschrieben: Array<[string, Uint8Array]> = [];
+  let gedrueckt = false;
+  let taste: (() => void) | null = null;
+
+  const anzeige = new StatusAnzeige({
+    led: 'aus',
+    oled: true,
+    daten: () => ({ ...DATEN }),
+    time,
+    runner: () => Promise.resolve({ code: 0, output: '' }),
+    schreibeGeraet: (pfad, bytes) => {
+      geschrieben.push([pfad, bytes]);
+      return Promise.resolve();
+    },
+    bildVorhanden: () => true,
+    tasteGedrueckt: () => Promise.resolve(gedrueckt),
+    neustartDatei: '/tmp/neustart-anstoss',
+    taster: (cb) => {
+      taste = cb;
+      return () => {};
+    },
+  });
+  await anzeige.start();
+
+  // --- kurz: losgelassen, bevor die fünf Sekunden voll sind ----------------
+  assert.equal(anzeige.seite, 0);
+  gedrueckt = false;
+  taste!();
+  await time.advance(300);
+  assert.equal(anzeige.seite, 1, 'kurzer Druck blättert eine Seite weiter');
+
+  // --- lang: gehalten bis über die Grenze ----------------------------------
+  gedrueckt = true;
+  taste!();
+  await time.advance(5200);
+  assert.equal(anzeige.seite, 1, 'langer Druck blättert NICHT');
+  const meldung = geschrieben
+    .filter(([p]) => p.endsWith('oled-state.json'))
+    .map(([, b]) => JSON.parse(new TextDecoder().decode(b)) as Record<string, unknown>)
+    .filter((z) => typeof z['meldung'] === 'string');
+  assert.ok(meldung.length >= 1, 'Display bekommt die Neustart-Meldung');
+
+  await time.advance(3200);
+  assert.ok(
+    geschrieben.some(([p]) => p === '/tmp/neustart-anstoss'),
+    'Auslöserdatei für den Root-Helfer geschrieben',
+  );
   await anzeige.stop();
 });

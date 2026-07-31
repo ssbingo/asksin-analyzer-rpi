@@ -189,18 +189,34 @@ def oled_fields(z: dict) -> list[tuple[str, str]]:
     """
     Geordnete (Label, Wert)-Paare — die großen Einzelseiten.
 
-    Reihenfolge und Format wie im Original; die vier analyzer-eigenen Felder
-    hängen hinten an. Optionale Felder entfallen, wenn es sie nicht gibt.
+    Reihenfolge nach Vorgabe: **Standort zuerst** (die Startseite), danach
+    alles zum Analyzer, erst dann die Systemwerte aus dem Original. Format der
+    Systemfelder unverändert übernommen.
     """
     benutzt, gesamt = get_mem_mb()
+    duty = z.get("maxDutyCycle")
+    rauschen = z.get("noiseFloor")
+
     felder: list[tuple[str, str]] = [
-        ("Ver", str(z.get("version", "?"))),
+        # --- Startseite ------------------------------------------------------
+        ("Standort", str(z.get("standort", "n/a"))),
+        # --- Analyzer --------------------------------------------------------
+        ("Sniffer", str(z.get("status", "n/a"))),
+        ("Telegramme", f"{z.get('telegramsPerMinute', 0)}/min"),
+        ("Rauschen", "n/a" if rauschen is None else f"{rauschen}dBm"),
+        ("Geräte", str(z.get("deviceCount", 0))),
+    ]
+    if isinstance(duty, dict):
+        felder.append(("Duty-Cycle", f"{float(duty.get('percent', 0)):.1f}%"))
+    felder.append(("Version", str(z.get("version", "?"))))
+
+    # --- System (Reihenfolge und Format aus dem Original) --------------------
+    felder += [
         ("IP", get_ip()),
         ("MAC", get_mac()),
         ("Host", get_hostname()),
         ("CPU", f"{get_temp_c():.0f}C L{get_load():.2f}"),
         ("RAM", f"{benutzt}/{gesamt}MB"),
-        ("Status", str(z.get("status", "n/a"))),
         ("Up", fmt_uptime(get_uptime_s())),
     ]
     frei = get_disk_frei_prozent()
@@ -209,16 +225,6 @@ def oled_fields(z: dict) -> list[tuple[str, str]]:
     upm = get_fan_rpm()
     if upm is not None:
         felder.append(("Fan", f"{upm}rpm"))
-
-    # --- Werte des Analyzers ------------------------------------------------
-    felder.append(("Ort", str(z.get("standort", "n/a"))))
-    felder.append(("Tgm", f"{z.get('telegramsPerMinute', 0)}/min"))
-    rauschen = z.get("noiseFloor")
-    felder.append(("Noise", "n/a" if rauschen is None else f"{rauschen}dBm"))
-    felder.append(("Devs", str(z.get("deviceCount", 0))))
-    duty = z.get("maxDutyCycle")
-    if isinstance(duty, dict):
-        felder.append(("Duty", f"{float(duty.get('percent', 0)):.1f}%"))
     return felder
 
 
@@ -234,8 +240,8 @@ def oled_lines(z: dict) -> list[str]:
 
 
 def seiten_anzahl(z: dict) -> int:
-    """Übersicht (0) plus die großen Einzelseiten."""
-    return 1 + len(oled_fields(z))
+    """Die großen Einzelseiten plus die Übersicht, die hinten anhängt."""
+    return len(oled_fields(z)) + 1
 
 
 # ------------------------------------------------------------------ Anzeige
@@ -261,12 +267,37 @@ class OledAnzeige:
                   "installieren; bis dahin nur die kleine Schrift",
                   file=sys.stderr, flush=True)
         self._gross: dict[int, object] = {}
+        self._klein_cache: dict[int, object] = {}
         self._disp.fill(0)
         self._disp.show()
 
+    def _klein(self, groesse: int):
+        """Kleine Schrift in fester Größe — statt der Standardschrift von PIL.
+
+        `ImageFont.load_default()` liefert je nach Pillow-Fassung
+        unterschiedlich hohe Glyphen. Mit festem Zeilenabstand führte das dazu,
+        dass sich die Zeilen der Übersicht berührten und die Beschriftung in
+        den großen Wert hineinragte. Eine angeforderte Größe ist berechenbar.
+        """
+        if not self._ttf:
+            return self._font
+        f = self._klein_cache.get(groesse)
+        if f is None:
+            from PIL import ImageFont
+            f = ImageFont.truetype(self._ttf, groesse)
+            self._klein_cache[groesse] = f
+        return f
+
+    def _hoehe(self, font, probe: str = "Ag") -> int:
+        kasten = self._draw.textbbox((0, 0), probe, font=font)
+        return kasten[3] - kasten[1]
+
     def _fit_font(self, text: str, max_w: int, max_h: int = 24,
                   lo: int = 10, hi: int = 28):
-        """Größte TTF-Größe, bei der `text` in max_w × max_h passt (gecacht)."""
+        """Größte TTF-Größe, bei der `text` in max_w × max_h passt (gecacht).
+
+        Unverändert aus Status-LED-OLED übernommen.
+        """
         if not self._ttf:
             return self._font
         from PIL import ImageFont
@@ -284,18 +315,44 @@ class OledAnzeige:
             size -= 1
         return self._gross.get(lo, self._font)
 
-    def zeichne(self, z: dict, seite: int) -> None:
+    def zeichne(self, z: dict, seite: int, meldung: str = "") -> None:
         d = self._draw
         d.rectangle((0, 0, self._w, self._h), outline=0, fill=0)
-        if seite <= 0:
-            for i, text in enumerate(oled_lines(z)):
-                d.text((0, -2 + i * 8), text, font=self._font, fill=255)
-        else:
-            felder = oled_fields(z)
-            label, wert = felder[(seite - 1) % len(felder)]
-            d.text((0, -2), label, font=self._font, fill=255)
-            gross = self._fit_font(wert, self._w - 2, max_h=22)
-            d.text((self._w // 2, 20), wert, font=gross, fill=255, anchor="mm")
+
+        if meldung:
+            gross = self._fit_font(meldung, self._w - 2, max_h=self._h - 4)
+            d.text((self._w // 2, self._h // 2), meldung, font=gross,
+                   fill=255, anchor="mm")
+            self._zeigen()
+            return
+
+        felder = oled_fields(z)
+        if seite >= len(felder):
+            # Übersicht — vier Zeilen, Abstand aus der tatsächlichen Höhe der
+            # Schrift statt fester 8 Pixel. Genau daran lag die Überlagerung.
+            klein = self._klein(max(8, min(11, self._h // 4)))
+            zeilen = oled_lines(z)
+            schritt = max(self._hoehe(klein) + 1, self._h // len(zeilen))
+            for i, text in enumerate(zeilen):
+                d.text((0, i * schritt), text, font=klein, fill=255)
+            self._zeigen()
+            return
+
+        label, wert = felder[seite]
+        # Beschriftung oben, Wert darunter — die Grenze wird **gemessen**,
+        # nicht geraten. Vorher stand das Label auf y = -2 und der Wert fest
+        # auf y = 20; je nach Schrifthöhe ragte eines ins andere.
+        klein = self._klein(max(8, min(11, self._h // 3)))
+        kasten = self._draw.textbbox((0, 0), label, font=klein)
+        d.text((0, -kasten[1]), label, font=klein, fill=255)
+        oben = (kasten[3] - kasten[1]) + 2
+        rest = self._h - oben
+        gross = self._fit_font(wert, self._w - 2, max_h=max(8, rest - 1))
+        d.text((self._w // 2, oben + rest // 2), wert, font=gross,
+               fill=255, anchor="mm")
+        self._zeigen()
+
+    def _zeigen(self) -> None:
         self._disp.image(self._img)
         self._disp.show()
 
@@ -365,11 +422,12 @@ def main() -> int:
         seite = int(z.get("seite", 0) or 0)
         # Seitenzahl bekanntgeben, damit der Core beim Blättern weiß, wie weit.
         z_seiten = seiten_anzahl(z)
+        meldung = str(z.get("meldung", "") or "")
         schluessel = (json.dumps(z, sort_keys=True), seite)
         if schluessel != letzte:
             letzte = schluessel
             try:
-                anzeige.zeichne(z, seite)
+                anzeige.zeichne(z, seite, meldung)
                 Path(args.bild).write_text(
                     json.dumps({
                         "seiten": z_seiten,

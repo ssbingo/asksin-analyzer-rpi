@@ -1,0 +1,13 @@
+# Startet den Rechner neu — ausgeloest durch einen langen Tastendruck (>= 5 s)
+# am Taster an J6, wie im Vorbild Status-LED-OLED.
+#
+# Die Ausloeserdatei wird ZUERST entfernt: Bliebe sie liegen, wuerde die
+# Path-Unit nach dem Neustart sofort wieder feuern und der Pi kaeme in eine
+# Neustartschleife.
+[Unit]
+Description=AskSin-Analyzer: Neustart ausfuehren
+
+[Service]
+Type=oneshot
+ExecStartPre=/bin/rm -f /var/lib/asksin-analyzer/neustart-anstoss
+ExecStart=/bin/systemctl reboot

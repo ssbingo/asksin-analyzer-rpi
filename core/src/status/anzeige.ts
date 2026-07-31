@@ -55,6 +55,10 @@ export interface StatusAnzeigeOptions {
   oledBildDatei?: string;
   /** Für Tests: Prüfung, ob die Bilddatei existiert. */
   bildVorhanden?: (pfad: string) => boolean;
+  /** Für Tests: aktueller Pegel des Tasters (true = gedrückt). */
+  tasteGedrueckt?: () => Promise<boolean>;
+  /** Datei, auf die der Root-Helfer für den Neustart wartet. */
+  neustartDatei?: string;
   /** Taster an J6 — GPIO17 laut Platine V4. */
   tasterGpio?: number;
   gpioChip?: string;
@@ -72,6 +76,16 @@ const MAX_FEHLER = 3;
 /** Flanken je Sekunde, ab denen der Taster als gestört gilt (siehe unten). */
 const STURM_GRENZE = 50;
 
+// Tastendruck — Zeiten aus dem Vorbild (Status-LED-OLED, Config):
+//   button_debounce_s      0,05 s  Mindestdauer für „kurz"
+//   button_long_press_s    5,0 s   ab hier Neustart
+//   button_reboot_message_s 3,0 s  so lange steht „Neustart…" auf dem Display
+const ENTPRELLUNG_MS = 50;
+const LANG_MS = 5000;
+const NEUSTART_MELDUNG_MS = 3000;
+/** Wie oft der Pegel während des Haltens abgefragt wird. */
+const HALTE_TAKT_MS = 200;
+
 export class StatusAnzeige {
   readonly #o: StatusAnzeigeOptions;
   readonly #time: TimeSource;
@@ -86,6 +100,8 @@ export class StatusAnzeige {
   #ledFehler = 0;
   #oledFehler = 0;
   #letzterLedSchluessel = '';
+  #tasteLaeuft = false;
+  #neustartMeldung = false;
   readonly #fehlerTexte = new Map<string, string>();
 
   constructor(options: StatusAnzeigeOptions) {
@@ -226,24 +242,26 @@ export class StatusAnzeige {
    * Systemwerte (IP, MAC, CPU, RAM, Laufzeit, Lüfter) holt sich der
    * Anzeigedienst selbst — wie im Original.
    */
+  #zustandFuerAnzeige(): Record<string, unknown> {
+    const d = this.#o.daten();
+    return {
+      seite: this.#seite,
+      version: d.version,
+      standort: d.standort,
+      status: d.demo ? 'DEMO' : d.connected ? 'BEREIT' : 'GETRENNT',
+      telegramsPerMinute: d.telegramsPerMinute,
+      noiseFloor: d.noiseFloor,
+      deviceCount: d.deviceCount,
+      maxDutyCycle: d.maxDutyCycle,
+      // Solange gesetzt, zeigt der Anzeigedienst nur diese Meldung.
+      ...(this.#neustartMeldung ? { meldung: 'Neustart…' } : {}),
+    };
+  }
+
   async #oledTakt(signal: AbortSignal): Promise<void> {
     let letzter = '';
     for (;;) {
-      const d = this.#o.daten();
-      const zustand = {
-        seite: this.#seite,
-        version: d.version,
-        standort: d.standort,
-        status: d.demo
-          ? 'DEMO'
-          : d.connected
-            ? 'BEREIT'
-            : 'GETRENNT',
-        telegramsPerMinute: d.telegramsPerMinute,
-        noiseFloor: d.noiseFloor,
-        deviceCount: d.deviceCount,
-        maxDutyCycle: d.maxDutyCycle,
-      };
+      const zustand = this.#zustandFuerAnzeige();
       const text = JSON.stringify(zustand);
       if (text !== letzter) {
         letzter = text;
@@ -276,6 +294,77 @@ export class StatusAnzeige {
     );
   }
 
+  /**
+   * Ein Tastendruck ist erkannt worden — jetzt entscheidet die **Haltedauer**.
+   *
+   * Wie im Vorbild: kurz (ab 50 ms) blättert eine Seite weiter, ab 5 Sekunden
+   * Halten startet der Pi neu. Dazwischen erscheint drei Sekunden lang
+   * „Neustart…" auf dem Display, damit ein versehentliches langes Drücken
+   * noch auffällt, bevor der Rechner weg ist.
+   *
+   * Gemessen wird durch Abfragen des Pegels (`gpioget`), nicht durch Zählen
+   * von Flanken: Die Ausgabe von gpiomon unterscheidet sich zwischen libgpiod
+   * 1 und 2, der abgefragte Pegel nicht.
+   */
+  async #tastendruck(): Promise<void> {
+    if (this.#tasteLaeuft) return;                   // Prellen abfangen
+    this.#tasteLaeuft = true;
+    const beginn = this.#time.now();
+    try {
+      for (;;) {
+        try {
+          await this.#time.delay(HALTE_TAKT_MS, this.#stop?.signal);
+        } catch {
+          return;
+        }
+        const gehalten = this.#time.now() - beginn;
+        if (!(await this.#tasteGedrueckt())) {
+          if (gehalten >= ENTPRELLUNG_MS) this.naechsteSeite();
+          return;
+        }
+        if (gehalten >= LANG_MS) {
+          await this.#neustartAusloesen();
+          return;
+        }
+      }
+    } finally {
+      this.#tasteLaeuft = false;
+    }
+  }
+
+  /** Aktueller Pegel des Tasters; gedrückt = LOW (Pull-up nach 3,3 V). */
+  async #tasteGedrueckt(): Promise<boolean> {
+    if (this.#o.tasteGedrueckt !== undefined) return this.#o.tasteGedrueckt();
+    const chip = this.#o.gpioChip ?? 'gpiochip0';
+    const line = String(this.#o.tasterGpio ?? 17);
+    for (const args of [
+      ['--bias', 'pull-up', '-c', chip, line],       // libgpiod 2
+      ['--bias=pull-up', chip, line],                // libgpiod 1
+    ]) {
+      const res = await this.#runner('gpioget', args);
+      if (res.code === 0) return /(^|[=\s])0(\s|$)/.test(res.output.trim());
+    }
+    return false;
+  }
+
+  async #neustartAusloesen(): Promise<void> {
+    this.#fehler('taster', 'lange gedrückt — Neustart wird ausgelöst');
+    this.#neustartMeldung = true;                    // Display zeigt „Neustart…"
+    this.#schreibeZustand(this.#zustandFuerAnzeige());
+    try {
+      await this.#time.delay(NEUSTART_MELDUNG_MS, this.#stop?.signal);
+    } catch {
+      /* beim Beenden trotzdem auslösen */
+    }
+    // Neustarten darf der Dienst nicht selbst — er läuft unprivilegiert.
+    // Wie bei Update und Netzwerk übernimmt das ein Root-Helfer, der auf
+    // diese Datei wartet.
+    await this.#schreibe(
+      this.#o.neustartDatei ?? '/var/lib/asksin-analyzer/neustart-anstoss',
+      new TextEncoder().encode('Taster lange gedrückt\n'),
+    ).catch((err: unknown) => this.#fehler('taster', err));
+  }
+
   /** Zeichnet der Anzeigedienst? Sein Lebenszeichen ist die Bilddatei. */
   #anzeigedienstLaeuft(): boolean {
     const pfad = this.#o.oledBildDatei ?? '/var/lib/asksin-analyzer/oled-bild.b64';
@@ -290,7 +379,7 @@ export class StatusAnzeige {
       ((cb: () => void): (() => void) => this.#gpiomonTaster(cb));
     try {
       this.#tasterStop = abo(() => {
-        this.naechsteSeite();
+        void this.#tastendruck();
       });
     } catch (err) {
       this.#fehler('taster', err);

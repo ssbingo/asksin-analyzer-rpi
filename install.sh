@@ -440,10 +440,13 @@ install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.service" /etc/system
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-update.path" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.service" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.path" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-neustart.path" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-neustart.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable asksin-analyzer.service >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
-systemctl enable --now asksin-analyzer-netz.path >/dev/null 2>&1 || true
+systemctl enable --now asksin-analyzer-neustart.path >/dev/null 2>&1 || true
+    systemctl enable --now asksin-analyzer-netz.path >/dev/null 2>&1 || true
 systemctl restart asksin-analyzer.service
 c_ok "Dienst aktiviert und gestartet (Updates aus der Weboberflaeche moeglich)."
 
