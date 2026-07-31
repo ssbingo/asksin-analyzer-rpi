@@ -69,6 +69,15 @@ export interface StatusAnzeigeOptions {
   /** Tastendrücke abonnieren; Rückgabe stoppt das Lauschen. Vorgabe: gpiomon. */
   taster?: (cb: () => void) => () => void;
   onError?: (kontext: string, fehler: unknown) => void;
+  /**
+   * Jede Aktion an der Hardware — fuer das Protokoll.
+   *
+   * Anlass: Der Pi fiel zweimal aus, waehrend die Status-LED eingeschaltet,
+   * aber nichts angeschlossen war. Ohne Zeitstempel unmittelbar vor dem
+   * Ausfall bleibt das eine Vermutung. Steht die letzte Zeile im Protokoll
+   * direkt vor dem Abriss, ist der Zusammenhang belegt — oder widerlegt.
+   */
+  onAktion?: (was: string, daten?: unknown) => void;
 }
 
 const MAX_FEHLER = 3;
@@ -121,6 +130,7 @@ export class StatusAnzeige {
     if (this.#o.led === 'ws2812-spi') {
       // SPI-Takt einmalig setzen; die Einstellung bleibt am Gerät bestehen.
       const geraet = this.#o.spiGeraet ?? '/dev/spidev0.0';
+      this.#o.onAktion?.('SPI wird eingestellt', { geraet, hz: SPI_HZ });
       const conf = await this.#runner('spi-config', ['-d', geraet, '-s', String(SPI_HZ)]);
       if (conf.code !== 0) {
         this.#fehler('led', `spi-config: ${conf.output.trim() || 'nicht verfügbar'}`);
@@ -219,7 +229,14 @@ export class StatusAnzeige {
       this.#letzterLedSchluessel = schluessel;
       try {
         const [, daten] = this.#ledNutzlast(muster.farbe, this.#helligkeit * faktor);
+        this.#o.onAktion?.('LED-Frame wird geschrieben', {
+          ziel: geraet,
+          farbe: muster.farbe,
+          grund: muster.grund,
+          bytes: daten.length,
+        });
         await this.#schreibe(geraet, daten);
+        this.#o.onAktion?.('LED-Frame geschrieben');
       } catch (err) {
         this.#ledFehler++;
         this.#fehler('led', err);

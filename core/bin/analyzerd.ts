@@ -788,6 +788,10 @@ async function statusAnzeigeAufbauen(): Promise<void> {
     oledBildDatei: join(dirname(konfig.db), 'oled-bild.b64'),
     daten: statusDaten,
     onError: (kontext, err) => log(`Statusanzeige (${kontext}): ${String(err)}`),
+    // Jede Hardware-Aktion ins Protokoll (Stufe „debug"): Bricht die
+    // Aufzeichnung unmittelbar nach einer solchen Zeile ab, ist der
+    // Zusammenhang zwischen Anzeige und Ausfall belegt statt vermutet.
+    onAktion: (was, daten) => protokoll?.debug('statusanzeige', was, daten),
   });
   await statusAnzeige.start();
   log(`Statusanzeige aktiv (LED: ${k.led}, OLED: ${k.oled ? 'an' : 'aus'})`);
