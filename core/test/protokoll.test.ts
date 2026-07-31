@@ -17,6 +17,7 @@ import {
   erhebeSystemwerte,
   meminfoWert,
 } from '../src/log/diagnose.ts';
+import { Systemlog, bewerte } from '../src/log/systemlog.ts';
 import { FakeTime } from './helpers/fakes.ts';
 
 function verzeichnis(): string {
@@ -184,4 +185,100 @@ test('Systemwerte ohne vcgencmd: kein Absturz, nur keine Drosselungsangabe', asy
   assert.equal(w.temperaturC, null);
   assert.ok(w.speicherGesamtMb > 0, 'Grundwerte kommen aus node:os');
   assert.deepEqual(auffaelligkeiten(w).filter((a) => /Unterspannung/.test(a)), []);
+});
+
+// ---- Systemjournal -------------------------------------------------------
+
+test('Systemlog erkennt die klassischen Systemursachen', () => {
+  const faelle: Array<[string, string | null]> = [
+    ['kernel: Under-voltage detected! (0x00050005)', 'Unterspannung (Kernel)'],
+    ['kernel: Out of memory: Killed process 1234 (node)', 'Speichermangel — Prozess abgeräumt'],
+    ['kernel: usb 2-1: reset SuperSpeed USB device number 3', 'USB-Gerät neu angemeldet'],
+    ['kernel: EXT4-fs error (device sda2): ext4_find_entry', 'Dateisystem- oder Datenträgerfehler'],
+    ['kernel: thermal thermal_zone0: critical temperature reached', 'Temperaturnotabschaltung'],
+    ['kernel: watchdog: BUG: soft lockup - CPU#0 stuck', 'Kernel meldet schweren Fehler'],
+    ['systemd[1]: Started irgendwas.service', null],
+  ];
+  for (const [zeile, erwartet] of faelle) {
+    assert.equal(bewerte(zeile), erwartet, zeile);
+  }
+});
+
+test('Systemlog: Cursor verhindert Doppelungen, Kopfzeilen werden verworfen', async () => {
+  const aufrufe: string[][] = [];
+  const log = new Systemlog({
+    run: (_cmd, args) => {
+      aufrufe.push(args);
+      if (args.includes('-n') && args.includes('1')) {
+        return Promise.resolve({ code: 0, output: 'ok\n' });   // Verfügbarkeit
+      }
+      return Promise.resolve({
+        code: 0,
+        output:
+          '-- Journal begins at Mon 2026-07-27 --\n' +
+          '2026-07-31T08:00:01+0200 pi kernel: Under-voltage detected!\n' +
+          '2026-07-31T08:00:02+0200 pi systemd[1]: Started foo.service\n' +
+          '-- cursor: s=abc123;i=42\n',
+      });
+    },
+  });
+
+  const erste = await log.neueZeilen();
+  assert.equal(erste.length, 2, 'Kopf- und Cursorzeile zählen nicht mit');
+  assert.equal(erste[0]!.auffaellig, 'Unterspannung (Kernel)');
+  assert.equal(erste[1]!.auffaellig, null);
+  assert.equal(log.cursor, 's=abc123;i=42');
+
+  await log.neueZeilen();
+  const letzter = aufrufe.at(-1)!;
+  assert.ok(
+    letzter.some((a) => a === '--after-cursor=s=abc123;i=42'),
+    'zweiter Abruf setzt am Cursor an',
+  );
+});
+
+test('Systemlog: unsauber beendeter Vorlauf wird als solcher erkannt', async () => {
+  const abrupt = new Systemlog({
+    run: (_cmd, args) => {
+      if (args.includes('-n') && args.includes('1')) {
+        return Promise.resolve({ code: 0, output: 'ok\n' });
+      }
+      if (args.includes('-p')) {
+        return Promise.resolve({
+          code: 0,
+          output: '2026-07-31T07:59:59+0200 pi kernel: Under-voltage detected!\n',
+        });
+      }
+      return Promise.resolve({ code: 0, output: '2026-07-31T08:00:00+0200 pi foo: irgendwas\n' });
+    },
+  });
+  const v = await abrupt.vorherigerStart();
+  assert.equal(v.vorhanden, true);
+  assert.equal(v.sauberBeendet, false, 'keine Abmeldezeile → unsauber');
+  assert.equal(v.zeilen[0]!.auffaellig, 'Unterspannung (Kernel)');
+
+  const sauber = new Systemlog({
+    run: (_cmd, args) => {
+      if (args.includes('-n') && args.includes('1')) {
+        return Promise.resolve({ code: 0, output: 'ok\n' });
+      }
+      if (args.includes('-p')) return Promise.resolve({ code: 0, output: '' });
+      return Promise.resolve({
+        code: 0,
+        output: '2026-07-31T08:00:00+0200 pi systemd[1]: Reached target Power-Off.\n',
+      });
+    },
+  });
+  assert.equal((await sauber.vorherigerStart()).sauberBeendet, true);
+});
+
+test('Systemlog ohne journalctl: leise leer, kein Absturz', async () => {
+  const log = new Systemlog({ run: () => Promise.resolve({ code: 127, output: 'not found' }) });
+  assert.equal(await log.verfuegbar(), false);
+  assert.deepEqual(await log.neueZeilen(), []);
+  assert.deepEqual(await log.vorherigerStart(), {
+    vorhanden: false,
+    sauberBeendet: null,
+    zeilen: [],
+  });
 });

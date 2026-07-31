@@ -78,7 +78,11 @@ nutzeTakt(laden, 15_000);
       regelmäßig Temperatur, Speicher, Systemlast und vor allem die
       <strong>Unterspannungs- und Drosselungsmeldungen</strong> des Raspberry Pi
       fest. Wird eine davon auffällig, landet sie sofort als Fehler in der Datei
-      — auch bei der sparsamsten Stufe.
+      — auch bei der sparsamsten Stufe. Zusätzlich werden die Meldungen des
+      <strong>Systemjournals</strong> übernommen (OOM-Killer, USB-Resets,
+      Dateisystemfehler, Kernel-Unterspannung) und nach jedem Start bewertet,
+      ob der vorherige Systemlauf sauber endete — daran erkennt man, ob eine
+      Störung aus dem System kam und nicht aus dieser Anwendung.
     </p>
 
     <template v-if="zustand?.verfuegbar">

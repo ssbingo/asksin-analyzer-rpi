@@ -139,8 +139,9 @@ fi
 #   gpio     328P-Reset ueber GPIO4 (Firmware-Flash) und Taster an GPIO17
 #   spi      /dev/spidev0.0 fuer die WS2812-Status-LED
 #   i2c      /dev/i2c-1 fuer das OLED
+#   systemd-journal  Systemjournal lesen (Absturzsuche, M13)
 usermod -aG dialout "$SERVICE_USER"
-for g in gpio spi i2c; do
+for g in gpio spi i2c systemd-journal; do
     if getent group "$g" >/dev/null 2>&1; then
         usermod -aG "$g" "$SERVICE_USER"
     else
@@ -315,6 +316,28 @@ if [ "$STATUSANZEIGE" -eq 1 ]; then
         fi
     fi
     c_ok "Status-LED/OLED vorbereitet."
+fi
+
+
+# --- Systemjournal: lesbar und dauerhaft --------------------------------------
+# Zwei Voraussetzungen, damit sich nach einem Absturz feststellen laesst, ob er
+# aus dem System kam:
+#   1. Der Dienstbenutzer muss das Journal lesen duerfen (Gruppe systemd-journal).
+#   2. Das Journal muss einen Neustart ueberleben. Auf Raspberry Pi OS ist es ab
+#      Werk fluechtig (/run/log/journal) — nach einem harten Absturz ist dann
+#      genau der interessante Teil verloren.
+if [ ! -f /etc/systemd/journald.conf.d/asksin.conf ]; then
+    mkdir -p /etc/systemd/journald.conf.d
+    cat > /etc/systemd/journald.conf.d/asksin.conf <<'JCONF'
+# AskSin-Analyzer: Journal ueber Neustarts hinweg aufheben, aber gedeckelt,
+# damit es die SSD nicht vollschreibt.
+[Journal]
+Storage=persistent
+SystemMaxUse=200M
+MaxRetentionSec=1month
+JCONF
+    systemctl restart systemd-journald 2>/dev/null || true
+    c_ok "Systemjournal wird jetzt dauerhaft gespeichert (max. 200 MB)."
 fi
 
 # --- Zeitbasis: NTP-Vorgabe de.pool.ntp.org -----------------------------------

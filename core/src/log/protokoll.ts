@@ -232,7 +232,9 @@ export function formatiere(
   const zeit =
     `${tagesschluessel(d)} ${zweistellig(d.getHours())}:${zweistellig(d.getMinutes())}` +
     `:${zweistellig(d.getSeconds())}.${String(d.getMilliseconds()).padStart(3, '0')}`;
-  const kopf = `${zeit}  ${stufe.toUpperCase().padEnd(6)}  [${bereich}]`.padEnd(46);
+  // padEnd sichert die Spalte; bei langen Bereichsnamen bleibt so mindestens
+  // ein Abstand, sonst klebte der Text am Klammerende.
+  const kopf = `${zeit}  ${stufe.toUpperCase().padEnd(6)}  [${bereich}]`.padEnd(45) + ' ';
   const zusatz = daten === undefined ? '' : `  ${kurzJson(daten)}`;
   // Zeilenumbrüche im Text würden das Spaltenbild zerstören.
   return `${kopf}${text.replace(/[\r\n]+/g, ' ⏎ ')}${zusatz}`;

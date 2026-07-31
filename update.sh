@@ -84,10 +84,18 @@ installiere_dateien() {
     # i2c-/spi-tools für die Statusanzeige (M11, per WebUI aktivierbar):
     command -v i2ctransfer >/dev/null 2>&1 || apt-get install -y -qq i2c-tools spi-tools || true
     # Gerätegruppen auf Bestandsanlagen nachziehen: ohne spi/i2c meldet die
-    # Statusanzeige „Permission denied" auf /dev/spidev0.0 bzw. /dev/i2c-1.
-    for g in dialout gpio spi i2c; do
+    # Statusanzeige „Permission denied" auf /dev/spidev0.0 bzw. /dev/i2c-1;
+    # ohne systemd-journal fehlen die Systemmeldungen in der Absturzsuche.
+    for g in dialout gpio spi i2c systemd-journal; do
         getent group "$g" >/dev/null 2>&1 && usermod -aG "$g" "$SERVICE_USER" || true
     done
+    # Journal dauerhaft speichern (M13) — auf Bestandsanlagen nachziehen:
+    if [ ! -f /etc/systemd/journald.conf.d/asksin.conf ]; then
+        mkdir -p /etc/systemd/journald.conf.d
+        printf '[Journal]\nStorage=persistent\nSystemMaxUse=200M\nMaxRetentionSec=1month\n' \
+            > /etc/systemd/journald.conf.d/asksin.conf
+        systemctl restart systemd-journald 2>/dev/null || true
+    fi
     systemctl daemon-reload
     systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-netz.path >/dev/null 2>&1 || true

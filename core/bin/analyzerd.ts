@@ -34,6 +34,7 @@ import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
 import type { Stufe } from '../src/log/protokoll.ts';
 import { auffaelligkeiten, erhebeSystemwerte } from '../src/log/diagnose.ts';
+import { Systemlog } from '../src/log/systemlog.ts';
 import { StatusAnzeige } from '../src/status/anzeige.ts';
 import { OledBild } from '../src/status/ssd1306.ts';
 import { ledMuster, zeichneSeite } from '../src/status/zustand.ts';
@@ -1034,6 +1035,79 @@ else log('Kein Web-UI gefunden (webui/dist fehlt) — nur API');
 
 let letzteAuffaelligkeiten = '';
 
+// ---- Systemjournal mitlesen ---------------------------------------------
+// Beantwortet die Frage, die unser eigenes Protokoll nicht beantworten kann:
+// Kam die Störung aus der Anwendung oder aus dem System? Der Cursor wird
+// mitgeschrieben, damit über einen Dienst-Neustart hinweg keine Zeile doppelt
+// und keine verloren geht.
+const systemlog = new Systemlog();
+const cursorDatei = join(dirname(konfig.db), 'journal-cursor');
+try {
+  systemlog.cursor = readFileSync(cursorDatei, 'utf8').trim() || null;
+} catch {
+  systemlog.cursor = null;
+}
+
+async function systemzeilenUebernehmen(): Promise<void> {
+  const p = protokoll;
+  if (p === null) return;
+  try {
+    const zeilen = await systemlog.neueZeilen();
+    for (const z of zeilen) {
+      if (z.auffaellig !== null) {
+        p.fehler('systemlog', `${z.auffaellig}: ${z.text}`);
+      } else {
+        p.debug('systemlog', z.text);
+      }
+    }
+    if (systemlog.cursor !== null) {
+      writeFileSync(cursorDatei, systemlog.cursor + '\n');
+    }
+  } catch (err) {
+    p.debug('systemlog', `nicht lesbar: ${String(err)}`);
+  }
+}
+
+/** Einmal beim Start: Wie endete der vorherige Systemlauf? */
+async function vorherigenStartBewerten(): Promise<void> {
+  const p = protokoll;
+  if (p === null) return;
+  if (!(await systemlog.verfuegbar())) {
+    p.info(
+      'systemlog',
+      'Systemjournal nicht lesbar — Dienstbenutzer in die Gruppe systemd-journal ' +
+        'aufnehmen, sonst fehlen genau die Meldungen, die einen Systemausfall belegen',
+    );
+    return;
+  }
+  const v = await systemlog.vorherigerStart();
+  if (!v.vorhanden) {
+    p.info(
+      'systemlog',
+      'Kein vorheriger Systemstart im Journal — entweder der erste Start, oder ' +
+        'das Journal ist flüchtig (Storage=volatile) und wird bei jedem Neustart verworfen',
+    );
+    return;
+  }
+  if (v.sauberBeendet === false) {
+    p.fehler(
+      'systemlog',
+      'Der vorherige Systemlauf wurde NICHT sauber beendet — Hinweis auf ' +
+        'Stromausfall, Spannungseinbruch oder Kernel-Absturz, nicht auf einen ' +
+        'Fehler dieser Anwendung',
+    );
+  } else {
+    p.info('systemlog', 'Vorheriger Systemlauf wurde sauber beendet');
+  }
+  for (const z of v.zeilen) {
+    p.schreibe(
+      z.auffaellig === null ? 'info' : 'fehler',
+      'systemlog-vorher',
+      z.auffaellig === null ? z.text : `${z.auffaellig}: ${z.text}`,
+    );
+  }
+}
+
 async function diagnoseSchreiben(regelmaessig: boolean): Promise<void> {
   if (protokoll === null) return;
   try {
@@ -1071,6 +1145,10 @@ const diagnoseTakt = setInterval(() => {
 }, 60_000);
 diagnoseTakt.unref();
 void diagnoseSchreiben(true);
+
+const systemlogTakt = setInterval(() => void systemzeilenUebernehmen(), 60_000);
+systemlogTakt.unref();
+void vorherigenStartBewerten().then(() => systemzeilenUebernehmen());
 
 // ---- Unerwartetes Ende festhalten ---------------------------------------
 // Ohne diese Haken endet der Prozess bei einem Programmierfehler wortlos —

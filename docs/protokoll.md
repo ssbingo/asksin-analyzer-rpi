@@ -25,6 +25,49 @@ Datei — also selbst bei der sparsamsten Stufe.
 Zusätzlich hält der Dienst fest, was ihn selbst beendet: unbehandelte
 Ausnahmen und Zusagen, sowie die Signale SIGHUP, SIGQUIT und SIGABRT.
 
+## Das Systemjournal wird mitgelesen
+
+Das eigene Protokoll zeigt nur, was der Analyzer selbst bemerkt. Ob eine
+Störung **aus dem System** kam, steht dagegen im Journal von systemd — in
+Zeilen, die unser Prozess nie zu sehen bekommt. Deshalb übernimmt der Dienst
+sie in sein Protokoll, mit dem Bereich `[systemlog]`:
+
+| Kernelmeldung | Bedeutung im Protokoll |
+| --- | --- |
+| `Under-voltage detected!` | Unterspannung (Kernel) |
+| `Out of memory: Killed process …` | Speichermangel — Prozess abgeräumt |
+| `usb 2-1: reset SuperSpeed USB device` | USB-Gerät neu angemeldet (Boot-SSD!) |
+| `EXT4-fs error`, `I/O error` | Dateisystem- oder Datenträgerfehler |
+| `critical temperature reached` | Temperaturnotabschaltung |
+| `watchdog`, `kernel panic`, `BUG:` | Kernel meldet schweren Fehler |
+
+Treffer landen als **Fehler**, alles Übrige als `debug`. Gelesen wird über den
+Journal-Cursor, deshalb ohne Doppelungen und über Dienst-Neustarts hinweg
+lückenlos.
+
+**Nach jedem Start** bewertet der Dienst zusätzlich den *vorherigen*
+Systemlauf. Fand sich dort keine Abmeldung, steht im Protokoll:
+
+```text
+FEHLER  [systemlog]  Der vorherige Systemlauf wurde NICHT sauber beendet —
+                     Hinweis auf Stromausfall, Spannungseinbruch oder
+                     Kernel-Absturz, nicht auf einen Fehler dieser Anwendung
+```
+
+Das ist die Antwort auf die Frage „lag es an uns oder am System?".
+
+### Zwei Voraussetzungen, die der Installer einrichtet
+
+1. **Leserecht**: Der Dienstbenutzer muss in der Gruppe `systemd-journal`
+   sein — sonst sieht er nur die eigenen Meldungen.
+2. **Dauerhaftes Journal**: Raspberry Pi OS speichert das Journal ab Werk
+   **flüchtig** (`/run/log/journal`). Nach einem harten Absturz wäre damit
+   genau der interessante Teil verloren. Der Installer legt deshalb
+   `/etc/systemd/journald.conf.d/asksin.conf` an mit `Storage=persistent`,
+   gedeckelt auf 200 MB und einen Monat.
+
+Auf Bestandsanlagen zieht `sudo asksin-analyzer update` beides nach.
+
 ## Einstellungen (Weboberfläche → **Wartung**)
 
 | Einstellung | Bedeutung |
@@ -66,3 +109,6 @@ Heruntergeladen wird über **Wartung → Dateien**; der Endpunkt ist
    es kein Programmfehler: Dann hat das System selbst ausgesetzt (Kernel-Panik,
    Spannungseinbruch, Hardwaredefekt). Die letzten Systemzeilen davor zeigen,
    wie die Lage kurz vorher war.
+5. Nach dem Neustart steht ganz oben in der neuen Datei, ob der vorherige
+   Systemlauf sauber endete — die letzten Fehlermeldungen von damals stehen
+   als `[systemlog-vorher]` gleich darunter.
