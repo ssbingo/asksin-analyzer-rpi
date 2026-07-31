@@ -95,7 +95,9 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-/}")" 2>/dev/null && pwd || echo '')"
 if [ -d "$INSTALL_DIR/.git" ]; then
     c_info "Aktualisiere vorhandene Installation in $INSTALL_DIR..."
-    git -C "$INSTALL_DIR" fetch --quiet origin "$BRANCH"
+    # --tags ist noetig: Ohne sie bleiben die Versions-Tags auf dem Pi
+    # stehen, und die Versionsanzeige zeigt jahrelang eine alte Nummer.
+    git -C "$INSTALL_DIR" fetch --quiet --tags --force origin "$BRANCH"
     git -C "$INSTALL_DIR" reset --hard --quiet "origin/$BRANCH"
 elif [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/core/bin/analyzerd.ts" ] && [ -d "$SCRIPT_DIR/.git" ]; then
     # install.sh wurde aus einem lokalen Checkout gestartet -> von dort klonen
@@ -113,7 +115,8 @@ else
         exit 1
     fi
 fi
-c_ok "Quellcode bereit ($(git -C "$INSTALL_DIR" describe --tags --always 2>/dev/null || echo unbekannt))."
+c_ok "Quellcode bereit ($(git -C "$INSTALL_DIR" describe --tags --always \
+    --match "v[0-9]*" 2>/dev/null || echo unbekannt))."
 
 # --- Web-UI bauen -------------------------------------------------------------
 c_info "Baue Web-UI (auf dem Pi dauert das ein paar Minuten)..."

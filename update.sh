@@ -151,7 +151,9 @@ trap rollback ERR
 # --- 1. Neuen Stand holen -----------------------------------------------------
 schreibe_status true "hole" null
 c_info "Hole neuen Stand..."
-git -C "$INSTALL_DIR" fetch --quiet origin "$BRANCH"
+# --tags ist noetig: Ohne sie bleiben die Versions-Tags auf dem Pi
+# stehen, und die Versionsanzeige zeigt jahrelang eine alte Nummer.
+git -C "$INSTALL_DIR" fetch --quiet --tags --force origin "$BRANCH"
 git -C "$INSTALL_DIR" reset --hard --quiet "origin/$BRANCH"
 NACHHER="$(git -C "$INSTALL_DIR" rev-parse --short HEAD)"
 
