@@ -340,6 +340,11 @@ def main() -> int:
         return 1
     except Exception as err:                                  # noqa: BLE001
         print(f"oled: Display nicht erreichbar: {err}", file=sys.stderr)
+        if "lgd-nfy" in str(err) or "lgd-nfy" in repr(err):
+            # Wiedererkennbarer Fall: lgpio konnte seine Pipes nicht anlegen.
+            print("oled: lgpio braucht ein beschreibbares Arbeitsverzeichnis. "
+                  "In der Unit muessen WorkingDirectory, HOME und LG_WD auf "
+                  "/var/lib/asksin-analyzer zeigen.", file=sys.stderr)
         return 1
 
     laeuft = True

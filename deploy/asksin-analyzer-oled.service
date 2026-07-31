@@ -9,12 +9,27 @@
 Description=AskSin-Analyzer: OLED-Anzeige
 After=asksin-analyzer.service
 Wants=asksin-analyzer.service
+# Nicht endlos im Sekundentakt neu starten, wenn etwas dauerhaft fehlt —
+# nach fuenf Versuchen in zwei Minuten ist Schluss, und der Grund steht im
+# Journal statt hundertmal darunter.
+StartLimitIntervalSec=120
+StartLimitBurst=5
 
 [Service]
 Type=simple
 User=asksin
 Group=asksin
 SupplementaryGroups=i2c gpio
+# lgpio (ueber Blinka) legt seine Benachrichtigungs-Pipes im Arbeitsverzeichnis
+# an — genauer in $LG_WD, ersatzweise $HOME, ersatzweise ".". Ohne diese drei
+# Zeilen landet es bei "//.lgd-nfy0" und scheitert:
+#   xCreatePipe: Can't set permissions (436) for //.lgd-nfy0
+#   [Errno 2] No such file or directory: '.lgd-nfy-3'
+# ProtectHome=true blendet /home ohnehin aus; das Datenverzeichnis ist der
+# richtige Ort und steht schon in ReadWritePaths.
+WorkingDirectory=/var/lib/asksin-analyzer
+Environment=HOME=/var/lib/asksin-analyzer
+Environment=LG_WD=/var/lib/asksin-analyzer
 ExecStart=/opt/asksin-analyzer/oled-venv/bin/python /opt/asksin-analyzer/deploy/oled.py
 Restart=on-failure
 RestartSec=5
