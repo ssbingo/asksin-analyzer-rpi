@@ -241,3 +241,60 @@ test('StatusAnzeige PWM: Schreibfehler schalten nur die LED ab, werfen nicht', a
   assert.match(fehler[0]!, /led: .*kein Platz/);
   await anzeige.stop();                       // darf nicht werfen
 });
+
+test('Kein Anzeigegerät am Bus: der Taster wird gar nicht erst abonniert', async () => {
+  // Hintergrund: GPIO17 hat weder auf der Platine noch im System einen
+  // Ruhepegel. Ohne angeschlossenes Zubehör schwebt der Eingang, und ein
+  // Lauscher darauf erzeugt aus Einstreuung fortlaufend Flanken. Früher
+  // startete der Lauscher bedingungslos, sobald das OLED eingeschaltet war —
+  // auch bei erkennbar leerem I2C-Bus.
+  const time = new FakeTime();
+  const fehler: string[] = [];
+  let abonniert = 0;
+  const anzeige = new StatusAnzeige({
+    led: 'aus',
+    oled: true,
+    daten: () => ({ ...DATEN }),
+    time,
+    // Der Bus antwortet nicht — genau das meldet i2ctransfer als Exit 1.
+    runner: () => Promise.resolve({ code: 1, output: 'Remote I/O error' }),
+    schreibeGeraet: () => Promise.resolve(),
+    taster: (_cb) => {
+      abonniert++;
+      return () => {};
+    },
+    onError: (kontext, err) => fehler.push(`${kontext}: ${String(err)}`),
+  });
+
+  await anzeige.start();
+  await time.advance(2000);
+  assert.equal(abonniert, 0, 'ohne Anzeigegerät kein Lauscher auf dem Taster');
+  assert.ok(
+    fehler.some((f) => /kein Anzeigegerät gefunden/.test(f)),
+    `Grund wird genannt, war: ${JSON.stringify(fehler)}`,
+  );
+  assert.equal(anzeige.zustandFuerApi().aktiv.oled, false);
+  await anzeige.stop();
+});
+
+test('Antwortet das Anzeigegerät, wird der Taster wie bisher abonniert', async () => {
+  const time = new FakeTime();
+  let abonniert = 0;
+  const anzeige = new StatusAnzeige({
+    led: 'aus',
+    oled: true,
+    daten: () => ({ ...DATEN }),
+    time,
+    runner: () => Promise.resolve({ code: 0, output: '' }),
+    schreibeGeraet: () => Promise.resolve(),
+    taster: (_cb) => {
+      abonniert++;
+      return () => {};
+    },
+  });
+
+  await anzeige.start();
+  assert.equal(abonniert, 1);
+  assert.equal(anzeige.zustandFuerApi().aktiv.oled, true);
+  await anzeige.stop();
+});

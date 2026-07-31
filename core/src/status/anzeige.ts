@@ -66,6 +66,9 @@ export interface StatusAnzeigeOptions {
 
 const MAX_FEHLER = 3;
 
+/** Flanken je Sekunde, ab denen der Taster als gestört gilt (siehe unten). */
+const STURM_GRENZE = 50;
+
 export class StatusAnzeige {
   readonly #o: StatusAnzeigeOptions;
   readonly #time: TimeSource;
@@ -114,7 +117,15 @@ export class StatusAnzeige {
       const ok = await this.#oledKommando(initKommandos(this.#helligkeit));
       if (!ok) this.#oledFehler = MAX_FEHLER;
       this.#takte.push(this.#oledTakt(signal));
-      this.#tasterAbonnieren();
+      // Der Taster wird nur abonniert, wenn das OLED tatsächlich geantwortet
+      // hat. Vorher geschah das bedingungslos — auch bei völlig leerem
+      // I2C-Bus, also wenn erkennbar gar kein Zubehör angeschlossen ist.
+      // Dann lauschte gpiomon auf einem **offenen** Eingang: GPIO17 hat weder
+      // auf der Platine noch im System einen Ruhepegel, schwebt also und
+      // erzeugt aus Einstreuung fortlaufend Flanken. Wer nichts angeschlossen
+      // hat, soll davon nichts abbekommen.
+      if (ok) this.#tasterAbonnieren();
+      else this.#fehler('oled', 'kein Anzeigegerät gefunden — Taster inaktiv');
     }
   }
 
@@ -258,23 +269,67 @@ export class StatusAnzeige {
     }
   }
 
-  /** Taster über gpiomon (libgpiod); v2-Syntax mit v1-Fallback. */
+  /**
+   * Taster über gpiomon (libgpiod); v2-Syntax mit v1-Fallback.
+   *
+   * Zwei Vorkehrungen, die beide aus einem realen Ausfall stammen:
+   *
+   * **Ruhepegel.** Der Taster schaltet GPIO17 gegen Masse; einen Pull-up gibt
+   * es auf der Platine nicht. Ohne `--bias=pull-up` liegt der Eingang im
+   * Ruhezustand also auf keinem definierten Pegel, sondern schwebt — und ein
+   * schwebender CMOS-Eingang erzeugt aus Einstreuung fortlaufend Flanken.
+   * Das betrifft auch den Normalbetrieb **mit** angeschlossenem Taster: Ohne
+   * Ruhepegel blätterte die Anzeige von selbst weiter.
+   *
+   * **Sturmsicherung.** Kommen trotzdem unsinnig viele Flanken, wird das
+   * Lauschen eingestellt statt jedes Ereignis weiterzureichen. Ein Mensch
+   * drückt keine 50-mal je Sekunde; was schneller kommt, ist eine Störung.
+   * Der Analyzer soll daran nicht mitwirken.
+   */
   #gpiomonTaster(cb: () => void): () => void {
     const chip = this.#o.gpioChip ?? 'gpiochip0';
     const line = String(this.#o.tasterGpio ?? 17);
     let beendet = false;
-    let kind = spawn('gpiomon', ['--edges', 'falling', '-c', chip, line], {
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
-    const anEreignis = (): void => cb();
+    let kind = spawn(
+      'gpiomon',
+      ['--edges', 'falling', '--bias', 'pull-up', '-c', chip, line],
+      { stdio: ['ignore', 'pipe', 'ignore'] },
+    );
+
+    let fensterBeginn = this.#time.now();
+    let imFenster = 0;
+    const anEreignis = (): void => {
+      const jetzt = this.#time.now();
+      if (jetzt - fensterBeginn >= 1000) {
+        fensterBeginn = jetzt;
+        imFenster = 0;
+      }
+      imFenster++;
+      if (imFenster > STURM_GRENZE) {
+        if (!beendet) {
+          beendet = true;
+          kind.kill('SIGTERM');
+          this.#fehler(
+            'taster',
+            `mehr als ${STURM_GRENZE} Flanken je Sekunde — Eingang offen ` +
+              'oder gestört; Taster abgeschaltet',
+          );
+        }
+        return;
+      }
+      cb();
+    };
+
     kind.stdout.on('data', anEreignis);
     kind.on('error', () => {});
     kind.on('exit', (code) => {
       if (beendet || code === 0) return;
-      // v1-Syntax versuchen:
-      kind = spawn('gpiomon', ['--falling-edge', chip, line], {
-        stdio: ['ignore', 'pipe', 'ignore'],
-      });
+      // v1-Syntax versuchen (libgpiod 1.x kennt --edges/-c nicht):
+      kind = spawn(
+        'gpiomon',
+        ['--falling-edge', '--bias', 'pull-up', chip, line],
+        { stdio: ['ignore', 'pipe', 'ignore'] },
+      );
       kind.stdout.on('data', anEreignis);
       kind.on('error', () => {});
       kind.on('exit', (code2) => {
