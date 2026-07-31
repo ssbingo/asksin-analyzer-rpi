@@ -782,6 +782,10 @@ async function statusAnzeigeAufbauen(): Promise<void> {
     // Im PWM-Modus schreibt der Core nur die Farbe hierhin; der Root-Dienst
     // asksin-analyzer-led liest sie und treibt GPIO18.
     pwmDatei: join(dirname(konfig.db), 'led-farbe'),
+    // Werte für den Anzeigedienst; er zeichnet daraus mit den Bibliotheken
+    // des Vorbilds und legt das fertige Bild wieder daneben.
+    oledZustandDatei: join(dirname(konfig.db), 'oled-state.json'),
+    oledBildDatei: join(dirname(konfig.db), 'oled-bild.b64'),
     daten: statusDaten,
     onError: (kontext, err) => log(`Statusanzeige (${kontext}): ${String(err)}`),
   });
@@ -794,13 +798,34 @@ const statusAnzeigeHooks = {
   zustand: (): Record<string, unknown> => {
     const k = statusKonfigLesen();
     const daten = statusDaten();
-    const bild = new OledBild(k.oledHoehe);
-    zeichneSeite(bild, statusAnzeige?.zustandFuerApi().seite ?? 0, daten);
+    // Vorschau: bevorzugt das Bild, das der Anzeigedienst zuletzt wirklich
+    // aufs Display geschoben hat — sonst zeigte die Weboberfläche einen
+    // Nachbau, der dem Gerät nur ähnelt.
+    let vorschau: string | null = null;
+    let vorschauHoehe = k.oledHoehe;
+    let vorschauSeiten = SEITEN_ANZAHL;
+    try {
+      const roh = JSON.parse(
+        readFileSync(join(dirname(konfig.db), 'oled-bild.b64'), 'utf8'),
+      ) as { bild?: string; hoehe?: number; seiten?: number };
+      if (typeof roh.bild === 'string') {
+        vorschau = roh.bild;
+        if (roh.hoehe === 32 || roh.hoehe === 64) vorschauHoehe = roh.hoehe;
+        if (typeof roh.seiten === 'number' && roh.seiten > 0) vorschauSeiten = roh.seiten;
+      }
+    } catch {
+      /* Anzeigedienst laeuft nicht — unten faellt es auf den Nachbau zurueck */
+    }
+    const bild = new OledBild(vorschauHoehe);
+    if (vorschau === null) {
+      zeichneSeite(bild, statusAnzeige?.zustandFuerApi().seite ?? 0, daten);
+    }
     return {
       konfig: k,
       // Die Vorschau in der Weboberflaeche muss wissen, wie hoch das Bild ist —
       // sonst zeichnet sie fuer ein 128x32-Panel die doppelte Hoehe.
-      oledHoehe: k.oledHoehe,
+      oledHoehe: vorschauHoehe,
+      seitenGesamt: vorschauSeiten,
       ...(statusAnzeige?.zustandFuerApi() ?? {
         aktiv: { led: false, oled: false },
         seite: 0,
@@ -809,7 +834,7 @@ const statusAnzeigeHooks = {
       }),
       ledMuster: ledMuster(daten),
       system: daten.system,
-      oledBild: Buffer.from(bild.puffer).toString('base64'),
+      oledBild: vorschau ?? Buffer.from(bild.puffer).toString('base64'),
     };
   },
   /** Konfiguration zur Laufzeit — persistiert, sofort wirksam. */

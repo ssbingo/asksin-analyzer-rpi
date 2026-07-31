@@ -239,7 +239,7 @@ nutzeTakt(async () => {
         <canvas ref="oledCanvas" width="256" height="64"
                 style="border: 1px solid var(--border); border-radius: 6px; image-rendering: pixelated"></canvas>
         <div class="zeile" style="margin-top: 0.4rem">
-          <button @click="blaettern">Blättern (Seite {{ status.seite + 1 }}/{{ status.seiten }})</button>
+          <button @click="blaettern">Blättern (Seite {{ status.seite + 1 }}/{{ status.seitenGesamt ?? status.seiten }})</button>
           <span class="fussnote" style="margin: 0">Live-Vorschau des OLED — pixelgenau dasselbe Bild wie am Gerät.</span>
         </div>
       </div>

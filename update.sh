@@ -76,7 +76,11 @@ installiere_dateien() {
     # Ausfuehrungsrecht der Root-Helfer sicherstellen. Fehlt es, scheitert die
     # Unit mit "Permission denied" und die Path-Unit feuert endlos nach.
     chmod +x "$INSTALL_DIR/deploy/netz-anwenden.sh" "$INSTALL_DIR/deploy/led-pwm.py" \
-        "$INSTALL_DIR/update.sh" 2>/dev/null || true
+        "$INSTALL_DIR/deploy/oled.py" "$INSTALL_DIR/update.sh" 2>/dev/null || true
+    # OLED-Anzeigedienst nachziehen, wenn er eingerichtet ist:
+    if [ -f /etc/systemd/system/asksin-analyzer-oled.service ]; then
+        systemctl restart asksin-analyzer-oled.service 2>/dev/null || true
+    fi
     # LED-Hilfsdienst (PWM auf Pi 3/4) nur nachziehen, wenn er schon
     # eingerichtet ist — auf dem Pi 5 gibt es ihn bewusst nicht.
     if [ -f /etc/systemd/system/asksin-analyzer-led.service ]; then

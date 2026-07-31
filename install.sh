@@ -302,6 +302,35 @@ if [ "$STATUSANZEIGE" -eq 1 ]; then
 
     c_ok "Panel: 128x${OLED_HOEHE}"
 
+    # --- Anzeigedienst mit den Bibliotheken des Vorbilds ------------------
+    # Gezeichnet wird nicht im Core, sondern in deploy/oled.py — mit
+    # demselben Stapel wie das Status-LED-OLED-Projekt: adafruit_ssd1306 als
+    # Treiber, Pillow zum Zeichnen und DejaVuSans-Bold als grosse Schrift.
+    # Ein eigener Nachbau in TypeScript war auf dem Geraet deutlich
+    # schlechter zu lesen; die Schriftgroesse sucht Pillow je Wert selbst.
+    c_info "Installiere OLED-Bibliotheken (adafruit_ssd1306, Pillow, Blinka)..."
+    apt-get install -y -qq python3-venv python3-dev fonts-dejavu-core \
+        libjpeg-dev zlib1g-dev
+    if [ ! -x "$INSTALL_DIR/oled-venv/bin/python" ]; then
+        python3 -m venv "$INSTALL_DIR/oled-venv"
+    fi
+    if "$INSTALL_DIR/oled-venv/bin/pip" install --quiet --upgrade \
+            adafruit-circuitpython-ssd1306 adafruit-blinka pillow; then
+        install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-oled.service" \
+            /etc/systemd/system/asksin-analyzer-oled.service
+        # Bauhoehe in die Unit schreiben — der Dienst bekommt sie als Argument.
+        sed -i "s|deploy/oled.py.*|deploy/oled.py --hoehe ${OLED_HOEHE}|" \
+            /etc/systemd/system/asksin-analyzer-oled.service
+        chown -R "$SERVICE_USER:$SERVICE_USER" "$INSTALL_DIR/oled-venv"
+        systemctl daemon-reload
+        systemctl enable --now asksin-analyzer-oled.service \
+            || c_warn "Anzeigedienst startete nicht - 'journalctl -u asksin-analyzer-oled'."
+        c_ok "OLED-Anzeigedienst eingerichtet."
+    else
+        c_warn "OLED-Bibliotheken liessen sich nicht installieren - Display bleibt dunkel."
+        c_warn "Nachholen: sudo $INSTALL_DIR/oled-venv/bin/pip install adafruit-circuitpython-ssd1306 adafruit-blinka pillow"
+    fi
+
     # Antwortet das Display? Direkt nach dem Einschalten von I2C oft noch
     # nicht - dann ist der Hinweis wichtiger als eine Fehlermeldung.
     if command -v i2cdetect >/dev/null 2>&1; then
@@ -417,6 +446,7 @@ c_info "Richte systemd-Dienste ein..."
 # zugehoerige Unit mit "Permission denied", und weil die Auftragsdatei dann
 # liegen bleibt, feuert die Path-Unit endlos nach (31.07.2026 beobachtet).
 chmod +x "$INSTALL_DIR/deploy/netz-anwenden.sh" "$INSTALL_DIR/deploy/led-pwm.py" \
+    "$INSTALL_DIR/deploy/oled.py" \
     "$INSTALL_DIR/update.sh" 2>/dev/null || true
 
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer.service" "$SERVICE_FILE"

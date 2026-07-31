@@ -13,24 +13,17 @@
  */
 
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 
 import { systemTime } from '../ingest/time.ts';
 import type { TimeSource } from '../ingest/time.ts';
 import type { KommandoRunner } from '../update/firmware.ts';
 import { standardRunner } from '../update/firmware.ts';
-import {
-  AUS_KOMMANDO,
-  OLED_ADRESSE,
-  OLED_HOEHE_VORGABE,
-  OledBild,
-  i2cTransferArgs,
-  initKommandos,
-} from './ssd1306.ts';
 import type { OledHoehe } from './ssd1306.ts';
 import { SPI_HZ, kodiereWs2812 } from './ws2812.ts';
 import type { Farbe } from './ws2812.ts';
-import { SEITEN_ANZAHL, blinkPhase, ledMuster, zeichneSeite } from './zustand.ts';
+import { SEITEN_ANZAHL, blinkPhase, ledMuster } from './zustand.ts';
 import type { StatusDaten } from './zustand.ts';
 
 export interface StatusAnzeigeOptions {
@@ -56,6 +49,12 @@ export interface StatusAnzeigeOptions {
   oledAdresse?: number;
   /** Bauhöhe des Panels: 32 (Adafruit PiOLED, Vorgabe) oder 64. */
   oledHoehe?: OledHoehe;
+  /** Datei, aus der der Anzeigedienst seine Werte liest. */
+  oledZustandDatei?: string;
+  /** Datei, die der Anzeigedienst nach jedem Bild schreibt (Lebenszeichen). */
+  oledBildDatei?: string;
+  /** Für Tests: Prüfung, ob die Bilddatei existiert. */
+  bildVorhanden?: (pfad: string) => boolean;
   /** Taster an J6 — GPIO17 laut Platine V4. */
   tasterGpio?: number;
   gpioChip?: string;
@@ -118,20 +117,20 @@ export class StatusAnzeige {
     }
 
     if (this.#o.oled) {
-      const ok = await this.#oledKommando(
-        initKommandos(this.#helligkeit, this.#o.oledHoehe ?? OLED_HOEHE_VORGABE),
-      );
-      if (!ok) this.#oledFehler = MAX_FEHLER;
       this.#takte.push(this.#oledTakt(signal));
-      // Der Taster wird nur abonniert, wenn das OLED tatsächlich geantwortet
-      // hat. Vorher geschah das bedingungslos — auch bei völlig leerem
-      // I2C-Bus, also wenn erkennbar gar kein Zubehör angeschlossen ist.
-      // Dann lauschte gpiomon auf einem **offenen** Eingang: GPIO17 hat weder
-      // auf der Platine noch im System einen Ruhepegel, schwebt also und
-      // erzeugt aus Einstreuung fortlaufend Flanken. Wer nichts angeschlossen
-      // hat, soll davon nichts abbekommen.
-      if (ok) this.#tasterAbonnieren();
-      else this.#fehler('oled', 'kein Anzeigegerät gefunden — Taster inaktiv');
+      // Der Taster wird nur abonniert, wenn der Anzeigedienst wirklich
+      // zeichnet — erkennbar an der Bilddatei, die er nach jedem Bild
+      // schreibt. Ohne diese Bedingung lauschte gpiomon auf einem **offenen**
+      // Eingang: GPIO17 hat weder auf der Platine noch im System einen
+      // Ruhepegel, schwebt also und erzeugt aus Einstreuung fortlaufend
+      // Flanken. Wer nichts angeschlossen hat, soll davon nichts abbekommen.
+      if (this.#anzeigedienstLaeuft()) this.#tasterAbonnieren();
+      else {
+        this.#fehler(
+          'oled',
+          'Anzeigedienst meldet kein Bild — Taster bleibt inaktiv',
+        );
+      }
     }
   }
 
@@ -148,8 +147,9 @@ export class StatusAnzeige {
       const [ziel, daten] = this.#ledNutzlast([0, 0, 0], 0);
       await this.#schreibe(ziel, daten).catch(() => {});
     }
-    if (this.#o.oled && this.#oledFehler < MAX_FEHLER) {
-      await this.#oledKommando([AUS_KOMMANDO]);
+    if (this.#o.oled) {
+      // Ein leerer Zustand lässt den Anzeigedienst das Display räumen.
+      this.#schreibeZustand({ aus: true });
     }
   }
 
@@ -213,23 +213,43 @@ export class StatusAnzeige {
 
   // ---- OLED ------------------------------------------------------------
 
+  /**
+   * Werte für die Anzeige bereitstellen.
+   *
+   * Gezeichnet wird **nicht** hier, sondern im Dienst `asksin-analyzer-oled`.
+   * Der arbeitet mit denselben Bibliotheken wie das Vorbild (Status-LED-OLED):
+   * adafruit_ssd1306 als Treiber, Pillow zum Zeichnen und DejaVuSans-Bold als
+   * Schrift, deren Größe je Wert automatisch gesucht wird. Ein eigener
+   * Nachbau in TypeScript war auf dem Gerät deutlich schlechter zu lesen.
+   *
+   * Hier wird deshalb nur noch geschrieben, was der Analyzer weiß; die
+   * Systemwerte (IP, MAC, CPU, RAM, Laufzeit, Lüfter) holt sich der
+   * Anzeigedienst selbst — wie im Original.
+   */
   async #oledTakt(signal: AbortSignal): Promise<void> {
-    const bild = new OledBild(this.#o.oledHoehe ?? OLED_HOEHE_VORGABE);
-    let letzteSeite = -1;
-    let letzterInhalt = '';
+    let letzter = '';
     for (;;) {
-      if (this.#oledFehler < MAX_FEHLER) {
-        zeichneSeite(bild, this.#seite, this.#o.daten());
-        const inhalt = Buffer.from(bild.puffer).toString('base64');
-        if (this.#seite !== letzteSeite || inhalt !== letzterInhalt) {
-          letzteSeite = this.#seite;
-          letzterInhalt = inhalt;
-          const ok = await this.#oledDaten(bild.puffer);
-          if (!ok) this.#oledFehler++;
-        }
+      const d = this.#o.daten();
+      const zustand = {
+        seite: this.#seite,
+        version: d.version,
+        standort: d.standort,
+        status: d.demo
+          ? 'DEMO'
+          : d.connected
+            ? 'BEREIT'
+            : 'GETRENNT',
+        telegramsPerMinute: d.telegramsPerMinute,
+        noiseFloor: d.noiseFloor,
+        deviceCount: d.deviceCount,
+        maxDutyCycle: d.maxDutyCycle,
+      };
+      const text = JSON.stringify(zustand);
+      if (text !== letzter) {
+        letzter = text;
+        this.#schreibeZustand(zustand);
       }
       try {
-        // Kurzer Takt, damit ein Tastendruck sofort umblättert:
         await this.#time.delay(500, signal);
       } catch {
         return;
@@ -237,27 +257,29 @@ export class StatusAnzeige {
     }
   }
 
-  async #oledKommando(kommandos: number[]): Promise<boolean> {
-    return this.#i2c(0x00, kommandos);
+  #zustandDatei(): string {
+    return this.#o.oledZustandDatei ?? '/var/lib/asksin-analyzer/oled-state.json';
   }
 
-  async #oledDaten(puffer: Uint8Array): Promise<boolean> {
-    return this.#i2c(0x40, puffer);
-  }
-
-  async #i2c(steuerByte: number, bytes: number[] | Uint8Array): Promise<boolean> {
-    const args = i2cTransferArgs(
-      this.#o.i2cBus ?? 1,
-      this.#o.oledAdresse ?? OLED_ADRESSE,
-      steuerByte,
-      bytes,
+  #schreibeZustand(wert: unknown): void {
+    void this.#schreibe(
+      this.#zustandDatei(),
+      new TextEncoder().encode(`${JSON.stringify(wert)}\n`),
+    ).then(
+      () => {
+        this.#oledFehler = 0;
+      },
+      (err: unknown) => {
+        this.#oledFehler++;
+        if (this.#oledFehler <= MAX_FEHLER) this.#fehler('oled', err);
+      },
     );
-    const res = await this.#runner('i2ctransfer', args);
-    if (res.code !== 0) {
-      this.#fehler('oled', res.output.trim() || `i2ctransfer Exit ${res.code}`);
-      return false;
-    }
-    return true;
+  }
+
+  /** Zeichnet der Anzeigedienst? Sein Lebenszeichen ist die Bilddatei. */
+  #anzeigedienstLaeuft(): boolean {
+    const pfad = this.#o.oledBildDatei ?? '/var/lib/asksin-analyzer/oled-bild.b64';
+    return (this.#o.bildVorhanden ?? existsSync)(pfad);
   }
 
   // ---- Taster ----------------------------------------------------------

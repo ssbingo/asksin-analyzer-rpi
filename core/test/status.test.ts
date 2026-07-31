@@ -150,6 +150,7 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
       geschrieben.push([pfad, bytes]);
       return Promise.resolve();
     },
+    bildVorhanden: () => true,
     taster: (cb) => {
       taste = cb;
       return () => {
@@ -160,23 +161,26 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
 
   await anzeige.start();
   assert.deepEqual(kommandos[0]![0], 'spi-config');
-  assert.equal(kommandos[1]![0], 'i2ctransfer', 'OLED-Init');
-  assert.ok(kommandos[1]![1].includes('0xae'), 'Init beginnt mit Display-aus');
+  // Das OLED zeichnet der eigene Anzeigedienst; der Core schreibt nur Werte.
+  const zustand = (): Record<string, unknown> => {
+    const eintrag = geschrieben.filter(([p]) => p.endsWith('oled-state.json')).at(-1);
+    return JSON.parse(new TextDecoder().decode(eintrag![1])) as Record<string, unknown>;
+  };
+  assert.equal(zustand()['status'], 'BEREIT', 'Zustand geschrieben');
 
   await time.advance(500);                          // LED-Takt + OLED-Takt
-  assert.ok(geschrieben.length >= 1, 'LED-Frame geschrieben');
+  const ledFrames = (): Uint8Array[] =>
+    geschrieben.filter(([pfad]) => pfad === '/dev/spidev0.0').map(([, b]) => b);
+  assert.ok(ledFrames().length >= 1, 'LED-Frame geschrieben');
   const gruen = kodiereWs2812([0, 255, 40], 100);
-  assert.deepEqual([...geschrieben[0]![1]], [...gruen], 'grün = alles ok');
-  const oledDaten = kommandos.filter(
-    ([cmd, args]) => cmd === 'i2ctransfer' && args[2] === 'w513@0x3c',
-  );
-  assert.ok(oledDaten.length >= 1, 'ganzer Framebuffer in einem Transfer');
+  assert.deepEqual([...ledFrames()[0]!], [...gruen], 'grün = alles ok');
 
   // Zustandswechsel → neue Farbe beim nächsten Takt:
   daten = { ...daten, connected: false };
-  await time.advance(250);
+  await time.advance(500);
+  assert.equal(zustand()['status'], 'GETRENNT', 'Zustandswechsel weitergereicht');
   const rot = kodiereWs2812([255, 0, 0], 100);
-  assert.deepEqual([...geschrieben.at(-1)![1]], [...rot], 'rot bei getrennt');
+  assert.deepEqual([...ledFrames().at(-1)!], [...rot], 'rot bei getrennt');
 
   // Taster blättert (mit Entprellung):
   assert.equal(anzeige.seite, 0);
@@ -190,11 +194,9 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
 
   await anzeige.stop();
   const schwarz = kodiereWs2812([0, 0, 0], 100);
-  assert.deepEqual([...geschrieben.at(-1)![1]], [...schwarz], 'LED dunkel beim Stopp');
-  assert.ok(
-    kommandos.at(-1)![1].includes('0xae'),
-    'OLED aus beim Stopp',
-  );
+  assert.deepEqual([...ledFrames().at(-1)!], [...schwarz], 'LED dunkel beim Stopp');
+  // Beim Stopp bekommt der Anzeigedienst „aus" — er räumt das Display selbst.
+  assert.equal(zustand()['aus'], true, 'Anzeigedienst wird abgeräumt');
 });
 
 test('StatusAnzeige: fehlende Hardware legt nur den Teil still, wirft nie', async () => {
@@ -283,7 +285,7 @@ test('StatusAnzeige PWM: Schreibfehler schalten nur die LED ab, werfen nicht', a
   await anzeige.stop();                       // darf nicht werfen
 });
 
-test('Kein Anzeigegerät am Bus: der Taster wird gar nicht erst abonniert', async () => {
+test('Anzeigedienst zeichnet nicht: der Taster wird gar nicht erst abonniert', async () => {
   // Hintergrund: GPIO17 hat weder auf der Platine noch im System einen
   // Ruhepegel. Ohne angeschlossenes Zubehör schwebt der Eingang, und ein
   // Lauscher darauf erzeugt aus Einstreuung fortlaufend Flanken. Früher
@@ -297,9 +299,11 @@ test('Kein Anzeigegerät am Bus: der Taster wird gar nicht erst abonniert', asyn
     oled: true,
     daten: () => ({ ...DATEN }),
     time,
-    // Der Bus antwortet nicht — genau das meldet i2ctransfer als Exit 1.
-    runner: () => Promise.resolve({ code: 1, output: 'Remote I/O error' }),
+    runner: () => Promise.resolve({ code: 0, output: '' }),
     schreibeGeraet: () => Promise.resolve(),
+    // Der Anzeigedienst hat noch kein Bild geschrieben — also zeichnet er
+    // nicht, also haengt vermutlich gar nichts am Bus.
+    bildVorhanden: () => false,
     taster: (_cb) => {
       abonniert++;
       return () => {};
@@ -311,14 +315,13 @@ test('Kein Anzeigegerät am Bus: der Taster wird gar nicht erst abonniert', asyn
   await time.advance(2000);
   assert.equal(abonniert, 0, 'ohne Anzeigegerät kein Lauscher auf dem Taster');
   assert.ok(
-    fehler.some((f) => /kein Anzeigegerät gefunden/.test(f)),
+    fehler.some((f) => /Anzeigedienst meldet kein Bild/.test(f)),
     `Grund wird genannt, war: ${JSON.stringify(fehler)}`,
   );
-  assert.equal(anzeige.zustandFuerApi().aktiv.oled, false);
   await anzeige.stop();
 });
 
-test('Antwortet das Anzeigegerät, wird der Taster wie bisher abonniert', async () => {
+test('Zeichnet der Anzeigedienst, wird der Taster abonniert', async () => {
   const time = new FakeTime();
   let abonniert = 0;
   const anzeige = new StatusAnzeige({
@@ -328,6 +331,7 @@ test('Antwortet das Anzeigegerät, wird der Taster wie bisher abonniert', async 
     time,
     runner: () => Promise.resolve({ code: 0, output: '' }),
     schreibeGeraet: () => Promise.resolve(),
+    bildVorhanden: () => true,
     taster: (_cb) => {
       abonniert++;
       return () => {};
@@ -336,6 +340,5 @@ test('Antwortet das Anzeigegerät, wird der Taster wie bisher abonniert', async 
 
   await anzeige.start();
   assert.equal(abonniert, 1);
-  assert.equal(anzeige.zustandFuerApi().aktiv.oled, true);
   await anzeige.stop();
 });

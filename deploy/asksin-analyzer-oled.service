@@ -1,0 +1,29 @@
+# OLED-Anzeige (M11) — eigener Dienst, weil die Darstellung mit den
+# Bibliotheken des Vorbilds arbeitet (adafruit_ssd1306 + Pillow in einem
+# eigenen venv). Der Analyzer-Dienst schreibt nur seine Werte in eine Datei;
+# dieser Dienst zeichnet daraus dasselbe Bild wie das Status-LED-OLED-Projekt.
+#
+# Laeuft unprivilegiert als 'asksin' — der Zugriff auf /dev/i2c-1 kommt ueber
+# die Gruppe 'i2c', nicht ueber Root.
+[Unit]
+Description=AskSin-Analyzer: OLED-Anzeige
+After=asksin-analyzer.service
+Wants=asksin-analyzer.service
+
+[Service]
+Type=simple
+User=asksin
+Group=asksin
+SupplementaryGroups=i2c gpio
+ExecStart=/opt/asksin-analyzer/oled-venv/bin/python /opt/asksin-analyzer/deploy/oled.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/var/lib/asksin-analyzer
+DeviceAllow=/dev/i2c-1 rw
+
+[Install]
+WantedBy=multi-user.target
