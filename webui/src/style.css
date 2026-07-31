@@ -323,7 +323,9 @@ table.daten { overflow-wrap: normal; }
   .zeile { gap: 0.5rem 0.6rem; }
 
   #chart { height: 260px; }
-  #torte { height: 300px; }
+  /* Höher als am Rechner wäre falsch, aber die Legende steht hier unter der
+     Torte statt daneben und braucht ihre eigene Höhe. */
+  #torte { height: 360px; }
 }
 
 @media (max-width: 480px) {

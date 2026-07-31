@@ -43,7 +43,38 @@ export interface TortenStueck {
  * links, daneben eine blätterbare Legende mit allen Geräten; die Daten des
  * Geräts erscheinen beim Überfahren als Tooltip.
  */
+/**
+ * Tortengrafik der Übersicht.
+ *
+ * Die Legende steht am Rechner **rechts** neben der Torte. Am Telefon ist dort
+ * kein Platz — sie lag dann quer über der Grafik. ECharts löst das selbst,
+ * wenn man die Option als `baseOption` + `media` aufbaut: Unterhalb von 560 px
+ * rückt die Legende unter die Torte, die Torte wird kleiner und rutscht nach
+ * oben. Die Regeln werden bei jedem `resize()` neu ausgewertet, und das ist
+ * bereits an das Fenster gehängt — auch das Drehen des Geräts sitzt damit.
+ */
 export function tortenOption(stuecke: TortenStueck[]): EChartsCoreOption {
+  return {
+    baseOption: tortenBasis(stuecke),
+    media: [
+      {
+        query: { maxWidth: 560 },
+        option: {
+          legend: {
+            orient: 'horizontal',
+            right: 'center',
+            left: 'center',
+            top: 'auto',
+            bottom: 0,
+          },
+          series: [{ radius: '55%', center: ['50%', '38%'] }],
+        },
+      },
+    ],
+  };
+}
+
+function tortenBasis(stuecke: TortenStueck[]): EChartsCoreOption {
   return {
     animation: false,
     backgroundColor: 'transparent',

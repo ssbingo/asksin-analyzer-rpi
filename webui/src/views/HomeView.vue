@@ -245,9 +245,9 @@ nutzeTakt(async () => {
     <h3 style="margin-top: 0">Telegramme pro Gerät</h3>
     <div ref="tortenEl" id="torte"></div>
     <div class="fussnote">
-      Anteil an allen empfangenen Telegrammen seit Dienststart. Mauszeiger
-      auf ein Tortenstück zeigt Name und Daten des Geräts; die Legende
-      rechts blättert durch alle Geräte.
+      Anteil an allen empfangenen Telegrammen seit Dienststart. Ein Tortenstück
+      antippen oder ansteuern zeigt Name und Daten des Geräts; die Legende
+      blättert durch alle Geräte.
     </div>
   </div>
 </template>
