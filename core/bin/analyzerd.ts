@@ -38,7 +38,12 @@ import { Systemlog } from '../src/log/systemlog.ts';
 import { StatusAnzeige } from '../src/status/anzeige.ts';
 import { OLED_HOEHE_VORGABE, OledBild } from '../src/status/ssd1306.ts';
 import type { OledHoehe } from '../src/status/ssd1306.ts';
-import { SEITEN_ANZAHL, ledMuster, zeichneSeite } from '../src/status/zustand.ts';
+import {
+  DUTY_ALARM_PROZENT,
+  SEITEN_ANZAHL,
+  ledMuster,
+  zeichneSeite,
+} from '../src/status/zustand.ts';
 import type { StatusDaten } from '../src/status/zustand.ts';
 import { flashFirmware, siehtNachIntelHexAus } from '../src/update/firmware.ts';
 
@@ -692,6 +697,13 @@ function statusDaten(): StatusDaten {
       maxDuty = { name: g.name, percent: g.dutyCyclePercent };
     }
   }
+  // Dauersender: Ein einziges defektes Gerät kann das Funknetz zustopfen.
+  // Höchstens fünf, sonst wird das Durchblättern am Gerät zur Zumutung.
+  const dutyAlarme = s.devices
+    .filter((g) => g.dutyCyclePercent >= DUTY_ALARM_PROZENT)
+    .sort((a, b) => b.dutyCyclePercent - a.dutyCyclePercent)
+    .slice(0, 5)
+    .map((g) => ({ name: g.name, percent: g.dutyCyclePercent }));
   let tempC: number | null = null;
   try {
     tempC =
@@ -721,6 +733,7 @@ function statusDaten(): StatusDaten {
     noiseFloor: s.noiseFloor.ewma,
     deviceCount: s.devices.length,
     maxDutyCycle: maxDuty,
+    dutyAlarme,
     system: {
       cpuLast: loadavg()[0] ?? 0,
       tempC,

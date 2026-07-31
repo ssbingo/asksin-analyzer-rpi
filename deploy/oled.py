@@ -211,6 +211,20 @@ def oled_fields(z: dict) -> list[tuple[str, str]]:
     ]
     if isinstance(duty, dict):
         felder.append(("Duty-Cycle", f"{float(duty.get('percent', 0)):.1f}%"))
+
+    # Dauersender bekommen je eine eigene Seite: Ein defektes Geraet kann das
+    # ganze Funknetz zustopfen, und dann will man am Geraet WELCHES sehen,
+    # nicht nur dass irgendetwas hoch ist. Der Name steht als Beschriftung
+    # oben, der Prozentwert gross darunter.
+    alarme = z.get("dutyAlarme")
+    if isinstance(alarme, list):
+        for eintrag in alarme:
+            if not isinstance(eintrag, dict):
+                continue
+            name = str(eintrag.get("name", "?"))
+            prozent = float(eintrag.get("percent", 0))
+            felder.append((f"! {name}", f"{prozent:.0f}%"))
+
     felder.append(("Version", str(z.get("version", "?"))))
 
     # --- System (Reihenfolge und Format aus dem Original) --------------------
@@ -291,6 +305,20 @@ class OledAnzeige:
             self._klein_cache[groesse] = f
         return f
 
+    def _kuerzen(self, text: str, font, max_w: int) -> str:
+        """Text auf die Breite kürzen — gemessen, nicht nach Zeichenzahl.
+
+        Gerätenamen wie „Defekt_BWM Carport (klemmt)" sind länger als jede
+        feste Grenze; abgeschnitten wird deshalb dort, wo es wirklich nicht
+        mehr passt, mit einem Auslassungszeichen als Hinweis.
+        """
+        if self._draw.textlength(text, font=font) <= max_w:
+            return text
+        gekuerzt = text
+        while gekuerzt and self._draw.textlength(gekuerzt + "…", font=font) > max_w:
+            gekuerzt = gekuerzt[:-1]
+        return (gekuerzt + "…") if gekuerzt else text[:1]
+
     def _hoehe(self, font, probe: str = "Ag") -> int:
         kasten = self._draw.textbbox((0, 0), probe, font=font)
         return kasten[3] - kasten[1]
@@ -346,6 +374,7 @@ class OledAnzeige:
         # nicht geraten. Vorher stand das Label auf y = -2 und der Wert fest
         # auf y = 20; je nach Schrifthöhe ragte eines ins andere.
         klein = self._klein(max(8, min(11, self._h // 3)))
+        label = self._kuerzen(label, klein, self._w - 1)
         kasten = self._draw.textbbox((0, 0), label, font=klein)
         d.text((0, -kasten[1]), label, font=klein, fill=255)
         oben = (kasten[3] - kasten[1]) + 2

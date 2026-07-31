@@ -20,6 +20,7 @@ const DATEN: StatusDaten = {
   connected: true, demo: false, updateVerfuegbar: false, persistErrors: 0,
   telegramsPerMinute: 12, noiseFloor: -90.5, deviceCount: 9,
   maxDutyCycle: { name: 'BWM_Flur', percent: 3.5 },
+  dutyAlarme: [{ name: 'Defekt_BWM Carport (klemmt)', percent: 96.4 }],
   system: { cpuLast: 0.4, tempC: 51, ramFreiProzent: 70, diskFreiProzent: 80, luefterUpm: 3120 },
 };
 
@@ -395,5 +396,35 @@ test('Taster: kurz blättert, lang loest den Neustart aus', async () => {
     geschrieben.some(([p]) => p === '/tmp/neustart-anstoss'),
     'Auslöserdatei für den Root-Helfer geschrieben',
   );
+  await anzeige.stop();
+});
+
+test('Dauersender landen in den Anzeigedaten', async () => {
+  // Ein defektes Gerät kann das Funknetz zustopfen — am Gerät soll man beim
+  // Durchblättern sehen, WELCHES es ist, nicht nur dass etwas hoch ist.
+  const time = new FakeTime();
+  const geschrieben: Array<[string, Uint8Array]> = [];
+  const anzeige = new StatusAnzeige({
+    led: 'aus',
+    oled: true,
+    daten: () => ({ ...DATEN }),
+    time,
+    runner: () => Promise.resolve({ code: 0, output: '' }),
+    schreibeGeraet: (pfad, bytes) => {
+      geschrieben.push([pfad, bytes]);
+      return Promise.resolve();
+    },
+    bildVorhanden: () => true,
+  });
+  await anzeige.start();
+  await time.advance(600);
+  const zustand = JSON.parse(
+    new TextDecoder().decode(
+      geschrieben.filter(([p]) => p.endsWith('oled-state.json')).at(-1)![1],
+    ),
+  ) as { dutyAlarme?: Array<{ name: string; percent: number }> };
+  assert.deepEqual(zustand.dutyAlarme, [
+    { name: 'Defekt_BWM Carport (klemmt)', percent: 96.4 },
+  ]);
   await anzeige.stop();
 });

@@ -293,6 +293,7 @@ export class StatusAnzeige {
       noiseFloor: d.noiseFloor,
       deviceCount: d.deviceCount,
       maxDutyCycle: d.maxDutyCycle,
+      dutyAlarme: d.dutyAlarme,
       // Solange gesetzt, zeigt der Anzeigedienst nur diese Meldung.
       ...(this.#neustartMeldung ? { meldung: 'Neustart…' } : {}),
     };

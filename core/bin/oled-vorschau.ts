@@ -31,6 +31,7 @@ const BEISPIEL: StatusDaten = {
   noiseFloor: -91,
   deviceCount: 16,
   maxDutyCycle: { name: 'Thermostat_Bad OG', percent: 3.4 },
+  dutyAlarme: [{ name: 'Defekt_BWM Carport (klemmt)', percent: 96.4 }],
   system: { cpuLast: 0.42, tempC: 51, ramFreiProzent: 68, diskFreiProzent: 83, luefterUpm: 3120 },
 };
 

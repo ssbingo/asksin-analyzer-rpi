@@ -7,6 +7,14 @@ import type { Farbe } from './ws2812.ts';
 import { OledBild, zeichenProZeile } from './ssd1306.ts';
 import type { Skala } from './ssd1306.ts';
 
+/**
+ * Ab diesem Duty-Cycle gilt ein Gerät als Dauersender.
+ *
+ * Dieselbe Schwelle, die auch die Status-LED rot blinken lässt — eine zweite,
+ * abweichende Zahl wäre nur verwirrend.
+ */
+export const DUTY_ALARM_PROZENT = 80;
+
 export interface StatusDaten {
   standort: string;
   version: string;
@@ -20,6 +28,15 @@ export interface StatusDaten {
   noiseFloor: number | null;
   deviceCount: number;
   maxDutyCycle: { name: string; percent: number } | null;
+  /**
+   * Geräte, die ihren Duty-Cycle ausreizen — absteigend sortiert.
+   *
+   * Ein einzelnes defektes Gerät kann das ganze Funknetz zustopfen; im
+   * Demo-Modus heisst es „Defekt_BWM Carport (klemmt)". Am Gerät soll man
+   * beim Durchblättern sehen, **welches** es ist, nicht nur dass etwas hoch
+   * ist.
+   */
+  dutyAlarme: Array<{ name: string; percent: number }>;
   system: {
     cpuLast: number;        // Loadavg 1 min
     tempC: number | null;
@@ -47,7 +64,7 @@ const GELB: Farbe = [255, 200, 0];
 
 /** Prioritätsleiter: Alarm > getrennt > Persistenzfehler > Demo > Update > ok. */
 export function ledMuster(s: StatusDaten): LedMuster {
-  if (s.maxDutyCycle !== null && s.maxDutyCycle.percent >= 80) {
+  if (s.maxDutyCycle !== null && s.maxDutyCycle.percent >= DUTY_ALARM_PROZENT) {
     return {
       farbe: ROT,
       blinken: 'schnell',
@@ -138,7 +155,11 @@ export function seitenFelder(s: StatusDaten): Array<[string, string, string]> {
     [
       'Duty-Cycle',
       dc === null ? '\u2014' : `${dc.percent.toFixed(1)}%`,
-      dc === null ? 'keine Daten' : dc.percent >= 80 ? '! ALARM !' : dc.name,
+      dc === null
+        ? 'keine Daten'
+        : dc.percent >= DUTY_ALARM_PROZENT
+          ? '! ALARM !'
+          : dc.name,
     ],
     [
       'Temperatur',
