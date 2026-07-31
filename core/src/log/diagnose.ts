@@ -22,7 +22,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { readFileSync, statfsSync } from 'node:fs';
+import { readFileSync, readdirSync, statfsSync } from 'node:fs';
 import { freemem, loadavg, totalmem, uptime } from 'node:os';
 
 export interface Systemwerte {
@@ -37,6 +37,8 @@ export interface Systemwerte {
   auslagerungBenutztMb: number | null;
   plattenFreiMb: number | null;
   temperaturC: number | null;
+  /** Drehzahl des Lüfters in Umdrehungen je Minute; null ohne Lüfter. */
+  luefterUpm: number | null;
   /** Rohwert von `vcgencmd get_throttled`, z. B. 0x50005. */
   drosselungRoh: number | null;
   drosselung: Drosselung | null;
@@ -81,6 +83,7 @@ export interface DiagnoseOptions {
   /** Für Tests: Ersatz für den vcgencmd-Aufruf. */
   leseDrosselung?: () => Promise<number | null>;
   leseTemperatur?: () => number | null;
+  leseLuefter?: () => number | null;
   leseMeminfo?: () => string | null;
   plattePfad?: string;
 }
@@ -96,6 +99,27 @@ function zahlAusDatei(pfad: string): number | null {
 function standardTemperatur(): number | null {
   const roh = zahlAusDatei('/sys/class/thermal/thermal_zone0/temp');
   return roh === null || !Number.isFinite(roh) ? null : roh / 1000;
+}
+
+/**
+ * Drehzahl des Lüfters aus hwmon.
+ *
+ * Der Raspberry Pi 5 meldet seinen Lüfter als hwmon-Gerät; der Name der
+ * Instanz wechselt je nach Boot-Reihenfolge, deshalb wird das Verzeichnis
+ * durchsucht statt ein fester Pfad angenommen. Auch PoE-HATs mit geregeltem
+ * Lüfter melden sich hier. Ohne Lüfter — etwa auf einem Pi 3 — gibt es keinen
+ * Eintrag, dann bleibt der Wert null.
+ */
+export function leseLuefterUpm(): number | null {
+  try {
+    for (const eintrag of readdirSync('/sys/class/hwmon')) {
+      const wert = zahlAusDatei(`/sys/class/hwmon/${eintrag}/fan1_input`);
+      if (wert !== null && Number.isFinite(wert)) return wert;
+    }
+  } catch {
+    /* kein hwmon vorhanden */
+  }
+  return null;
 }
 
 function standardMeminfo(): string | null {
@@ -153,6 +177,7 @@ export async function erhebeSystemwerte(
         : auslagerungGesamt - auslagerungFrei,
     plattenFreiMb,
     temperaturC: (o.leseTemperatur ?? standardTemperatur)(),
+    luefterUpm: (o.leseLuefter ?? leseLuefterUpm)(),
     drosselungRoh: roh,
     drosselung: roh === null ? null : deuteDrosselung(roh),
     prozessRssMb: process.memoryUsage().rss / 1024 / 1024,

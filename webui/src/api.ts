@@ -221,6 +221,8 @@ export interface StatusAnzeigeZustand {
   konfig: { led: LedMethode | 'aus'; oled: boolean; helligkeit: number };
   aktiv: { led: boolean; oled: boolean };
   seite: number;
+  /** Gesamtzahl der Displayseiten — kommt vom Core, nicht fest verdrahtet. */
+  seiten: number;
   fehler: Record<string, string>;
   ledMuster: { farbe: [number, number, number]; blinken: string; grund: string };
   system: {

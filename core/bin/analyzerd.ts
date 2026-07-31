@@ -33,7 +33,7 @@ import { INFLUX_VORGABEN, InfluxSchreiber } from '../src/influx/schreiber.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
 import type { Stufe } from '../src/log/protokoll.ts';
-import { auffaelligkeiten, erhebeSystemwerte } from '../src/log/diagnose.ts';
+import { auffaelligkeiten, erhebeSystemwerte, leseLuefterUpm } from '../src/log/diagnose.ts';
 import { Systemlog } from '../src/log/systemlog.ts';
 import { StatusAnzeige } from '../src/status/anzeige.ts';
 import { OledBild } from '../src/status/ssd1306.ts';
@@ -703,6 +703,9 @@ function statusDaten(): StatusDaten {
   } catch {
     /* egal */
   }
+  // Lüfterdrehzahl kommt aus derselben hwmon-Quelle wie in der Diagnose;
+  // ohne Lüfter (Pi 3, passiv gekühlt) bleibt der Wert null.
+  const luefterUpm = leseLuefterUpm();
   return {
     standort,
     version: paketVersion(),
@@ -720,6 +723,7 @@ function statusDaten(): StatusDaten {
       tempC,
       ramFreiProzent: (freemem() / totalmem()) * 100,
       diskFreiProzent,
+      luefterUpm,
     },
   };
 }

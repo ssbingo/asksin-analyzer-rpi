@@ -369,12 +369,13 @@ es da sitzt.</p>
   bleibt frei.</figcaption>
 </figure>
 
-<h2>4.1 Warum diese T-Form?</h2>
-<p>Nur der schmale Arm liegt über dem Pi — gerade so viel, wie die 2×20-Buchse
-und die beiden Befestigungsbohrungen brauchen. Der Körper mit allen Bauteilen
-liegt <strong>parallel neben dem Pi</strong>, an der Seite des 40-poligen
-Headers, und steht nach hinten (zur SD-Karten-Seite) etwa 20 mm über. Vier
-Gründe:</p>
+<h2>4.1 Warum diese L-Form?</h2>
+<p>Nur der schmale <strong>Arm</strong> liegt über dem Pi — 8 mm tief, gerade
+so viel, wie die 2×20-Buchse und die Befestigungsbohrungen brauchen. Alle
+Bauteile sitzen im <strong>Streifen</strong>, der <strong>parallel neben dem
+Pi</strong> an der Seite des 40-poligen Headers verläuft und höchstens 20 mm
+breit ist, sowie im <strong>Schenkel</strong>, der 32 mm hinter der SD-Kante
+nach hinten aussteht. Vier Gründe:</p>
 <ul>
 <li><strong>Keine Buchse wird verdeckt.</strong> USB, Ethernet und HDMI bleiben
 frei zugänglich — Voraussetzung für den 19-Zoll-Einbau, bei dem vorn die
@@ -962,7 +963,7 @@ Bild (die 2,1 % Abweichung aus Kapitel 2 in Aktion).</div>
 
 <figure>
   <img src="img/stapel.svg" alt="Montagestapel">
-  <figcaption>Pi, PoE-HAT und Analyzer im Schnitt: Der Arm sitzt auf dem Header, der Körper schwebt daneben und wird abgestützt.</figcaption>
+  <figcaption>Pi, PoE-HAT und Analyzer im Schnitt: Der Arm sitzt auf dem Header, Streifen und Schenkel liegen daneben bzw. dahinter.</figcaption>
 </figure>
 
 <h2>10.1 Der Stapel</h2>
@@ -972,10 +973,13 @@ Bild (die 2,1 % Abweichung aus Kapitel 2 in Aktion).</div>
 PoE-Switch einstecken — der Pi bootet jetzt bei jedem Stecken; für die Montage
 lieber stromlos lassen.</li>
 <li>Analyzer-Platine mit der 2×20-Buchse auf den durchgeschleiften Header des
-PoE-HAT stecken. Die beiden Bohrungen MH1/MH2 im Arm fluchten mit den
-HAT-Bolzen — verschrauben.</li>
-<li>Unter MH3/MH4 (rechte Körperkante) zwei Abstandsbolzen gegen die
-Montageplatte setzen — der auskragende Körper liegt damit fest auf.</li>
+PoE-HAT stecken. <strong>MH1</strong> und <strong>MH2</strong> im Arm sowie
+<strong>MH3</strong> in der hinteren Nase liegen exakt auf dem Lochraster des
+Pi (58 × 49 mm) und fluchten damit mit den Bolzen des PoE-HAT —
+verschrauben.</li>
+<li><strong>MH4</strong> im Schenkel und <strong>MH5</strong> im Streifen sind
+zusätzliche Punkte: Dort zwei Abstandsbolzen gegen die Montageplatte setzen,
+damit die Platine über ihre ganze Länge aufliegt.</li>
 </ol>
 
 <h2>10.2 Antenne</h2>
@@ -1421,15 +1425,37 @@ I²C/SPI müssen einmal freigeschaltet sein (macht der Installer; nachträglich
 der wichtigste Zustand.</p>
 
 <h2>18.3 Die OLED-Seiten</h2>
-<figure class="rahmen"><img src="img/oled-seiten.png" alt="Die vier OLED-Seiten">
-<figcaption>Schriftprobe und die vier Seiten — exakt dieses Bild zeigt auch die Live-Vorschau in der Weboberfläche.</figcaption></figure>
-<p>Der Taster an J6 blättert durch vier Seiten: <strong>1</strong> Standort,
-IP, Version, Verbindungsstatus · <strong>2</strong> Telegramme/min (groß),
-Grundrauschen, Geräte · <strong>3</strong> Duty-Cycle-Spitze mit Gerätename
-(und „!! ALARM !!" ab 80 %) · <strong>4</strong> Systemwerte (Last, Temperatur,
-RAM, SSD). Die Übersicht der Weboberfläche zeigt eine <strong>pixelgenaue
+<figure class="rahmen"><img src="img/oled-seiten.png" alt="Die sieben OLED-Seiten">
+<figcaption>Die sieben Seiten in Originalauflösung (128 × 64 Pixel, hier vierfach
+vergrößert). Jede Seite zeigt <strong>einen</strong> großen Wert — genau dieses
+Bild erzeugt auch die Live-Vorschau in der Weboberfläche.</figcaption></figure>
+<p>Der Taster an J6 blättert durch <strong>sieben Seiten</strong>:
+<strong>1</strong> Sniffer-Zustand (BEREIT/GETRENNT) mit IP und Version ·
+<strong>2</strong> Telegramme je Minute · <strong>3</strong> Grundrauschen ·
+<strong>4</strong> Geräte im Funknetz · <strong>5</strong> Duty-Cycle-Spitze mit
+Gerätename (und „!! ALARM !!" ab 80 %) · <strong>6</strong> Temperatur mit Last
+und freiem RAM · <strong>7</strong> Lüfterdrehzahl mit freiem Plattenplatz.</p>
+
+<p>Der Aufbau ist auf jeder Seite gleich: kleine Kopfzeile mit Standort und
+Seitenzähler, darunter die Beschriftung in mittlerer Größe und <strong>ein
+großer Wert</strong>. Die Grundschrift des Displays ist 5 × 7 Pixel und damit
+auf einem 0,96-Zoll-Panel nur etwa 1,7 mm hoch — aus zwei Metern im Schrank
+nicht mehr zu entziffern. Die großen Werte sind dreifach vergrößert, gut 5 mm
+hoch. Lieber eine Seite mehr zum Durchblättern als eine, die niemand liest.</p>
+
+<p>Die Übersicht der Weboberfläche zeigt eine <strong>pixelgenaue
 Live-Vorschau</strong> desselben Bildes — inklusive Blättern-Knopf; du siehst
 das Display im Schrank also auch vom Sofa aus.</p>
+
+<p>Der Taster braucht <strong>keinen eigenen Widerstand</strong>: Die Software
+schaltet den internen Pull-up des Pi ein, im Ruhezustand liegt GPIO17 also
+sauber auf HIGH und beim Drücken auf Masse. Zwei Vorkehrungen greifen, wenn
+kein Zubehör angeschlossen ist. Antwortet auf dem I²C-Bus kein Display, wird
+der Taster <strong>gar nicht erst</strong> überwacht — ein offener Eingang
+ohne Ruhepegel erzeugt sonst aus Einstreuung fortlaufend Schaltflanken. Und
+kommen wider Erwarten mehr als 50 Flanken je Sekunde, stellt der Dienst die
+Überwachung ein und vermerkt das; ein Mensch drückt nicht 50-mal je
+Sekunde.</p>
 
 <!-- ==================================================== KAPITEL 19 -->
 <h1 class="kapitel"><span class="knr">19</span>Langzeitdaten: InfluxDB und Grafana</h1>
@@ -1539,6 +1565,13 @@ nicht mehr erreichbar, und hinterher weiß niemand, warum. Genau dafür führt d
 Software ein <strong>Protokoll</strong>: eine Textdatei je Tag, in der
 mitgeschrieben wird, was passiert ist. Zu finden unter
 <strong>Wartung</strong> in der Weboberfläche.</p>
+
+<figure class="rahmen">
+  <img src="img/ui-wartung.png" alt="Der Reiter Wartung">
+  <figcaption>Der Reiter <strong>Wartung</strong>: Ausführlichkeit und
+  Aufbewahrung einstellen, vorhandene Tagesdateien einsehen und herunterladen.
+  Unten steht der Ablageort auf dem Gerät.</figcaption>
+</figure>
 
 <h2>22.1 Die vier Stufen</h2>
 <table>

@@ -12,6 +12,14 @@ import { ZEICHEN_BREITE, glyphe } from './font.ts';
 
 export const OLED_BREITE = 128;
 export const OLED_HOEHE = 64;
+
+/** Vergrößerungsstufe der Pixelschrift. */
+export type Skala = 1 | 2 | 3;
+
+/** Zeichen je Zeile bei der jeweiligen Stufe — 128 / (6 · skala). */
+export function zeichenProZeile(skala: Skala): number {
+  return Math.floor(OLED_BREITE / (ZEICHEN_BREITE * skala));
+}
 export const OLED_ADRESSE = 0x3c;
 
 /** Init-Sequenz für 128×64 mit horizontalem Adressmodus. */
@@ -81,22 +89,26 @@ export class OledBild {
     for (let x = 0; x < OLED_BREITE; x++) this.pixel(x, y);
   }
 
-  /** Text in 5×7; `skala` 2 verdoppelt jede Glyphe (10×14). */
-  text(x: number, y: number, inhalt: string, skala: 1 | 2 = 1): void {
+  /**
+   * Text in 5×7, ganzzahlig vergrößert.
+   *
+   * `skala` 1 = 5×7 (21 Zeichen je Zeile), 2 = 10×14 (10 Zeichen),
+   * 3 = 15×21 (7 Zeichen). Auf einem 0,96-Zoll-Display ist die Grundgröße
+   * nur rund 1,7 mm hoch — aus zwei Metern im Schrank nicht mehr lesbar.
+   * Deshalb tragen Messwerte eine größere Stufe als ihre Beschriftung.
+   */
+  text(x: number, y: number, inhalt: string, skala: Skala = 1): void {
     let cx = x;
     for (const zeichen of inhalt) {
       const spalten = glyphe(zeichen);
       for (let sx = 0; sx < spalten.length; sx++) {
         const bits = spalten[sx]!;
         for (let sy = 0; sy < 8; sy++) {
-          if (((bits >> sy) & 1) === 1) {
-            if (skala === 1) {
-              this.pixel(cx + sx, y + sy);
-            } else {
-              this.pixel(cx + sx * 2, y + sy * 2);
-              this.pixel(cx + sx * 2 + 1, y + sy * 2);
-              this.pixel(cx + sx * 2, y + sy * 2 + 1);
-              this.pixel(cx + sx * 2 + 1, y + sy * 2 + 1);
+          if (((bits >> sy) & 1) !== 1) continue;
+          // Jedes Quellpixel wird zu einem skala×skala-Block.
+          for (let dy = 0; dy < skala; dy++) {
+            for (let dx = 0; dx < skala; dx++) {
+              this.pixel(cx + sx * skala + dx, y + sy * skala + dy);
             }
           }
         }
@@ -106,7 +118,7 @@ export class OledBild {
   }
 
   /** Rechtsbündiger Text an der rechten Kante. */
-  textRechts(y: number, inhalt: string, skala: 1 | 2 = 1): void {
+  textRechts(y: number, inhalt: string, skala: Skala = 1): void {
     this.text(OLED_BREITE - inhalt.length * ZEICHEN_BREITE * skala, y, inhalt, skala);
   }
 }

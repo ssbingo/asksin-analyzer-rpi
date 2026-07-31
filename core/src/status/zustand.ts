@@ -4,7 +4,8 @@
  */
 
 import type { Farbe } from './ws2812.ts';
-import { OledBild } from './ssd1306.ts';
+import { OledBild, zeichenProZeile } from './ssd1306.ts';
+import type { Skala } from './ssd1306.ts';
 
 export interface StatusDaten {
   standort: string;
@@ -24,6 +25,8 @@ export interface StatusDaten {
     tempC: number | null;
     ramFreiProzent: number;
     diskFreiProzent: number | null;
+    /** Lüfterdrehzahl in U/min; null, wenn kein Lüfter gemeldet wird. */
+    luefterUpm: number | null;
   };
 }
 
@@ -83,7 +86,38 @@ export function blinkPhase(blinken: Blinken, t: number): number {
   }
 }
 
-export const SEITEN_ANZAHL = 4;
+export const SEITEN_ANZAHL = 7;
+
+// Seitenraster für 128 × 64 Pixel.
+//
+// Die Grundschrift ist 5 × 7 Pixel — auf einem 0,96-Zoll-Display rund 1,7 mm
+// hoch und damit aus zwei Metern nicht mehr zu lesen. Deshalb ist der Aufbau
+// jeder Seite gleich und großzügig: kleine Kopfzeile, **mittelgroße
+// Beschriftung**, **großer Wert**, darunter höchstens eine kleine Fußzeile.
+// Lieber eine Seite mehr zum Durchblättern als eine, die niemand entziffert.
+//
+//   0 …  8   Kopfzeile (Standort, Seitenzähler) — Stufe 1
+//   9        Trennlinie
+//  12 … 25   Beschriftung — Stufe 2 (10 Zeichen)
+//  30 … 50   Wert — Stufe 3 (7 Zeichen)
+//  55 … 62   Fußzeile — Stufe 1 (21 Zeichen)
+const LABEL: Skala = 2;
+const WERT: Skala = 3;
+const LABEL_Y = 12;
+const WERT_Y = 30;
+const FUSS_Y = 55;
+
+/** Eine Seite: Beschriftung, großer Wert, optionale Fußzeile. */
+function seiteZeichnen(
+  bild: OledBild,
+  label: string,
+  wert: string,
+  fuss = '',
+): void {
+  bild.text(0, LABEL_Y, label.slice(0, zeichenProZeile(LABEL)), LABEL);
+  bild.text(0, WERT_Y, wert.slice(0, zeichenProZeile(WERT)), WERT);
+  if (fuss !== '') bild.text(0, FUSS_Y, fuss.slice(0, zeichenProZeile(1)));
+}
 
 /** Zeichnet die OLED-Seite `nummer` (0-basiert) in das Bild. */
 export function zeichneSeite(bild: OledBild, nummer: number, s: StatusDaten): void {
@@ -91,50 +125,62 @@ export function zeichneSeite(bild: OledBild, nummer: number, s: StatusDaten): vo
   const seite = ((nummer % SEITEN_ANZAHL) + SEITEN_ANZAHL) % SEITEN_ANZAHL;
 
   // Kopfzeile: Standort links, Seitenzähler rechts, Trennlinie.
-  bild.text(0, 0, s.standort.slice(0, 18));
+  bild.text(0, 0, s.standort.slice(0, 16));
   bild.textRechts(0, `${seite + 1}/${SEITEN_ANZAHL}`);
   bild.linie(9);
 
   switch (seite) {
-    case 0: {
-      bild.text(0, 14, s.demo ? 'DEMO-MODUS' : 'AskSin-Analyzer');
-      bild.text(0, 26, `IP ${s.ip}`);
-      bild.text(0, 38, `Version ${s.version}`);
-      bild.text(0, 52, s.connected ? 'Sniffer verbunden' : 'SNIFFER GETRENNT!');
-      break;
-    }
-    case 1: {
-      bild.text(0, 14, 'Telegramme/min');
-      bild.text(0, 24, String(s.telegramsPerMinute), 2);
-      bild.text(0, 44, 'Rauschen');
-      bild.textRechts(44, s.noiseFloor === null ? '—' : `${s.noiseFloor} dBm`);
-      bild.text(0, 54, 'Geräte');
-      bild.textRechts(54, String(s.deviceCount));
-      break;
-    }
-    case 2: {
-      bild.text(0, 14, 'Duty-Cycle Spitze');
-      if (s.maxDutyCycle === null) {
-        bild.text(0, 30, 'noch keine Daten');
-      } else {
-        bild.text(0, 26, `${s.maxDutyCycle.percent.toFixed(1)} %`, 2);
-        bild.text(0, 46, s.maxDutyCycle.name.slice(0, 21));
-        if (s.maxDutyCycle.percent >= 80) bild.text(0, 56, '!! ALARM !!');
-      }
-      break;
-    }
-    case 3: {
-      bild.text(0, 14, 'System');
-      bild.text(0, 26, `Last ${s.system.cpuLast.toFixed(2)}`);
-      bild.textRechts(
-        26,
-        s.system.tempC === null ? '' : `${s.system.tempC.toFixed(0)}°C`,
+    case 0:
+      seiteZeichnen(
+        bild,
+        s.demo ? 'Demo-Modus' : 'Sniffer',
+        s.connected ? 'BEREIT' : 'GETRENNT',
+        `${s.ip} v${s.version}`,
       );
-      bild.text(0, 38, `RAM frei ${s.system.ramFreiProzent.toFixed(0)}%`);
-      if (s.system.diskFreiProzent !== null) {
-        bild.text(0, 50, `SSD frei ${s.system.diskFreiProzent.toFixed(0)}%`);
-      }
       break;
-    }
+    case 1:
+      seiteZeichnen(bild, 'Telegramme', String(s.telegramsPerMinute), 'je Minute');
+      break;
+    case 2:
+      seiteZeichnen(
+        bild,
+        'Rauschen',
+        s.noiseFloor === null ? '—' : String(s.noiseFloor),
+        'dBm Grundrauschen',
+      );
+      break;
+    case 3:
+      seiteZeichnen(bild, 'Geräte', String(s.deviceCount), 'aktiv im Funknetz');
+      break;
+    case 4:
+      seiteZeichnen(
+        bild,
+        'Duty-Cycle',
+        s.maxDutyCycle === null ? '—' : `${s.maxDutyCycle.percent.toFixed(1)}%`,
+        s.maxDutyCycle === null
+          ? 'noch keine Daten'
+          : s.maxDutyCycle.percent >= 80
+            ? '!! ALARM !!'
+            : s.maxDutyCycle.name,
+      );
+      break;
+    case 5:
+      seiteZeichnen(
+        bild,
+        'Temperatur',
+        s.system.tempC === null ? '—' : `${s.system.tempC.toFixed(0)}\u00b0C`,
+        `Last ${s.system.cpuLast.toFixed(2)}  RAM ${s.system.ramFreiProzent.toFixed(0)}%`,
+      );
+      break;
+    case 6:
+      seiteZeichnen(
+        bild,
+        'Lüfter',
+        s.system.luefterUpm === null ? '—' : String(Math.round(s.system.luefterUpm)),
+        s.system.luefterUpm === null
+          ? 'kein Lüfter gemeldet'
+          : `U/min${s.system.diskFreiProzent === null ? '' : `  SSD ${s.system.diskFreiProzent.toFixed(0)}%`}`,
+      );
+      break;
   }
 }

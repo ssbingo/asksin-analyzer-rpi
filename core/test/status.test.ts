@@ -14,7 +14,7 @@ const DATEN: StatusDaten = {
   connected: true, demo: false, updateVerfuegbar: false, persistErrors: 0,
   telegramsPerMinute: 12, noiseFloor: -90.5, deviceCount: 9,
   maxDutyCycle: { name: 'BWM_Flur', percent: 3.5 },
-  system: { cpuLast: 0.4, tempC: 51, ramFreiProzent: 70, diskFreiProzent: 80 },
+  system: { cpuLast: 0.4, tempC: 51, ramFreiProzent: 70, diskFreiProzent: 80, luefterUpm: 3120 },
 };
 
 test('Framebuffer: Glyphe A landet spaltengenau im Puffer', () => {

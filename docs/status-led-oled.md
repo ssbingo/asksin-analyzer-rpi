@@ -51,7 +51,7 @@ eigener SSD1306-Treiber mit 5×7-Schrift (visuell gegen gerenderte
 Framebuffer verifiziert, inkl. Umlauten), WS2812-SPI-Kodierung
 (1→110/0→100 bei 2,4 MHz), Prioritätsleiter der LED
 (Duty-Cycle-Alarm > getrennt > Persistenzfehler > Demo > Update > ok),
-vier OLED-Seiten mit Taster-Blättern (gpiomon, v2/v1) — alles über
+sieben OLED-Seiten mit Taster-Blättern (gpiomon, v2/v1) — alles über
 injizierbare Kommandos (`i2ctransfer`, `spi-config`) und damit ohne
 Hardware getestet. Installer-Frage aktiviert I²C/SPI und die Konfiguration.
 

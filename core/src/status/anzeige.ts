@@ -351,6 +351,7 @@ export class StatusAnzeige {
   zustandFuerApi(): {
     aktiv: { led: boolean; oled: boolean };
     seite: number;
+    seiten: number;
     fehler: Record<string, string>;
   } {
     return {
@@ -359,6 +360,10 @@ export class StatusAnzeige {
         oled: this.#o.oled && this.#oledFehler < MAX_FEHLER,
       },
       seite: this.#seite,
+      // Die Zahl gehört in die API, nicht in die Oberfläche: Dort stand sie
+      // fest verdrahtet als „/4" und wäre beim Erweitern auf sieben Seiten
+      // still falsch geworden.
+      seiten: SEITEN_ANZAHL,
       fehler: Object.fromEntries(this.#fehlerTexte),
     };
   }
