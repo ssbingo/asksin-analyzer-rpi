@@ -246,13 +246,19 @@ def oled_fields(z: dict) -> list[tuple[str, str]]:
 
 
 def oled_lines(z: dict) -> list[str]:
-    """Die vier Textzeilen der Übersicht (Seite 0) — Aufbau wie im Original."""
+    """Die vier Textzeilen der Übersicht — Aufbau wie im Original.
+
+    Die Werte kommen bewusst aus `oled_fields`, damit Übersicht und
+    Einzelseiten nie auseinanderlaufen. Der Schlüssel der letzten Zeile heisst
+    hier **Sniffer** statt „Status" — nach der Umbenennung des Labels blieb die
+    Zeile sonst leer, weil der alte Schlüssel ins Leere griff.
+    """
     f = dict(oled_fields(z))
     return [
         f"IP {f.get('IP', '')}",
         f"CPU {f.get('CPU', '')}",
         f"RAM {f.get('RAM', '')}",
-        f.get("Status", ""),
+        f"Sniffer {f.get('Sniffer', '')}",
     ]
 
 
@@ -361,11 +367,25 @@ class OledAnzeige:
         if seite >= len(felder):
             # Übersicht — vier Zeilen, Abstand aus der tatsächlichen Höhe der
             # Schrift statt fester 8 Pixel. Genau daran lag die Überlagerung.
-            klein = self._klein(max(8, min(11, self._h // 4)))
             zeilen = oled_lines(z)
-            schritt = max(self._hoehe(klein) + 1, self._h // len(zeilen))
+            # Schriftgröße so wählen, dass ALLE Zeilen hineinpassen. Vorher
+            # stand hier eine geschätzte Größe mit festem Mindestabstand —
+            # damit rutschte die vierte Zeile unten aus dem Bild.
+            klein = self._klein(7)
+            for groesse in range(11, 5, -1):
+                versuch = self._klein(groesse)
+                if self._hoehe(versuch) * len(zeilen) <= self._h - 2:
+                    klein = versuch
+                    break
+            schritt = self._h // len(zeilen)
+            hoch = self._hoehe(klein)
             for i, text in enumerate(zeilen):
-                d.text((0, i * schritt), text, font=klein, fill=255)
+                # anchor="lt" setzt die OBERKANTE der Glyphen auf y. Ohne das
+                # zaehlt PIL von der Grundlinie, und die Unterlaengen der
+                # letzten Zeile ragten aus dem Bild.
+                y = i * schritt + max(0, (schritt - hoch) // 2)
+                d.text((0, y), self._kuerzen(text, klein, self._w - 1),
+                       font=klein, fill=255, anchor="lt")
             self._zeigen()
             return
 

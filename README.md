@@ -117,8 +117,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.8.0** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.8.0** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.9.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.9.0** |
 
 Die **Firmware wird bewusst nicht eigenständig versioniert**: Sie ist
 byte-identisch der `AskSinSniffer328P` von jp112sdl (Stand des
@@ -128,6 +128,64 @@ werden, beginnt ab dann `firmware-v0.0.1`. Der ioBroker-Adapter bekommt ein
 eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.9.0 — 31.07.2026
+
+Die Anzeige am Gerät ist keine Eigenkonstruktion mehr, sondern die des
+Vorbilds — mit dessen Bibliotheken, Schriften und Maßen.
+
+**OLED: übernommen statt nachgebaut**
+- Gezeichnet wird im eigenen Dienst `asksin-analyzer-oled` mit
+  `adafruit_ssd1306`, Pillow und **DejaVuSans-Bold**; die Schriftgröße sucht
+  `_fit_font()` je Wert von 28 px abwärts. Der vorherige TypeScript-Nachbau
+  mit 5×7-Pixelschrift war am Gerät deutlich schlechter lesbar
+- **Bauhöhe 128×32 (Adafruit PiOLED) als Vorgabe**, 128×64 einstellbar.
+  Multiplex, COM-Pin-Lage und Seitenbereich folgen ihr — mit den falschen
+  Werten zeigt das Panel ein verdoppeltes, unleserliches Bild
+- Init-Sequenz an `Adafruit_CircuitPython_SSD1306` angeglichen, inklusive
+  `0xad/0x30` (interne Referenzstromquelle; ohne sie bleiben viele
+  SSD1315-Nachbauten dunkel)
+- Der Core schreibt nur noch Werte nach `oled-state.json`; der Anzeigedienst
+  legt den fertigen Framebuffer daneben. **Die Live-Vorschau im WebUI zeigt
+  damit das echte Bild vom Gerät**, keinen Nachbau
+- Seitenreihenfolge: Standort zuerst, dann der Analyzer, dann die Systemwerte
+  des Originals, zuletzt dessen vierzeilige Übersicht
+- **Je Gerät ab 80 % Duty-Cycle eine eigene Seite** mit Namen — ein einzelner
+  Dauersender kann das Funknetz zustopfen, und dann ist der Name die
+  eigentliche Information
+
+**Taster**
+- **Langer Druck (5 s) startet den Pi neu**, nach 3 s Vorwarnung „Neustart…"
+  auf dem Display. Zeiten aus der Konfiguration des Vorbilds
+- Gemessen wird der Pegel (`gpioget`), nicht die Flanke — die Ausgabe von
+  `gpiomon` unterscheidet sich zwischen libgpiod 1 und 2
+- `--bias=pull-up`: Ohne definierten Ruhepegel blätterte die Anzeige von
+  selbst weiter; ohne angeschlossenes Zubehör erzeugte der offene Eingang
+  fortlaufend Flanken. Der Taster wird zudem nur überwacht, wenn der
+  Anzeigedienst zeichnet, und schaltet sich bei über 50 Flanken je Sekunde ab
+
+**Einrichtung**
+- `deploy/oled-einrichten.sh` — einzeln wiederholbar nach einem Fehlschlag.
+  Installiert `python3-lgpio` vorab, damit pip lgpio nicht aus dem Quellcode
+  baut (scheiterte an fehlendem `swig` bzw. `-llgpio`), legt das venv **mit**
+  `--system-site-packages` an und prüft das auch bei vorhandener Umgebung
+- Die Unit setzt `WorkingDirectory`, `HOME` und `LG_WD` — lgpio legt sonst
+  seine Pipes unter `//.lgd-nfy0` an und bricht ab. Kein `DeviceAllow`: Eine
+  solche Zeile hätte über `DevicePolicy=closed` die gpiochip-Knoten gesperrt
+
+**Absturzsuche**
+- Die Statusanzeige protokolliert **jede Hardware-Aktion** mit Zeitstempel
+  (Stufe „debug"). Bricht die Aufzeichnung mittendrin ab, ist der
+  Zusammenhang belegt statt vermutet
+- `tools/absturz-bericht.sh` zeigt unsere Protokollzeilen **unmittelbar vor**
+  dem Ausfall, nicht mehr den Betrieb danach
+- Lüfterdrehzahl aus `hwmon` in Diagnose und Anzeige
+
+**Sonstiges**
+- Versionsanzeige: `install.sh`/`update.sh` holen jetzt `--tags`, sonst blieb
+  der Stand auf dem Pi bei einem alten Tag stehen; `git describe` beschreibt
+  gezielt die Projektversion statt eines beliebigen Tags auf demselben Commit
+- Tortengrafik: Legende rückt am Telefon unter die Torte statt darüber
 
 ### v0.8.0 — 31.07.2026
 
@@ -264,9 +322,12 @@ vollständig integriert. Hardware unverändert (0.0.1).
   Prioritätsleiter Duty-Cycle-Alarm (rot schnell) > getrennt (rot) >
   Persistenzfehler (gelb) > Demo (orange) > Update (blau atmend) > ok
   (grün); eigene SPI-Bit-Kodierung, keine native Bibliothek
-- **OLED** (SSD1306 an J5): eigener Treiber mit 5×7-Schrift (visuell
-  verifiziert, inkl. Umlauten), neun Seiten (Standort, Sniffer-Zustand, IP, Telegramme, Rauschen, Geräte,
-  Duty-Cycle-Spitze, System), Taster an J6 blättert
+- **OLED** (SSD1306 an J5, Vorgabe 128×32): gezeichnet vom eigenen Dienst
+  `asksin-analyzer-oled` mit **denselben Bibliotheken wie das Vorbild**
+  (`adafruit_ssd1306`, Pillow, DejaVuSans-Bold, Schriftgröße je Wert gesucht).
+  Seiten: Standort, Sniffer, Telegramme, Rauschen, Geräte, Duty-Cycle,
+  **je Dauersender eine eigene Seite**, Version, IP/MAC/Host, CPU/RAM/Up,
+  Disk/Fan, Übersicht. Taster an J6: kurz blättert, **5 s startet den Pi neu**
 - **Statusseite im WebUI**: LED-Punkt in Echtfarbe mit Grund,
   Systemwerte, Störungs-Diagnose und pixelgenaue OLED-Live-Vorschau
   mit Blättern-Knopf auf der Übersicht

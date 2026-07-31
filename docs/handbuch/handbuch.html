@@ -52,7 +52,14 @@
   pre code { background: none; padding: 0; color: inherit; }
 
   /* Tabellen */
-  table { border-collapse: collapse; width: 100%; margin: 3mm 0; font-size: 9.6pt; break-inside: avoid; }
+  /* Tabellen duerfen umbrechen — aber nie mitten in einer Zeile. Mit
+     break-inside: avoid auf der ganzen Tabelle wurden lange Tabellen
+     komplett auf die naechste Seite geschoben; davor blieb dann nur die
+     Ueberschrift stehen (Kapitel 23 belegte so eine ganze Seite mit einer
+     Zeile). thead wiederholt die Kopfzeile auf jeder Folgeseite. */
+  table { border-collapse: collapse; width: 100%; margin: 3mm 0; font-size: 9.6pt; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; }
   th { background: var(--petrol); color: #fff; text-align: left; padding: 1.8mm 2.5mm; }
   td { border-bottom: 1px solid var(--linie); padding: 1.6mm 2.5mm; vertical-align: top; }
   tr:nth-child(even) td { background: #f8fafc; }
@@ -67,7 +74,13 @@
 
   /* Bilder */
   figure { margin: 4mm 0; text-align: center; break-inside: avoid; }
-  figure img { max-width: 100%; border-radius: 8px; }
+  /* max-height ist Pflicht, nicht Kosmetik: Ein Bildschirmfoto mit
+     Seitenverhaeltnis 2:1 wird auf Seitenbreite skaliert rund 345 mm hoch —
+     mehr als eine A4-Seite. Zusammen mit break-inside: avoid passte es
+     nirgends hin, und das Ergebnis waren leere Seiten und Ueberschriften, die
+     allein am Seitenende standen. 215 mm laesst Platz fuer die
+     Bildunterschrift. */
+  figure img { max-width: 100%; max-height: 215mm; border-radius: 8px; }
   figure.rahmen img { border: 1px solid var(--linie); }
   figcaption { font-size: 9pt; color: var(--grau); margin-top: 1.5mm; }
 
@@ -85,6 +98,12 @@
 
   /* Inhaltsverzeichnis */
   .toc { break-before: page; }
+  /* Ueberschriften nie allein am Seitenende: Ohne diese Regel stand eine
+     Zwischenueberschrift schon einmal als letzte Zeile einer Seite, waehrend
+     der zugehoerige Text erst auf der naechsten begann. */
+  h2, h3 { break-after: avoid; break-inside: avoid; }
+  p, li { orphans: 3; widows: 3; }
+  figure img { break-inside: avoid; }
   .toc h1 { color: var(--petrol-dunkel); font-size: 21pt; }
   .toc ol { list-style: none; padding: 0; margin: 5mm 0; column-count: 1; }
   .toc li { padding: 1.6mm 0; border-bottom: 1px dotted var(--linie); font-size: 11.5pt; }
@@ -110,7 +129,7 @@
     <img class="held" src="img/platine-schraeg.png" alt="Die Analyzer-Platine">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.8.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.9.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -1411,6 +1430,26 @@ I²C/SPI müssen einmal freigeschaltet sein (macht der Installer; nachträglich
 <code>sudo raspi-config</code> → Interface Options). Fehlt etwas, zeigt die
 Übersicht ehrlich „LED gestört"/„OLED gestört" samt Fehlertext.</p>
 
+<p>Das Display wird von einem <strong>eigenen Dienst</strong> gezeichnet
+(<code>asksin-analyzer-oled</code>), der dieselben Bibliotheken verwendet wie
+das Vorbildprojekt Status-LED-OLED: <code>adafruit_ssd1306</code> als Treiber,
+<em>Pillow</em> zum Zeichnen und <strong>DejaVuSans-Bold</strong> als Schrift.
+Der Installer richtet ihn mit ein. Schlägt das fehl, lässt es sich einzeln
+nachholen, ohne den ganzen Installer:</p>
+<pre><code>sudo /opt/asksin-analyzer/deploy/oled-einrichten.sh 32</code></pre>
+
+<div class="box achtung">
+<span class="titel">Die Bauhöhe muss stimmen</span>
+<p> Vorgabe ist
+<strong>128 × 32</strong> — die Adafruit PiOLED und die Einstellung des
+Vorbilds. 0,96-Zoll-Module sind meist <strong>128 × 64</strong>; dann beim
+Installer „2" wählen bzw. das Skript mit <code>64</code> aufrufen.</p>
+<p>Der Unterschied ist nicht kosmetisch: Multiplex-Verhältnis und COM-Pin-Lage
+der Init-Sequenz hängen daran. Mit den falschen Werten zeigt das Panel ein
+<strong>verdoppeltes, unleserliches Bild</strong> — es sieht dann so aus, als
+sei die Schrift zu klein oder das Display defekt.</p>
+</div>
+
 <h2>18.2 Die LED-Farbsprache</h2>
 <table class="schmal">
 <tr><th>Farbe/Muster</th><th>Bedeutung</th></tr>
@@ -1425,48 +1464,72 @@ I²C/SPI müssen einmal freigeschaltet sein (macht der Installer; nachträglich
 der wichtigste Zustand.</p>
 
 <h2>18.3 Die OLED-Seiten</h2>
-<figure class="rahmen"><img src="img/oled-seiten.png" alt="Die neun OLED-Seiten">
-<figcaption>Die neun Seiten in Originalauflösung (128 × 32 Pixel, hier fünffach
-vergrößert). Jede Seite zeigt <strong>einen</strong> großen Wert — genau dieses
-Bild erzeugt auch die Live-Vorschau in der Weboberfläche.</figcaption></figure>
-<p>Der Taster an J6 blättert durch <strong>neun Seiten</strong>:
-<strong>1</strong> Standort mit Version · <strong>2</strong> Sniffer-Zustand
-(BEREIT/GETRENNT) · <strong>3</strong> IP-Adresse · <strong>4</strong>
-Telegramme je Minute · <strong>5</strong> Grundrauschen · <strong>6</strong>
-Geräte im Funknetz · <strong>7</strong> Duty-Cycle-Spitze mit Gerätename (und
-„! ALARM !" ab 80 %) · <strong>8</strong> Temperatur · <strong>9</strong>
-Lüfterdrehzahl.</p>
+<figure class="rahmen"><img src="img/oled-seiten.png" alt="Die OLED-Seiten">
+<figcaption>Alle Seiten in Originalauflösung (128 × 32 Pixel, hier fünffach
+vergrößert) — erzeugt aus <strong>demselben Code, der auf dem Gerät
+zeichnet</strong>. Jede Seite trägt eine kurze Beschriftung und
+<strong>einen</strong> großen Wert.</figcaption></figure>
 
-<p>Der Aufbau folgt dem Vorbild aus dem Status-LED-OLED-Projekt: eine kurze
-Beschriftung oben links, darunter <strong>ein</strong> Wert, waagerecht
-zentriert und in der größten Schrift, die noch in die Breite passt. Kopf- und
-Fußzeilen gibt es bewusst nicht — sie müssten in der Grundschrift von 5 × 7
-Pixeln stehen, und die ist auf diesem Panel rund 1,7 mm hoch und aus zwei
-Metern nicht mehr zu entziffern. Passt ein Wert nicht in eine Zeile, wird er
-umgebrochen statt verkleinert; so bleibt auch eine IP-Adresse groß.</p>
+<p>Der Aufbau folgt dem Vorbild: kleine Beschriftung oben links, darunter der
+Wert — waagerecht zentriert und in der <strong>größten Schrift, die noch in
+die Breite passt</strong>. Kopf- und Fußzeilen gibt es bewusst nicht; sie
+müssten in der kleinen Schrift stehen und wären auf einem 0,96-Zoll-Panel
+nicht mehr zu entziffern.</p>
 
-<p><strong>Die Bauhöhe muss stimmen.</strong> Vorgabe ist das
-<strong>128 × 32</strong> der Adafruit PiOLED; 0,96-Zoll-Module sind meist
-128 × 64. Multiplex-Verhältnis und COM-Pin-Lage der Init-Sequenz hängen daran
-— mit den falschen Werten zeigt das Panel ein verdoppeltes, unleserliches
-Bild. Der Installer fragt die Höhe ab, ändern lässt sie sich später in den
-Einstellungen. Eine Python-Bibliothek wird <em>nicht</em> gebraucht: Der
-Analyzer bringt seinen eigenen SSD1306-Treiber mit und schiebt den Framebuffer
-über <code>i2ctransfer</code> selbst auf den Bus.</p>
+<p>Die Reihenfolge beim Blättern:</p>
+<table class="schmal">
+<tr><th>Seite</th><th>zeigt</th></tr>
+<tr><td><strong>1</strong> Standort</td><td>der Anzeigename dieses Analyzers</td></tr>
+<tr><td><strong>2</strong> Sniffer</td><td>BEREIT / GETRENNT / DEMO</td></tr>
+<tr><td><strong>3</strong> Telegramme</td><td>je Minute</td></tr>
+<tr><td><strong>4</strong> Rauschen</td><td>Grundrauschen in dBm</td></tr>
+<tr><td><strong>5</strong> Geräte</td><td>aktive Funkgeräte</td></tr>
+<tr><td><strong>6</strong> Duty-Cycle</td><td>Spitzenwert in Prozent</td></tr>
+<tr><td><strong>7 …</strong> ! Gerätename</td><td><strong>je Dauersender eine eigene Seite</strong> — siehe unten</td></tr>
+<tr><td>Version</td><td>Softwarestand</td></tr>
+<tr><td>IP · MAC · Host</td><td>Netzwerk</td></tr>
+<tr><td>CPU · RAM · Up</td><td>Temperatur und Last, Speicher, Laufzeit</td></tr>
+<tr><td>Disk · Fan</td><td>freier Platz, Lüfterdrehzahl — nur wenn vorhanden</td></tr>
+<tr><td>letzte Seite</td><td>Übersicht: IP, CPU, RAM, Sniffer — vier Zeilen wie im Vorbild</td></tr>
+</table>
 
-<p>Die Übersicht der Weboberfläche zeigt eine <strong>pixelgenaue
-Live-Vorschau</strong> desselben Bildes — inklusive Blättern-Knopf; du siehst
-das Display im Schrank also auch vom Sofa aus.</p>
+<h3>Wenn ein Gerät den Duty-Cycle ausreizt</h3>
+<p>Ein einziges defektes Funkgerät kann das ganze Netz zustopfen — im
+Demo-Modus heißt es bezeichnenderweise „Defekt_BWM Carport (klemmt)". Die
+Duty-Cycle-Seite zeigt nur den <em>höchsten</em> Wert; welches Gerät dahinter
+steckt, sah man dort nicht.</p>
+<p>Deshalb bekommt <strong>jedes Gerät ab 80 % Duty-Cycle eine eigene
+Seite</strong>: der Name als Beschriftung oben, mit vorangestelltem
+„<code>!</code>", der Prozentwert groß darunter. Das sind dieselben 80 %, ab
+denen auch die LED rot blinkt. Höchstens fünf solcher Seiten — sonst wird das
+Durchblättern am Gerät zur Zumutung. Beruhigt sich ein Gerät wieder,
+verschwindet seine Seite von selbst.</p>
 
-<p>Der Taster braucht <strong>keinen eigenen Widerstand</strong>: Die Software
-schaltet den internen Pull-up des Pi ein, im Ruhezustand liegt GPIO17 also
-sauber auf HIGH und beim Drücken auf Masse. Zwei Vorkehrungen greifen, wenn
-kein Zubehör angeschlossen ist. Antwortet auf dem I²C-Bus kein Display, wird
-der Taster <strong>gar nicht erst</strong> überwacht — ein offener Eingang
-ohne Ruhepegel erzeugt sonst aus Einstreuung fortlaufend Schaltflanken. Und
-kommen wider Erwarten mehr als 50 Flanken je Sekunde, stellt der Dienst die
-Überwachung ein und vermerkt das; ein Mensch drückt nicht 50-mal je
-Sekunde.</p>
+<h2>18.4 Der Taster — blättern und neu starten</h2>
+<table class="schmal">
+<tr><th>Haltedauer</th><th>Wirkung</th></tr>
+<tr><td>ab 50 ms (kurz)</td><td>eine Seite weiter</td></tr>
+<tr><td>ab 5 Sekunden</td><td>„Neustart…" erscheint auf dem Display</td></tr>
+<tr><td>3 Sekunden später</td><td>der Raspberry Pi startet neu</td></tr>
+</table>
+<p>Die drei Sekunden Anzeige sind Absicht: Wer versehentlich zu lange drückt,
+sieht noch, was gleich passiert, und kann eingreifen. Die Zeiten sind
+unverändert aus dem Vorbildprojekt übernommen.</p>
+<p>Neustarten darf der Analyzer-Dienst nicht selbst — er läuft
+unprivilegiert. Er legt eine Auslöserdatei an, auf die ein eng begrenzter
+Root-Helfer wartet; dasselbe Muster wie bei Update und
+Netzwerkeinstellungen.</p>
+
+<div class="box hinweis">
+<span class="titel">Ohne angeschlossenes Zubehör bleibt der Taster stumm</span>
+<p> Der Taster schaltet GPIO17 gegen Masse; einen eigenen
+Widerstand gibt es nicht. Ist nichts angeschlossen, „schwebt" der Eingang und
+erzeugt aus Einstreuung fortlaufend Schaltflanken. Deshalb wird er nur
+überwacht, wenn der Anzeigedienst wirklich zeichnet — sonst steht im Protokoll
+„Anzeigedienst meldet kein Bild — Taster bleibt inaktiv". Kommen wider Erwarten
+mehr als 50 Flanken je Sekunde, stellt der Dienst die Überwachung ein und
+vermerkt das; ein Mensch drückt nicht 50-mal je Sekunde.</p>
+</div>
 
 <!-- ==================================================== KAPITEL 19 -->
 <h1 class="kapitel"><span class="knr">19</span>Langzeitdaten: InfluxDB und Grafana</h1>
@@ -1752,7 +1815,7 @@ lesen als auch durchsuchen lässt:</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.8.0 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.9.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>
