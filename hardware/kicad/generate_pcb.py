@@ -60,7 +60,7 @@ STRIP_H = 20.0      # Breite des Streifens neben dem Pi — Obergrenze!
 ARM_D = 8.0         # Tiefe des Arms über dem Pi (Buchse + Bohrungen)
 NASE_D = 7.0        # Tiefe der Nasen über dem Pi
 NASE_H = 9.0        # Höhe der Nasen
-BOARD_L = 80.0      # Gesamtlänge — Obergrenze!
+BOARD_L = 100.0     # Gesamtlänge — Obergrenze laut Vorgabe
 
 PI_X0 = LEG_W       # SD-Kante des Pi in Platinenkoordinaten
 PI_Y0 = STRIP_H     # Header-Kante des Pi
@@ -110,7 +110,7 @@ def inset_ring(inset: float) -> list[tuple[float, float]]:
 # MH1/MH2 greifen in die vorderen Abstandsbolzen des Pi (im Arm), MH3 in das
 # hintere Loch derselben Seite (in der unteren Nase). MH4 hält den Streifen im
 # 19-Zoll-Tray und liegt neben dem Pi.
-HOLES = [PI_LOCH[0], PI_LOCH[1], PI_LOCH[2], (6.0, 38.0)]
+HOLES = [PI_LOCH[0], PI_LOCH[1], PI_LOCH[2], (6.0, 38.0), (97.0, 16.5)]
 HOLE_FP = "MountingHole:MountingHole_2.7mm_M2.5"
 
 # Zugentlastung für das Antennenkabel: zwei Löcher für einen Kabelbinder,
@@ -189,9 +189,9 @@ PLACEMENT: dict[str, tuple[float, float, float]] = {
     "R4":  (62.0, 12.0, 0),
 
     # --- Peripheriestecker am vorderen Ende (Rack-Front) --------------------
-    "J5":  (70.5, 3.5, 0),        # OLED, I2C
-    "J6":  (72.0, 10.0, 0),       # Taster
-    "J7":  (72.5, 16.0, 0),       # WS2812
+    "J5":  (86.5, 3.5, 0),        # OLED, I2C
+    "J6":  (88.0, 10.0, 0),       # Taster
+    "J7":  (87.0, 16.0, 0),       # WS2812
 
     # --- Pruefpunkte im Schenkel -------------------------------------------
     "TP2": (6.0, 44.0, 0),
@@ -290,6 +290,7 @@ def build_board():
         placed[ref] = fp
 
     check_j1_geometry(placed["J1"])
+    beschrifte_schalter(board, placed["SW1"])
 
     unassigned = []
     for ref, fp in placed.items():
@@ -398,6 +399,34 @@ def place_ground_vias(board, placed, nets) -> int:
                 gesetzt.append((vx, vy))
                 break
     return len(gesetzt)
+
+
+def beschrifte_schalter(board: pcbnew.BOARD, sw: pcbnew.FOOTPRINT) -> None:
+    """„PWM" und „SPI" neben die zugehörigen Anschlüsse von SW1 drucken.
+
+    Beschriftet werden bewusst die **Anschlüsse** (Pin 1 = GPIO18/PWM,
+    Pin 3 = GPIO10/SPI), nicht die Schieberstellungen: Welche Stellung welchen
+    Anschluss durchschaltet, gibt das Datenblatt von C&K nicht frei zugänglich
+    her, die Pinbelegung dagegen steht fest. Am fertigen Gerät ist die Zuordnung
+    mit einem Durchgangsprüfer in Sekunden bestätigt.
+
+    Die Positionen kommen aus den tatsächlichen Pads, damit die Beschriftung
+    einer Umplatzierung von SW1 automatisch folgt.
+    """
+    koerper_oben = sw.GetOrientationDegrees() % 360 == 180
+    for nr, text in (("1", "PWM"), ("3", "SPI")):
+        pad = sw.FindPadByNumber(nr)
+        pos = pad.GetPosition()
+        item = pcbnew.PCB_TEXT(board)
+        item.SetText(text)
+        item.SetLayer(pcbnew.F_SilkS)
+        # Auf der pad-abgewandten Seite, damit nichts über Kupfer liegt.
+        # 2,4 mm: halbe Padhöhe (1,25) + halbe Texthöhe (0,4) + Reserve
+        versatz = 2.4 if koerper_oben else -2.4
+        item.SetPosition(pcbnew.VECTOR2I(pos.x, pos.y + mm(versatz)))
+        item.SetTextSize(pcbnew.VECTOR2I(mm(0.8), mm(0.8)))
+        item.SetTextThickness(mm(0.13))
+        board.Add(item)
 
 
 def check_j1_geometry(fp: pcbnew.FOOTPRINT) -> None:

@@ -170,3 +170,13 @@ Java-Version wirklich startet, und meldet klar, was fehlt.
 
 Abgeleitet von **AskSin-Analyzer-XS-RPi V1.1** (der-pw), CC BY-NC-SA 4.0.
 Diese Ableitung steht unter derselben Lizenz. Namensnennung ist Pflicht.
+
+## Fertigungsprüfung
+
+`python3 pruefe_fertigung.py` beantwortet die Frage „kann das so in
+Produktion?" und prüft, was DRC und Netzlistenvergleich nicht abdecken:
+Lagenaufbau, geschlossener Umriss, kleinster Bohrer und Via-Ring gegen die
+Herstellermindestmaße, das Bohrbild gegen das Pi-Raster 58 × 49 mm, die Lage
+der 2×20-Buchse gegen die HAT-Vorlage, Polung der Status-LED, Verdrahtung und
+Beschriftung des Umschalters, Vollständigkeit des Fertigungsarchivs sowie
+Deckungsgleichheit von BOM, CPL und Platine.

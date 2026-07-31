@@ -66,6 +66,16 @@ def tidy_silkscreen(board) -> tuple[int, int]:
     # Rahmen von S1) reicht über die Abstandsfläche hinaus.
     obstacles = [(b[0] - 0.3, b[1] - 0.3, b[2] + 0.3, b[3] + 0.3)
                  for b in (box_of(fp) for fp in footprints)]
+    # Zusätzlich **jedes einzelne Pad**: Die Abstandsfläche eines Bauteils
+    # deckt nicht immer alle Pads ab, und Bestückungsdruck über blankem Kupfer
+    # meldet der DRC als silk_over_copper.
+    for fp in footprints:
+        for pad in fp.Pads():
+            pb = pad.GetBoundingBox()
+            obstacles.append((pcbnew.ToMM(pb.GetLeft()) - 0.25,
+                              pcbnew.ToMM(pb.GetTop()) - 0.25,
+                              pcbnew.ToMM(pb.GetRight()) + 0.25,
+                              pcbnew.ToMM(pb.GetBottom()) + 0.25))
     # Vorhandene Platinen-Texte (Markierung, Lizenz) sind ebenfalls tabu.
     # Box aus Position und Textlänge gerechnet — GetBoundingBox() stürzt in
     # dieser pcbnew-Version auf frisch hinzugefügten Texten ab (Segfault).

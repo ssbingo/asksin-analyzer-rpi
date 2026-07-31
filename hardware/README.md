@@ -40,7 +40,7 @@ WS2812-LED samt deren Vorwiderstand. Die Antenne verlässt das Funkmodul über
 dessen IPEX-Buchse — auf der Platine gibt es **keine einzige HF-Leitung**.
 
 **Bauform seit v0.2.0:** L-förmig und **liegend neben dem Pi**. Der Streifen
-(80 × 20 mm) liegt parallel zur Header-Seite und ist **höchstens 20 mm breit**;
+(100 × 20 mm) liegt parallel zur Header-Seite und ist **höchstens 20 mm breit**;
 der Schenkel (12 mm) läuft an der SD-Kante entlang nach hinten. Über dem Pi
 liegt nur zweierlei: der 8 mm tiefe **Arm** für die 2×20-Buchse und die beiden
 HAT-Bohrungen, sowie eine 7 × 9 mm große **Nase** am hinteren
@@ -291,7 +291,11 @@ per **Schiebeschalter SW1** umschaltbar — kein Umlöten mehr:
   WS2812-Timing zerreißt.
 
 Dahinter liegt ein gemeinsamer Serienwiderstand **R4 = 330 Ω**, wie ihn das
-Vorbildprojekt für beide Methoden vorsieht. Der Installer erkennt das Modell
+Vorbildprojekt für beide Methoden vorsieht. Der Bestückungsdruck beschriftet
+die beiden Anschlüsse mit **PWM** und **SPI**. Die Beschriftung benennt die
+Anschlüsse (welcher GPIO an welcher Seite liegt) — welche Schieberstellung
+welchen Anschluss durchschaltet, gibt C&K nicht frei zugänglich her; mit einem
+Durchgangsprüfer ist es beim ersten Aufbau in Sekunden bestätigt. Der Installer erkennt das Modell
 und stellt die Software passend ein; der Schalter muss dazu passen.
 Einzelheiten: [`../docs/status-led-oled.md`](../docs/status-led-oled.md)
 
