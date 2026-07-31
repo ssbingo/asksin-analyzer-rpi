@@ -78,6 +78,32 @@ def finde_zustand(vorgabe: str | None = None) -> Path:
             return datei
     return ORTE[0] / "oled-state.json"
 
+
+def waehle_bildort(neben: Path) -> Path:
+    """Wohin das gezeichnete Bild geschrieben wird.
+
+    Normalerweise neben die Zustandsdatei. Ist das Verzeichnis fuer diesen
+    Dienst gesperrt — auf dem Geraet lieferte /run trotz RuntimeDirectory ein
+    "Read-only file system" —, weicht die Datei nach /var/lib aus. Der Core
+    sucht ohnehin an beiden Orten, die Anzeige laeuft also weiter, statt im
+    Sekundentakt dieselbe Fehlermeldung zu wiederholen.
+    """
+    ziel = neben.with_name("oled-bild.b64")
+    if os.access(ziel.parent, os.W_OK):
+        return ziel
+    ausweich = ORTE[1] / "oled-bild.b64"
+    if ausweich.parent != ziel.parent and os.access(ausweich.parent, os.W_OK):
+        global _AUSWEICH_GEMELDET
+        if not _AUSWEICH_GEMELDET:
+            _AUSWEICH_GEMELDET = True
+            print(f"oled: {ziel.parent} ist gesperrt — Bild geht nach "
+                  f"{ausweich.parent}", flush=True)
+        return ausweich
+    return ziel
+
+
+_AUSWEICH_GEMELDET = False
+
 # Aus dem Original übernommen.
 TTF_KANDIDATEN = (
     "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
@@ -495,7 +521,7 @@ def main() -> int:
         # startet — der Anzeigedienst kann frueher dran sein.
         zustandsdatei = finde_zustand(args.zustand)
         bilddatei = (Path(args.bild) if args.bild
-                     else zustandsdatei.with_name("oled-bild.b64"))
+                     else waehle_bildort(zustandsdatei))
         z = lies_zustand(str(zustandsdatei))
         seite = int(z.get("seite", 0) or 0)
         # Seitenzahl bekanntgeben, damit der Core beim Blättern weiß, wie weit.

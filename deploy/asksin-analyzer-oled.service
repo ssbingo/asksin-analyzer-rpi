@@ -44,6 +44,12 @@ ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
 ReadWritePaths=/var/lib/asksin-analyzer
+# /run ausdruecklich dazu: RuntimeDirectory= allein hat auf dem
+# Geraet nicht gereicht — der Dienst bekam beim Schreiben
+# "Read-only file system", weil ProtectSystem=strict /run sperrt.
+# Das fuehrende Minus macht die Zeile vertraeglich, solange es das
+# Verzeichnis noch nicht gibt.
+ReadWritePaths=-/run/asksin-analyzer
 # Bewusst KEIN DeviceAllow: Sobald eine solche Zeile dasteht, schaltet systemd
 # auf DevicePolicy=closed und sperrt jedes nicht genannte Geraet — damit auch
 # die gpiochip-Knoten, ueber die Blinka auf dem Pi 5 arbeitet. Der Zugriff auf

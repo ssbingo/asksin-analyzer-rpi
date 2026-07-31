@@ -33,6 +33,12 @@ CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 NoNewPrivileges=true
 ProtectSystem=strict
 ReadWritePaths=/var/lib/asksin-analyzer
+# /run ausdruecklich dazu: RuntimeDirectory= allein hat auf dem
+# Geraet nicht gereicht — der Dienst bekam beim Schreiben
+# "Read-only file system", weil ProtectSystem=strict /run sperrt.
+# Das fuehrende Minus macht die Zeile vertraeglich, solange es das
+# Verzeichnis noch nicht gibt.
+ReadWritePaths=-/run/asksin-analyzer
 ProtectHome=true
 PrivateTmp=true
 ProtectKernelTunables=true
