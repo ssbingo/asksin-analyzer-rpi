@@ -232,12 +232,14 @@ def write_bom(rows: list[dict]) -> int:
             mount = "THT" if members[0]["tht"] else "SMD"
             src = SOURCE.get(members[0]["ref"], "")
             w.writerow([value, refs, footprint, len(members), mount, src])
-        # DNP dokumentieren statt verschweigen — sonst sucht beim Bestücken
-        # jemand nach dem fehlenden Bauteil für die R5-Pads.
+        # Unbestückte Plätze ausweisen statt verschweigen — sonst sucht beim
+        # Bestücken jemand nach dem fehlenden Bauteil. Der Grund steht im
+        # Schaltplanwert; hier wird er durchgereicht, nicht neu erfunden.
+        # (Seit dem Umbau auf den Schiebeschalter SW1 ist diese Liste leer.)
         for row in rows:
             if row["ref"] in DNP:
                 w.writerow([row["value"], row["ref"], row["footprint"], 0,
-                            "DNP", "nicht bestücken (PWM-Alternative zu R5)"])
+                            "DNP", "laut Schaltplan nicht bestücken"])
     return len(groups)
 
 
@@ -265,7 +267,9 @@ def main() -> int:
     jlc_groups = write_jlc_bom(rows)
     jlc_placed = write_jlc_cpl(rows)
     basics = sum(1 for v in set(JLC.values()) if v[2])
-    print(f"fab/bom.csv        : {groups} Positionen (+ R4 als DNP dokumentiert)")
+    dnp_hinweis = (f" (+ {len(DNP)} unbestückt: {', '.join(sorted(DNP))})"
+                   if DNP else " — kein Bauteil unbestückt")
+    print(f"fab/bom.csv        : {groups} Positionen{dnp_hinweis}")
     print(f"fab/cpl.csv        : {placed} Bauteile, Ursprung unten links, Y aufwärts")
     print(f"fab/jlcpcb_bom.csv : {jlc_groups} Positionen, davon {basics} Basic")
     print(f"fab/jlcpcb_cpl.csv : {jlc_placed} Bauteile (nur JLCPCB-Bestückung)")

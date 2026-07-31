@@ -1,7 +1,7 @@
 (export (version "E")
   (design
     (source "/home/ssternitzke/ioBroker.asksinanalyzer/hardware/kicad/AskSin-Analyzer-V3.kicad_sch")
-    (date "2026-07-31T08:34:03+0200")
+    (date "2026-07-31T11:14:14+0200")
     (tool "Eeschema 9.0.2+dfsg-1")
     (sheet (number "1") (name "/") (tstamps "/")
       (title_block

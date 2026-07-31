@@ -293,6 +293,47 @@ def pruefe_led_polung(board: pcbnew.BOARD) -> None:
         ok("Status-LED richtig gepolt (Anode über R1, Kathode an GND)")
 
 
+def pruefe_steckerbeschriftung(board: pcbnew.BOARD) -> None:
+    """J5, J6 und J7 müssen ihre Funktion im Bestückungsdruck tragen.
+
+    Die drei JST-PH-Buchsen unterscheiden sich nur in der Polzahl. Ohne
+    Aufdruck ist am fertigen Gerät nicht zu erkennen, welche das OLED, welche
+    den Taster und welche die WS2812 aufnimmt — und ein vertauschter Stecker
+    an der WS2812 legt 3,3 V auf die Datenleitung.
+
+    Geprüft wird gegen den **Schaltplanwert**, nicht gegen eine zweite Liste:
+    Der Aufdruck soll das sagen, was im Schaltplan steht.
+    """
+    texte = [(t.GetText(), t.GetPosition()) for t in board.GetDrawings()
+             if t.GetClass() == "PCB_TEXT" and t.GetLayer() == pcbnew.F_SilkS]
+    fehlend, entfernt = [], []
+    for ref in G.BESCHRIFTETE_STECKER:
+        fp = board.FindFootprintByReference(ref)
+        if fp is None:
+            fehlend.append(f"{ref} (Bauteil fehlt)")
+            continue
+        soll = COMPONENTS[ref][1].upper()
+        treffer = [pos for text, pos in texte if text == soll]
+        if not treffer:
+            fehlend.append(f"{ref} → „{soll}“")
+            continue
+        # Der Aufdruck muss auch bei seiner Buchse stehen, nicht irgendwo.
+        mitte = fp.GetPosition()
+        naechster = min(
+            pcbnew.ToMM(int(((p.x - mitte.x) ** 2 + (p.y - mitte.y) ** 2) ** 0.5))
+            for p in treffer)
+        if naechster > 15.0:
+            entfernt.append(f"{ref}: „{soll}“ steht {naechster:.0f} mm entfernt")
+
+    if fehlend:
+        fail(f"Beschriftung der Peripheriestecker fehlt: {', '.join(fehlend)}")
+    elif entfernt:
+        fail(f"Beschriftung sitzt nicht bei der Buchse: {'; '.join(entfernt)}")
+    else:
+        namen = ", ".join(COMPONENTS[r][1].upper() for r in G.BESCHRIFTETE_STECKER)
+        ok(f"Peripheriestecker beschriftet: {namen}")
+
+
 def pruefe_schalter(board: pcbnew.BOARD) -> None:
     sw = board.FindFootprintByReference("SW1")
     if sw is None:
@@ -625,6 +666,7 @@ def main() -> int:
     pruefe_netzliste()
     pruefe_led_polung(board)
     pruefe_schalter(board)
+    pruefe_steckerbeschriftung(board)
     pruefe_modul_footprint()
 
     print("\n\033[1mFertigungsdaten\033[0m")

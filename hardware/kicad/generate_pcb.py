@@ -290,6 +290,7 @@ def build_board():
 
     check_j1_geometry(placed["J1"])
     beschrifte_schalter(board, placed["SW1"])
+    beschrifte_stecker(board, placed)
 
     unassigned = []
     for ref, fp in placed.items():
@@ -426,6 +427,87 @@ def beschrifte_schalter(board: pcbnew.BOARD, sw: pcbnew.FOOTPRINT) -> None:
         item.SetTextSize(pcbnew.VECTOR2I(mm(0.8), mm(0.8)))
         item.SetTextThickness(mm(0.13))
         board.Add(item)
+
+
+# Peripheriestecker, die im Bestückungsdruck ihre Funktion tragen müssen.
+# Der Text kommt aus dem Schaltplanwert, damit Aufdruck und Schaltplan nicht
+# auseinanderlaufen können — eine zweite, handgepflegte Liste hat sich bei den
+# unbestückten Plätzen schon einmal gerächt.
+BESCHRIFTETE_STECKER = ("J5", "J6", "J7")
+
+
+def beschrifte_stecker(board: pcbnew.BOARD,
+                       placed: dict[str, pcbnew.FOOTPRINT]) -> None:
+    """Funktion der drei Peripheriestecker auf die Platine drucken.
+
+    J5, J6 und J7 sind baugleiche JST-PH-Buchsen und unterscheiden sich nur in
+    der Polzahl — am fertigen Gerät ist ohne Aufdruck nicht zu erkennen, welche
+    das OLED, welche den Taster und welche die WS2812 aufnimmt. Der Bezeichner
+    allein hilft nicht: Wer die Kiste in Jahren öffnet, hat den Schaltplan nicht
+    daneben liegen.
+
+    Der Platz wird gesucht, nicht festgelegt: vier Kandidaten rund um die
+    Buchse, der erste freie gewinnt. So folgt die Beschriftung einer
+    Umplatzierung, statt bei der nächsten Änderung im Kupfer zu landen.
+    """
+    hoehe, dicke, luft = 0.8, 0.13, 0.6
+
+    def box(fp: pcbnew.FOOTPRINT) -> tuple[float, float, float, float]:
+        bb = fp.GetBoundingBox(False, False)
+        return (pcbnew.ToMM(bb.GetLeft()), pcbnew.ToMM(bb.GetTop()),
+                pcbnew.ToMM(bb.GetRight()), pcbnew.ToMM(bb.GetBottom()))
+
+    def stoert(a, b) -> bool:
+        return not (a[2] <= b[0] or b[2] <= a[0] or a[3] <= b[1] or b[3] <= a[1])
+
+    # Alle Bauteile sind tabu, mit 0,3 mm Zuschlag wie im Aufräumlauf.
+    hindernisse = [(x0 - 0.3, y0 - 0.3, x1 + 0.3, y1 + 0.3)
+                   for x0, y0, x1, y1 in (box(fp) for fp in board.GetFootprints())]
+    # Bereits gesetzte Texte (PWM/SPI am Schalter) ebenfalls.
+    for item in board.GetDrawings():
+        if item.GetClass() == "PCB_TEXT":
+            p = item.GetPosition()
+            w = len(item.GetText()) * hoehe * 0.72
+            px, py = pcbnew.ToMM(p.x), pcbnew.ToMM(p.y)
+            hindernisse.append((px - w / 2 - 0.3, py - hoehe / 2 - 0.3,
+                                px + w / 2 + 0.3, py + hoehe / 2 + 0.3))
+
+    for ref in BESCHRIFTETE_STECKER:
+        fp = placed[ref]
+        text = COMPONENTS[ref][1].upper()
+        breite = len(text) * hoehe * 0.72
+        x0, y0, x1, y1 = box(fp)
+        cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+        kandidaten = [
+            (x0 - luft - breite / 2, cy),          # links
+            (x1 + luft + breite / 2, cy),          # rechts
+            (cx, y0 - luft - hoehe / 2),           # oben
+            (cx, y1 + luft + hoehe / 2),           # unten
+        ]
+        for tx, ty in kandidaten:
+            kasten = (tx - breite / 2, ty - hoehe / 2,
+                      tx + breite / 2, ty + hoehe / 2)
+            pruef = (kasten[0] - 0.25, kasten[1] - 0.25,
+                     kasten[2] + 0.25, kasten[3] + 0.25)
+            if any(stoert(pruef, h) for h in hindernisse):
+                continue
+            if not inside_board(kasten[0] - ORIGIN_X, kasten[1] - ORIGIN_Y,
+                                kasten[2] - ORIGIN_X, kasten[3] - ORIGIN_Y):
+                continue
+            item = pcbnew.PCB_TEXT(board)
+            item.SetText(text)
+            item.SetLayer(pcbnew.F_SilkS)
+            item.SetPosition(pcbnew.VECTOR2I(mm(tx), mm(ty)))
+            item.SetTextSize(pcbnew.VECTOR2I(mm(hoehe), mm(hoehe)))
+            item.SetTextThickness(mm(dicke))
+            board.Add(item)
+            hindernisse.append(pruef)
+            break
+        else:
+            # Lieber laut abbrechen als still eine unbeschriftete Buchse
+            # ausliefern — die Beschriftung ist eine ausdrückliche Vorgabe.
+            raise SystemExit(
+                f"Kein freier Platz fuer die Beschriftung von {ref} ({text})")
 
 
 def check_j1_geometry(fp: pcbnew.FOOTPRINT) -> None:

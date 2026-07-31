@@ -194,6 +194,37 @@ MARKING_TOP = [
     "© 2026 S. Sternitzke · CC BY-NC-SA 4.0",
 ]
 
+# Ausweichfassungen der Markierung, von der schönsten zur genügsamsten.
+#
+# Der Grund: Die zweizeilige Fassung braucht einen zusammenhängenden freien
+# Block von rund 30 x 6 mm. Der Schenkel hinter dem Pi ist aber nur 32 mm breit,
+# und wo der Router seine Vias hinlegt, wechselt von Lauf zu Lauf. Damit wurde
+# das Gelingen zur Münzwurfsache — mehrere Neubauten scheiterten hintereinander
+# mit „Kein freier Platz", obwohl am Layout nichts falsch war.
+#
+# Jetzt wird der Reihe nach probiert: zuerst gross und zweizeilig, zuletzt klein
+# und vierzeilig. Schmaler und höher passt im Schenkel deutlich besser.
+# 0,8 mm ist die Untergrenze — darunter meldet der DRC text_height.
+#
+# Jede Zeile muss eine der Kennungen aus `kennungen` enthalten, sonst bleibt sie
+# beim nächsten Lauf stehen und die Markierungen stapeln sich.
+MARKING_VARIANTEN: list[tuple[list[str], float]] = [
+    (MARKING_TOP, 1.0),
+    (MARKING_TOP, 0.85),
+    ([
+        "AskSin-Analyzer",
+        f"HW v{HW_VERSION} · {HW_DATUM}",
+        "© 2026 S. Sternitzke",
+        "CC BY-NC-SA 4.0",
+    ], 0.85),
+    ([
+        "AskSin-Analyzer",
+        f"HW v{HW_VERSION} · {HW_DATUM}",
+        "© 2026 S. Sternitzke",
+        "CC BY-NC-SA 4.0",
+    ], 0.8),
+]
+
 
 def add_board_marking(board) -> None:
     """Projektname, Version, Datum, Copyright und Lizenz auf beide Seiten.
@@ -209,13 +240,13 @@ def add_board_marking(board) -> None:
             # das Element sauber aus der Platine.
             board.Delete(item)
 
-    def text(inhalt, x, y, layer, mirrored):
+    def text(inhalt, x, y, layer, mirrored, groesse):
         item = pcbnew.PCB_TEXT(board)
         item.SetText(inhalt)
         item.SetLayer(layer)
         item.SetPosition(pcbnew.VECTOR2I(mm(G.ORIGIN_X + x), mm(G.ORIGIN_Y + y)))
-        item.SetTextSize(pcbnew.VECTOR2I(mm(1.0), mm(1.0)))
-        item.SetTextThickness(mm(0.15))
+        item.SetTextSize(pcbnew.VECTOR2I(mm(groesse), mm(groesse)))
+        item.SetTextThickness(mm(0.15 * groesse))
         item.SetMirrored(mirrored)
         board.Add(item)
 
@@ -227,9 +258,6 @@ def add_board_marking(board) -> None:
     # Bahnen und Vias anders, und ein Text über einer Lötstoppöffnung ist ein
     # DRC-Verstoß. Geprüft wird gegen alles, was auf der Unterseite eine
     # Öffnung erzeugt — Durchsteckpads und nicht abgedeckte Vias.
-    breite = max(len(z) for z in MARKING_TOP) * 0.72 + 1.0
-    hoehe = 2.4 * len(MARKING_TOP) + 1.0
-
     # Bewusst konservativ: **jedes** Pad und **jedes** Via gilt als Hindernis,
     # unabhängig von Seite und Abdeckung. Eine feinere Unterscheidung hatte
     # Löcher (die Markierung landete trotzdem über einer Maskenöffnung), und
@@ -250,7 +278,7 @@ def add_board_marking(board) -> None:
             y = pcbnew.ToMM(pos.y) - G.ORIGIN_Y
             hindernisse.append((x - r, y - r, x + r, y + r))
 
-    def frei(cx: float, cy: float) -> bool:
+    def frei(cx: float, cy: float, breite: float, hoehe: float) -> bool:
         box = (cx - breite / 2, cy - hoehe / 2, cx + breite / 2, cy + hoehe / 2)
         # Zusätzlicher Rand: Bestückungsdruck darf die Platinenkante nicht
         # berühren (DRC silk_edge_clearance), inside_board() prüft nur den
@@ -260,13 +288,25 @@ def add_board_marking(board) -> None:
             return False
         return not any(overlap(box, h) for h in hindernisse)
 
-    for cy in [y / 2 for y in range(6, int(G.LEG_Y1) * 2 - 5)]:
-        for cx in [x / 2 for x in range(int(breite), int(G.BOARD_L) * 2 - int(breite))]:
-            if frei(cx, cy):
-                for i, zeile in enumerate(MARKING_TOP):
-                    text(zeile, cx, cy - 1.2 + i * 2.4, pcbnew.B_SilkS, True)
+    # Von der schönsten Fassung zur genügsamsten, die erste passende gewinnt.
+    for zeilen, groesse in MARKING_VARIANTEN:
+        abstand = 2.4 * groesse
+        breite = max(len(z) for z in zeilen) * 0.72 * groesse + 1.0
+        hoehe = abstand * len(zeilen) + 1.0
+        for cy in [y / 2 for y in range(6, int(G.LEG_Y1) * 2 - 5)]:
+            for cx in [x / 2
+                       for x in range(int(breite), int(G.BOARD_L) * 2 - int(breite))]:
+                if not frei(cx, cy, breite, hoehe):
+                    continue
+                # Zeilenblock um seine Mitte herum aufbauen.
+                oben = cy - abstand * (len(zeilen) - 1) / 2
+                for i, zeile in enumerate(zeilen):
+                    text(zeile, cx, oben + i * abstand, pcbnew.B_SilkS, True,
+                         groesse)
                 return
-    raise SystemExit("Kein freier Platz für die Platinenmarkierung gefunden")
+    raise SystemExit(
+        "Kein freier Platz für die Platinenmarkierung — auch nicht in der "
+        "kleinsten Fassung. Das ist ein echtes Platzproblem, kein Zufall.")
 
 
 def export_fab() -> list[str]:

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, reactive, ref } from 'vue';
+
+import GeheimFeld from '../components/GeheimFeld.vue';
 import {
   aenderePeer,
   authToken,
@@ -344,10 +346,9 @@ const demoUmschalten = (): Promise<void> | undefined => {
 
   <div class="panel">
     <h3 style="margin-top: 0">Zugriff</h3>
-    <label class="feld">
-      <span class="name">Auth-Token (nötig, wenn der Core mit Token-Pflicht läuft)</span>
-      <input type="password" v-model="token" autocomplete="off" />
-    </label>
+    <GeheimFeld
+      v-model="token"
+      name="Auth-Token (nötig, wenn der Core mit Token-Pflicht läuft)" />
     <button :disabled="beschaeftigt" @click="tokenSpeichern">Token speichern</button>
   </div>
 
@@ -385,10 +386,10 @@ const demoUmschalten = (): Promise<void> | undefined => {
         <span class="name">Name (optional)</span>
         <input type="text" v-model="neuerPeer.name" placeholder="z. B. OG" />
       </label>
-      <label class="feld" style="flex: 1; margin-bottom: 0">
-        <span class="name">Dessen Auth-Token (optional)</span>
-        <input type="password" v-model="neuerPeer.token" autocomplete="off" />
-      </label>
+      <GeheimFeld
+        v-model="neuerPeer.token"
+        name="Dessen Auth-Token (optional)"
+        style="flex: 1; margin-bottom: 0" />
       <button class="primaer" style="align-self: flex-end"
               :disabled="beschaeftigt || neuerPeer.url.trim() === ''"
               @click="peerHinzufuegen">Verknüpfen</button>
@@ -563,10 +564,10 @@ const demoUmschalten = (): Promise<void> | undefined => {
       </label>
     </div>
     <div class="zeile">
-      <label class="feld" style="flex: 2">
-        <span class="name">API-Token {{ influx.hatToken ? '(gesetzt — leer lassen zum Behalten)' : '' }}</span>
-        <input type="password" v-model="influx.token" autocomplete="off" />
-      </label>
+      <GeheimFeld
+        v-model="influx.token"
+        :name="`API-Token ${influx.hatToken ? '(gesetzt — leer lassen zum Behalten)' : ''}`"
+        style="flex: 2" />
       <label class="feld" style="width: 10rem">
         <span class="name">Intervall (s)</span>
         <input type="text" v-model.number="influx.intervallSekunden" />
