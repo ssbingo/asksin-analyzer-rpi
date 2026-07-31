@@ -228,3 +228,124 @@ button:disabled { opacity: 0.5; cursor: default; }
 #chart { width: 100%; height: 340px; }
 #torte { width: 100%; height: 380px; }
 .scrollbar { overflow-x: auto; }
+
+/* ==========================================================================
+   Kleine Bildschirme
+   ==========================================================================
+
+   Die Oberfläche war auf den Schreibtisch hin entworfen und enthielt keine
+   einzige Media Query — am Telefon lief die Kopfzeile über, Tabellen schoben
+   die ganze Seite zur Seite, und beim Antippen eines Eingabefeldes zoomte iOS
+   hinein. Das wird hier nachgeholt, ohne das Aussehen am Rechner anzutasten.
+
+   Leitgedanken:
+     * **Nichts weglassen.** Eine Funkanalyse, die am Telefon Spalten
+       verschweigt, ist wertlos — breite Tabellen scrollen daher seitlich in
+       ihrem Panel, statt gekürzt zu werden.
+     * Die Navigation bekommt am Telefon eine eigene, waagerecht scrollbare
+       Zeile. Sie bleibt oben stehen, damit der Reiterwechsel nicht erst ein
+       Zurückscrollen erfordert.
+     * Fingerbedienung wird an `pointer: coarse` festgemacht, nicht an der
+       Breite: Ein Tablet mit 1000 px will große Ziele, ein schmales Fenster
+       am Rechner nicht. */
+
+/* Die Kopfzeile darf umbrechen — am Rechner passt sie ohnehin in eine Zeile. */
+header.kopf { flex-wrap: wrap; }
+
+/* Ohne min-width: 0 weigern sich Flex-Kinder zu schrumpfen und schieben die
+   Zeile auf. Betrifft vor allem die Formularzeilen mit flex: 2 / flex: 1. */
+.zeile > * { min-width: 0; }
+
+/* Lange Token, Adressen und Payloads dürfen umbrechen statt auszubrechen. */
+.panel, .kachel { overflow-wrap: anywhere; }
+table.daten { overflow-wrap: normal; }
+
+@media (prefers-reduced-motion: reduce) {
+  .update-glocke { animation: none; }
+}
+
+@media (max-width: 780px) {
+  /* Die Grundschriftgröße bleibt bewusst unangetastet. Der erste Entwurf
+     verkleinerte sie hier, um mehr unterzubringen — genau falsch herum: Am
+     Telefon ist Lesbarkeit knapp, nicht Platz. Platz schafft stattdessen das
+     Umbrechen der Kopfzeile und das seitliche Scrollen breiter Tabellen. */
+
+  header.kopf {
+    gap: 0.5rem 0.7rem;
+    padding: 0.5rem 0.8rem;
+  }
+  .kopf h1 { font-size: 0.98rem; }
+
+  /* Navigation in eine eigene Zeile unter Titel und Status. `order` verschiebt
+     sie ans Ende, `flex-basis: 100%` erzwingt den Umbruch davor. */
+  nav.haupt {
+    order: 10;
+    flex: 0 0 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 0.1rem;
+  }
+  nav.haupt::-webkit-scrollbar { display: none; }
+  nav.haupt a { white-space: nowrap; }
+
+  main.inhalt { padding: 0.8rem; }
+
+  .kacheln { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.6rem; }
+  .kachel { padding: 0.65rem 0.8rem; }
+
+  .panel { padding: 0.8rem; margin-bottom: 0.9rem; }
+  /* Breite Tabellen scrollen innerhalb ihres Panels, statt die ganze Seite
+     seitlich zu verschieben. Die Telegrammliste hat neun Spalten — keine
+     davon wird ausgeblendet. */
+  .panel { overflow-x: auto; }
+
+  /* Die Schriftgröße der Tabelle bleibt, nur die Zellen rücken enger zusammen.
+     Da die Tabelle seitlich scrollt, bringt kleinere Schrift ohnehin nichts —
+     sie kostete nur Lesbarkeit. */
+  table.daten th { padding: 0.4rem 0.5rem; }
+  table.daten td { padding: 0.35rem 0.5rem; }
+
+  /* Eingabefelder in einer Zeile bekommen am Telefon jeweils die volle Breite;
+     nebeneinander bliebe von jedem nur ein Stummel übrig. Knöpfe behalten ihre
+     natürliche Breite und rücken dadurch gemeinsam in die Zeile darunter —
+     „Pause“ und „Leeren“ stehen also weiterhin nebeneinander.
+
+     Das !important ist hier ausnahmsweise richtig: Die Ansichten tragen ihre
+     Spaltenbreiten als flex-Angabe im style-Attribut (flex: 2, flex: 1), und
+     gegen ein style-Attribut kommt eine Regel im Stylesheet sonst nicht an.
+     Am Rechner gilt die Regel nicht — dort sollen die Spalten ja nebeneinander
+     stehen. */
+  .zeile > label.feld,
+  .zeile > .feld-geheim,
+  .zeile > input {
+    flex: 1 1 100% !important;
+  }
+  .zeile { gap: 0.5rem 0.6rem; }
+
+  #chart { height: 260px; }
+  #torte { height: 300px; }
+}
+
+@media (max-width: 480px) {
+  /* Auf sehr schmalen Geräten würden Titel, Standort und Status drei Zeilen
+     belegen. Der Status rückt mit dem Standort in eine gemeinsame Zeile. */
+  .kopf h1 { flex: 0 0 100%; }
+  .standort-badge, .status-punkt, .demo-badge { font-size: 0.75rem; }
+}
+
+/* Fingerbedienung — unabhängig von der Fensterbreite. */
+@media (pointer: coarse) {
+  button, a.knopf, nav.haupt a {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Genau 16 px: Darunter zoomt iOS beim Antippen ins Feld hinein und der
+     Nutzer muss anschliessend von Hand herauszoomen. */
+  input[type='text'], input[type='password'], input[type='search'],
+  select, textarea {
+    font-size: 16px;
+  }
+  select { min-height: 44px; }
+}

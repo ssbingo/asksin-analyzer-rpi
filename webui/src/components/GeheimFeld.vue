@@ -50,10 +50,27 @@ const sichtbar = ref(false);
         type="button"
         class="umschalter"
         :aria-pressed="sichtbar"
+        :aria-label="sichtbar ? 'Eingabe wieder verbergen' : 'Eingabe lesbar anzeigen'"
         :title="sichtbar ? 'Wieder verbergen' : 'Zum Prüfen lesbar anzeigen'"
         @click="sichtbar = !sichtbar"
       >
-        {{ sichtbar ? 'verbergen' : 'anzeigen' }}
+        <!-- Selbst gezeichnet statt aus einer Icon-Bibliothek: keine weitere
+             Abhaengigkeit, keine fremde Lizenz, und ueber currentColor folgt
+             das Auge dem Farbschema. aria-hidden, weil der Knopf seinen Namen
+             schon aus aria-label bezieht. -->
+        <svg
+          viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"
+          fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round"
+        >
+          <!-- Mandelform aus zwei quadratischen Kurven: 18 x 11 Einheiten,
+               Verhaeltnis 1,64 — flacher wirkt es wie ein Schlitz, runder
+               wie ein Kreis. Die Iris (r 3,2) liegt sicher darin. -->
+          <path d="M 3 12 Q 12 1 21 12 Q 12 23 3 12 Z" />
+          <circle cx="12" cy="12" r="3.2" />
+          <!-- Durchgestrichen, solange die Eingabe offen liegt. -->
+          <line v-if="sichtbar" x1="3.5" y1="3.5" x2="20.5" y2="20.5" />
+        </svg>
       </button>
     </div>
   </div>
@@ -85,8 +102,24 @@ const sichtbar = ref(false);
 }
 .umschalter {
   flex: none;
-  padding: 0.45rem 0.7rem;
-  font-size: 0.8rem;
-  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Quadratisch und so hoch wie das Eingabefeld. */
+  padding: 0.45rem 0.55rem;
+  line-height: 0;
+  color: var(--muted);
+}
+.umschalter svg {
+  display: block;
+}
+.umschalter:hover {
+  color: var(--text);
+}
+/* Offen liegende Eingabe ist der ungewoehnliche Zustand — hervorheben, damit
+   niemand den Token versehentlich sichtbar stehen laesst. */
+.umschalter[aria-pressed='true'] {
+  color: var(--akzent);
+  border-color: var(--akzent);
 }
 </style>
