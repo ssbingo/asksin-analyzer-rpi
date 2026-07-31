@@ -47,7 +47,10 @@ apt-get install -y -qq python3-venv python3-dev fonts-dejavu-core i2c-tools
 
 # Kuerpakete: vorhanden -> kein Bau noetig. Fehlt eines, ist das kein Fehler;
 # pip baut dann selbst, wofuer swig und die Header da sind.
-for paket in python3-lgpio python3-pil swig build-essential libjpeg-dev zlib1g-dev; do
+# liblgpio-dev liefert die C-Bibliothek, gegen die pip linkt, falls es lgpio
+# doch selbst baut. Ohne sie bricht der Linker ab: "cannot find -llgpio".
+for paket in python3-lgpio liblgpio-dev python3-pil swig build-essential \
+             libjpeg-dev zlib1g-dev; do
     if apt-get install -y -qq "$paket" 2>/dev/null; then
         c_ok "$paket"
     else
@@ -57,21 +60,48 @@ done
 
 # venv mit Zugriff auf die Systempakete: damit sieht pip das fertige
 # python3-lgpio und python3-pil und baut sie nicht erneut.
+# Entscheidend ist nicht nur, DASS ein venv da ist, sondern dass es die
+# Systempakete sieht. Ein Lauf ohne --system-site-packages hinterlaesst ein
+# gueltiges, aber abgeschottetes venv; pip baut darin lgpio erneut aus dem
+# Quellcode und scheitert am fehlenden Linker-Ziel. Genau das ist beim ersten
+# Versuch passiert — deshalb wird hier der Schalter geprueft, nicht bloss die
+# Existenz.
+sieht_systempakete() {
+    [ -f "$VENV/pyvenv.cfg" ] &&
+        grep -qiE '^include-system-site-packages[[:space:]]*=[[:space:]]*true' \
+            "$VENV/pyvenv.cfg"
+}
+
 if [ ! -x "$VENV/bin/python" ]; then
     c_info "Lege virtuelle Umgebung an ($VENV)..."
     python3 -m venv --system-site-packages "$VENV"
-elif ! "$VENV/bin/python" -c 'import sys; sys.exit(0 if sys.base_prefix != sys.prefix else 1)' 2>/dev/null; then
-    c_warn "Vorhandene Umgebung ist unbrauchbar - lege sie neu an."
+elif ! sieht_systempakete; then
+    c_warn "Vorhandene Umgebung sieht die Systempakete nicht - lege sie neu an."
     rm -rf "$VENV"
     python3 -m venv --system-site-packages "$VENV"
+else
+    c_ok "Virtuelle Umgebung vorhanden und mit Zugriff auf die Systempakete."
+fi
+
+if "$VENV/bin/python" -c 'import lgpio' 2>/dev/null; then
+    c_ok "lgpio kommt aus dem Systempaket - pip muss nichts bauen."
+else
+    c_warn "lgpio ist nicht als Systempaket da - pip baut es selbst."
 fi
 
 c_info "Installiere adafruit_ssd1306, Blinka und Pillow..."
-if ! "$VENV/bin/pip" install --quiet --upgrade --prefer-binary \
-        adafruit-circuitpython-ssd1306 adafruit-blinka pillow; then
+PAKETE="adafruit-circuitpython-ssd1306 adafruit-blinka pillow"
+if ! "$VENV/bin/pip" install --quiet --upgrade --prefer-binary $PAKETE; then
+    # Beim ersten Versuch war die Ausgabe unterdrueckt — jetzt zeigen, woran
+    # es wirklich liegt, statt den Nutzer den Befehl selbst wiederholen zu
+    # lassen. Der zweite Lauf kostet nichts: Was geklappt hat, bleibt liegen.
+    c_warn "Fehlgeschlagen - hier die vollstaendige Ausgabe:"
+    echo "----------------------------------------------------------------"
+    "$VENV/bin/pip" install --upgrade --prefer-binary $PAKETE || true
+    echo "----------------------------------------------------------------"
     c_err "Die Bibliotheken liessen sich nicht installieren."
-    c_err "Ausgabe im Klartext ansehen:"
-    c_err "  sudo $VENV/bin/pip install adafruit-circuitpython-ssd1306 adafruit-blinka pillow"
+    c_err "Haeufigste Ursache: lgpio wird aus dem Quellcode gebaut, weil"
+    c_err "python3-lgpio fehlt oder die Umgebung die Systempakete nicht sieht."
     exit 1
 fi
 c_ok "Bibliotheken installiert."
