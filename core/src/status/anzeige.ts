@@ -13,7 +13,7 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
 
 import { systemTime } from '../ingest/time.ts';
@@ -57,6 +57,8 @@ export interface StatusAnzeigeOptions {
   bildVorhanden?: (pfad: string) => boolean;
   /** Für Tests: aktueller Pegel des Tasters (true = gedrückt). */
   tasteGedrueckt?: () => Promise<boolean>;
+  /** Für Tests: Lesen einer Datei. */
+  leseDatei?: (pfad: string) => string;
   /** Datei, auf die der Root-Helfer für den Neustart wartet. */
   neustartDatei?: string;
   /** Taster an J6 — GPIO17 laut Platine V4. */
@@ -188,7 +190,28 @@ export class StatusAnzeige {
     const jetzt = this.#time.now();
     if (jetzt - this.#letzterTastendruck < 250) return;    // entprellen
     this.#letzterTastendruck = jetzt;
-    this.#seite = (this.#seite + 1) % SEITEN_ANZAHL;
+    // Wie viele Seiten es gibt, weiss der Anzeigedienst — er kennt auch die
+    // Felder, die nur manchmal vorhanden sind (Lüfter, Platte). Vorher stand
+    // hier die Konstante des Core, und nach Seite 9 sprang es zurueck auf 1,
+    // obwohl der Dienst laengst mehr Seiten hatte.
+    this.#seite = (this.#seite + 1) % this.#seitenGesamt();
+    // Sofort weitergeben statt auf den naechsten Takt zu warten: Das
+    // Umschalten war dadurch traege geworden.
+    this.#schreibeZustand(this.#zustandFuerAnzeige());
+  }
+
+  /** Seitenzahl laut Anzeigedienst; ohne dessen Meldung die eigene. */
+  #seitenGesamt(): number {
+    const pfad = this.#o.oledBildDatei ?? '/var/lib/asksin-analyzer/oled-bild.b64';
+    try {
+      const roh = JSON.parse(
+        (this.#o.leseDatei ?? ((p: string) => readFileSync(p, 'utf8')))(pfad),
+      ) as { seiten?: number };
+      if (typeof roh.seiten === 'number' && roh.seiten > 0) return roh.seiten;
+    } catch {
+      /* Anzeigedienst laeuft nicht — dann zaehlt die eigene Vorgabe */
+    }
+    return SEITEN_ANZAHL;
   }
 
   // ---- LED -------------------------------------------------------------

@@ -75,11 +75,18 @@ nutzeTakt(async () => {
 
 async function blaettern(): Promise<void> {
   await statusSeiteWeiter().catch(() => {});
-  try {
-    status.value = await holeStatusAnzeige();
-    zeichneOledVorschau();
-  } catch {
-    /* nächster Takt */
+  // Zweimal abfragen: Das Bild zeichnet der Anzeigedienst auf dem Gerät, und
+  // das dauert einen Wimpernschlag. Die erste Abfrage liefert oft noch die
+  // alte Seite; ohne die zweite wirkte der Knopf träge und man klickte
+  // versehentlich weiter.
+  for (const wartezeit of [0, 250]) {
+    if (wartezeit > 0) await new Promise((f) => setTimeout(f, wartezeit));
+    try {
+      status.value = await holeStatusAnzeige();
+      zeichneOledVorschau();
+    } catch {
+      /* nächster Takt */
+    }
   }
 }
 

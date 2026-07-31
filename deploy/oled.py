@@ -49,7 +49,10 @@ import sys
 import time
 from pathlib import Path
 
-TAKT_S = 0.5            # Abtastung der Zustandsdatei; 2 Hz wie im Vorbild
+# Abtastung der Zustandsdatei. Bewusst kurz: Gezeichnet wird nur, wenn sich
+# etwas geaendert hat, also kostet ein schneller Takt fast nichts — aber der
+# Tastendruck und der Knopf im WebUI wirken damit ohne spuerbare Verzoegerung.
+TAKT_S = 0.1
 VORGABE_ZUSTAND = "/var/lib/asksin-analyzer/oled-state.json"
 VORGABE_BILD = "/var/lib/asksin-analyzer/oled-bild.b64"
 
