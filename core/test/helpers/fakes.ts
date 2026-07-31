@@ -12,8 +12,13 @@ export const tick = (): Promise<void> =>
 
 /** Handgesteuerte Uhr: delay() löst erst aus, wenn advance() sie erreicht. */
 export class FakeTime implements TimeSource {
-  #now = 1_000_000;
+  #now: number;
   #pending: Array<{ at: number; resolve: () => void }> = [];
+
+  /** Startzeitpunkt in Millisekunden; Vorgabe wie bisher 1 000 000. */
+  constructor(start = 1_000_000) {
+    this.#now = start;
+  }
 
   now(): number {
     return this.#now;

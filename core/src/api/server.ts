@@ -104,6 +104,13 @@ export interface ApiServerOptions {
     zustand(): unknown;
     einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
   };
+  /** Protokoll (M13): Stufe und Aufbewahrung einstellen, Dateien herunterladen. */
+  protokoll?: {
+    zustand(): unknown;
+    einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
+    /** Inhalt einer Logdatei; null, wenn der Name ungültig ist oder fehlt. */
+    datei(name: string): string | null;
+  };
 }
 
 /**
@@ -347,11 +354,30 @@ export class ApiServer {
           if (hooks === undefined) return this.#text(res, 501, 'Keine Influx-Anbindung');
           return this.#json(res, 200, hooks.zustand());
         }
+        case '/api/protokoll': {
+          const hooks = this.#opts.protokoll;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Protokoll');
+          return this.#json(res, 200, hooks.zustand());
+        }
         case '/api/netzwerk/status': {
           const netz = this.#opts.netzwerk;
           if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
           return this.#json(res, 200, netz.status() ?? { running: false });
         }
+      }
+      // Logdatei herunterladen: /api/protokoll/datei/asksin-JJJJ-MM-TT.log
+      if (pfad.startsWith('/api/protokoll/datei/')) {
+        const hooks = this.#opts.protokoll;
+        if (hooks === undefined) return this.#text(res, 501, 'Kein Protokoll');
+        const name = decodeURIComponent(pfad.slice('/api/protokoll/datei/'.length));
+        const inhalt = hooks.datei(name);
+        if (inhalt === null) return this.#text(res, 404, 'Keine solche Logdatei');
+        res.writeHead(200, {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${name}"`,
+        });
+        res.end(inhalt);
+        return;
       }
       // Alles Übrige: das gebaute Web-UI (mit SPA-Fallback).
       if (this.#opts.uiDir !== undefined && !pfad.startsWith('/api/')) {
@@ -392,6 +418,19 @@ export class ApiServer {
           if (!this.#autorisiert(req, res)) return;
           const hooks = this.#opts.statusAnzeige;
           if (hooks === undefined) return this.#text(res, 501, 'Keine Statusanzeige');
+          let auftrag: Record<string, unknown>;
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            return this.#text(res, 400, 'Body muss JSON sein');
+          }
+          await hooks.einstellen(auftrag);
+          return this.#text(res, 200, 'OK — sofort wirksam');
+        }
+        case '/api/protokoll': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.protokoll;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Protokoll');
           let auftrag: Record<string, unknown>;
           try {
             auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;

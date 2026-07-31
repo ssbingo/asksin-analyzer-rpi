@@ -195,6 +195,47 @@ def pruefe_pi_bohrbild(board: pcbnew.BOARD) -> None:
         ok(f"Lochraster gemessen: {dx:.2f} × {dy:.2f} mm")
 
 
+def pruefe_einbaumasse(board: pcbnew.BOARD) -> None:
+    """Vorgaben aus dem 19-Zoll-Einbau — hart geprüft, weil ein Verstoß erst
+    beim Zusammenbau auffällt und dann eine ganze Charge unbrauchbar macht.
+
+      * Neben dem Pi höchstens 20 mm breit.
+      * Nach **vorn** (Buchsenseite) darf die Platine den Pi nicht überragen;
+        dort sitzen die Keystone-Module. Verlängert wird ausschließlich nach
+        hinten, hinter die SD-Kante.
+      * Höchstens 100 mm lang.
+      * Über dem Pi nur Arm und Nase, beides höchstens 10 mm tief.
+    """
+    x0, y0, x1, y1 = umriss(board)
+    laenge, breite = x1 - x0, G.PI_Y0
+    if breite > 20.0 + 1e-6:
+        fail(f"Streifen {breite:.1f} mm breit — höchstens 20 mm erlaubt")
+    else:
+        ok(f"Streifen neben dem Pi: {breite:.0f} mm (Grenze 20 mm)")
+
+    if laenge > 100.0 + 1e-6:
+        fail(f"Platine {laenge:.1f} mm lang — höchstens 100 mm erlaubt")
+    else:
+        ok(f"Gesamtlänge {laenge:.0f} mm (Grenze 100 mm)")
+
+    pi_vorderkante = G.PI_X0 + 85.0
+    ueberstand_vorn = laenge - pi_vorderkante
+    if ueberstand_vorn > 1e-6:
+        fail(f"Platine ragt {ueberstand_vorn:.1f} mm über die Buchsenseite des "
+             f"Pi hinaus — Verlängerungen gehören hinter die SD-Kante")
+    else:
+        ok(f"Vorderkante {abs(ueberstand_vorn):.0f} mm vor dem Pi-Ende — "
+           f"keine Kollision mit den Keystone-Modulen")
+    ok(f"Überstand hinter der SD-Kante: {G.PI_X0:.0f} mm")
+
+    tiefste = max(G.ARM_D, G.NASE_D)
+    if tiefste > 10.0 + 1e-6:
+        fail(f"Über dem Pi liegen {tiefste:.1f} mm Material — höchstens 10 mm")
+    else:
+        ok(f"Über dem Pi: Arm {G.ARM_D:.0f} mm, Nase {G.NASE_D:.0f} mm "
+           f"(Grenze 10 mm) — PoE-Lüfter bleibt frei")
+
+
 def pruefe_j1(board: pcbnew.BOARD) -> None:
     """Die 2×20-Buchse gegen das Pi-Raster — der Fehler der ersten Charge."""
     fp = board.FindFootprintByReference("J1")
@@ -415,6 +456,7 @@ def main() -> int:
     pruefe_unverbunden(board)
 
     print("\n\033[1mAnschluss an den Raspberry Pi\033[0m")
+    pruefe_einbaumasse(board)
     pruefe_j1(board)
     pruefe_pi_bohrbild(board)
 

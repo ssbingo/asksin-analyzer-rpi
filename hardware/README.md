@@ -41,7 +41,10 @@ dessen IPEX-Buchse — auf der Platine gibt es **keine einzige HF-Leitung**.
 
 **Bauform seit v0.2.0:** L-förmig und **liegend neben dem Pi**. Der Streifen
 (100 × 20 mm) liegt parallel zur Header-Seite und ist **höchstens 20 mm breit**;
-der Schenkel (12 mm) läuft an der SD-Kante entlang nach hinten. Über dem Pi
+der Schenkel steht **32 mm hinter der SD-Kante** und trägt dort das Funkmodul.
+Nach vorn (Buchsenseite) endet die Platine **17 mm vor** dem Pi — dort sitzen
+im 19-Zoll-Einbau die Keystone-Module, jede Verlängerung geht deshalb
+ausschließlich nach hinten. `pruefe_fertigung.py` erzwingt das. Über dem Pi
 liegt nur zweierlei: der 8 mm tiefe **Arm** für die 2×20-Buchse und die beiden
 HAT-Bohrungen, sowie eine 7 × 9 mm große **Nase** am hinteren
 Befestigungsloch des Pi. Der Lüfter des PoE-HAT bleibt dadurch frei —

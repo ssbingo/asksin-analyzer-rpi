@@ -55,7 +55,10 @@ ORIGIN_X, ORIGIN_Y = 100.0, 60.0
 #             hinteren Befestigungslöchern — dadurch liegt über dem PoE-HAT
 #             fast nichts, und der Lüfter bleibt unabhängig vom HAT-Modell frei
 #             (Waveshare (F) für Pi 5, (C) für Pi 3B/4).
-LEG_W = 12.0        # Breite des Schenkels neben der SD-Kante
+# Der Schenkel liegt HINTER dem Pi (SD-Seite). Jede Verlängerung der Platine
+# geht ausschließlich hierhin — nach vorn (Buchsenseite) darf sie den Pi
+# **nicht** überragen, dort sitzen im 19-Zoll-Einbau die Keystone-Module.
+LEG_W = 32.0        # Tiefe des Schenkels hinter der SD-Kante
 STRIP_H = 20.0      # Breite des Streifens neben dem Pi — Obergrenze!
 ARM_D = 8.0         # Tiefe des Arms über dem Pi (Buchse + Bohrungen)
 NASE_D = 7.0        # Tiefe der Nasen über dem Pi
@@ -110,14 +113,14 @@ def inset_ring(inset: float) -> list[tuple[float, float]]:
 # MH1/MH2 greifen in die vorderen Abstandsbolzen des Pi (im Arm), MH3 in das
 # hintere Loch derselben Seite (in der unteren Nase). MH4 hält den Streifen im
 # 19-Zoll-Tray und liegt neben dem Pi.
-HOLES = [PI_LOCH[0], PI_LOCH[1], PI_LOCH[2], (6.0, 38.0), (97.0, 16.5)]
+HOLES = [PI_LOCH[0], PI_LOCH[1], PI_LOCH[2], (28.0, 71.0), (97.0, 16.5)]
 HOLE_FP = "MountingHole:MountingHole_2.7mm_M2.5"
 
 # Zugentlastung für das Antennenkabel: zwei Löcher für einen Kabelbinder,
 # direkt neben der IPEX-Buchse des Moduls. Der U.FL-Stecker ist auf rund
 # 30 Steckzyklen ausgelegt und springt unter Zug ab — bei fest verbauten
 # Geräten ist die Entlastung billiger als ein Serviceeinsatz.
-TIE_HOLES = [(4.0, 21.5), (9.5, 21.5)]
+TIE_HOLES = [(10.0, 47.0), (15.5, 47.0)]
 TIE_FP = "MountingHole:MountingHole_2.1mm"
 
 # Position der 2×20-Buchse aus der offiziellen HAT-Vorlage: Pin 1 liegt
@@ -148,59 +151,55 @@ def at(x: float, y: float) -> pcbnew.VECTOR2I:
 PLACEMENT: dict[str, tuple[float, float, float]] = {
     "J1":  J1_POS,
 
-    # --- Funk-Frontend ganz hinten; die IPEX-Buchse zeigt zum Schenkel, das
-    #     Antennenkabel laeuft dort nach unten zum rueckwaertigen Keystone.
-    #     Gedreht, weil das Modul 17,5 x 21,1 mm misst und quer nicht in den
-    #     20 mm breiten Streifen passt.
-    "U3":  (12.5, 10.0, 90),
-    "C5":  (25.5, 3.0, 0),
-    "R3":  (25.5, 6.5, 0),
+    # --- Funk-Frontend in den Schenkel HINTER den Pi ------------------------
+    # Dort ist mit 32 mm Breite Platz fuer das 17,5 x 21 mm grosse Modul; im
+    # 20 mm schmalen Streifen ginge es nur quer und wuerde ihn blockieren.
+    # Die IPEX-Buchse zeigt nach hinten zum Antennen-Keystone, die Zugentlastung
+    # sitzt direkt darunter.
+    "U3":  (16.0, 33.0, 0),
+    "C5":  (28.0, 24.0, 90),
+    "R3":  (28.0, 29.0, 90),
 
-    # --- Mikrocontroller, Takt und Abblockung -------------------------------
-    "U2":  (36.0, 7.0, 0),
-    "Y1":  (27.0, 16.0, 0),
-    "C3":  (36.0, 15.0, 0),
-    "C4":  (44.0, 3.0, 0),
-    "C9":  (44.0, 7.0, 0),
-    "R2":  (44.0, 11.0, 0),
+    # --- ISP und Pruefpunkte im unteren Schenkel ---------------------------
+    "J2":  (25.0, 56.0, 0),
+    "TP2": (5.0, 52.0, 0),
+    "TP3": (5.0, 55.5, 0),
+    "TP4": (5.0, 59.0, 0),
+    "TP5": (5.0, 62.5, 0),
+    "TP6": (5.0, 66.0, 0),
+    "TP7": (5.0, 69.5, 0),
+    "TP8": (5.0, 73.0, 0),
 
-    # --- Reset-Strecke ------------------------------------------------------
-    "C8":  (25.5, 10.0, 0),
-    "TP1": (44.0, 15.0, 0),
-    "S1":  (50.0, 16.0, 0),
+    # --- Mikrocontroller im hinteren Streifen, dicht am Funkmodul ----------
+    "U2":  (12.0, 10.0, 0),
+    # Anker des Resonators liegt auf Pin 1, nicht in der Mitte:
+    "Y1":  (20.0, 4.0, 0),
+    "C3":  (22.0, 9.0, 0),
+    "C4":  (22.0, 13.0, 0),
+    "C9":  (29.5, 4.0, 0),
+    "R2":  (28.0, 9.0, 0),
+    "C8":  (28.0, 13.0, 0),
+    "TP1": (33.0, 4.0, 0),
 
-    # --- Versorgung ---------------------------------------------------------
-    "U1":  (50.0, 3.0, 0),
-    "C1":  (50.0, 7.0, 0),
-    "L1":  (54.5, 3.0, 0),
-    "C2":  (54.5, 7.0, 0),
+    # --- Versorgung entlang der Aussenkante --------------------------------
+    "U1":  (40.0, 4.0, 0),
+    "C1":  (45.0, 4.0, 0),
+    "L1":  (50.0, 4.0, 0),
+    "C2":  (55.0, 4.0, 0),
 
-    # --- Status-LED ---------------------------------------------------------
-    "R1":  (50.0, 11.0, 0),
-    "D1":  (56.0, 11.0, 0),
+    # --- Status-LED und Reset ----------------------------------------------
+    "R1":  (40.0, 11.0, 0),
+    "D1":  (45.0, 11.0, 0),
+    "S1":  (52.0, 11.0, 0),
 
-    # --- ISP in den Schenkel: nur einmal beim Bootloader gebraucht ---------
-    "J2":  (6.0, 28.0, 0),
-
-
-    # --- LED-Weg: Schiebeschalter an der Aussenkante, Schieber zeigt nach
-    #     aussen; dahinter der gemeinsame Serienwiderstand.
-    "SW1": (62.0, 5.0, 180),
-    "R4":  (62.0, 12.0, 0),
+    # --- LED-Weg: Schiebeschalter an der Aussenkante ------------------------
+    "SW1": (64.0, 5.0, 180),
+    "R4":  (64.0, 12.0, 0),
 
     # --- Peripheriestecker am vorderen Ende (Rack-Front) --------------------
     "J5":  (86.5, 3.5, 0),        # OLED, I2C
     "J6":  (88.0, 10.0, 0),       # Taster
     "J7":  (87.0, 16.0, 0),       # WS2812
-
-    # --- Pruefpunkte im Schenkel -------------------------------------------
-    "TP2": (6.0, 44.0, 0),
-    "TP3": (6.0, 47.5, 0),
-    "TP4": (6.0, 51.0, 0),
-    "TP5": (6.0, 54.5, 0),
-    "TP6": (6.0, 58.0, 0),
-    "TP7": (6.0, 61.5, 0),
-    "TP8": (6.0, 65.0, 0),
 }
 
 

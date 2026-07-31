@@ -31,6 +31,9 @@ import { DevListService } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
 import { INFLUX_VORGABEN, InfluxSchreiber } from '../src/influx/schreiber.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
+import { Protokoll, istStufe } from '../src/log/protokoll.ts';
+import type { Stufe } from '../src/log/protokoll.ts';
+import { auffaelligkeiten, erhebeSystemwerte } from '../src/log/diagnose.ts';
 import { StatusAnzeige } from '../src/status/anzeige.ts';
 import { OledBild } from '../src/status/ssd1306.ts';
 import { ledMuster, zeichneSeite } from '../src/status/zustand.ts';
@@ -78,6 +81,11 @@ interface Konfiguration {
   verbund?: {
     peers?: Array<{ name?: string; url: string; token?: string }>;
   };
+  /** Protokoll (M13): Stufe und Aufbewahrung; üblicherweise über das WebUI. */
+  protokoll?: {
+    stufe?: string;
+    tage?: number;
+  };
   /** Status-LED und OLED (M11) — Zubehör an J5–J7 der Platine V4.
    *  LED: SPI-Variante (R5 statt R4 bestücken). Vorgabe: alles aus. */
   statusanzeige?: {
@@ -115,9 +123,15 @@ function ladeKonfiguration(pfad: string): Konfiguration {
 
 // ---- Kleinkram ----------------------------------------------------------
 
+/** Wird erst nach dem Laden der Konfiguration gesetzt (Pfad steht dort). */
+let protokoll: Protokoll | null = null;
+
 function log(text: string): void {
   // journald stempelt selbst — keine eigene Uhrzeit davor.
   console.log(text);
+  // Dasselbe zusätzlich in die Logdatei; sie überlebt einen harten Absturz
+  // besser als der Journalpuffer und lässt sich im WebUI herunterladen.
+  protokoll?.schreibe('info', 'dienst', text);
 }
 
 function paketVersion(): string {
@@ -136,6 +150,42 @@ function paketVersion(): string {
 const konfig = ladeKonfiguration(process.argv[2] ?? '/etc/asksin-analyzer/config.json');
 
 mkdirSync(dirname(konfig.db), { recursive: true });
+
+// ---- Protokoll (M13) ----------------------------------------------------
+// Stufe und Aufbewahrung sind über die Weboberfläche einstellbar und liegen
+// dienst-schreibbar im Datenverzeichnis; config.json bleibt Experten-Weg.
+const protokollDatei = join(dirname(konfig.db), 'protokoll.json');
+const protokollVerzeichnis = join(dirname(konfig.db), 'protokoll');
+
+interface ProtokollKonfig {
+  stufe: Stufe;
+  tage: number;
+}
+
+function protokollKonfigLesen(): ProtokollKonfig {
+  const basis: ProtokollKonfig = {
+    stufe: istStufe(konfig.protokoll?.stufe) ? konfig.protokoll.stufe : 'info',
+    tage: typeof konfig.protokoll?.tage === 'number' ? konfig.protokoll.tage : 14,
+  };
+  try {
+    const ui = JSON.parse(readFileSync(protokollDatei, 'utf8')) as Record<string, unknown>;
+    return {
+      stufe: istStufe(ui['stufe']) ? ui['stufe'] : basis.stufe,
+      tage: typeof ui['tage'] === 'number' ? ui['tage'] : basis.tage,
+    };
+  } catch {
+    return basis;
+  }
+}
+
+{
+  const k = protokollKonfigLesen();
+  protokoll = new Protokoll({
+    verzeichnis: protokollVerzeichnis,
+    stufe: k.stufe,
+    tage: k.tage,
+  });
+}
 
 // Demo-Modus: Schalter in der Weboberfläche → Flag-Datei im Datenverzeichnis
 // (dorthin darf der Dienst schreiben; /etc ist per systemd schreibgeschützt).
@@ -866,6 +916,43 @@ const influxHooks = {
 };
 
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
+// ---- Protokoll-Hooks fuer die Weboberflaeche ----------------------------
+
+const protokollHooks = {
+  zustand: (): Record<string, unknown> => {
+    const p = protokoll;
+    if (p === null) return { verfuegbar: false };
+    return {
+      verfuegbar: true,
+      stufe: p.stufe,
+      tage: p.tage,
+      verzeichnis: protokollVerzeichnis,
+      eintraege: p.eintraege,
+      schreibfehler: p.schreibfehler,
+      dateien: p.dateien(),
+    };
+  },
+  einstellen: (auftrag: Record<string, unknown>): void => {
+    const p = protokoll;
+    if (p === null) throw new Error('Protokoll nicht verfügbar');
+    const stufe = auftrag['stufe'];
+    if (!istStufe(stufe)) {
+      throw new Error('stufe: fehler, info, debug oder alles erwartet');
+    }
+    const tage = auftrag['tage'];
+    if (typeof tage !== 'number' || !Number.isFinite(tage) || tage < 1 || tage > 365) {
+      throw new Error('tage: 1–365 erwartet');
+    }
+    p.einstellen(stufe, Math.round(tage));
+    writeFileSync(
+      protokollDatei,
+      JSON.stringify({ stufe, tage: Math.round(tage) }, null, 2) + '\n',
+    );
+    p.info('protokoll', `Stufe ${stufe}, Aufbewahrung ${Math.round(tage)} Tage`);
+  },
+  datei: (name: string): string | null => protokoll?.lies(name) ?? null,
+};
+
 const api = new ApiServer({
   analyzer,
   db,
@@ -879,6 +966,7 @@ const api = new ApiServer({
   netzwerk: netzwerkHooks,
   statusAnzeige: statusAnzeigeHooks,
   influx: influxHooks,
+  protokoll: protokollHooks,
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');
     void herunterfahren(0);
@@ -935,6 +1023,75 @@ const { host, port } = await api.listen(konfig.http.port, konfig.http.host).catc
 log(`AskSin-Analyzer ${paketVersion()} — API auf http://${host}:${port}`);
 if (existsSync(uiDir)) log(`Web-UI: ${uiDir}`);
 else log('Kein Web-UI gefunden (webui/dist fehlt) — nur API');
+
+// ---- Systemdiagnose im Takt (M13) ---------------------------------------
+//
+// Der eigentliche Zweck des Protokolls: Wenn der Pi nach Stunden einfriert,
+// steht in der Datei, was kurz davor los war. Aufgezeichnet wird deshalb
+// regelmäßig — und **sofort und als Fehler**, sobald etwas auffällt.
+// Erfahrungsgemäß ist die häufigste Ursache Unterspannung: PoE-HAT plus SSD
+// am USB reichen aus, um die 5-V-Schiene einbrechen zu lassen.
+
+let letzteAuffaelligkeiten = '';
+
+async function diagnoseSchreiben(regelmaessig: boolean): Promise<void> {
+  if (protokoll === null) return;
+  try {
+    const w = await erhebeSystemwerte();
+    const auff = auffaelligkeiten(w);
+    const schluessel = auff.join(' | ');
+
+    // Neue Auffälligkeit → als Fehler, damit sie auch bei Stufe „fehler"
+    // in der Datei landet. Unverändert bestehende nicht wiederholen.
+    if (schluessel !== '' && schluessel !== letzteAuffaelligkeiten) {
+      protokoll.fehler('system', `Auffällig: ${schluessel}`, w);
+    } else if (schluessel === '' && letzteAuffaelligkeiten !== '') {
+      protokoll.info('system', 'Auffälligkeiten sind wieder weg', w);
+    } else if (regelmaessig) {
+      protokoll.info(
+        'system',
+        `Temperatur ${w.temperaturC?.toFixed(1) ?? '?'} °C · ` +
+          `Speicher frei ${(w.speicherVerfuegbarMb ?? w.speicherFreiMb).toFixed(0)} MB · ` +
+          `Last ${w.last5.toFixed(2)} · Laufzeit ${(w.laufzeitS / 3600).toFixed(1)} h`,
+        w,
+      );
+    }
+    letzteAuffaelligkeiten = schluessel;
+  } catch (err) {
+    protokoll.fehler('system', `Diagnose fehlgeschlagen: ${String(err)}`);
+  }
+}
+
+// Alle 60 s prüfen (das ist billig), aber nur alle 15 min eine Zeile
+// schreiben, solange nichts auffällt — sonst läuft die Datei voll.
+let diagnoseZaehler = 0;
+const diagnoseTakt = setInterval(() => {
+  diagnoseZaehler++;
+  void diagnoseSchreiben(diagnoseZaehler % 15 === 0);
+}, 60_000);
+diagnoseTakt.unref();
+void diagnoseSchreiben(true);
+
+// ---- Unerwartetes Ende festhalten ---------------------------------------
+// Ohne diese Haken endet der Prozess bei einem Programmierfehler wortlos —
+// genau das macht die Suche nach einem Absturz nach Stunden aussichtslos.
+process.on('uncaughtException', (err) => {
+  protokoll?.fehler('absturz', `Unbehandelte Ausnahme: ${String(err)}`, {
+    stack: err.stack,
+  });
+  console.error(err);
+  process.exit(1);
+});
+process.on('unhandledRejection', (grund) => {
+  protokoll?.fehler('absturz', `Unbehandelte Zusage: ${String(grund)}`);
+  console.error(grund);
+});
+for (const signal of ['SIGHUP', 'SIGQUIT', 'SIGABRT'] as const) {
+  process.on(signal, () => {
+    protokoll?.fehler('absturz', `Signal ${signal} empfangen — Prozess endet`);
+    void herunterfahren(1);
+  });
+}
 
 // ---- Sauber herunterfahren ---------------------------------------------
 

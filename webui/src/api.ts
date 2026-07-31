@@ -479,3 +479,43 @@ export async function flasheFirmware(
   // 200 und 500 tragen beide das Ergebnis-JSON mit dem avrdude-Log:
   return (await res.json()) as { ok: boolean; log: string };
 }
+
+// ---- Protokoll (M13) ------------------------------------------------------
+
+/** Protokollstufen, aufsteigend gesprächig. */
+export type ProtokollStufe = 'fehler' | 'info' | 'debug' | 'alles';
+
+export interface ProtokollDatei {
+  name: string;
+  groesse: number;
+  datum: string;
+}
+
+export interface ProtokollZustand {
+  verfuegbar: boolean;
+  stufe: ProtokollStufe;
+  tage: number;
+  verzeichnis: string;
+  eintraege: number;
+  schreibfehler: string | null;
+  dateien: ProtokollDatei[];
+}
+
+export const holeProtokoll = (): Promise<ProtokollZustand> =>
+  hole('/api/protokoll');
+
+export async function sendeProtokoll(auftrag: {
+  stufe: ProtokollStufe;
+  tage: number;
+}): Promise<void> {
+  const res = await fetch('/api/protokoll', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify(auftrag),
+  });
+  if (!res.ok) throw new Error(await res.text());
+}
+
+/** Adresse zum Herunterladen einer Logdatei (Browser lädt direkt). */
+export const protokollDateiUrl = (name: string): string =>
+  `/api/protokoll/datei/${encodeURIComponent(name)}`;

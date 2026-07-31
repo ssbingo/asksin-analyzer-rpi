@@ -230,18 +230,20 @@ def add_board_marking(board) -> None:
     breite = max(len(z) for z in MARKING_TOP) * 0.72 + 1.0
     hoehe = 2.4 * len(MARKING_TOP) + 1.0
 
+    # Bewusst konservativ: **jedes** Pad und **jedes** Via gilt als Hindernis,
+    # unabhängig von Seite und Abdeckung. Eine feinere Unterscheidung hatte
+    # Löcher (die Markierung landete trotzdem über einer Maskenöffnung), und
+    # Platz ist auf dieser Platine reichlich vorhanden.
     hindernisse = []
     for fp in board.GetFootprints():
         for pad in fp.Pads():
-            if pad.GetAttribute() == pcbnew.PAD_ATTRIB_SMD and fp.IsFlipped() is False:
-                continue
             bb = pad.GetBoundingBox()
             hindernisse.append((pcbnew.ToMM(bb.GetLeft()) - G.ORIGIN_X,
                                 pcbnew.ToMM(bb.GetTop()) - G.ORIGIN_Y,
                                 pcbnew.ToMM(bb.GetRight()) - G.ORIGIN_X,
                                 pcbnew.ToMM(bb.GetBottom()) - G.ORIGIN_Y))
     for item in board.GetTracks():
-        if item.Type() == pcbnew.PCB_VIA_T and not item.IsTented(pcbnew.B_Mask):
+        if item.Type() == pcbnew.PCB_VIA_T:
             pos = item.GetPosition()
             r = pcbnew.ToMM(item.GetWidth()) / 2 + 0.1
             x = pcbnew.ToMM(pos.x) - G.ORIGIN_X
