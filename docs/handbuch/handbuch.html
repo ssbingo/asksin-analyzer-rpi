@@ -26,21 +26,68 @@
      jeder Seite erscheint, ist ein fest positioniertes Element. Chromium
      wiederholt solche Elemente beim Druck auf jeder Seite und erzeugt dabei
      auch die Verweis-Annotationen; genau das ist nachgeprueft. */
-  .fusszeile {
+  /* ---- Fusssteg auf jeder Seite ab Kapitel 1 -------------------------
+     Chromium kennt in den Randbereichen der Druckseite keine eigenen Inhalte;
+     der einzige Weg zu etwas, das auf JEDER Seite erscheint, ist ein fest
+     positioniertes Element. Weder ein negatives `bottom` noch ein negativer
+     Aussenabstand bringen es in den Rand — beides laesst die Zeile umlaufen
+     und oben auf der Seite landen. Also `bottom: 0` und dafuer ein grosszuegig
+     bemessener unterer Seitenrand. */
+  .fusssteg {
     position: fixed;
-    /* Gemessen statt geraten: `bottom: 0` setzt die Zeile an den unteren Rand
-       des Satzspiegels (y ≈ 766 von 842 pt). Ein negatives `bottom` laesst
-       Chromium umlaufen — die Zeile landete dann oben auf der Seite. Der
-       untere Seitenrand ist dafuer auf 22 mm vergroessert, damit unter der
-       Zeile noch Luft bleibt. */
     bottom: 0;
     left: 0;
     right: 0;
-    text-align: center;
-    font-size: 8.5pt;
-    color: var(--grau);
+    z-index: 1;
+    /* Farbiger Rahmen wie bei den Codeblöcken — der Steg soll als eigenes
+       Element erkennbar sein und nicht wie eine verirrte Textzeile wirken. */
+    background: var(--petrol-hell);
+    border: 0.7pt solid var(--petrol);
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4mm;
+    padding: 1.1mm 3.5mm 1.3mm;
+    font-size: 7.6pt;
+    color: var(--petrol-dunkel);
+    letter-spacing: 0.01em;
   }
-  .fusszeile a { color: var(--petrol); text-decoration: none; }
+  .fusssteg .mitte { font-weight: 700; white-space: nowrap; }
+  .fusssteg a { color: var(--petrol); text-decoration: none; }
+  .fusssteg .links, .fusssteg .rechts { white-space: nowrap; }
+  .fusssteg .rechts { text-align: right; }
+
+  /* Deckblatt und Vorspann decken den Steg ab: Dort ist ein Verweis auf das
+     Inhaltsverzeichnis sinnlos. Ein per-Seite-Schalter existiert im Druck
+     nicht — die beiden Bloecke legen sich stattdessen mit weissem Grund und
+     hoeherer Stapelebene darueber. */
+  /* Der Fusssteg erscheint auf JEDER Seite, auch auf Deckblatt, Vorspann und
+     Inhalt. Das ist eine bewusste Entscheidung, keine Nachlaessigkeit:
+     Chromium bietet beim Druck keinen Schalter „ab Seite 4". Drei Wege wurden
+     erprobt und alle drei verworfen —
+       * abdecken ueber Hintergrund und Stapelebene: haengt daran, dass der
+         Block seine Seite genau ausfuellt; beim Vorspann tat er das nicht,
+       * ein absolut gesetzter Deckel: verschob den Umbruch und liess den Steg
+         anderswo durchscheinen,
+       * zwei getrennte Renderlaeufe zusammenfuegen: bricht die Sprungmarken
+         des Inhaltsverzeichnisses.
+     Ein Steg auf allen Seiten ist vorhersagbar; ein Steg, der auf manchen
+     Seiten durchscheint, waere ein Fehler. */
+  .vorspann, .toc { break-before: page; }
+
+  /* Auf dem Deckblatt bleibt der Fusssteg unsichtbar: Dort waere ein Verweis
+     aufs Inhaltsverzeichnis sinnlos, und die Zeile wuerde die ganzseitige
+     Abbildung stoeren. Das Deckblatt fuellt seine Seite ohnehin vollstaendig
+     und deckt den Steg mit eigenem Grund und hoeherer Stapelebene ab — beim
+     Vorspann liess sich dasselbe NICHT verlaesslich erreichen, weil sein Text
+     die Seite nicht ausfuellt. Dort steht der Steg deshalb bewusst mit. */
+  .deckblatt {
+    position: relative;
+    z-index: 3;
+    min-height: 265mm;
+  }
+  .deckblatt { background: var(--petrol-dunkel); }
   html { font-size: 10.6pt; }
   body { font-family: "DejaVu Sans", sans-serif; color: var(--tinte); line-height: 1.55; margin: 0; }
   h1, h2, h3 { font-family: "DejaVu Sans", sans-serif; line-height: 1.25; }
@@ -132,7 +179,6 @@
      3. "Ueber dieses Handbuch" und "Inhalt" beginnen auf eigenen Seiten.
      Ob eine Ueberschrift unter der Mitte landet, weiss man erst nach dem
      Satz; gemessen und gesetzt wird das von umbrueche.py. */
-  .toc { break-before: page; }
   #inhalt { break-before: page; }
   /* Minor-Kapitel duerfen sich eine Seite teilen — aber keines darf
      unterhalb der Seitenmitte beginnen. Ob das der Fall ist, steht erst nach
@@ -160,19 +206,23 @@
 </style>
 </head>
 <body>
-<div class="fusszeile"><a href="#inhalt">↑ Inhaltsverzeichnis</a></div>
+<div class="fusssteg">
+  <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
+  <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.9.0</span>
+</div>
 
 
 <!-- ==================================================== DECKBLATT -->
 <div class="deckblatt">
   <div class="inner">
     <div class="badge">Homematic · BidCoS · 868&nbsp;MHz</div>
-    <div class="badge">Raspberry&nbsp;Pi&nbsp;4</div>
+    <div class="badge">Raspberry&nbsp;Pi&nbsp;3/4/5</div>
     <div class="badge">Selbstbau</div>
     <div class="badge">Weboberfläche · Verbund</div>
     <h1>AskSin-Analyzer</h1>
     <div class="unter">Das Handbuch — vom leeren Platinen-Layout bis zum Verbund aus fünf Funkanalyzern</div>
-    <img class="held" src="img/platine-schraeg.png" alt="Die Analyzer-Platine">
+    <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
       <span>Hardware 0.2.0 · Software 0.9.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
@@ -181,7 +231,7 @@
 </div>
 
 <!-- ==================================================== ÜBER DIESES HANDBUCH -->
-<div class="toc">
+<div class="vorspann">
 <h1>Über dieses Handbuch</h1>
 <p>Dieses Handbuch richtet sich an <strong>Einsteigerinnen und Einsteiger</strong>.
 Du brauchst keine Elektronik-Ausbildung — aber einen Lötkolben, etwas Geduld und
@@ -206,7 +256,10 @@ sind Kommentare und werden nicht eingetippt:</p>
 <pre><span class="c"># Das ist ein Kommentar — nur zur Erklärung</span>
 sudo apt update</pre>
 
-<h1 id="inhalt" style="margin-top:10mm">Inhalt</h1>
+</div>
+
+<div class="toc">
+<h1 id="inhalt">Inhalt</h1>
 <ol>
   <li><a href="#k1"><span class="nr">1</span> Was ist der AskSin-Analyzer?</a></li>
   <li><a href="#k2"><span class="nr">2</span> Wie das System funktioniert</a></li>
