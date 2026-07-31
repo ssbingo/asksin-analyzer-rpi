@@ -23,7 +23,10 @@ ProtectSystem=strict
 ProtectHome=true
 PrivateTmp=true
 ReadWritePaths=/var/lib/asksin-analyzer
-DeviceAllow=/dev/i2c-1 rw
+# Bewusst KEIN DeviceAllow: Sobald eine solche Zeile dasteht, schaltet systemd
+# auf DevicePolicy=closed und sperrt jedes nicht genannte Geraet — damit auch
+# die gpiochip-Knoten, ueber die Blinka auf dem Pi 5 arbeitet. Der Zugriff auf
+# /dev/i2c-1 kommt ohnehin ueber die Gruppe 'i2c', nicht ueber diese Liste.
 
 [Install]
 WantedBy=multi-user.target

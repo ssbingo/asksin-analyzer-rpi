@@ -128,11 +128,30 @@ else
 fi
 
 # Meldet sich ueberhaupt ein Display?
-if command -v i2cdetect >/dev/null 2>&1; then
-    if i2cdetect -y 1 2>/dev/null | grep -qiE ' 3c| 3d'; then
-        c_ok "OLED auf dem I2C-Bus gefunden (0x3C/0x3D)."
-    else
-        c_warn "Auf dem I2C-Bus meldet sich kein Display."
-        c_warn "I2C eingeschaltet? sudo raspi-config nonint do_i2c 0 && sudo reboot"
+#
+# Der erste Anlauf hat hier jeden Fehler verschluckt (2>/dev/null) und dann
+# pauschal "kein Display" gemeldet — auch wenn in Wahrheit der Bus fehlte oder
+# i2cdetect gar nicht laufen konnte. Ein Fehlalarm an dieser Stelle schickt
+# einen auf die falsche Faehrte, deshalb wird jetzt unterschieden.
+if ! [ -e /dev/i2c-1 ]; then
+    c_warn "/dev/i2c-1 gibt es nicht — der I2C-Bus ist nicht eingeschaltet."
+    c_warn "  sudo raspi-config nonint do_i2c 0 && sudo reboot"
+elif ! command -v i2cdetect >/dev/null 2>&1; then
+    c_warn "i2cdetect fehlt (Paket i2c-tools) — Bus nicht pruefbar."
+else
+    SCAN="$(i2cdetect -y 1 2>&1)" || {
+        c_warn "i2cdetect meldet einen Fehler:"
+        printf '%s\n' "$SCAN" | sed 's/^/     /'
+        SCAN=""
+    }
+    if printf '%s' "$SCAN" | grep -qiE '(^|[[:space:]])(3c|3d|UU)([[:space:]]|$)'; then
+        c_ok "OLED auf dem I2C-Bus gefunden."
+    elif [ -n "$SCAN" ]; then
+        c_warn "Auf dem I2C-Bus meldet sich nichts an 0x3C/0x3D:"
+        printf '%s\n' "$SCAN" | sed 's/^/     /'
+        c_warn "Verkabelung an J5 pruefen (SDA/SCL/3,3 V/GND)."
     fi
 fi
+
+c_info "Zum Nachsehen, ob wirklich gezeichnet wird:"
+c_info "  journalctl -u asksin-analyzer-oled -n 30 --no-pager"
