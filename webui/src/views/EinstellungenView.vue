@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, reactive, ref } from 'vue';
 
+import HandbuchFuss from '../components/HandbuchFuss.vue';
+
 import GeheimFeld from '../components/GeheimFeld.vue';
 import {
   aenderePeer,
@@ -611,4 +613,6 @@ const demoUmschalten = (): Promise<void> | undefined => {
       <button class="gefahr" :disabled="beschaeftigt" @click="neustart">Dienst neu starten …</button>
     </div>
   </div>
+
+  <HandbuchFuss hinweis="Kapitel 13.4 führt durch die Einstellungen, Kapitel 18 durch Status-LED und OLED." />
 </template>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { onUnmounted, ref } from 'vue';
+
+import HandbuchFuss from '../components/HandbuchFuss.vue';
 import {
   flasheFirmware,
   holeHealth,
@@ -237,4 +239,6 @@ async function firmwareFlashen(): Promise<void> {
       Projekts bleiben CC BY-NC-SA.
     </p>
   </div>
+
+  <HandbuchFuss hinweis="Kapitel 20 beschreibt Update und Firmware-Flash, Kapitel 23 die Fehlersuche." />
 </template>

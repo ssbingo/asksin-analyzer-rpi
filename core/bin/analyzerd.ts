@@ -984,6 +984,12 @@ const influxHooks = {
 };
 
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
+// Das Handbuch liegt im Projekt, nicht im Web-UI-Verzeichnis; ausgeliefert
+// wird es über eine eigene Route, damit es auch ohne Internet erreichbar ist.
+const handbuchDatei = resolve(
+  import.meta.dirname,
+  '../../docs/handbuch/AskSin-Analyzer-Handbuch.pdf',
+);
 // ---- Protokoll-Hooks fuer die Weboberflaeche ----------------------------
 
 const protokollHooks = {
@@ -1029,6 +1035,7 @@ const api = new ApiServer({
   config: { ccuip: konfig.ccu.host, demo: demoAktiv, standort },
   ...(konfig.http.authToken === '' ? {} : { authToken: konfig.http.authToken }),
   ...(existsSync(uiDir) ? { uiDir } : {}),
+  ...(existsSync(handbuchDatei) ? { handbuchDatei } : {}),
   update: updateHooks,
   verbund: verbundHooks,
   netzwerk: netzwerkHooks,
@@ -1090,6 +1097,7 @@ const { host, port } = await api.listen(konfig.http.port, konfig.http.host).catc
 );
 log(`AskSin-Analyzer ${paketVersion()} — API auf http://${host}:${port}`);
 if (existsSync(uiDir)) log(`Web-UI: ${uiDir}`);
+if (existsSync(handbuchDatei)) log('Handbuch: /handbuch.pdf');
 else log('Kein Web-UI gefunden (webui/dist fehlt) — nur API');
 
 // ---- Systemdiagnose im Takt (M13) ---------------------------------------

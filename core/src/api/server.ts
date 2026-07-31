@@ -73,6 +73,16 @@ export interface ApiServerOptions {
   maxLogBatch?: number;
   /** Verzeichnis des gebauten Web-UI (webui/dist). Ohne Angabe: kein UI. */
   uiDir?: string;
+  /**
+   * Pfad zum Handbuch-PDF, ausgeliefert unter `/handbuch.pdf`.
+   *
+   * Eigene Route statt Ablage im Web-UI-Verzeichnis: Das PDF liegt im Repo
+   * unter `docs/handbuch/` und soll dort auch bleiben — eine Kopie in
+   * `webui/dist` würde bei jedem Bau mitwandern und die Datei doppelt im
+   * Repository halten. Der Weg über eine Route hält das Handbuch zugleich
+   * **ohne Internet** erreichbar; das Gerät steht im Schrank.
+   */
+  handbuchDatei?: string;
   /** Update-Mechanik (liefert analyzerd). Ohne Hooks: 501 auf /api/update/*. */
   update?: UpdateHooks;
   /** Verbund-Rolle (M9.2/M9.3). Ohne: 501 auf /api/verbund*. */
@@ -377,6 +387,29 @@ export class ApiServer {
           'Content-Disposition': `attachment; filename="${name}"`,
         });
         res.end(inhalt);
+        return;
+      }
+      // Handbuch — eigener Pfad, damit es ohne Internet erreichbar ist.
+      if (pfad === '/handbuch.pdf') {
+        const datei =
+          this.#opts.handbuchDatei === undefined
+            ? null
+            : this.#leseDatei(this.#opts.handbuchDatei);
+        if (datei === null) {
+          return this.#text(
+            res,
+            404,
+            'Handbuch nicht gefunden. Es liegt im Projekt unter ' +
+              'docs/handbuch/AskSin-Analyzer-Handbuch.pdf und steht auch bei ' +
+              'jedem Release auf GitHub bereit.',
+          );
+        }
+        res.writeHead(200, {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'inline; filename="AskSin-Analyzer-Handbuch.pdf"',
+          'Cache-Control': 'no-cache',
+        });
+        res.end(datei);
         return;
       }
       // Alles Übrige: das gebaute Web-UI (mit SPA-Fallback).

@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { reactive, ref } from 'vue';
 
+import HandbuchFuss from '../components/HandbuchFuss.vue';
+
 import {
   holeProtokoll,
   protokollDateiUrl,
@@ -149,4 +151,6 @@ nutzeTakt(laden, 15_000);
       Diese Core-Version führt noch kein Protokoll.
     </p>
   </div>
+
+  <HandbuchFuss hinweis="Kapitel 22 erklärt das Protokoll und wofür die vier Stufen gut sind." />
 </template>
