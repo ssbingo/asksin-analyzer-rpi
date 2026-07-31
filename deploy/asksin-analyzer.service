@@ -6,6 +6,12 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+# Legt /run/asksin-analyzer an (tmpfs). Dort liegen die kurzlebigen
+# Austauschdateien zwischen den Diensten — Farbe, Anzeigezustand, Framebuffer.
+# Preserve, damit das Verzeichnis einen Neustart eines einzelnen Dienstes
+# ueberlebt und die anderen nicht ins Leere greifen.
+RuntimeDirectory=asksin-analyzer
+RuntimeDirectoryPreserve=yes
 Type=simple
 User=asksin
 Group=asksin

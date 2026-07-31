@@ -15,7 +15,16 @@
  */
 
 import { execFile } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, statfsSync, writeFileSync } from 'node:fs';
+import {
+  accessSync,
+  constants,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statfsSync,
+  writeFileSync,
+} from 'node:fs';
 import { freemem, hostname, loadavg, networkInterfaces, totalmem } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -748,6 +757,31 @@ function statusDaten(): StatusDaten {
 // „im Nachhinein aktivierbar", ganz ohne Konsole (Leitlinie des Projekts).
 const statusKonfigDatei = join(datenDir, 'statusanzeige.json');
 
+/**
+ * Verzeichnis für kurzlebige Austauschdateien zwischen den Diensten.
+ *
+ * Die Farbe der LED, der Anzeigezustand und der zuletzt gezeichnete
+ * Framebuffer sind **keine Daten**, sondern Zurufe zwischen Prozessen. Sie
+ * lagen bisher unter /var/lib und damit auf der Platte — die Zustandsdatei
+ * wird bei jeder Wertänderung neu geschrieben, im Demo-Modus mehrmals je
+ * Minute. Auf einem Pi, der über USB von einer SSD bootet, ist das eine
+ * unnötige Dauerlast auf genau der Verbindung, die als Wackelkandidat gilt.
+ *
+ * /run liegt im Arbeitsspeicher (tmpfs) und ist der richtige Ort dafür. Gibt
+ * es das Verzeichnis nicht — etwa beim Start von Hand ohne systemd —, bleibt
+ * es beim Datenverzeichnis.
+ */
+const laufzeitDir = (() => {
+  const kandidat = '/run/asksin-analyzer';
+  try {
+    mkdirSync(kandidat, { recursive: true });
+    accessSync(kandidat, constants.W_OK);
+    return kandidat;
+  } catch {
+    return datenDir;
+  }
+})();
+
 interface StatusKonfig {
   led: 'ws2812-spi' | 'ws2812-pwm' | 'aus';
   oled: boolean;
@@ -794,11 +828,11 @@ async function statusAnzeigeAufbauen(): Promise<void> {
     oledHoehe: k.oledHoehe,
     // Im PWM-Modus schreibt der Core nur die Farbe hierhin; der Root-Dienst
     // asksin-analyzer-led liest sie und treibt GPIO18.
-    pwmDatei: join(dirname(konfig.db), 'led-farbe'),
+    pwmDatei: join(laufzeitDir, 'led-farbe'),
     // Werte für den Anzeigedienst; er zeichnet daraus mit den Bibliotheken
     // des Vorbilds und legt das fertige Bild wieder daneben.
-    oledZustandDatei: join(dirname(konfig.db), 'oled-state.json'),
-    oledBildDatei: join(dirname(konfig.db), 'oled-bild.b64'),
+    oledZustandDatei: join(laufzeitDir, 'oled-state.json'),
+    oledBildDatei: join(laufzeitDir, 'oled-bild.b64'),
     daten: statusDaten,
     onError: (kontext, err) => log(`Statusanzeige (${kontext}): ${String(err)}`),
     // Jede Hardware-Aktion ins Protokoll (Stufe „debug"): Bricht die
@@ -823,7 +857,7 @@ const statusAnzeigeHooks = {
     let vorschauSeiten = SEITEN_ANZAHL;
     try {
       const roh = JSON.parse(
-        readFileSync(join(dirname(konfig.db), 'oled-bild.b64'), 'utf8'),
+        readFileSync(join(laufzeitDir, 'oled-bild.b64'), 'utf8'),
       ) as { bild?: string; hoehe?: number; seiten?: number };
       if (typeof roh.bild === 'string') {
         vorschau = roh.bild;

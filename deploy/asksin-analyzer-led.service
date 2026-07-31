@@ -13,6 +13,12 @@ After=asksin-analyzer.service
 Wants=asksin-analyzer.service
 
 [Service]
+# Legt /run/asksin-analyzer an (tmpfs). Dort liegen die kurzlebigen
+# Austauschdateien zwischen den Diensten — Farbe, Anzeigezustand, Framebuffer.
+# Preserve, damit das Verzeichnis einen Neustart eines einzelnen Dienstes
+# ueberlebt und die anderen nicht ins Leere greifen.
+RuntimeDirectory=asksin-analyzer
+RuntimeDirectoryPreserve=yes
 Type=simple
 ExecStart=/opt/asksin-analyzer/led-venv/bin/python /opt/asksin-analyzer/deploy/led-pwm.py
 Restart=always

@@ -53,8 +53,19 @@ from pathlib import Path
 # etwas geaendert hat, also kostet ein schneller Takt fast nichts — aber der
 # Tastendruck und der Knopf im WebUI wirken damit ohne spuerbare Verzoegerung.
 TAKT_S = 0.1
-VORGABE_ZUSTAND = "/var/lib/asksin-analyzer/oled-state.json"
-VORGABE_BILD = "/var/lib/asksin-analyzer/oled-bild.b64"
+# Kurzlebige Austauschdateien gehoeren nach /run (tmpfs, Arbeitsspeicher) und
+# nicht auf die Platte: Der Zustand wird bei jeder Wertaenderung neu
+# geschrieben. Auf einem Pi, der ueber USB von einer SSD bootet, ist das
+# unnoetige Dauerlast auf genau der Verbindung, die als Wackelkandidat gilt.
+# Fehlt /run/asksin-analyzer, bleibt es beim Datenverzeichnis.
+def _vorgabe(name: str) -> str:
+    laufzeit = Path("/run/asksin-analyzer")
+    return str((laufzeit if laufzeit.is_dir() else
+                Path("/var/lib/asksin-analyzer")) / name)
+
+
+VORGABE_ZUSTAND = _vorgabe("oled-state.json")
+VORGABE_BILD = _vorgabe("oled-bild.b64")
 
 # Aus dem Original übernommen.
 TTF_KANDIDATEN = (
