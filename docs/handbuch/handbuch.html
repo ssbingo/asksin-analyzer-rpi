@@ -1055,6 +1055,7 @@ Weboberfläche. Falls doch, installiert der Installer den Befehl
 <tr><td><code>asksin-analyzer status</code></td><td>Läuft der Dienst?</td></tr>
 <tr><td><code>asksin-analyzer logs</code></td><td>Live-Protokoll (Strg+C beendet)</td></tr>
 <tr><td><code>asksin-analyzer health</code></td><td>Kurzcheck der API</td></tr>
+<tr><td><code>asksin-analyzer token</code></td><td>Auth-Token der Weboberfläche anzeigen</td></tr>
 <tr><td><code>asksin-analyzer config</code></td><td>Konfigurationsdatei bearbeiten</td></tr>
 <tr><td><code>asksin-analyzer restart</code></td><td>Dienst neu starten</td></tr>
 <tr><td><code>sudo asksin-analyzer update</code></td><td>Update von Hand (geht auch per Klick, Kapitel 15)</td></tr>
@@ -1722,7 +1723,7 @@ einmal je Browser unter <em>Einstellungen → Zugriff</em> ein; es bleibt nur in
 diesem Browser gespeichert.</p>
 <div class="tipp box"><span class="titel">✓ Token vergessen?</span>
 Es steht in der Konfigurationsdatei auf dem Pi:
-<code>sudo grep authToken /etc/asksin-analyzer/config.json</code></div>
+<code>asksin-analyzer token</code></div>
 
 <h2 id="k21-2">21.2 Grundsätze</h2>
 <ul>
@@ -1848,7 +1849,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>Weboberfläche nicht erreichbar</td><td>Dienst gestoppt oder nur an 127.0.0.1 gebunden</td><td><code>asksin-analyzer status</code>; in <code>config.json</code> muss <code>"host": "0.0.0.0"</code> stehen (LAN-Frage des Installers)</td></tr>
 <tr><td>Kopfzeile dauerhaft „Sniffer getrennt"</td><td>HAT steckt nicht / UART nicht eingerichtet / Baudrate</td><td>Ohne Platine normal. Sonst: <code>asksin-analyzer logs</code> — steht dort ein Gerätefehler, Kapitel 9 (UART-Frage des Installers) wiederholen</td></tr>
 <tr><td>Geräte heißen nur „1A2B3C" statt Klarnamen</td><td>CCU nicht erreichbar oder CCU-Script fehlt</td><td>CCU-Adresse in <em>Einstellungen → Standort &amp; Zentrale</em> prüfen; auf der CCU muss die Systemvariable <code>AskSinAnalyzerDevList</code> befüllt werden (Kapitel 12/CCU-Script im Repo)</td></tr>
-<tr><td>„Nicht erlaubt" beim Speichern in der Weboberfläche</td><td>Auth-Token fehlt in diesem Browser</td><td>Token unter <em>Einstellungen → Zugriff</em> eintragen (Kapitel 21; vergessen? <code>sudo grep authToken /etc/asksin-analyzer/config.json</code>)</td></tr>
+<tr><td>„Nicht erlaubt" beim Speichern in der Weboberfläche</td><td>Auth-Token fehlt in diesem Browser</td><td>Token unter <em>Einstellungen → Zugriff</em> eintragen (Kapitel 21; vergessen? <code>asksin-analyzer token</code>)</td></tr>
 <tr><td>🔔-Glocke erscheint nie</td><td>Pi ohne Internetzugang zu GitHub</td><td><code>asksin-analyzer logs</code> zeigt „Aktualitätsprüfung fehlgeschlagen"; Update dann von Hand: <code>sudo asksin-analyzer update</code></td></tr>
 <tr><td>Verbund-Kachel warnt „Uhr weicht ab"</td><td>NTP auf einem Analyzer nicht synchron</td><td>Auf dem betroffenen Gerät <em>Einstellungen → Netzwerk</em>: Zeile „NTP aktuell" muss „synchron" zeigen — sonst NTP-Server setzen (Vorgabe de.pool.ntp.org)</td></tr>
 <tr><td>Flotten-Update meldet „Auth-Token fehlt"</td><td>Peer verlangt Token, keines hinterlegt</td><td>Peer entfernen und mit seinem Token neu verknüpfen (<em>Einstellungen → Verbund</em>)</td></tr>

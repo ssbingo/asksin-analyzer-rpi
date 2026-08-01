@@ -63,6 +63,7 @@ ist nichts zu tun.
 asksin-analyzer status     # Dienststatus
 asksin-analyzer logs       # Live-Log (journald)
 asksin-analyzer health     # Kurzcheck der API
+asksin-analyzer token      # Auth-Token der Weboberflaeche anzeigen
 asksin-analyzer config     # Konfiguration bearbeiten (+ restart)
 sudo asksin-analyzer update  # neuer Stand + UI-Build + Neustart
 ```

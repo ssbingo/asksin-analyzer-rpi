@@ -29,6 +29,47 @@ case "${1:-}" in
     update)
         sudo bash "$INSTALL_DIR/update.sh"
         ;;
+    token)
+        # Der Token steht nur in der Konfiguration — die Weboberflaeche zeigt
+        # ihn absichtlich nicht her, wenn er dort nicht schon hinterlegt ist.
+        # Genau deshalb sucht man ihn irgendwann wieder, und genau dafuer ist
+        # dieser Unterbefehl da.
+        #
+        # Gelesen wird mit einem JSON-Parser statt mit grep: Ein Token darf
+        # Zeichen enthalten, die ein Suchmuster zerlegen wuerde, und der
+        # Wert soll ohne Anfuehrungszeichen und Komma herauskommen.
+        # Nur bei fehlenden RECHTEN nachfragen, nicht bei fehlender Datei —
+        # sonst fragt sudo nach dem Passwort, um anschliessend "gibt es nicht"
+        # zu melden. Das -e davor macht genau diesen Unterschied.
+        if [ -e "$CONFIG_FILE" ] && [ ! -r "$CONFIG_FILE" ] && [ "$(id -u)" -ne 0 ]; then
+            exec sudo "$0" token
+        fi
+        wert="$(python3 - "$CONFIG_FILE" <<'PY'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf8") as f:
+        print(json.load(f).get("http", {}).get("authToken", ""))
+except FileNotFoundError:
+    print("__FEHLT__")
+except (OSError, ValueError) as e:
+    print(f"__KAPUTT__{e}")
+PY
+)"
+        case "$wert" in
+            __FEHLT__)
+                echo "Keine Konfiguration unter $CONFIG_FILE." >&2
+                exit 1 ;;
+            __KAPUTT__*)
+                echo "Konfiguration nicht lesbar: ${wert#__KAPUTT__}" >&2
+                exit 1 ;;
+            "")
+                echo "Kein Token gesetzt — die Weboberflaeche verlangt keinen."
+                echo "Einen vergeben:  asksin-analyzer config   (http.authToken)"
+                ;;
+            *)
+                echo "$wert" ;;
+        esac
+        ;;
     health)
         port="$(grep -o '"port": *[0-9]*' "$CONFIG_FILE" 2>/dev/null | grep -o '[0-9]*' || echo 8080)"
         curl -s "http://127.0.0.1:${port}/api/health" && echo
@@ -40,6 +81,7 @@ AskSin-Analyzer — Verwaltungsbefehl
   asksin-analyzer status     Dienststatus anzeigen
   asksin-analyzer logs       Live-Log verfolgen (Strg+C beendet)
   asksin-analyzer health     Kurzcheck der laufenden API
+  asksin-analyzer token      Auth-Token der Weboberflaeche anzeigen
   asksin-analyzer config     Konfiguration bearbeiten
   asksin-analyzer restart    Dienst neu starten
   asksin-analyzer stop       Dienst anhalten
