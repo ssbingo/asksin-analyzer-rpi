@@ -3,11 +3,12 @@ import { onMounted, onUnmounted, ref } from 'vue';
 import {
   holeNoise,
   holeSnapshot,
+  holeLangzeit,
   holeStatusAnzeige,
   holeTelegramme,
   statusSeiteWeiter,
 } from '../api.ts';
-import type { Snapshot, StatusAnzeigeZustand, Telegramm } from '../api.ts';
+import type { LangzeitZustand, Snapshot, StatusAnzeigeZustand, Telegramm } from '../api.ts';
 import { echarts, tortenOption, zeitChartOption } from '../chart.ts';
 import type { TortenStueck } from '../chart.ts';
 import { dbm, vorZeit } from '../format.ts';
@@ -30,6 +31,7 @@ function anpassen(): void {
 // ---- Status-LED / OLED (M11) --------------------------------------------
 
 const status = ref<StatusAnzeigeZustand | null>(null);
+const langzeit = ref<LangzeitZustand | null>(null);
 const oledCanvas = ref<HTMLCanvasElement | null>(null);
 
 const statusAktiv = (): boolean => {
@@ -72,6 +74,17 @@ nutzeTakt(async () => {
     status.value = null;               // ältere Core-Version ohne den Endpunkt
   }
 }, 2000);
+
+// Eigener, langsamerer Takt: Diese Werte ändern sich höchstens beim Umbauen,
+// und die Standortzahl kommt aus einer Abfrage an die Datenbank. Sie im
+// Zweisekundentakt zu holen wäre Verschwendung.
+nutzeTakt(async () => {
+  try {
+    langzeit.value = await holeLangzeit();
+  } catch {
+    langzeit.value = null;             // ältere Core-Version ohne den Endpunkt
+  }
+}, 30_000);
 
 async function blaettern(): Promise<void> {
   await statusSeiteWeiter().catch(() => {});
@@ -243,6 +256,48 @@ nutzeTakt(async () => {
           ⚠ {{ kontext }}: {{ text }}
         </div>
       </div>
+      <!-- Mittlerer Block: Was tut die Langzeitaufzeichnung gerade? Diese
+           Fragen stellt man sich im Vorbeigehen, nicht in den Einstellungen —
+           deshalb stehen sie hier und nicht dort. -->
+      <div v-if="langzeit !== null && langzeit.rolle === 'master'" style="min-width: 15rem">
+        <table class="daten" style="max-width: 20rem">
+          <tbody>
+            <tr>
+              <td class="gedimmt">Influx</td>
+              <td><span class="chip" :class="langzeit.influxAktiv ? '' : 'schwach'">
+                {{ langzeit.influxAktiv ? (langzeit.influxLokal ? 'aktiv (lokal)' : 'aktiv (extern)') : 'inaktiv' }}
+              </span></td>
+            </tr>
+            <tr>
+              <td class="gedimmt">Grafana</td>
+              <td><span class="chip" :class="langzeit.installiert.grafana ? '' : 'schwach'">
+                {{ langzeit.installiert.grafana ? 'aktiv' : 'inaktiv' }}
+              </span></td>
+            </tr>
+            <tr>
+              <td class="gedimmt">Sammlung</td>
+              <td class="num">
+                {{ langzeit.standorte === null ? '—'
+                   : langzeit.standorte === 1 ? '1 Standort'
+                   : `${langzeit.standorte} Standorte` }}
+              </td>
+            </tr>
+            <tr>
+              <td class="gedimmt">Alarmierung</td>
+              <td><span class="chip" :class="langzeit.alarmierung !== null ? '' : 'schwach'">
+                {{ langzeit.alarmierung === 'iobroker' ? 'ioBroker'
+                   : langzeit.alarmierung === 'email' ? 'E-Mail'
+                   : langzeit.alarmierung === 'telegram' ? 'Telegram'
+                   : 'keine' }}
+              </span></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="fussnote" style="max-width: 20rem">
+          <a href="#/einstellungen">Einstellungen → Langzeitdaten</a>
+        </div>
+      </div>
+
       <!-- Schiebt die Vorschau an den rechten Rand; die Kennzahlen bleiben
            links stehen. Auf schmalen Anzeigen hebt style.css das wieder auf,
            weil die Zeile dort umbricht und ein rechtsbuendiger Block sonst

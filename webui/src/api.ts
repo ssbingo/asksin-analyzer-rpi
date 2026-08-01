@@ -542,6 +542,14 @@ export interface LangzeitZustand {
   hardware: { modell: string; ramGb: number };
   masterFaehig: { faehig: boolean; grund: string };
   installiert: { influxdb: boolean; grafana: boolean };
+  /** Schreibt der Analyzer gerade in eine InfluxDB? */
+  influxAktiv: boolean;
+  /** Liegt diese Datenbank auf demselben Gerät? */
+  influxLokal: boolean;
+  /** Wie viele Standorte tatsächlich in der Datenbank stehen; null = unbekannt. */
+  standorte: number | null;
+  /** Eingestellter Alarmweg; null, wenn keiner aktiv ist. */
+  alarmierung: 'iobroker' | 'email' | 'telegram' | null;
   /** Fortschritt des Einrichtungsskripts; null, solange nie eines lief. */
   installation: {
     schritt?: string;

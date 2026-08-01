@@ -1132,11 +1132,71 @@ function leseLangzeitStatus(): Record<string, unknown> | null {
   }
 }
 
+/**
+ * Wie viele Standorte liegen in der Datenbank?
+ *
+ * Nicht geraten aus der Peer-Liste, sondern gefragt: Ein Standort zaehlt,
+ * wenn er auch wirklich schreibt. Ein eingetragener, aber ausgefallener Peer
+ * darf hier nicht mitzaehlen — sonst behauptet die Uebersicht eine
+ * Vollstaendigkeit, die nicht besteht.
+ *
+ * Das Ergebnis wird eine Minute lang behalten: Die Uebersichtsseite fragt im
+ * Sekundentakt, und diese Zahl aendert sich hoechstens beim Aufbau.
+ */
+let standorteCache: { zahl: number | null; bis: number } = { zahl: null, bis: 0 };
+
+async function zaehleStandorte(): Promise<number | null> {
+  if (Date.now() < standorteCache.bis) return standorteCache.zahl;
+  const k = influxKonfigLesen();
+  if (!k.aktiv || k.url === '') {
+    standorteCache = { zahl: null, bis: Date.now() + 60_000 };
+    return null;
+  }
+  try {
+    const res = await fetch(
+      `${k.url.replace(/\/+$/, '')}/api/v2/query?org=${encodeURIComponent(k.org)}`,
+      {
+        method: 'POST',
+        headers: {
+          authorization: `Token ${k.token}`,
+          'content-type': 'application/vnd.flux',
+          accept: 'application/csv',
+        },
+        body:
+          'import "influxdata/influxdb/schema"\n' +
+          `schema.tagValues(bucket: "${k.bucket}", tag: "standort")`,
+        signal: AbortSignal.timeout(4000),
+      },
+    );
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    // CSV: eine Kopfzeile, danach je Standort eine Zeile.
+    const zeilen = (await res.text())
+      .split('\n')
+      .filter((z) => z.trim() !== '' && !z.startsWith('#') && !z.includes(',_value'));
+    const zahl = zeilen.length;
+    standorteCache = { zahl, bis: Date.now() + 60_000 };
+    return zahl;
+  } catch {
+    // Kein Wert statt einer Null: "0 Standorte" waere eine Aussage, "nicht
+    // ermittelbar" ist die Wahrheit.
+    standorteCache = { zahl: null, bis: Date.now() + 60_000 };
+    return null;
+  }
+}
+
 const langzeitHooks = {
-  zustand: (): unknown => {
+  zustand: async (): Promise<unknown> => {
     const r = aktuelleRolle();
+    const influx = influxKonfigLesen();
+    const ziel = leseAlarmziel();
     return {
       ...r,
+      // Fuer die Uebersichtsseite: nur Zustaende, keine Geheimnisse — deshalb
+      // braucht diese Route auch keinen Token.
+      influxAktiv: influx.aktiv && influx.url !== '',
+      influxLokal: influx.url.includes('127.0.0.1') || influx.url.includes('localhost'),
+      standorte: await zaehleStandorte(),
+      alarmierung: ziel.aktiv ? ziel.kanal : null,
       hardware: {
         modell: hardware.modell === '' ? 'unbekannt' : hardware.modell,
         ramGb: Number((hardware.ramBytes / 1024 ** 3).toFixed(1)),

@@ -118,7 +118,7 @@ export interface ApiServerOptions {
    *  InfluxDB und Grafana. Nur der Master darf installieren — geprüft wird
    *  das im Hook, nicht hier. */
   langzeit?: {
-    zustand(): unknown;
+    zustand(): unknown | Promise<unknown>;
     einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
   };
   /** Alarmziele (M14.2): wohin Grafana meldet — ioBroker, E-Mail, Telegram. */
@@ -386,7 +386,7 @@ export class ApiServer {
         case '/api/langzeitdaten': {
           const hooks = this.#opts.langzeit;
           if (hooks === undefined) return this.#text(res, 501, 'Keine Langzeitdaten');
-          return this.#json(res, 200, hooks.zustand());
+          return this.#json(res, 200, await hooks.zustand());
         }
         case '/api/alarmziel': {
           // Als einzige Leseroute mit Token geschuetzt: Hier stehen das
