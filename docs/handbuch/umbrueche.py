@@ -163,6 +163,101 @@ def seitenzahl() -> str:
     return m.group(1) if m else "?"
 
 
+TABELLE = re.compile(r'^<tr><th>(.*?)</tr>')
+
+
+def tabellenkoepfe(text: str) -> list[list[str]]:
+    """Die Wortfolge jeder Tabellenkopfzeile, in Dokumentreihenfolge."""
+    aus: list[list[str]] = []
+    for z in text.splitlines():
+        m = TABELLE.match(z)
+        if m:
+            roh = re.sub(r"<[^>]+>", " ", m.group(1))
+            aus.append(roh.replace("\u00a0", " ").split())
+    return aus
+
+
+def verwaiste_koepfe() -> list[tuple[str, ...]]:
+    """Welche Tabellenkopfzeilen stehen allein am Seitenfuss?
+
+    Eine Kopfzeile ohne Tabelle darunter sagt gar nichts — der Leser blaettert
+    um und muss sich merken, wie die Spalten hiessen. Der saubere CSS-Weg
+    (`break-after: avoid` auf thead) wird von WeasyPrint in Tabellen nicht
+    umgesetzt; deshalb wird im fertigen Satz nachgemessen.
+
+    Gesucht wird SEITENWEISE, nicht der Reihe nach: Lange Tabellen wiederholen
+    ihre Kopfzeile auf jeder Folgeseite, und ein fortlaufender Zeiger geriet
+    dadurch aus dem Takt und uebersprang die naechsten Tabellen.
+
+    Zurueck kommt die Wortfolge jeder betroffenen Kopfzeile.
+    """
+    roh = subprocess.run(["pdftotext", "-bbox", str(PDF), "-"],
+                         capture_output=True, text=True).stdout
+    seiten: dict[int, list[tuple[float, str]]] = {}
+    seite = 0
+    for zeile in roh.splitlines():
+        if "<page" in zeile:
+            seite += 1
+            continue
+        m = re.search(
+            r'<word xMin="[\d.]+" yMin="([\d.]+)"[^>]*>([^<]*)</word>', zeile)
+        if m:
+            seiten.setdefault(seite, []).append((float(m.group(1)), m.group(2)))
+
+    bekannt = {tuple(k) for k in tabellenkoepfe(HTML.read_text(encoding="utf8")) if k}
+    betroffen: list[tuple[str, ...]] = []
+    for woerter in seiten.values():
+        # Der Fusssteg liegt unter dem Satzspiegel und zaehlt nicht mit.
+        inhalt = [w for w in woerter if w[0] < 790]
+        if not inhalt:
+            continue
+        unterste = max(y for y, _ in inhalt)
+        letzte = tuple(t for y, t in inhalt if abs(y - unterste) < 2)
+        if letzte in bekannt and letzte not in betroffen:
+            betroffen.append(letzte)
+    return betroffen
+
+
+def markiere_tabellen(text: str, umbruch: set[tuple[str, ...]]) -> str:
+    """Setzt die Klasse an allen Tabellen mit betroffener Kopfzeile.
+
+    Angesprochen wird ueber die Wortfolge des Kopfes, nicht ueber eine
+    laufende Nummer: Nummern verschieben sich, sobald jemand eine Tabelle
+    ergaenzt, und dann traefe die Marke die falsche.
+    """
+    zeilen = text.splitlines()
+    letzte_tabelle = -1
+    for i, z in enumerate(zeilen):
+        if z.startswith("<table"):
+            letzte_tabelle = i
+            continue
+        m = TABELLE.match(z)
+        if m is None or letzte_tabelle < 0:
+            continue
+        kopf = tuple(re.sub(r"<[^>]+>", " ", m.group(1)).replace("\u00a0", " ").split())
+        zeilen[letzte_tabelle] = (
+            '<table class="umbruch">' if kopf in umbruch else "<table>")
+        letzte_tabelle = -1
+    return "\n".join(zeilen) + "\n"
+
+
+def behebe_tabellen() -> set[tuple[str, ...]]:
+    """Schiebt Tabellen weiter, deren Kopfzeile allein am Seitenfuss steht."""
+    marken: set[tuple[str, ...]] = set()
+    for runde in range(1, 7):
+        betroffen = [k for k in verwaiste_koepfe() if k not in marken]
+        if not betroffen:
+            break
+        marken |= set(betroffen)
+        for k in betroffen:
+            print(f"  Kopfzeile „{' '.join(k)}“ stand allein am Seitenfuss "
+                  f"→ Tabelle auf die naechste Seite")
+        HTML.write_text(markiere_tabellen(HTML.read_text(encoding="utf8"), marken),
+                        encoding="utf8")
+        baue_pdf()
+    return marken
+
+
 def raeume_auf(umbruch: set[str]) -> set[str]:
     """Entfernt Marken, die sich im fertigen Satz als überflüssig erweisen.
 
@@ -232,6 +327,11 @@ def main() -> int:
                 HTML.write_text(markiere(HTML.read_text(encoding="utf8"), umbruch),
                                 encoding="utf8")
                 baue_pdf()
+            # Zum Schluss die Tabellen: Das Aufraeumen verschiebt den Satz, und
+            # eine vorher behobene Kopfzeile koennte danach wieder verwaisen.
+            marken = behebe_tabellen()
+            if marken:
+                print(f"{len(marken)} Tabelle(n) auf die Folgeseite geschoben.")
                 print(f"Fertig — {seitenzahl()} Seiten, {len(umbruch)} "
                       f"Überschriften auf eigener Seite.")
             return 0

@@ -164,6 +164,12 @@
   table { border-collapse: collapse; width: 100%; margin: 3mm 0; font-size: 9.6pt; }
   thead { display: table-header-group; }
   tr { break-inside: avoid; }
+  /* `break-after: avoid` auf thead und `break-before: avoid` auf der ersten
+     Datenzeile waeren der saubere Weg — WeasyPrint setzt beides in Tabellen
+     nicht um. Stattdessen misst umbrueche.py im fertigen Satz nach, welche
+     Kopfzeile allein am Seitenfuss steht, und schiebt DIESE Tabelle auf die
+     naechste Seite. Erzwungene Umbrueche werden zuverlaessig befolgt. */
+  table.umbruch { break-before: page; }
   th { background: var(--petrol); color: #fff; text-align: left; padding: 1.8mm 2.5mm; }
   td { border-bottom: 1px solid var(--linie); padding: 1.6mm 2.5mm; vertical-align: top; }
   tr:nth-child(even) td { background: #f8fafc; }
@@ -837,7 +843,7 @@ nötig, schadet aber auch nie.</div>
 <p>Unsere Werte — sie stellen den Chip auf den externen 8-MHz-Resonator,
 aktivieren die Spannungsüberwachung und reservieren Platz für den Bootloader:</p>
 
-<table class="schmal">
+<table>
 <tr><th>Fuse</th><th>Wert</th><th>Bewirkt</th></tr>
 <tr><td>low (lfuse)</td><td><code>0xFF</code></td><td>externer Taktgeber 8–16 MHz, kein Teiler — der Chip läuft mit vollen 8 MHz vom Resonator Y1</td></tr>
 <tr><td>high (hfuse)</td><td><code>0xDE</code></td><td>Bootloader-Bereich 512 Byte, Start im Bootloader</td></tr>
@@ -871,7 +877,7 @@ geht, kann Abschnitt 7.3 sogar überspringen.</p>
 <li><em>Werkzeuge → Board → Boardverwalter</em>: nach „MiniCore" suchen,
 installieren.</li>
 <li>Unter <em>Werkzeuge</em> exakt einstellen:
-<table class="schmal">
+<table>
 <tr><th>Einstellung</th><th>Wert</th></tr>
 <tr><td>Board</td><td>MiniCore → <strong>ATmega328</strong></td></tr>
 <tr><td>Variant</td><td><strong>328P / 328PA</strong></td></tr>
@@ -1078,7 +1084,7 @@ belegen, unsere Reset-Leitung.</li>
 <p>Für den Alltag brauchst du die Konsole nicht — alles Wichtige geht über die
 Weboberfläche. Falls doch, installiert der Installer den Befehl
 <code>asksin-analyzer</code>:</p>
-<table class="schmal">
+<table>
 <tr><th>Befehl</th><th>Zweck</th></tr>
 <tr><td><code>asksin-analyzer status</code></td><td>Läuft der Dienst?</td></tr>
 <tr><td><code>asksin-analyzer logs</code></td><td>Live-Protokoll (Strg+C beendet)</td></tr>
@@ -1272,7 +1278,7 @@ Schrank läuft, ist das Gold wert.</div>
 </table>
 
 <h2 id="k12-2">12.2 Wichtige Pfade auf dem Pi</h2>
-<table class="schmal">
+<table>
 <tr><th>Pfad</th><th>Inhalt</th></tr>
 <tr><td><code>/opt/asksin-analyzer</code></td><td>die Software (Git-Arbeitskopie)</td></tr>
 <tr><td><code>/etc/asksin-analyzer/config.json</code></td><td>Grundkonfiguration (Installer/Experten)</td></tr>
@@ -1350,7 +1356,7 @@ ankommt. Das ist der schnellste Funktionstest für ein einzelnes Gerät.</div>
 <figure class="rahmen"><img src="img/ui-einstellungen.png" alt="Die Einstellungen">
 <figcaption>Alle Verwaltung an einem Ort — Konsole nicht nötig.</figcaption></figure>
 <p>Jedes Panel dieser Seite hat sein eigenes Kapitel; hier der Überblick:</p>
-<table>
+<table class="umbruch">
 <tr><th>Panel</th><th>Inhalt</th><th>Details</th></tr>
 <tr><td>Verbund</td><td>weitere Analyzer verknüpfen/entfernen</td><td>Kapitel 17</td></tr>
 <tr><td>Netzwerk</td><td>DHCP/Statisch, Hostname, NTP — mit Aussperr-Schutz</td><td>Kapitel 16</td></tr>
@@ -1587,7 +1593,7 @@ sei die Schrift zu klein oder das Display defekt.</p>
 </div>
 
 <h2 class="umbruch" id="k18-2">18.2 Die LED-Farbsprache</h2>
-<table class="schmal">
+<table>
 <tr><th>Farbe/Muster</th><th>Bedeutung</th></tr>
 <tr><td>🟢 grün, ruhig</td><td>alles in Ordnung</td></tr>
 <tr><td>🔵 blau, atmend</td><td>Software-Update verfügbar</td></tr>
@@ -1613,7 +1619,7 @@ müssten in der kleinen Schrift stehen und wären auf einem 0,96-Zoll-Panel
 nicht mehr zu entziffern.</p>
 
 <p>Die Reihenfolge beim Blättern:</p>
-<table class="schmal">
+<table>
 <tr><th>Seite</th><th>zeigt</th></tr>
 <tr><td><strong>1</strong> Standort</td><td>der Anzeigename dieses Analyzers</td></tr>
 <tr><td><strong>2</strong> Sniffer</td><td>BEREIT / GETRENNT / DEMO</td></tr>
@@ -1642,7 +1648,7 @@ Durchblättern am Gerät zur Zumutung. Beruhigt sich ein Gerät wieder,
 verschwindet seine Seite von selbst.</p>
 
 <h2 id="k18-4">18.4 Der Taster — blättern und neu starten</h2>
-<table class="schmal">
+<table>
 <tr><th>Haltedauer</th><th>Wirkung</th></tr>
 <tr><td>ab 50 ms (kurz)</td><td>eine Seite weiter</td></tr>
 <tr><td>ab 5 Sekunden</td><td>„Neustart…" erscheint auf dem Display</td></tr>
@@ -2533,7 +2539,7 @@ NVMe-Platine und umgeht USB als Speicherweg vollständig.</p>
 <div class="kapitelband"></div>
 
 <h2 id="k24-1">24.1 Belegung des Pi-Headers (genutzte Pins)</h2>
-<table class="schmal">
+<table>
 <tr><th>Pi-Pin</th><th>Signal</th><th>Verwendung</th></tr>
 <tr><td>1</td><td>3V3</td><td>durchgereicht an OLED (J5) und LED (J7)</td></tr>
 <tr><td>2, 4</td><td>5V</td><td>Versorgung der Platine</td></tr>
@@ -2548,7 +2554,7 @@ NVMe-Platine und umgeht USB als Speicherweg vollständig.</p>
 </table>
 
 <h2 class="umbruch" id="k24-2">24.2 Prüfpunkte</h2>
-<table class="schmal">
+<table>
 <tr><th>Pad</th><th>Signal</th><th>Sollwert im Betrieb</th></tr>
 <tr><td>TP1</td><td>RESET</td><td>3,3 V (Ruhe)</td></tr>
 <tr><td>TP2</td><td>+3,3 V</td><td>3,25–3,35 V</td></tr>
