@@ -125,6 +125,8 @@ export interface ApiServerOptions {
   alarmziel?: {
     zustand(): unknown;
     einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
+    /** Schickt eine Testmail und liefert den Klartext für die Oberfläche. */
+    testen(auftrag: Record<string, unknown>): Promise<string>;
   };
   /** Protokoll (M13): Stufe und Aufbewahrung einstellen, Dateien herunterladen. */
   protokoll?: {
@@ -372,6 +374,11 @@ export class ApiServer {
           return this.#json(res, 200, hooks.zustand());
         }
         case '/api/influx': {
+          // Mit Token geschuetzt wie /api/alarmziel: Hier steht der
+          // Influx-Zugangstoken drin. Er wird bewusst zurueckgegeben, damit er
+          // in der Oberflaeche nachschlagbar ist — dann muss der Zugriff
+          // darauf aber geschuetzt sein.
+          if (!this.#autorisiert(req, res)) return;
           const hooks = this.#opts.influx;
           if (hooks === undefined) return this.#text(res, 501, 'Keine Influx-Anbindung');
           return this.#json(res, 200, hooks.zustand());
@@ -382,6 +389,11 @@ export class ApiServer {
           return this.#json(res, 200, hooks.zustand());
         }
         case '/api/alarmziel': {
+          // Als einzige Leseroute mit Token geschuetzt: Hier stehen das
+          // SMTP-Passwort und der Bot-Token drin. Sie werden bewusst
+          // zurueckgegeben, damit man sie in der Oberflaeche nachsehen kann —
+          // dann muss aber auch der Zugriff darauf geschuetzt sein.
+          if (!this.#autorisiert(req, res)) return;
           const hooks = this.#opts.alarmziel;
           if (hooks === undefined) return this.#text(res, 501, 'Keine Alarmziele');
           return this.#json(res, 200, hooks.zustand());
@@ -512,6 +524,18 @@ export class ApiServer {
           }
           await hooks.einstellen(auftrag);
           return this.#text(res, 200, 'OK — sofort wirksam');
+        }
+        case '/api/alarmziel/test': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.alarmziel;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Alarmziele');
+          let auftrag: Record<string, unknown> = {};
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            /* leerer Body = gespeicherte Werte nehmen */
+          }
+          return this.#text(res, 200, await hooks.testen(auftrag));
         }
         case '/api/alarmziel':
         case '/api/langzeitdaten': {

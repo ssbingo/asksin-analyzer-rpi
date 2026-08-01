@@ -22,6 +22,7 @@ import {
   mkdirSync,
   readFileSync,
   rmSync,
+  statSync,
   statfsSync,
   writeFileSync,
 } from 'node:fs';
@@ -55,6 +56,7 @@ import {
   pruefeAlarmziel,
 } from '../src/langzeit/alarmziel.ts';
 import type { Alarmziel } from '../src/langzeit/alarmziel.ts';
+import { netzLeitung, smtpTestlauf } from '../src/langzeit/smtp.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
 import type { Stufe } from '../src/log/protokoll.ts';
@@ -1029,7 +1031,10 @@ const influxHooks = {
   zustand: (): Record<string, unknown> => {
     const k = influxKonfigLesen();
     return {
-      konfig: { ...k, token: undefined, hatToken: k.token !== '' },
+      // Der Token geht mit zurueck — wie beim Alarmziel gilt: Wer ihn sucht,
+      // soll ihn in der Oberflaeche nachsehen koennen statt in einer Datei
+      // auf dem Pi. Die Leseroute ist dafuer mit dem Auth-Token geschuetzt.
+      konfig: { ...k, hatToken: k.token !== '' },
       status: influxSchreiber?.status ?? { aktiv: false },
     };
   },
@@ -1202,6 +1207,25 @@ function leseAlarmziel(): Alarmziel {
   }
 }
 
+/**
+ * Laeuft gerade eine Uebernahme — oder haengt sie?
+ *
+ * Der Anstoss wird vom Root-Helfer entfernt. Fehlt dessen Path-Unit — etwa
+ * weil das Geraet die Aktualisierung noch nicht gesehen hat —, bleibt die
+ * Datei liegen, und die Oberflaeche zeigte bis eben ewig "wird uebernommen".
+ * Nach zehn Minuten ist das kein Laufen mehr, sondern ein Haenger, und der
+ * gehoert benannt statt als Fortschritt getarnt.
+ */
+function uebernahmeZustand(): { laeuft: boolean; haengtSeitMinuten: number | null } {
+  try {
+    const alterMs = Date.now() - statSync(alarmzielTrigger).mtimeMs;
+    if (alterMs < 10 * 60_000) return { laeuft: true, haengtSeitMinuten: null };
+    return { laeuft: false, haengtSeitMinuten: Math.round(alterMs / 60_000) };
+  } catch {
+    return { laeuft: false, haengtSeitMinuten: null };
+  }
+}
+
 const alarmzielHooks = {
   zustand: (): unknown => {
     const z = leseAlarmziel();
@@ -1209,17 +1233,14 @@ const alarmzielHooks = {
       kanal: z.kanal,
       aktiv: z.aktiv,
       iobroker: z.iobroker,
-      // Geheimnisse gehen NIE zurueck an den Browser. Stattdessen nur die
-      // Auskunft, ob eines hinterlegt ist — mehr braucht die Oberflaeche
-      // nicht, um "gesetzt (leer lassen zum Behalten)" anzuzeigen.
-      email: { ...z.email, passwort: '', hatPasswort: z.email.passwort !== '' },
-      telegram: {
-        chatId: z.telegram.chatId,
-        botToken: '',
-        hatBotToken: z.telegram.botToken !== '',
-      },
+      // Die Geheimnisse gehen mit zurueck, damit man sie in der Oberflaeche
+      // nachsehen kann — wer sein SMTP-Passwort sucht, soll es nicht in einer
+      // Datei auf dem Pi suchen muessen. Der Preis dafuer: Diese Leseroute
+      // verlangt den Auth-Token, anders als die uebrigen.
+      email: { ...z.email, hatPasswort: z.email.passwort !== '' },
+      telegram: { ...z.telegram, hatBotToken: z.telegram.botToken !== '' },
       angewendet: existsSync(alarmzielYaml),
-      laeuft: existsSync(alarmzielTrigger),
+      ...uebernahmeZustand(),
       // Der Endpunkt im ioBroker-Adapter entsteht erst in einer spaeteren
       // Phase. Ehrlich melden statt so tun, als sei alles fertig.
       iobrokerBereit: false,
@@ -1248,6 +1269,36 @@ const alarmzielHooks = {
     writeFileSync(alarmzielSmtp, baueSmtpUmgebung(neu), { mode: 0o600 });
     writeFileSync(alarmzielTrigger, `${new Date().toISOString()}\n`);
     log(`Alarmziel gesetzt: ${neu.kanal} (aktiv: ${neu.aktiv})`);
+  },
+  testen: async (auftrag: Record<string, unknown>): Promise<string> => {
+    verlangeMaster(aktuelleRolle().rolle);
+    const gespeichert = leseAlarmziel();
+    const e: Alarmziel['email'] = {
+      ...gespeichert.email,
+      ...((auftrag['email'] ?? {}) as Partial<Alarmziel['email']>),
+    };
+    // Leeres Passwort heisst auch hier "das gespeicherte nehmen" — sonst
+    // liesse sich nichts testen, ohne es vorher neu einzutippen.
+    if (e.passwort === '') e.passwort = gespeichert.email.passwort;
+    if (!e.empfaenger.includes('@')) throw new Error('Empfänger fehlt');
+    if (e.smtpHost.trim() === '') throw new Error('SMTP-Server fehlt');
+
+    const leitung = await netzLeitung(e.smtpHost, e.smtpPort);
+    try {
+      await smtpTestlauf(leitung, {
+        host: e.smtpHost,
+        port: e.smtpPort,
+        benutzer: e.benutzer,
+        passwort: e.passwort,
+        absender: e.absender,
+        empfaenger: e.empfaenger,
+        standort,
+      });
+    } finally {
+      leitung.schliesse();
+    }
+    log(`Testmail an ${e.empfaenger} verschickt`);
+    return `Testmail an ${e.empfaenger} verschickt — der Server hat sie angenommen.`;
   },
 };
 

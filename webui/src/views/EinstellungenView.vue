@@ -19,6 +19,7 @@ import {
   sende,
   sendeInflux,
   sendeAlarmziel,
+  testeAlarmziel,
   sendeLangzeit,
   sendeNetzwerk,
   sendeStatusAnzeige,
@@ -177,11 +178,23 @@ const alarm = reactive({
   chatId: '',
 });
 const alarmZustand = ref<AlarmzielZustand | null>(null);
+const alarmTestText = ref('');
+const alarmTestFehler = ref(false);
+let alarmTakt: ReturnType<typeof setInterval> | null = null;
 
 async function alarmLaden(): Promise<void> {
   try {
     const z = await holeAlarmziel();
     alarmZustand.value = z;
+    // Solange die Uebernahme laeuft, nachfragen. Ohne das blieb "wird
+    // uebernommen" stehen, bis jemand die Seite neu lud — auch dann, wenn
+    // laengst alles fertig war.
+    if (z.laeuft && alarmTakt === null) {
+      alarmTakt = setInterval(() => void alarmLaden(), 2000);
+    } else if (!z.laeuft && alarmTakt !== null) {
+      clearInterval(alarmTakt);
+      alarmTakt = null;
+    }
     alarm.aktiv = z.aktiv;
     alarm.kanal = z.kanal;
     alarm.iobrokerUrl = z.iobroker.url;
@@ -191,12 +204,36 @@ async function alarmLaden(): Promise<void> {
     alarm.benutzer = z.email.benutzer;
     alarm.absender = z.email.absender;
     alarm.chatId = z.telegram.chatId;
-    // Geheimnisse kommen nie zurueck — die Felder bleiben leer, und leer
-    // heisst beim Speichern "behalten".
-    alarm.passwort = '';
-    alarm.botToken = '';
+    // Die Geheimnisse kommen mit und werden eingetragen: Wer sein Passwort
+    // sucht, soll es hier nachsehen koennen. Das Augensymbol daneben schaltet
+    // zwischen versteckt und lesbar um.
+    alarm.passwort = z.email.passwort;
+    alarm.botToken = z.telegram.botToken;
   } catch {
     /* ältere Core-Version */
+  }
+}
+
+async function alarmTesten(): Promise<void> {
+  alarmTestText.value = 'Verbinde mit dem Postausgangsserver …';
+  alarmTestFehler.value = false;
+  try {
+    alarmTestText.value = await testeAlarmziel({
+      email: {
+        empfaenger: alarm.empfaenger.trim(),
+        smtpHost: alarm.smtpHost.trim(),
+        smtpPort: Number(alarm.smtpPort),
+        benutzer: alarm.benutzer.trim(),
+        passwort: alarm.passwort,
+        absender: alarm.absender.trim(),
+      },
+    });
+  } catch (e) {
+    alarmTestFehler.value = true;
+    // Die Serverantwort woertlich stehen lassen — sie ist die eigentliche
+    // Auskunft. "535 Authentication credentials invalid" sagt einem Menschen,
+    // was zu tun ist; ein rotes Kreuz sagt nichts.
+    alarmTestText.value = e instanceof Error ? e.message : String(e);
   }
 }
 
@@ -246,6 +283,7 @@ async function langzeitLaden(): Promise<void> {
 
 onBeforeUnmount(() => {
   if (langzeitTakt !== null) clearInterval(langzeitTakt);
+  if (alarmTakt !== null) clearInterval(alarmTakt);
 });
 
 const rolleSetzen = (rolle: 'master' | 'client'): Promise<void> =>
@@ -283,6 +321,8 @@ async function influxLaden(): Promise<void> {
     influx.bucket = z.konfig.bucket;
     influx.intervallSekunden = z.konfig.intervallSekunden;
     influx.hatToken = z.konfig.hatToken;
+    // Der Token kommt jetzt mit zurueck — nachschlagbar statt versteckt.
+    influx.token = z.konfig.token;
     influxVerfuegbar.value = true;
     const s = z.status;
     if (s.aktiv) {
@@ -813,6 +853,17 @@ const demoUmschalten = (): Promise<void> | undefined => {
           :name="`Passwort ${alarmZustand.email.hatPasswort ? '(gesetzt — leer lassen zum Behalten)' : ''}`"
           style="flex: 2" />
       </div>
+      <div class="zeile" style="margin: 0.6rem 0">
+        <button :disabled="beschaeftigt" @click="alarmTesten">Testmail senden</button>
+        <span class="fussnote" style="margin: 0">
+          Schickt sofort eine Nachricht — ohne Umweg über Grafana und ohne
+          vorher zu speichern.
+        </span>
+      </div>
+      <div class="meldung" :class="alarmTestFehler ? 'fehler' : 'ok'"
+           v-if="alarmTestText !== ''">
+        {{ alarmTestText }}
+      </div>
       <div class="fussnote">
         Port 587 mit STARTTLS ist der zuverlässigste Weg. Viele Anbieter
         verlangen ein <strong>eigenes E-Mail-Passwort</strong> statt des
@@ -846,6 +897,12 @@ const demoUmschalten = (): Promise<void> | undefined => {
       </button>
       <span class="chip" v-if="alarmZustand.laeuft">wird übernommen …</span>
       <span class="chip" v-else-if="alarmZustand.angewendet">in Grafana eingetragen</span>
+    </div>
+    <div class="meldung fehler" v-if="alarmZustand.haengtSeitMinuten !== null">
+      Der Auftrag liegt seit {{ alarmZustand.haengtSeitMinuten }} Minuten
+      unbearbeitet. Vermutlich fehlt der Helfer, der ihn nach Grafana
+      übernimmt — ein <code>sudo /opt/asksin-analyzer/update.sh</code> holt ihn
+      nach. Die Einstellungen selbst sind gespeichert.
     </div>
     <div class="fussnote">
       Gespeichert wird beides zusammen: der Kontaktpunkt <em>und</em> die

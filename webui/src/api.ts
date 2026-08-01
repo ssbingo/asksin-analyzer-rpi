@@ -270,6 +270,8 @@ export interface InfluxZustand {
     url: string;
     org: string;
     bucket: string;
+    /** Kommt im Klartext zurück — die Leseroute ist token-geschützt. */
+    token: string;
     hatToken: boolean;
     intervallSekunden: number;
   };
@@ -582,18 +584,33 @@ export interface AlarmzielZustand {
     smtpPort: number;
     benutzer: string;
     absender: string;
-    /** Ist eines hinterlegt? Das Passwort selbst kommt nie zurück. */
+    /** Kommt im Klartext zurück — die Leseroute ist dafür token-geschützt. */
+    passwort: string;
     hatPasswort: boolean;
   };
-  telegram: { chatId: string; hatBotToken: boolean };
+  telegram: { chatId: string; botToken: string; hatBotToken: boolean };
   /** Wurde schon einmal etwas nach Grafana übernommen? */
   angewendet: boolean;
   laeuft: boolean;
+  /** Liegt der Anstoß seit Minuten unbearbeitet herum? Dann fehlt der Helfer. */
+  haengtSeitMinuten: number | null;
   /** Der Endpunkt im ioBroker-Adapter entsteht erst in einer späteren Phase. */
   iobrokerBereit: boolean;
 }
 
 export const holeAlarmziel = (): Promise<AlarmzielZustand> => hole('/api/alarmziel');
+
+/** Verschickt eine Testmail; liefert die Klartextmeldung des Servers. */
+export async function testeAlarmziel(auftrag: Record<string, unknown>): Promise<string> {
+  const res = await fetch('/api/alarmziel/test', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify(auftrag),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(text);
+  return text;
+}
 
 export async function sendeAlarmziel(auftrag: Record<string, unknown>): Promise<void> {
   const res = await fetch('/api/alarmziel', {
