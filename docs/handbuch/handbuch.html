@@ -217,7 +217,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.10.0</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.11.0</span>
 </div>
 
 
@@ -233,7 +233,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.10.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.11.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -1675,90 +1675,440 @@ Speichern nie wieder angezeigt (leeres Feld = vorhandenes behalten).</li>
 <code>docs/verbund.md</code> im Projekt.</p>
 
 <!-- ==================================================== KAPITEL 20 -->
-<h2 class="umbruch" id="k19-3">19.3 Alles auf einem Gerät: InfluxDB und Grafana lokal</h2>
+<h2 class="umbruch" id="k19-3">19.3 Alles auf einem Gerät — für Einsteiger erklärt</h2>
 
-<p>Wer keinen Server im Haus hat, kann beides auf dem Analyzer selbst laufen
-lassen. Das ist eine <strong>Zusatzoption</strong> — der Weg über eine externe
-Datenbank aus 19.1 bleibt unverändert bestehen und ist weiter wählbar.</p>
+<p>Der Rest dieses Kapitels setzt <strong>nichts</strong> voraus. Wer noch nie
+etwas von InfluxDB oder Grafana gehört hat, kann hier anfangen und Schritt für
+Schritt mitgehen.</p>
 
-<p>Zwei Bedingungen gelten dafür, und beide werden geprüft, nicht nur
-empfohlen:</p>
-
-<table>
-<tr><th>Bedingung</th><th>Warum</th></tr>
-<tr><td>Nur auf dem <strong>Master</strong></td><td>Ein Verbund braucht genau eine Datenhaltung, nicht fünf. Die Clients schicken ihre Kennzahlen dorthin.</td></tr>
-<tr><td>Ab <strong>Raspberry Pi 4</strong> mit mindestens <strong>2 GB</strong></td><td>InfluxDB und Grafana belegen zusammen rund 700 MB, und der Sniffer soll daneben weiterlaufen. Auf einem Pi 3 wird das eng — deshalb bietet die Oberfläche die Option dort gar nicht erst an.</td></tr>
-</table>
-
-<p>Eingerichtet wird beim Installieren (der Assistent fragt danach) oder
-jederzeit später unter <em>Einstellungen → Langzeitdaten vor Ort</em>. Ein
-Klick, dann läuft das Nachladen — auf einem Pi 4 dauert das einige Minuten,
-die Seite zeigt währenddessen den aktuellen Schritt. Von Hand geht es
-ebenfalls:</p>
-
-<pre>sudo bash /opt/asksin-analyzer/deploy/langzeitdaten-einrichten.sh</pre>
-
-<p>Danach sind erreichbar:</p>
+<p>Zuerst: Worum geht es überhaupt? Der Analyzer merkt sich in seiner eigenen
+Datenbank die letzten Wochen — das reicht für „was war gestern Nacht los“. Für
+längere Zeiträume und für Fragen wie „wird der Empfang im Gartenhaus seit dem
+Sommer schlechter?“ braucht es zwei weitere Bausteine:</p>
 
 <table>
-<tr><th>Dienst</th><th>Adresse</th><th>Anmeldung</th></tr>
-<tr><td>Grafana</td><td><code>http://&lt;analyzer&gt;:3000</code></td><td><code>admin</code> / <code>admin</code>; Grafana verlangt beim ersten Mal ein eigenes Passwort</td></tr>
-<tr><td>InfluxDB</td><td><code>http://&lt;analyzer&gt;:8086</code></td><td>Zugangsdaten in <code>/etc/asksin-analyzer/influx-zugang.txt</code> (nur für root lesbar)</td></tr>
+<tr><th>Baustein</th><th>Was er tut</th><th>Bild dafür</th></tr>
+<tr><td><strong>InfluxDB</strong></td><td>Nimmt alle 30 Sekunden die Messwerte entgegen und hebt sie jahrelang auf.</td><td>Das Lager. Man schaut selten hinein, aber alles ist da.</td></tr>
+<tr><td><strong>Grafana</strong></td><td>Macht aus den Zahlen Kurven, Tabellen und Warnmeldungen.</td><td>Das Schaufenster. Hier arbeitet man wirklich.</td></tr>
 </table>
 
-<p>Der Platzbedarf ist überschaubar: rund 5 bis 10 MB je Tag und Analyzer, bei
-fünf Geräten also etwa 10 bis 15 GB im Jahr. Aufbewahrt wird zwei Jahre; das
-reicht für jeden Jahresvergleich und passt auf jede SSD, die als Bootmedium
-taugt.</p>
+<p>Beide sind eigenständige, weit verbreitete Programme — nichts, was für
+dieses Projekt erfunden wurde. Neu ist nur, dass der Analyzer sie
+<em>selbst installieren</em> und fertig einrichten kann, damit niemand sich
+durch deren Handbücher arbeiten muss.</p>
 
-<p class="klein">War bereits eine <em>externe</em> InfluxDB eingestellt, wird
-sie nicht angetastet — der Analyzer schreibt weiter dorthin. Umschalten auf
-die lokale Datenbank geht in der Weboberfläche. Eine bestehende Anbindung
-stillschweigend umzuleiten wäre die falsche Art von Hilfsbereitschaft.</p>
+<h2 id="k19-4">19.4 Was das Gerät dafür können muss</h2>
 
-<h2 class="umbruch" id="k19-4">19.4 Die mitgelieferten Grafana-Ansichten</h2>
-
-<p>An Grafana scheitern die meisten nicht beim Sammeln der Daten, sondern
-daran, daraus etwas Brauchbares zu bauen. Deshalb liegen acht fertige
-Ansichten bei. Sie erscheinen nach der Einrichtung im Ordner
-<em>AskSin-Analyzer</em> und lassen sich auch in ein vorhandenes Grafana
-importieren — die Dateien liegen unter
-<code>deploy/grafana/dashboards/</code>.</p>
+<p>Nicht jeder Analyzer darf das. Die Bedingungen werden <strong>geprüft</strong>,
+nicht nur empfohlen — auf einem zu schwachen Gerät erscheint der Abschnitt in
+der Weboberfläche gar nicht erst.</p>
 
 <table>
-<tr><th>Ansicht</th><th>Beantwortet die Frage</th></tr>
-<tr><td><strong>Leitstand</strong></td><td>Läuft alles? Verbindungsband je Standort, Telegrammrate, Grundrauschen, Gerätezahl. Die Seite für den zweiten Monitor.</td></tr>
-<tr><td><strong>Funkqualität</strong></td><td>Wer wird wie gut gehört? RSSI aller Geräte, dazu die Tabelle der schwächsten Empfänge — die Liste, nach der man entscheidet, wo ein Repeater hin muss.</td></tr>
-<tr><td><strong>Duty-Cycle-Wächter</strong></td><td>Wer sendet zu viel, und seit wann? Ein einziges defektes Gerät kann das Funknetz zustopfen.</td></tr>
-<tr><td><strong>Gerätedetail</strong></td><td>Ein Gerät über alle Standorte: Welcher Analyzer hört es am besten? Die Funkloch-Karte als Verlauf.</td></tr>
-<tr><td><strong>Störungssuche</strong></td><td>Grundrauschen nach Tageszeit als Wärmebild. Ein senkrechtes Muster verrät einen Störer, der immer zur selben Zeit läuft — Schaltnetzteile und Ladegeräte sind die häufigsten.</td></tr>
-<tr><td><strong>Batterie- und Ausfallwächter</strong></td><td>Welches Gerät schweigt, und seit wann? Ein Homematic-Gerät, das plötzlich still ist, hat fast immer eine leere Batterie.</td></tr>
-<tr><td><strong>Verbund-Vergleich</strong></td><td>Alle Analyzer nebeneinander, dazu die Empfangsmatrix Gerät × Standort als Tabelle.</td></tr>
-<tr><td><strong>Gerätezustand</strong></td><td>Temperatur, Lüfter, Last, Speicher und Platte der Analyzer selbst.</td></tr>
+<tr><th>Bedingung</th><th>Wert</th><th>Warum genau so</th></tr>
+<tr><td>Rolle</td><td><strong>Master</strong></td><td>Ein Verbund braucht genau <em>eine</em> Datenhaltung. Liefen fünf Datenbanken parallel, hätte man fünf Teilwahrheiten und keine Gesamtsicht — und viermal die Schreiblast umsonst.</td></tr>
+<tr><td>Baureihe</td><td>ab <strong>Raspberry&nbsp;Pi&nbsp;4</strong></td><td>Der Pi 3 hat einen deutlich langsameren Prozessor und hängt sein Netzwerk am USB-Bus. InfluxDB schreibt im Sekundentakt — das bekämen Sniffer und Datenbank dort nicht zusammen sauber hin.</td></tr>
+<tr><td>Arbeitsspeicher</td><td>mindestens <strong>2&nbsp;GB</strong></td><td>InfluxDB belegt rund 400–500 MB, Grafana 150–250 MB, dazu der Analyzer selbst. Unter 2 GB lagert der Rechner Speicher auf die Platte aus und wird dadurch <em>langsamer</em>, nicht nur voller.</td></tr>
+<tr><td>Freier Plattenplatz</td><td>mindestens <strong>20&nbsp;GB</strong></td><td>Zwei Jahre Aufbewahrung brauchen bei fünf Analyzern etwa 10–15 GB. Der Rest ist Luft, damit nicht irgendwann alles gleichzeitig eng wird.</td></tr>
+<tr><td>Internet</td><td>beim <strong>Einrichten</strong></td><td>Die beiden Programme kommen aus ihren offiziellen Paketquellen, zusammen rund 400 MB. Danach läuft alles ohne Internet weiter.</td></tr>
 </table>
 
-<p>Dazu kommen vier <strong>Alarme</strong>, und die sind eigentlich der Grund,
-warum sich der ganze Aufwand lohnt: Sie melden sich, ohne dass jemand ein
-Dashboard offen hat.</p>
+<p class="klein">Ein Analyzer, der die Bedingungen nicht erfüllt, ist deshalb
+nicht schlechter — er läuft als <strong>Client</strong> und schickt seine
+Kennzahlen an den Master. In den Auswertungen taucht er genauso auf wie alle
+anderen.</p>
+
+<p><strong>Was hier nicht gilt:</strong> Der Zugang zu einer <em>externen</em>
+InfluxDB (Abschnitt 19.1) hat keine dieser Bedingungen. Ein Pi 3 als Client
+darf seine Daten problemlos an einen Server im Keller schicken; er soll sie
+nur nicht selbst lagern.</p>
+
+<h2 id="k19-5">19.5 Einrichten — Klick für Klick</h2>
+
+<p>Es gibt zwei Wege, und sie führen zum selben Ergebnis.</p>
+
+<p><strong>Beim Einrichten des Analyzers:</strong> Der Installationsassistent
+fragt von sich aus danach — allerdings nur, wenn zuvor „Master“ gewählt wurde
+und die Hardware reicht. Ein „j“ genügt, der Rest läuft durch.</p>
+
+<p><strong>Später, in der Weboberfläche</strong> — das ist der übliche Fall:</p>
+
+<ol>
+<li>Im Browser die Adresse des Analyzers öffnen und oben auf
+    <strong>Einstellungen</strong> gehen.</li>
+<li>Nach unten blättern bis zum Kasten
+    <strong>„Langzeitdaten vor Ort“</strong>. Fehlt der Kasten ganz, ist der
+    Analyzer als Client eingetragen oder die Hardware reicht nicht —
+    Abschnitt 19.4 sagt, welche Bedingung greift.</li>
+<li>Bei <em>Rolle im Verbund</em> muss <strong>Master</strong> stehen. Rechts
+    daneben steht zur Kontrolle, um welches Gerät es sich handelt, etwa
+    „Raspberry Pi 5 Model B Rev 1.1 · 8 GB“.</li>
+<li>Auf <strong>„InfluxDB und Grafana einrichten …“</strong> klicken.</li>
+<li>Warten. Auf einem Pi 4 dauert das <strong>fünf bis zehn Minuten</strong>.
+    Die Seite zeigt dabei den aktuellen Schritt — „Paketquellen einrichten“,
+    „InfluxDB installieren“, „Grafana installieren“. Sie darf geschlossen
+    werden; die Einrichtung läuft auf dem Gerät weiter.</li>
+</ol>
+
+<p>Fertig ist es, wenn im Kasten zwei Marken stehen — <em>InfluxDB
+installiert</em> und <em>Grafana installiert</em> — und darunter ein Verweis
+auf Grafana erscheint.</p>
+
+<p class="klein">War zuvor eine <em>externe</em> InfluxDB eingetragen, bleibt
+sie unangetastet; der Analyzer schreibt weiter dorthin. Umgestellt wird dann
+von Hand im Kasten darunter. Eine bestehende Anbindung stillschweigend
+umzuleiten wäre die falsche Art von Hilfsbereitschaft — womöglich hängen an
+der anderen Datenbank noch ganz andere Auswertungen.</p>
+
+<h2 class="umbruch" id="k19-6">19.6 Das erste Anmelden in Grafana</h2>
+
+<p>Grafana läuft jetzt auf demselben Gerät, aber unter einer eigenen Adresse:
+der IP des Analyzers, gefolgt von <code>:3000</code> — also etwa
+<code>http://192.168.1.30:3000</code>. In der Weboberfläche des Analyzers steht
+der fertige Verweis; ein Klick genügt.</p>
+
+<ol>
+<li>Beim ersten Aufruf verlangt Grafana eine Anmeldung: <code>admin</code> als
+    Benutzer, <code>admin</code> als Passwort.</li>
+<li>Sofort danach verlangt Grafana ein <strong>eigenes Passwort</strong>. Das
+    ist keine Schikane — ohne diesen Schritt käme jeder im Heimnetz an die
+    Oberfläche. Das neue Passwort gehört in den Passwortspeicher, nicht auf
+    einen Zettel am Schrank.</li>
+<li>Links in der Navigation auf <strong>Dashboards</strong> klicken. Dort
+    liegt ein Ordner <strong>AskSin-Analyzer</strong> mit acht Einträgen.</li>
+</ol>
+
+<figure>
+  <img src="img/grafana/uebersicht.svg" alt="Der Ordner AskSin-Analyzer mit acht Ansichten">
+  <figcaption>So sieht der Ordner aus. Die acht Ansichten sind bereits
+  eingerichtet — es muss nichts konfiguriert, verbunden oder importiert
+  werden.</figcaption>
+</figure>
+
+<p><strong>Warum dort schon etwas steht:</strong> Normalerweise beginnt man in
+Grafana mit einer leeren Seite und baut jede Kurve selbst. Genau daran
+scheitern die meisten. Deshalb bringt der Analyzer die acht Ansichten fertig
+mit, samt Verbindung zur Datenbank.</p>
+
+<p class="klein">Diese acht Ansichten werden bei jedem Grafana-Start neu
+eingelesen. Ändert man eine im Browser und speichert, ist die Änderung beim
+nächsten Neustart wieder weg — sonst liessen sie sich nicht mit dem Projekt
+aktualisieren. Für Eigenes legt man ein neues Dashboard
+<strong>ausserhalb</strong> dieses Ordners an; das bleibt unangetastet.</p>
+
+<h2 class="umbruch" id="k19-7">19.7 Die acht Ansichten im Einzelnen</h2>
+
+<p>Jede Ansicht beantwortet eine bestimmte Frage. Wer weiß, welche Frage er
+hat, findet damit sofort die richtige Seite. Die Zahlen in den Bildern
+verweisen auf die Erklärungen darunter.</p>
+
+<p class="klein">Die Abbildungen sind <strong>schematisch</strong> gezeichnet:
+Sie zeigen die Anordnung und typische Werte, nicht einen echten
+Bildschirmabzug. So bleiben sie lesbar, auch wenn Grafana sein Aussehen
+ändert — und es landen keine Gerätenamen aus einem fremden Haus im Handbuch.</p>
+
+<h3>Leitstand — läuft alles?</h3>
+
+<figure>
+  <img src="img/grafana/leitstand.svg" alt="Ansicht Leitstand">
+  <figcaption>Die Seite für den zweiten Monitor. Ein Blick genügt.</figcaption>
+</figure>
 
 <table>
-<tr><th>Alarm</th><th>Löst aus</th></tr>
-<tr><td>Analyzer offline</td><td>Ein Standort meldet zehn Minuten lang keine gültige Verbindung — oder gar keine Daten mehr</td></tr>
-<tr><td>Duty-Cycle zu hoch</td><td>Ein Gerät liegt eine Viertelstunde über 80 %</td></tr>
-<tr><td>Gerät verstummt</td><td>Von einem Gerät kam seit über 24 Stunden nichts mehr, an keinem Standort</td></tr>
-<tr><td>Grundrauschen erhöht</td><td>Ein Standort liegt eine halbe Stunde über −80 dBm</td></tr>
+<tr><th>Nr.</th><th>Was dort steht</th></tr>
+<tr><td>1</td><td>Wie viele Analyzer gerade eine gültige Verbindung zu ihrem Funkmodul melden. Steht hier eine kleinere Zahl als erwartet, fehlt einer.</td></tr>
+<tr><td>2</td><td>Alle Telegramme pro Minute zusammengezählt. Bricht der Wert ein, ohne dass ein Analyzer ausgefallen ist, stimmt etwas mit dem Empfang nicht.</td></tr>
+<tr><td>3</td><td>Wie viele verschiedene Funkgeräte bekannt sind. Nicht die Summe über die Standorte — dieselben Geräte werden ja mehrfach gehört.</td></tr>
+<tr><td>4</td><td>Das lauteste Gerät im Funknetz. Ab 80 % wird es eng, bei 100 % darf es per Gesetz nicht mehr senden.</td></tr>
+<tr><td>5</td><td><strong>Das wichtigste Feld.</strong> Ein grüner Balken je Standort über die Zeit. Jede rote Lücke ist ein Ausfall — hier sieht man auf einen Blick, wann und wie lange.</td></tr>
+<tr><td>6</td><td>Telegramme pro Minute, eine Linie je Standort.</td></tr>
+<tr><td>7</td><td>Das Grundrauschen. Je höher (also weniger negativ), desto mehr Störung liegt auf dem Band.</td></tr>
+<tr><td>8</td><td>Die Zahl der bekannten Geräte über die Zeit. Fällt sie, ist etwas verstummt.</td></tr>
 </table>
 
-<p><strong>Wohin die Meldungen gehen, muss einmal eingetragen werden</strong> —
-in Grafana unter <em>Alerting → Contact points</em>. E-Mail, Telegram, ein
-Webhook zum ioBroker: Das hängt davon ab, was im Haus vorhanden ist, und
-Zugangsdaten dafür gehören nicht in ein öffentliches Projekt.</p>
+<h3>Funkqualität — wer wird wie gut gehört?</h3>
 
-<p class="klein">Die Vorlagen werden bei jedem Grafana-Start neu eingelesen.
-Wer eine davon im Browser ändert und speichert, verliert die Änderung beim
-nächsten Neustart — das ist Absicht, sonst liessen sie sich nicht mit dem
-Projekt aktualisieren. Für eigene Ansichten legt man ein neues Dashboard
-ausserhalb des Ordners <em>AskSin-Analyzer</em> an.</p>
+<figure>
+  <img src="img/grafana/funkqualitaet.svg" alt="Ansicht Funkqualität">
+  <figcaption>Die Seite, nach der man entscheidet, wo ein Repeater hin muss.</figcaption>
+</figure>
+
+<p>Der Empfangspegel heißt <strong>RSSI</strong> und wird in <strong>dBm</strong>
+angegeben — als negative Zahl. Das verwirrt anfangs: <em>−58 ist besser als
+−93.</em> Merkhilfe: Je näher an null, desto lauter kommt das Gerät an.</p>
+
+<table>
+<tr><th>Bereich</th><th>Bedeutung</th></tr>
+<tr><td>−30 bis −70 dBm</td><td>kräftig, völlig unproblematisch</td></tr>
+<tr><td>−70 bis −90 dBm</td><td>brauchbar, im Alltag unauffällig</td></tr>
+<tr><td>unter −95 dBm</td><td>grenzwertig — einzelne Telegramme gehen verloren</td></tr>
+</table>
+
+<p>Feld 1 zeigt alle Geräte übereinander mit der Linie bei −95 dBm. Feld 2
+listet die schwächsten zuerst, farbig hinterlegt — <strong>das ist die
+Arbeitsliste</strong>. Feld 3 zeigt, wie stark der Pegel schwankt; große Werte
+deuten auf Reflexionen oder ein Gerät hin, das bewegt wird.</p>
+
+<h3>Duty-Cycle-Wächter — wer sendet zu viel?</h3>
+
+<figure>
+  <img src="img/grafana/dutycycle.svg" alt="Ansicht Duty-Cycle-Wächter">
+  <figcaption>Ein einziges defektes Gerät kann das ganze Funknetz blockieren.</figcaption>
+</figure>
+
+<p><strong>Was ist der Duty-Cycle?</strong> Im 868-MHz-Band darf jedes Gerät
+nur <strong>1 % einer Stunde</strong> senden — das sind 36 Sekunden. Das ist
+keine Empfehlung, sondern Gesetz, und die Geräte halten sich selbst daran: Bei
+100 % stellen sie das Senden ein, bis die Stunde vorbei ist. Ein defektes
+Gerät, das ununterbrochen sendet, verbraucht damit nicht nur sein eigenes
+Kontingent, sondern belegt das Band für alle anderen mit.</p>
+
+<p>Die Anzeige rechnet in Prozent dieses Kontingents. Die Felder 1 bis 3 nennen
+die aktuelle Lage und den Spitzenwert im Zeitraum, Feld 4 zeigt den Verlauf mit
+den Linien bei 80 % und 100 %, Feld 5 listet die lautesten Geräte mit Balken.</p>
+
+<h3>Gerätedetail — ein Gerät über alle Standorte</h3>
+
+<figure>
+  <img src="img/grafana/geraetedetail.svg" alt="Ansicht Gerätedetail">
+  <figcaption>Auswahlfeld oben, darunter alles zu diesem einen Gerät.</figcaption>
+</figure>
+
+<p>Feld 1 ist ein <strong>Auswahlfeld</strong>: oben ein Gerät wählen, und die
+ganze Seite zeigt dessen Werte. Die Felder 2 bis 4 sind der aktuelle Stand.
+Feld 5 ist der eigentliche Grund für diese Seite — <strong>eine Linie je
+Standort</strong>. Damit sieht man sofort, welcher Analyzer das Gerät am besten
+hört, und ob sich das über den Tag ändert.</p>
+
+<p>Feld 7 verdient eine Erklärung: Der Analyzer zählt Telegramme fortlaufend,
+und dieser Zähler beginnt bei jedem Dienststart wieder bei null. Die Ansicht
+rechnet deshalb die <em>Zunahme</em> je Zeitfenster aus. Ein Neustart erzeugt
+dadurch keine Delle nach unten, sondern wird schlicht übersprungen.</p>
+
+<h3>Störungssuche — wann stört was?</h3>
+
+<figure>
+  <img src="img/grafana/stoerungen.svg" alt="Ansicht Störungssuche">
+  <figcaption>Diese Seite findet Dinge, die sonst niemandem auffallen.</figcaption>
+</figure>
+
+<p>Das <strong>Grundrauschen</strong> ist der Pegel, der auch dann anliegt,
+wenn gerade niemand sendet — sozusagen die Lautstärke des leeren Raums.
+Steigt er, müssen die Funkgeräte gegen mehr Lärm ankommen, und schwache
+Telegramme gehen unter.</p>
+
+<p>Feld 2 ist ein <strong>Wärmebild</strong>: waagerecht die Stunde des Tages,
+senkrecht die Tage untereinander, die Farbe ist die Stärke. Ein
+<em>senkrechtes</em> Muster wie bei Feld 3 verrät sofort einen Störer, der
+jeden Abend zur selben Zeit läuft — ein Ladegerät, ein billiges
+Steckernetzteil, eine LED-Beleuchtung mit Schaltnetzteil. Solche Quellen
+findet man sonst nur durch Zufall.</p>
+
+<h3>Batterie- und Ausfallwächter — wer schweigt?</h3>
+
+<figure>
+  <img src="img/grafana/batterie.svg" alt="Ansicht Batterie- und Ausfallwächter">
+  <figcaption>Was oben steht, ist verdächtig.</figcaption>
+</figure>
+
+<p>Ein Homematic-Gerät meldet sich regelmäßig, auch wenn sich nichts tut. Hört
+es damit auf, ist fast immer die Batterie leer. Diese Seite sortiert alle
+Geräte danach, wie lange sie schon schweigen — das am längsten stumme oben.</p>
+
+<p>Die Farben bedeuten: grün bis 6 Stunden, gelb bis 24 Stunden, rot darüber.
+Der gelbe Bereich ist noch kein Grund zur Sorge — manche Sensoren melden sich
+von sich aus nur alle paar Stunden.</p>
+
+<p>Wichtig für den Verbund: Gezählt wird der <strong>kürzeste</strong> Abstand
+über alle Standorte. Hat auch nur ein einziger Analyzer das Gerät gerade
+gehört, lebt es. Andernfalls würde jedes Gerät als tot gemeldet, sobald ein
+weit entfernter Standort es nicht mehr empfängt.</p>
+
+<h3>Verbund-Vergleich — die Funkloch-Karte</h3>
+
+<figure>
+  <img src="img/grafana/verbund.svg" alt="Ansicht Verbund-Vergleich">
+  <figcaption>Eine Spalte je Analyzer, eine Zeile je Gerät.</figcaption>
+</figure>
+
+<p>Diese Tabelle ist die wertvollste Auswertung, die ein Verbund hergibt. In
+jeder Zelle steht, wie gut <em>dieser</em> Standort <em>dieses</em> Gerät hört.
+Eine gestrichelte Zelle heißt: gar nicht.</p>
+
+<p>Daraus liest man drei Dinge ab. Welche Geräte nur von einem einzigen
+Analyzer gehört werden — fällt der aus, ist das Gerät blind. Wo eine ganze
+Zeile schwach ist — dann liegt es am Gerät, nicht am Empfang. Und wo eine ganze
+Spalte schwach ist — dann steht dieser Analyzer ungünstig oder hat ein
+Antennenproblem.</p>
+
+<h3>Gerätezustand — wie geht es den Analyzern selbst?</h3>
+
+<figure>
+  <img src="img/grafana/geraetezustand.svg" alt="Ansicht Gerätezustand">
+  <figcaption>Temperatur, Lüfter, Last, Speicher und Platte.</figcaption>
+</figure>
+
+<p>Diese Ansicht ist aus Erfahrung entstanden. Bei der Suche nach einem
+sporadischen Ausfall im Sommer 2026 gab es Stichproben, aber keine Kurve — und
+genau das hat die Suche in die Länge gezogen. Wer sehen kann, dass die
+Temperatur seit Tagen steigt oder der freie Plattenplatz stetig fällt, sucht
+gar nicht erst an der falschen Stelle.</p>
+
+<p>Ab etwa 80 °C drosselt der Raspberry Pi seine Rechenleistung. Fällt die
+Lüfterdrehzahl (Feld 2) auf null, während die Temperatur (Feld 1) steigt, ist
+der Lüfter defekt. Feld 5 ist der Wert, den man mit lokaler Datenbank im Auge
+behalten sollte — er fällt zwangsläufig, nur eben sehr langsam.</p>
+
+<h2 class="umbruch" id="k19-8">19.8 Alarme: wohin sie melden sollen</h2>
+
+<p>Vier Alarme sind fertig eingerichtet. Sie melden sich, <strong>ohne dass
+jemand ein Dashboard offen hat</strong> — und genau das ist der eigentliche
+Gewinn der ganzen Übung. Kurven anschauen kann man nur, wenn man daran denkt;
+eine Nachricht kommt von selbst.</p>
+
+<table>
+<tr><th>Alarm</th><th>Löst aus, wenn …</th><th>Was dann zu tun ist</th></tr>
+<tr><td>Analyzer offline</td><td>… ein Standort zehn Minuten lang keine gültige Verbindung meldet oder gar keine Daten mehr schickt</td><td>Steckt die Platine? Läuft der Dienst? Kapitel 23 hilft weiter.</td></tr>
+<tr><td>Duty-Cycle über 80 %</td><td>… ein Gerät eine Viertelstunde lang über der Schwelle liegt</td><td>Batterie prüfen oder das Gerät vom Netz nehmen — es blockiert sonst das Band für alle.</td></tr>
+<tr><td>Gerät verstummt</td><td>… von einem Gerät über 24 Stunden nichts kam, an keinem Standort</td><td>Fast immer leere Batterie.</td></tr>
+<tr><td>Grundrauschen erhöht</td><td>… ein Standort eine halbe Stunde über −80 dBm liegt</td><td>Störquelle suchen (Abschnitt 19.7, Störungssuche).</td></tr>
+</table>
+
+<p>Damit die Meldungen ankommen, braucht es <strong>ein Ziel</strong>. Das
+wird in der Weboberfläche des Analyzers eingetragen — unter
+<em>Einstellungen → Alarme: wohin melden?</em> —, nicht in Grafana. Drei Wege
+stehen zur Wahl.</p>
+
+<h3>Weg 1: der ioBroker-Adapter (empfohlen)</h3>
+
+<p>Wer ohnehin ioBroker betreibt, hat dort meist schon Telegram, Signal,
+Pushover oder E-Mail eingerichtet. Dann ist es unsinnig, dasselbe ein zweites
+Mal in Grafana zu tun. Der Analyzer schickt die Meldung an den Adapter, und
+der verteilt sie über das, was im Haus vorhanden ist.</p>
+
+<p>Einzutragen ist nur die Adresse des Adapters, etwa
+<code>http://192.168.1.20:8087/asksin/alarm</code>.</p>
+
+<p class="klein">Zum Zeitpunkt dieser Ausgabe ist der Endpunkt im Adapter noch
+nicht fertig — er entsteht in einer eigenen Phase. Die Weboberfläche sagt das
+auch deutlich. Bis dahin sind E-Mail und Telegram die Wege, die sofort
+funktionieren.</p>
+
+<h3>Weg 2: E-Mail</h3>
+
+<p>Der Analyzer verschickt über den Postausgangsserver des E-Mail-Anbieters.
+Nötig sind fünf Angaben, die alle in den Einrichtungshinweisen des Anbieters
+stehen:</p>
+
+<table>
+<tr><th>Feld</th><th>Beispiel</th><th>Woher</th></tr>
+<tr><td>SMTP-Server</td><td><code>smtp.ionos.de</code></td><td>Aus den Angaben des Anbieters, meist unter „Postausgangsserver“.</td></tr>
+<tr><td>Port</td><td><code>587</code></td><td>587 ist der übliche Wert. Er verwendet StartTLS, also verschlüsselte Übertragung.</td></tr>
+<tr><td>Benutzer</td><td><code>analyzer@beispiel.de</code></td><td>Bei fast allen Anbietern die vollständige E-Mail-Adresse.</td></tr>
+<tr><td>Absender</td><td><code>analyzer@beispiel.de</code></td><td><strong>Dasselbe wie der Benutzer.</strong> Siehe Stolperstein 1.</td></tr>
+<tr><td>Passwort</td><td>—</td><td><strong>Das E-Mail-Passwort</strong>, nicht das Kundenkennwort. Siehe Stolperstein 2.</td></tr>
+</table>
+
+<p><strong>Stolperstein 1 — Absender ungleich Benutzer.</strong> Fast alle
+Anbieter erlauben nur die Adresse zum Versand, mit der man sich angemeldet
+hat. Steht dort etwas anderes, weist der Server ab:</p>
+
+<pre>550-Requested action not taken: mailbox unavailable
+550-Sender address is not allowed.</pre>
+
+<p><strong>Stolperstein 2 — falsches Passwort.</strong> Viele Anbieter
+vergeben für den Mailzugang ein eigenes Passwort, getrennt vom Kundenkonto.
+Bei IONOS und T-Online wird es im Kundencenter festgelegt, bei Google heißt es
+App-Passwort. Mit dem Kundenkennwort antwortet der Server:</p>
+
+<pre>535 5.7.8 Authentication credentials invalid</pre>
+
+<p><strong>Der Testknopf.</strong> Unter den Feldern steht
+<em>„Testmail senden“</em>. Er verschickt sofort eine Nachricht — ohne Umweg
+über Grafana und <strong>ohne vorher zu speichern</strong>. Klappt es, steht
+dort eine grüne Bestätigung. Klappt es nicht, steht dort zuerst im Klartext,
+was zu tun ist, und darunter die wörtliche Antwort des Servers als Beleg.</p>
+
+<h3>Weg 3: Telegram</h3>
+
+<p>Telegram braucht zwei Angaben, die man sich einmalig besorgt:</p>
+
+<ol>
+<li>In Telegram den Kontakt <strong>@BotFather</strong> öffnen und
+    <code>/newbot</code> schicken. Nach zwei Rückfragen (Name und Benutzername)
+    antwortet er mit einem <strong>Token</strong> der Form
+    <code>123456789:AAEh…</code>. Diese Zeichenkette wird gebraucht —
+    <em>nicht</em> der Name des Bots.</li>
+<li>Den neuen Bot anschreiben (oder in eine Gruppe einladen und dort etwas
+    schreiben). Danach die <strong>Chat-Kennung</strong> ermitteln: Im Browser
+    <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> aufrufen
+    und in der Antwort nach <code>"chat":{"id":…}</code> suchen. Bei Gruppen
+    steht dort eine Zahl mit Minuszeichen davor — das gehört dazu.</li>
+</ol>
+
+<p>Beides eintragen, speichern, fertig. Der häufigste Fehler ist, in das
+Token-Feld den Bot-Namen zu schreiben; die Oberfläche fängt das ab und sagt es.</p>
+
+<h3>Was beim Speichern passiert</h3>
+
+<p>Ein Klick auf <em>Speichern und übernehmen</em> trägt in Grafana
+<strong>zwei</strong> Dinge ein: den Kontaktpunkt <em>und</em> die
+Benachrichtigungsrichtlinie. Das klingt nach einer Kleinigkeit, ist aber der
+häufigste Grund, warum Alarme bei einer Einrichtung von Hand nie ankommen:
+Der Kontaktpunkt steht da, Grafana markiert ihn als „Unused“, und die
+Standardrichtlinie zeigt weiterhin ins Leere.</p>
+
+<h2 class="umbruch" id="k19-9">19.9 Grenzen — was hier nicht geht</h2>
+
+<p>Damit niemand danach sucht:</p>
+
+<table>
+<tr><th>Geht nicht</th><th>Warum</th></tr>
+<tr><td>Langzeitdaten auf mehreren Analyzern gleichzeitig</td><td>Ein Verbund braucht eine Datenhaltung. Der Master sammelt, die Clients liefern.</td></tr>
+<tr><td>Auf einem Pi 3 oder mit unter 2 GB Speicher</td><td>Siehe 19.4. Das ist eine harte Sperre, keine Empfehlung.</td></tr>
+<tr><td>Ohne Internet einrichten</td><td>Die Pakete müssen einmal geladen werden. Danach läuft alles offline.</td></tr>
+<tr><td>Die mitgelieferten Ansichten dauerhaft im Browser ändern</td><td>Sie werden bei jedem Start neu eingelesen. Eigene Dashboards ausserhalb des Ordners bleiben erhalten.</td></tr>
+<tr><td>Alte Daten aus der lokalen Datenbank übernehmen</td><td>Die Aufzeichnung beginnt mit der Einrichtung. Was vorher war, bleibt in der SQLite-Datenbank des Analyzers.</td></tr>
+<tr><td>Grafana von aussen erreichbar machen</td><td>Weder vorgesehen noch empfohlen. Grafana hört im Heimnetz; für Zugriff von unterwegs gibt es VPN.</td></tr>
+</table>
+
+<p>Und ein Hinweis, der leicht übersehen wird: <strong>Die lokale Datenbank
+des Analyzers bleibt die primäre Aufzeichnung.</strong> Fällt InfluxDB aus,
+merkt sich der Analyzer das als Fehlerzähler und arbeitet unbeirrt weiter. Es
+geht nichts verloren, was die Weboberfläche zeigt — nur die Langzeitreihe
+bekommt eine Lücke.</p>
+
+<h2 class="umbruch" id="k19-10">19.10 Was das Ganze an Platz braucht</h2>
+
+<table>
+<tr><th>Grösse</th><th>Wert</th></tr>
+<tr><td>Je Analyzer und Tag</td><td>etwa 5–10 MB</td></tr>
+<tr><td>Fünf Analyzer, ein Jahr</td><td>etwa 10–15 GB</td></tr>
+<tr><td>Aufbewahrung</td><td>zwei Jahre, danach wird das Älteste verworfen</td></tr>
+<tr><td>Arbeitsspeicher im Betrieb</td><td>InfluxDB 400–500 MB, Grafana 150–250 MB</td></tr>
+</table>
+
+<p>Auf einer 240-GB-SSD als Bootmedium ist das unproblematisch. Wer es genau
+wissen will, findet den freien Platz in der Ansicht <em>Gerätezustand</em>,
+Feld 5 — dort sieht man auch, wie schnell er tatsächlich fällt.</p>
+
+<h2 class="umbruch" id="k19-11">19.11 Wenn etwas nicht klappt</h2>
+
+<table>
+<tr><th>Beobachtung</th><th>Ursache</th><th>Abhilfe</th></tr>
+<tr><td>Der Kasten „Langzeitdaten vor Ort“ fehlt ganz</td><td>Analyzer ist als Client eingetragen, oder der Core ist älter als diese Fassung</td><td>Rolle prüfen; <code>sudo asksin-analyzer update</code></td></tr>
+<tr><td>Die Auswahl der Rolle ist grau</td><td>Hardware zu schwach</td><td>Der Grund steht direkt darunter. Siehe 19.4 — ein anderes Gerät muss Master werden.</td></tr>
+<tr><td>„wird übernommen …“ steht ewig da</td><td>Der Helfer, der es nach Grafana überträgt, fehlt auf dem Gerät</td><td>Nach zehn Minuten sagt die Oberfläche das selbst. <code>sudo asksin-analyzer update</code> holt ihn nach.</td></tr>
+<tr><td>Grafana zeigt „No data“ in allen Ansichten</td><td>Der Analyzer schreibt noch nicht in die lokale Datenbank</td><td>Im Kasten <em>Langzeitdaten (InfluxDB)</em> muss <code>http://127.0.0.1:8086</code> stehen und „aktiv“ gesetzt sein.</td></tr>
+<tr><td>Einzelne Ansichten sind leer, andere nicht</td><td>Für diesen Zeitraum liegen noch keine Daten vor</td><td>Oben rechts den Zeitraum verkleinern — direkt nach der Einrichtung hilft „letzte 15 Minuten“.</td></tr>
+<tr><td>Die Testmail scheitert</td><td>siehe die beiden Stolpersteine in 19.8</td><td>Die Meldung unter dem Knopf nennt Ursache und Abhilfe im Klartext.</td></tr>
+<tr><td>Alarme lösen aus, aber nichts kommt an</td><td>Kein Ziel eingetragen, oder nur der Kontaktpunkt ohne Richtlinie</td><td><em>Einstellungen → Alarme: wohin melden?</em> ausfüllen und speichern — das setzt beides.</td></tr>
+<tr><td>Grafana fragt nach Anmeldung, Passwort vergessen</td><td>—</td><td>Auf dem Gerät: <code>sudo grafana-cli admin reset-admin-password NEUESPASSWORT</code></td></tr>
+</table>
+
+<p>Für tiefere Fälle stehen die Zugangsdaten der Datenbank auf dem Gerät unter
+<code>/etc/asksin-analyzer/influx-zugang.txt</code> — lesbar nur für root. Dort
+finden sich Organisation, Bucket und Token, falls man einmal mit einem anderen
+Werkzeug hineinsehen möchte.</p>
 
 <h1 class="kapitel" id="k20"><span class="knr">20</span>Der ioBroker-Adapter</h1>
 <div class="kapitelband"></div>
@@ -2162,7 +2512,7 @@ NVMe-Platine und umgeht USB als Speicherweg vollständig.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.10.0 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.11.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

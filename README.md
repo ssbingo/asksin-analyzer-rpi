@@ -39,6 +39,7 @@ laufenden Gerät.
 | Einkaufsführer Zubehör (README + Handbuch) | 📋 geplant (M12, [`docs/einkaufsfuehrer.md`](docs/einkaufsfuehrer.md)) |
 | Verbund: 5 Analyzer als Gesamtsystem | ✅ komplett: Dashboard, Matrix+Dedup, Flotten-Update, Langzeitdaten nach InfluxDB (M9.1–M9.5, [`docs/verbund.md`](docs/verbund.md)) |
 | Langzeitdaten vor Ort (InfluxDB + Grafana) | ✅ optional auf dem Master: Ein-Klick-Einrichtung, acht fertige Grafana-Ansichten, vier Alarme (M14) |
+| Alarmziele: ioBroker, E-Mail, Telegram | ✅ in der WebUI einstellbar, mit Testversand und deutlichen Fehlermeldungen (M14.2) |
 | Protokoll und Absturzsuche (Tab „Wartung“) | ✅ fertig (M13): Stufen, Tagesrotation, Download, Systemjournal ([`docs/protokoll.md`](docs/protokoll.md)) |
 | ioBroker-Adapter | 🔨 Grundgerüst steht (M6, eigenes Repo [`ioBroker.asksinanalyzer-rpi`](https://github.com/ssbingo/ioBroker.asksinanalyzer-rpi), MIT, mehrinstanzfähig) |
 
@@ -322,6 +323,26 @@ und lassen sich auch in ein bestehendes Grafana importieren.
 
 Platzbedarf: rund 5–10 MB je Tag und Analyzer, also etwa 10–15 GB im Jahr bei
 fünf Geräten. Aufbewahrt wird zwei Jahre.
+
+**Wohin die Alarme melden**, wird ebenfalls in der WebUI eingestellt — drei
+Wege stehen zur Wahl:
+
+1. **ioBroker-Adapter** (empfohlen, wenn ioBroker läuft): Grafana ruft den
+   Adapter auf, der über die dort schon eingerichteten Messaging-Adapter
+   verteilt. Man richtet Telegram, Signal oder Pushover damit **einmal im
+   ioBroker** ein statt ein zweites Mal in Grafana. *(Endpunkt im Adapter
+   folgt in einer eigenen Phase.)*
+2. **E-Mail** — mit **Testknopf**: Der Analyzer verschickt selbst über SMTP
+   und gibt die Antwort des Servers im Klartext zurück, samt Hinweis, was zu
+   tun ist. Kein Umweg über Grafana, kein Speichern nötig.
+3. **Telegram** — Bot-Token und Chat-Kennung.
+
+Gespeichert wird immer **Kontaktpunkt und Benachrichtigungsrichtlinie
+zusammen**. Genau deren Trennung ist der häufigste Grund, warum selbst
+eingerichtete Grafana-Alarme nie ankommen.
+
+Für Einsteiger ist das alles im Handbuch Schritt für Schritt beschrieben —
+Kapitel 19.3 bis 19.11, mit Abbildungen aller acht Ansichten.
 
 **Core/Web-UI 0.0.7**
 - **Langzeitdaten nach InfluxDB v2**: jeder Analyzer schreibt dezentral
