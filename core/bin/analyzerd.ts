@@ -39,6 +39,8 @@ import { openDatabase } from '../src/persist/db.ts';
 import { DevListService } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
 import { INFLUX_VORGABEN, InfluxSchreiber } from '../src/influx/schreiber.ts';
+import { geltendeRolle, verlangeMaster } from '../src/langzeit/rolle.ts';
+import type { Rolle } from '../src/langzeit/rolle.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
 import type { Stufe } from '../src/log/protokoll.ts';
@@ -96,6 +98,9 @@ interface Konfiguration {
    *  eingetragen; die eigene Instanz wird automatisch ergänzt. */
   verbund?: {
     peers?: Array<{ name?: string; url: string; token?: string }>;
+    /** 'master' oder 'client' (M14). Entscheidet, ob Langzeitdaten lokal
+     *  gespeichert werden duerfen. Ueblicherweise ueber das WebUI gesetzt. */
+    rolle?: string;
   };
   /** Protokoll (M13): Stufe und Aufbewahrung; üblicherweise über das WebUI. */
   protokoll?: {
