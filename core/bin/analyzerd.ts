@@ -51,11 +51,14 @@ import type { Rolle } from '../src/langzeit/rolle.ts';
 import {
   ALARMZIEL_VORGABEN,
   baueAlarmProvisionierung,
+  baueProbeMeldung,
+  baueProbeText,
   baueSmtpUmgebung,
+  deuteZustellfehler,
   istAlarmkanal,
   pruefeAlarmziel,
 } from '../src/langzeit/alarmziel.ts';
-import type { Alarmziel } from '../src/langzeit/alarmziel.ts';
+import type { Alarmkanal, Alarmziel } from '../src/langzeit/alarmziel.ts';
 import { deuteSmtpFehler, netzLeitung, smtpTestlauf } from '../src/langzeit/smtp.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
@@ -1226,6 +1229,42 @@ function uebernahmeZustand(): { laeuft: boolean; haengtSeitMinuten: number | nul
   }
 }
 
+/**
+ * Schickt eine Probemeldung an eine Adresse und deutet das Ergebnis.
+ *
+ * Ein Weg fuer ioBroker und Telegram: Beide sind am Ende ein POST mit JSON,
+ * und beide sollen im Fehlerfall dieselbe Sorte Auskunft geben — erst ein
+ * Satz, was zu tun ist, dann die Antwort woertlich.
+ */
+async function schickeProbe(
+  kanal: Alarmkanal,
+  url: string,
+  kopf: Record<string, string>,
+  koerper: string,
+  erfolg: string,
+): Promise<string> {
+  let antwort: Response;
+  try {
+    antwort = await fetch(url, {
+      method: 'POST',
+      headers: kopf,
+      body: koerper,
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch (e) {
+    // Kein Status: Es kam gar keine Antwort. Die Ursache steht in der
+    // Ausnahme — Verbindung verweigert, Name unbekannt, Zeit abgelaufen.
+    throw new Error(
+      deuteZustellfehler(kanal, 0, e instanceof Error ? e.message : String(e)),
+    );
+  }
+  const text = await antwort.text().catch(() => '');
+  if (!antwort.ok) {
+    throw new Error(deuteZustellfehler(kanal, antwort.status, text));
+  }
+  return erfolg;
+}
+
 const alarmzielHooks = {
   zustand: (): unknown => {
     const z = leseAlarmziel();
@@ -1275,6 +1314,49 @@ const alarmzielHooks = {
   testen: async (auftrag: Record<string, unknown>): Promise<string> => {
     verlangeMaster(aktuelleRolle().rolle);
     const gespeichert = leseAlarmziel();
+    const kanal = istAlarmkanal(auftrag['kanal'])
+      ? auftrag['kanal']
+      : gespeichert.kanal;
+
+    if (kanal === 'iobroker') {
+      const io = {
+        ...gespeichert.iobroker,
+        ...((auftrag['iobroker'] ?? {}) as Partial<Alarmziel['iobroker']>),
+      };
+      if (io.token === '') io.token = gespeichert.iobroker.token;
+      if (!/^https?:\/\/\S+$/.test(io.url)) {
+        throw new Error('Adresse des Adapters fehlt oder ist unvollständig');
+      }
+      return schickeProbe(
+        'iobroker',
+        io.url,
+        {
+          'content-type': 'application/json',
+          ...(io.token === '' ? {} : { authorization: `Bearer ${io.token}` }),
+        },
+        JSON.stringify(baueProbeMeldung(standort, new Date())),
+        `Probemeldung an ${io.url} zugestellt — der Adapter hat sie angenommen.`,
+      );
+    }
+
+    if (kanal === 'telegram') {
+      const t = {
+        ...gespeichert.telegram,
+        ...((auftrag['telegram'] ?? {}) as Partial<Alarmziel['telegram']>),
+      };
+      if (t.botToken === '') t.botToken = gespeichert.telegram.botToken;
+      if (t.botToken === '' || t.chatId === '') {
+        throw new Error('Bot-Token und Chat-Kennung werden beide gebraucht');
+      }
+      return schickeProbe(
+        'telegram',
+        `https://api.telegram.org/bot${t.botToken}/sendMessage`,
+        { 'content-type': 'application/json' },
+        JSON.stringify({ chat_id: t.chatId, text: baueProbeText(standort) }),
+        'Probemeldung an Telegram übergeben — sie müsste jetzt im Chat stehen.',
+      );
+    }
+
     const e: Alarmziel['email'] = {
       ...gespeichert.email,
       ...((auftrag['email'] ?? {}) as Partial<Alarmziel['email']>),

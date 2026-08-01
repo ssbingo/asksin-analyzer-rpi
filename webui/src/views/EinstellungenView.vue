@@ -217,10 +217,20 @@ async function alarmLaden(): Promise<void> {
 }
 
 async function alarmTesten(): Promise<void> {
-  alarmTestText.value = 'Verbinde mit dem Postausgangsserver …';
+  alarmTestText.value =
+    alarm.kanal === 'email'
+      ? 'Verbinde mit dem Postausgangsserver …'
+      : alarm.kanal === 'telegram'
+        ? 'Übergebe die Meldung an Telegram …'
+        : 'Schicke die Meldung an den ioBroker-Adapter …';
   alarmTestFehler.value = false;
   try {
     alarmTestText.value = await testeAlarmziel({
+      // Der Weg steht mit dabei: Getestet wird, was gerade in der Maske
+      // ausgewählt ist — nicht, was zuletzt gespeichert wurde.
+      kanal: alarm.kanal,
+      iobroker: { url: alarm.iobrokerUrl.trim(), token: alarm.iobrokerToken },
+      telegram: { botToken: alarm.botToken.trim(), chatId: alarm.chatId.trim() },
       email: {
         empfaenger: alarm.empfaenger.trim(),
         smtpHost: alarm.smtpHost.trim(),
@@ -873,17 +883,6 @@ const demoUmschalten = (): Promise<void> | undefined => {
           :name="`Passwort ${alarmZustand.email.hatPasswort ? '(gesetzt — leer lassen zum Behalten)' : ''}`"
           style="flex: 2" />
       </div>
-      <div class="zeile" style="margin: 0.6rem 0">
-        <button :disabled="beschaeftigt" @click="alarmTesten">Testmail senden</button>
-        <span class="fussnote" style="margin: 0">
-          Schickt sofort eine Nachricht — ohne Umweg über Grafana und ohne
-          vorher zu speichern.
-        </span>
-      </div>
-      <div class="meldung" :class="alarmTestFehler ? 'fehler' : 'ok'"
-           v-if="alarmTestText !== ''">
-        {{ alarmTestText }}
-      </div>
       <div class="fussnote">
         Port 587 mit STARTTLS ist der zuverlässigste Weg. Zwei Stolpersteine,
         die fast jeden treffen:
@@ -918,6 +917,11 @@ const demoUmschalten = (): Promise<void> | undefined => {
       <button class="primaer" :disabled="beschaeftigt" @click="alarmSpeichern">
         Speichern und übernehmen
       </button>
+      <button :disabled="beschaeftigt" @click="alarmTesten">
+        {{ alarm.kanal === 'email' ? 'Testmail senden'
+           : alarm.kanal === 'telegram' ? 'Testnachricht senden'
+           : 'Testmeldung an ioBroker senden' }}
+      </button>
       <span class="chip" v-if="alarmZustand.laeuft">wird übernommen …</span>
       <span class="chip" v-else-if="alarmZustand.angewendet">in Grafana eingetragen</span>
     </div>
@@ -926,6 +930,14 @@ const demoUmschalten = (): Promise<void> | undefined => {
       unbearbeitet. Vermutlich fehlt der Helfer, der ihn nach Grafana
       übernimmt — ein <code>sudo /opt/asksin-analyzer/update.sh</code> holt ihn
       nach. Die Einstellungen selbst sind gespeichert.
+    </div>
+    <div class="meldung" :class="alarmTestFehler ? 'fehler' : 'ok'"
+         v-if="alarmTestText !== ''">
+      {{ alarmTestText }}
+    </div>
+    <div class="fussnote">
+      Der Test geht <strong>ohne Umweg über Grafana</strong> und ohne vorher zu
+      speichern — geprüft wird genau das, was gerade in den Feldern steht.
     </div>
     <div class="fussnote">
       Gespeichert wird beides zusammen: der Kontaktpunkt <em>und</em> die

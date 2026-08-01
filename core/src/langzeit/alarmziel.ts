@@ -248,3 +248,106 @@ export function baueSmtpUmgebung(z: Alarmziel): string {
     'Environment=GF_SMTP_STARTTLS_POLICY=MandatoryStartTLS\n'
   );
 }
+
+/**
+ * Die Probemeldung — in genau der Form, die Grafana später schicken wird.
+ *
+ * Absichtlich dieselbe Struktur: Der Testknopf soll den ganzen Weg prüfen,
+ * nicht einen eigenen. Ein Test, der anders läuft als der Ernstfall, bestätigt
+ * am Ende nur sich selbst.
+ *
+ * @param standort Anzeigename dieses Analyzers
+ */
+export function baueProbeMeldung(standort: string, jetzt: Date): unknown {
+  return {
+    status: 'firing',
+    alerts: [
+      {
+        status: 'firing',
+        labels: { alertname: 'Probe', standort, bereich: 'analyzer' },
+        annotations: {
+          summary: 'Testmeldung — der Weg vom Analyzer bis hierher funktioniert.',
+          description:
+            'Diese Meldung wurde von Hand ausgelöst. Kommt sie an, erreichen ' +
+            'dich auch die vier Alarme: Analyzer offline, Duty-Cycle über ' +
+            '80 Prozent, Gerät seit 24 Stunden stumm und Grundrauschen erhöht.',
+        },
+        startsAt: jetzt.toISOString(),
+      },
+    ],
+  };
+}
+
+/** Derselbe Inhalt als Fließtext — für Wege ohne Struktur, etwa Telegram. */
+export function baueProbeText(standort: string): string {
+  return (
+    `AskSin-Analyzer (${standort})\n\n` +
+    '⚠ Probe — Testmeldung\n' +
+    'Der Weg vom Analyzer bis hierher funktioniert.\n\n' +
+    'Kommt sie an, erreichen dich auch die vier Alarme: Analyzer offline, ' +
+    'Duty-Cycle über 80 Prozent, Gerät seit 24 Stunden stumm und ' +
+    'Grundrauschen dauerhaft erhöht.'
+  );
+}
+
+/**
+ * Übersetzt eine gescheiterte Zustellung in einen Satz, mit dem man etwas
+ * anfangen kann — die rohe Antwort bleibt darunter stehen.
+ *
+ * @param kanal Der Weg, über den es versucht wurde
+ * @param status HTTP-Status der Antwort; 0, wenn gar keine kam
+ * @param antwort Wortlaut der Antwort oder der Fehlermeldung
+ */
+export function deuteZustellfehler(
+  kanal: Alarmkanal,
+  status: number,
+  antwort: string,
+): string {
+  const anhang = antwort.trim() === '' ? '' : `\n\nAntwort:\n${antwort.trim()}`;
+
+  if (status === 0) {
+    if (/ECONNREFUSED/.test(antwort)) {
+      return kanal === 'iobroker'
+        ? 'Unter dieser Adresse nimmt niemand an. Läuft die Adapter-Instanz, ' +
+            'und ist dort „Alarme entgegennehmen" eingeschaltet? Stimmen Port ' +
+            `und Pfad?${anhang}`
+        : `Keine Verbindung zum Server.${anhang}`;
+    }
+    if (/ENOTFOUND|EAI_AGAIN/.test(antwort)) {
+      return `Der Name ist nicht auflösbar — Tippfehler in der Adresse?${anhang}`;
+    }
+    if (/timeout|abort/i.test(antwort)) {
+      return `Keine Antwort innerhalb der Wartezeit.${anhang}`;
+    }
+    return `Die Verbindung kam nicht zustande.${anhang}`;
+  }
+
+  if (kanal === 'iobroker') {
+    if (status === 401) {
+      return (
+        'Der Adapter weist das Verbindungspasswort zurück. Es muss auf beiden ' +
+        'Seiten dasselbe sein — im Adapter unter „Alarme vom Analyzer", hier ' +
+        `im Feld daneben.${anhang}`
+      );
+    }
+    if (status === 404) {
+      return (
+        'Diesen Pfad kennt der Adapter nicht. Er steht in den ' +
+        `Instanzeinstellungen, Vorgabe ist /asksin/alarm.${anhang}`
+      );
+    }
+  }
+
+  if (kanal === 'telegram' && /chat not found/i.test(antwort)) {
+    return (
+      'Telegram kennt diese Chat-Kennung nicht. Der Bot muss einmal ' +
+      'angeschrieben oder in die Gruppe eingeladen worden sein, bevor er ' +
+      `dorthin senden darf.${anhang}`
+    );
+  }
+  if (kanal === 'telegram' && /unauthorized/i.test(antwort)) {
+    return `Telegram lehnt den Bot-Token ab.${anhang}`;
+  }
+
+  return `Der Empfänger hat abgelehnt (HTTP ${status}).${anhang}`;
+}
