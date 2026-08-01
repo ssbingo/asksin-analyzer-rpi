@@ -567,3 +567,42 @@ export async function sendeLangzeit(
   }
   if (!res.ok) throw new Error(await res.text());
 }
+
+// ---- Alarmziele (M14.2) --------------------------------------------------
+
+export type Alarmkanal = 'iobroker' | 'email' | 'telegram';
+
+export interface AlarmzielZustand {
+  kanal: Alarmkanal;
+  aktiv: boolean;
+  iobroker: { url: string };
+  email: {
+    empfaenger: string;
+    smtpHost: string;
+    smtpPort: number;
+    benutzer: string;
+    absender: string;
+    /** Ist eines hinterlegt? Das Passwort selbst kommt nie zurück. */
+    hatPasswort: boolean;
+  };
+  telegram: { chatId: string; hatBotToken: boolean };
+  /** Wurde schon einmal etwas nach Grafana übernommen? */
+  angewendet: boolean;
+  laeuft: boolean;
+  /** Der Endpunkt im ioBroker-Adapter entsteht erst in einer späteren Phase. */
+  iobrokerBereit: boolean;
+}
+
+export const holeAlarmziel = (): Promise<AlarmzielZustand> => hole('/api/alarmziel');
+
+export async function sendeAlarmziel(auftrag: Record<string, unknown>): Promise<void> {
+  const res = await fetch('/api/alarmziel', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify(auftrag),
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+}

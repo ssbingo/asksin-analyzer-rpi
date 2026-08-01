@@ -47,6 +47,14 @@ import {
   verlangeMaster,
 } from '../src/langzeit/rolle.ts';
 import type { Rolle } from '../src/langzeit/rolle.ts';
+import {
+  ALARMZIEL_VORGABEN,
+  baueAlarmProvisionierung,
+  baueSmtpUmgebung,
+  istAlarmkanal,
+  pruefeAlarmziel,
+} from '../src/langzeit/alarmziel.ts';
+import type { Alarmziel } from '../src/langzeit/alarmziel.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
 import type { Stufe } from '../src/log/protokoll.ts';
@@ -1167,6 +1175,82 @@ const langzeitHooks = {
   },
 };
 
+// ---- Alarmziele (M14.2) --------------------------------------------------
+//
+// Der Core ERZEUGT die beiden Dateien fuer Grafana — das ist der getestete
+// Teil (src/langzeit/alarmziel.ts). Ein minimaler Root-Helfer legt sie nur
+// noch an ihren Platz und startet Grafana neu. So bleibt im privilegierten
+// Skript nichts, was schiefgehen koennte, ausser dem Kopieren.
+
+const alarmzielDatei = join(datenDir, 'alarmziel.json');
+const alarmzielTrigger = join(datenDir, 'alarmziel-anstoss');
+const alarmzielYaml = join(datenDir, 'grafana-alarmziel.yaml');
+const alarmzielSmtp = join(datenDir, 'grafana-smtp.conf');
+
+function leseAlarmziel(): Alarmziel {
+  try {
+    const roh = JSON.parse(readFileSync(alarmzielDatei, 'utf8')) as Partial<Alarmziel>;
+    return {
+      ...ALARMZIEL_VORGABEN,
+      ...roh,
+      email: { ...ALARMZIEL_VORGABEN.email, ...(roh.email ?? {}) },
+      telegram: { ...ALARMZIEL_VORGABEN.telegram, ...(roh.telegram ?? {}) },
+      iobroker: { ...ALARMZIEL_VORGABEN.iobroker, ...(roh.iobroker ?? {}) },
+    };
+  } catch {
+    return ALARMZIEL_VORGABEN;
+  }
+}
+
+const alarmzielHooks = {
+  zustand: (): unknown => {
+    const z = leseAlarmziel();
+    return {
+      kanal: z.kanal,
+      aktiv: z.aktiv,
+      iobroker: z.iobroker,
+      // Geheimnisse gehen NIE zurueck an den Browser. Stattdessen nur die
+      // Auskunft, ob eines hinterlegt ist — mehr braucht die Oberflaeche
+      // nicht, um "gesetzt (leer lassen zum Behalten)" anzuzeigen.
+      email: { ...z.email, passwort: '', hatPasswort: z.email.passwort !== '' },
+      telegram: {
+        chatId: z.telegram.chatId,
+        botToken: '',
+        hatBotToken: z.telegram.botToken !== '',
+      },
+      angewendet: existsSync(alarmzielYaml),
+      laeuft: existsSync(alarmzielTrigger),
+      // Der Endpunkt im ioBroker-Adapter entsteht erst in einer spaeteren
+      // Phase. Ehrlich melden statt so tun, als sei alles fertig.
+      iobrokerBereit: false,
+    };
+  },
+  einstellen: (auftrag: Record<string, unknown>): void => {
+    verlangeMaster(aktuelleRolle().rolle);
+    const alt = leseAlarmziel();
+    const teil = auftrag as Partial<Alarmziel>;
+    const neu: Alarmziel = {
+      aktiv: auftrag['aktiv'] === true,
+      kanal: istAlarmkanal(auftrag['kanal']) ? auftrag['kanal'] : alt.kanal,
+      iobroker: { ...alt.iobroker, ...(teil.iobroker ?? {}) },
+      email: { ...alt.email, ...(teil.email ?? {}) },
+      telegram: { ...alt.telegram, ...(teil.telegram ?? {}) },
+    };
+    // Leeres Geheimnis heisst "behalten" — es wird ja nie angezeigt, sonst
+    // muesste man es bei jeder anderen Aenderung neu eintippen.
+    if (neu.email.passwort === '') neu.email.passwort = alt.email.passwort;
+    if (neu.telegram.botToken === '') neu.telegram.botToken = alt.telegram.botToken;
+
+    pruefeAlarmziel(neu);
+
+    writeFileSync(alarmzielDatei, JSON.stringify(neu, null, 2) + '\n', { mode: 0o600 });
+    writeFileSync(alarmzielYaml, baueAlarmProvisionierung(neu), { mode: 0o600 });
+    writeFileSync(alarmzielSmtp, baueSmtpUmgebung(neu), { mode: 0o600 });
+    writeFileSync(alarmzielTrigger, `${new Date().toISOString()}\n`);
+    log(`Alarmziel gesetzt: ${neu.kanal} (aktiv: ${neu.aktiv})`);
+  },
+};
+
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
 // Das Handbuch liegt im Projekt, nicht im Web-UI-Verzeichnis; ausgeliefert
 // wird es über eine eigene Route, damit es auch ohne Internet erreichbar ist.
@@ -1226,6 +1310,7 @@ const api = new ApiServer({
   statusAnzeige: statusAnzeigeHooks,
   influx: influxHooks,
   langzeit: langzeitHooks,
+  alarmziel: alarmzielHooks,
   protokoll: protokollHooks,
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');

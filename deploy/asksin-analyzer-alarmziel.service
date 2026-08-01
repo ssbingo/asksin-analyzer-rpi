@@ -1,0 +1,11 @@
+# Uebernimmt das eingestellte Alarmziel nach Grafana.
+[Unit]
+Description=AskSin-Analyzer: Alarmziel anwenden
+
+[Service]
+Type=oneshot
+TimeoutStartSec=180
+ExecStart=/bin/bash /opt/asksin-analyzer/deploy/alarmziel-anwenden.sh
+# Netz darunter: Das Skript raeumt selbst auf, aber ein harter Abbruch wuerde
+# die Path-Unit sonst endlos weiterfeuern lassen.
+ExecStopPost=/bin/rm -f /var/lib/asksin-analyzer/alarmziel-anstoss

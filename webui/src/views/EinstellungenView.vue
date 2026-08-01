@@ -12,17 +12,21 @@ import {
   holeNetzwerk,
   holeNetzwerkStatus,
   holeInflux,
+  holeAlarmziel,
   holeLangzeit,
   holeStatusAnzeige,
   holeVerbundPeers,
   sende,
   sendeInflux,
+  sendeAlarmziel,
   sendeLangzeit,
   sendeNetzwerk,
   sendeStatusAnzeige,
   setzeAuthToken,
 } from '../api.ts';
 import type {
+  Alarmkanal,
+  AlarmzielZustand,
   LangzeitZustand,
   LedMethode,
   NetzwerkStatus,
@@ -51,6 +55,7 @@ onMounted(async () => {
   void anzeigeLaden();
   void influxLaden();
   void langzeitLaden();
+  void alarmLaden();
 });
 
 async function aktion(name: string, fn: () => Promise<unknown>): Promise<void> {
@@ -155,6 +160,64 @@ const anzeigeSpeichern = (): Promise<void> =>
       oled: anzeige.oled,
       helligkeit: Number(anzeige.helligkeit),
     }));
+
+// ---- Alarmziele (M14.2) --------------------------------------------------
+
+const alarm = reactive({
+  aktiv: false,
+  kanal: 'iobroker' as Alarmkanal,
+  iobrokerUrl: '',
+  empfaenger: '',
+  smtpHost: '',
+  smtpPort: 587,
+  benutzer: '',
+  passwort: '',
+  absender: '',
+  botToken: '',
+  chatId: '',
+});
+const alarmZustand = ref<AlarmzielZustand | null>(null);
+
+async function alarmLaden(): Promise<void> {
+  try {
+    const z = await holeAlarmziel();
+    alarmZustand.value = z;
+    alarm.aktiv = z.aktiv;
+    alarm.kanal = z.kanal;
+    alarm.iobrokerUrl = z.iobroker.url;
+    alarm.empfaenger = z.email.empfaenger;
+    alarm.smtpHost = z.email.smtpHost;
+    alarm.smtpPort = z.email.smtpPort;
+    alarm.benutzer = z.email.benutzer;
+    alarm.absender = z.email.absender;
+    alarm.chatId = z.telegram.chatId;
+    // Geheimnisse kommen nie zurueck — die Felder bleiben leer, und leer
+    // heisst beim Speichern "behalten".
+    alarm.passwort = '';
+    alarm.botToken = '';
+  } catch {
+    /* ältere Core-Version */
+  }
+}
+
+const alarmSpeichern = (): Promise<void> =>
+  aktion('Alarmziel gespeichert — Grafana übernimmt es gleich', async () => {
+    await sendeAlarmziel({
+      aktiv: alarm.aktiv,
+      kanal: alarm.kanal,
+      iobroker: { url: alarm.iobrokerUrl.trim() },
+      email: {
+        empfaenger: alarm.empfaenger.trim(),
+        smtpHost: alarm.smtpHost.trim(),
+        smtpPort: Number(alarm.smtpPort),
+        benutzer: alarm.benutzer.trim(),
+        passwort: alarm.passwort,
+        absender: alarm.absender.trim(),
+      },
+      telegram: { botToken: alarm.botToken.trim(), chatId: alarm.chatId.trim() },
+    });
+    await alarmLaden();
+  });
 
 // ---- Langzeitdaten vor Ort (M14) -----------------------------------------
 //
@@ -671,6 +734,125 @@ const demoUmschalten = (): Promise<void> | undefined => {
         </div>
       </template>
     </template>
+  </div>
+
+  <div class="panel" v-if="alarmZustand !== null && langzeit?.rolle === 'master'">
+    <h3 style="margin-top: 0">Alarme: wohin melden?</h3>
+    <p style="margin-top: 0">
+      Die vier mitgelieferten Alarme — Analyzer offline, Duty-Cycle über 80 %,
+      Gerät seit 24 Stunden stumm, Grundrauschen erhöht — brauchen ein Ziel.
+      Grafana kann das selbst, verlangt dafür aber Einträge an drei Stellen;
+      hier genügt eine Auswahl.
+    </p>
+
+    <div class="zeile" style="margin-bottom: 0.6rem">
+      <label><input type="checkbox" v-model="alarm.aktiv" /> Alarme verschicken</label>
+    </div>
+
+    <div class="zeile">
+      <label class="feld" style="max-width: 22rem">
+        <span class="name">Weg</span>
+        <select v-model="alarm.kanal">
+          <option value="iobroker">ioBroker-Adapter (empfohlen)</option>
+          <option value="email">E-Mail</option>
+          <option value="telegram">Telegram</option>
+        </select>
+      </label>
+    </div>
+
+    <!-- ioBroker: der empfohlene Weg, aber der Endpunkt fehlt noch -->
+    <template v-if="alarm.kanal === 'iobroker'">
+      <div class="fussnote" style="margin-bottom: 0.6rem">
+        Grafana ruft den ioBroker-Adapter auf, der die Meldung über die dort
+        ohnehin eingerichteten Messaging-Adapter verteilt — Telegram, Signal,
+        Pushover, E-Mail. Der Vorteil: Man richtet das <strong>einmal im
+        ioBroker</strong> ein und nicht ein zweites Mal in Grafana.
+      </div>
+      <div class="meldung fehler" v-if="!alarmZustand.iobrokerBereit">
+        Der Endpunkt im ioBroker-Adapter entsteht in einer eigenen Phase und
+        ist noch nicht vorhanden. Die Adresse lässt sich schon hinterlegen —
+        ankommen wird dort vorerst nichts. Bis dahin sind E-Mail oder Telegram
+        die Wege, die sofort funktionieren.
+      </div>
+      <label class="feld">
+        <span class="name">Adresse des Adapters</span>
+        <input type="text" v-model="alarm.iobrokerUrl"
+               placeholder="http://192.168.1.20:8087/asksin/alarm" />
+      </label>
+    </template>
+
+    <!-- E-Mail -->
+    <template v-else-if="alarm.kanal === 'email'">
+      <div class="zeile">
+        <label class="feld" style="flex: 2">
+          <span class="name">Empfänger</span>
+          <input type="text" v-model="alarm.empfaenger" placeholder="name@beispiel.de" />
+        </label>
+        <label class="feld" style="flex: 2">
+          <span class="name">Absender</span>
+          <input type="text" v-model="alarm.absender" placeholder="meist derselbe" />
+        </label>
+      </div>
+      <div class="zeile">
+        <label class="feld" style="flex: 2">
+          <span class="name">SMTP-Server</span>
+          <input type="text" v-model="alarm.smtpHost" placeholder="securesmtp.t-online.de" />
+        </label>
+        <label class="feld" style="width: 8rem">
+          <span class="name">Port</span>
+          <input type="text" v-model.number="alarm.smtpPort" />
+        </label>
+      </div>
+      <div class="zeile">
+        <label class="feld" style="flex: 2">
+          <span class="name">Benutzer</span>
+          <input type="text" v-model="alarm.benutzer" />
+        </label>
+        <GeheimFeld
+          v-model="alarm.passwort"
+          :name="`Passwort ${alarmZustand.email.hatPasswort ? '(gesetzt — leer lassen zum Behalten)' : ''}`"
+          style="flex: 2" />
+      </div>
+      <div class="fussnote">
+        Port 587 mit STARTTLS ist der zuverlässigste Weg. Viele Anbieter
+        verlangen ein <strong>eigenes E-Mail-Passwort</strong> statt des
+        Kundenkennworts — bei T-Online etwa wird es im Kundencenter vergeben,
+        sonst weist der Server die Anmeldung ab.
+      </div>
+    </template>
+
+    <!-- Telegram -->
+    <template v-else>
+      <div class="zeile">
+        <GeheimFeld
+          v-model="alarm.botToken"
+          :name="`Bot-Token ${alarmZustand.telegram.hatBotToken ? '(gesetzt — leer lassen zum Behalten)' : ''}`"
+          style="flex: 2" />
+        <label class="feld" style="flex: 1">
+          <span class="name">Chat-Kennung</span>
+          <input type="text" v-model="alarm.chatId" placeholder="-1001234567890" />
+        </label>
+      </div>
+      <div class="fussnote">
+        Den Token gibt der <em>BotFather</em> in Telegram aus; er sieht aus wie
+        <code>123456789:AA…</code> — nicht der Name des Bots. Die Chat-Kennung
+        ist eine Zahl, bei Gruppen mit Minuszeichen davor.
+      </div>
+    </template>
+
+    <div class="zeile" style="margin-top: 0.8rem">
+      <button class="primaer" :disabled="beschaeftigt" @click="alarmSpeichern">
+        Speichern und übernehmen
+      </button>
+      <span class="chip" v-if="alarmZustand.laeuft">wird übernommen …</span>
+      <span class="chip" v-else-if="alarmZustand.angewendet">in Grafana eingetragen</span>
+    </div>
+    <div class="fussnote">
+      Gespeichert wird beides zusammen: der Kontaktpunkt <em>und</em> die
+      Benachrichtigungsrichtlinie. Genau daran scheitert die Einrichtung von
+      Hand am häufigsten — der Kontaktpunkt steht da und ist „Unused", während
+      die Standardrichtlinie weiter ins Leere zeigt.
+    </div>
   </div>
 
   <div class="panel" v-if="influxVerfuegbar">

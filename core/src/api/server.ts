@@ -121,6 +121,11 @@ export interface ApiServerOptions {
     zustand(): unknown;
     einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
   };
+  /** Alarmziele (M14.2): wohin Grafana meldet — ioBroker, E-Mail, Telegram. */
+  alarmziel?: {
+    zustand(): unknown;
+    einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
+  };
   /** Protokoll (M13): Stufe und Aufbewahrung einstellen, Dateien herunterladen. */
   protokoll?: {
     zustand(): unknown;
@@ -376,6 +381,11 @@ export class ApiServer {
           if (hooks === undefined) return this.#text(res, 501, 'Keine Langzeitdaten');
           return this.#json(res, 200, hooks.zustand());
         }
+        case '/api/alarmziel': {
+          const hooks = this.#opts.alarmziel;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Alarmziele');
+          return this.#json(res, 200, hooks.zustand());
+        }
         case '/api/protokoll': {
           const hooks = this.#opts.protokoll;
           if (hooks === undefined) return this.#text(res, 501, 'Kein Protokoll');
@@ -503,10 +513,12 @@ export class ApiServer {
           await hooks.einstellen(auftrag);
           return this.#text(res, 200, 'OK — sofort wirksam');
         }
+        case '/api/alarmziel':
         case '/api/langzeitdaten': {
           if (!this.#autorisiert(req, res)) return;
-          const hooks = this.#opts.langzeit;
-          if (hooks === undefined) return this.#text(res, 501, 'Keine Langzeitdaten');
+          const hooks =
+            pfad === '/api/alarmziel' ? this.#opts.alarmziel : this.#opts.langzeit;
+          if (hooks === undefined) return this.#text(res, 501, 'Nicht verfügbar');
           let auftrag: Record<string, unknown>;
           try {
             auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;

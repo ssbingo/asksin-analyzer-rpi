@@ -1,0 +1,12 @@
+# Beobachtet die Datei, die der Analyzer beim Speichern eines Alarmziels
+# anlegt. Die erzeugten Grafana-Dateien liegen daneben; der Root-Helfer legt
+# sie nur an ihren Platz.
+[Unit]
+Description=AskSin-Analyzer: Ausloeser fuer das Alarmziel
+
+[Path]
+PathExists=/var/lib/asksin-analyzer/alarmziel-anstoss
+Unit=asksin-analyzer-alarmziel.service
+
+[Install]
+WantedBy=multi-user.target
