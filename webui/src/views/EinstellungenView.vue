@@ -808,17 +808,23 @@ const demoUmschalten = (): Promise<void> | undefined => {
         Pushover, E-Mail. Der Vorteil: Man richtet das <strong>einmal im
         ioBroker</strong> ein und nicht ein zweites Mal in Grafana.
       </div>
-      <div class="meldung fehler" v-if="!alarmZustand.iobrokerBereit">
-        Der Endpunkt im ioBroker-Adapter entsteht in einer eigenen Phase und
-        ist noch nicht vorhanden. Die Adresse lässt sich schon hinterlegen —
-        ankommen wird dort vorerst nichts. Bis dahin sind E-Mail oder Telegram
-        die Wege, die sofort funktionieren.
+      <div class="meldung ok" v-if="alarmZustand.iobrokerBereit">
+        Im ioBroker-Adapter muss der Alarm-Empfang eingeschaltet sein:
+        <em>Instanz-Einstellungen → Alarme vom Analyzer</em>. Dort stehen Port
+        und Pfad, aus denen sich die Adresse unten zusammensetzt — und dort
+        wird auch eingetragen, an welchen Messaging-Adapter weitergereicht
+        werden soll.
       </div>
       <label class="feld">
         <span class="name">Adresse des Adapters</span>
         <input type="text" v-model="alarm.iobrokerUrl"
-               placeholder="http://192.168.1.20:8087/asksin/alarm" />
+               placeholder="http://192.168.1.20:8095/asksin/alarm" />
       </label>
+      <div class="fussnote">
+        Ob es steht, lässt sich vorab prüfen: Die Adresse im Browser öffnen.
+        Der Adapter antwortet auf einen gewöhnlichen Aufruf mit einem
+        Hinweistext — kommt der, ist der Weg frei.
+      </div>
     </template>
 
     <!-- E-Mail -->

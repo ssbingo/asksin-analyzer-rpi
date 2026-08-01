@@ -1241,9 +1241,11 @@ const alarmzielHooks = {
       telegram: { ...z.telegram, hatBotToken: z.telegram.botToken !== '' },
       angewendet: existsSync(alarmzielYaml),
       ...uebernahmeZustand(),
-      // Der Endpunkt im ioBroker-Adapter entsteht erst in einer spaeteren
-      // Phase. Ehrlich melden statt so tun, als sei alles fertig.
-      iobrokerBereit: false,
+      // Seit M15 gibt es den Endpunkt im Adapter (ab dessen Fassung mit
+      // Alarm-Empfang). Ob er auf DIESEM ioBroker eingeschaltet ist, kann der
+      // Analyzer nicht wissen — deshalb kein Versprechen, sondern der Weg
+      // dorthin in der Oberflaeche.
+      iobrokerBereit: true,
     };
   },
   einstellen: (auftrag: Record<string, unknown>): void => {
