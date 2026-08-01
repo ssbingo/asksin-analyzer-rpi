@@ -233,7 +233,8 @@ nutzeTakt(async () => {
   <div class="panel" v-if="status !== null && statusAktiv()">
     <h3 style="margin-top: 0">Status-LED &amp; OLED</h3>
     <div class="zeile" style="align-items: flex-start; gap: 1.5rem">
-      <div>
+      <div class="block">
+        <h4>Gerät</h4>
         <div class="zeile" style="margin-bottom: 0.6rem">
           <span
             :style="`display:inline-block;width:1.1rem;height:1.1rem;border-radius:50%;background:${ledCss()};box-shadow:0 0 10px ${ledCss()}`"
@@ -259,7 +260,9 @@ nutzeTakt(async () => {
       <!-- Mittlerer Block: Was tut die Langzeitaufzeichnung gerade? Diese
            Fragen stellt man sich im Vorbeigehen, nicht in den Einstellungen —
            deshalb stehen sie hier und nicht dort. -->
-      <div v-if="langzeit !== null && langzeit.rolle === 'master'" style="min-width: 15rem">
+      <div class="block" v-if="langzeit !== null && langzeit.rolle === 'master'"
+           style="min-width: 15rem">
+        <h4>Langzeitdaten</h4>
         <table class="daten" style="max-width: 20rem">
           <tbody>
             <tr>
@@ -302,7 +305,8 @@ nutzeTakt(async () => {
            links stehen. Auf schmalen Anzeigen hebt style.css das wieder auf,
            weil die Zeile dort umbricht und ein rechtsbuendiger Block sonst
            allein in der Gegend steht. -->
-      <div class="oled-vorschau">
+      <div class="oled-vorschau block">
+        <h4>Anzeige</h4>
         <canvas ref="oledCanvas" width="256" height="64"
                 style="border: 1px solid var(--border); border-radius: 6px; image-rendering: pixelated"></canvas>
         <div class="zeile" style="margin-top: 0.4rem">

@@ -217,7 +217,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.11.0</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.12.0</span>
 </div>
 
 
@@ -233,7 +233,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.11.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.12.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -1993,6 +1993,26 @@ der verteilt sie über das, was im Haus vorhanden ist.</p>
 <p>Einzutragen ist nur die Adresse des Adapters, etwa
 <code>http://192.168.1.20:8087/asksin/alarm</code>.</p>
 
+
+<p><strong>Versionsabhängigkeit.</strong> Analyzer und Adapter werden getrennt
+gepflegt, also passen sie irgendwann nicht mehr zusammen — und der Fehler
+äussert sich dann als „geht nicht", nicht als „Version zu alt". Deshalb weist
+seit dieser Ausgabe <em>jede</em> Seite aus, welche Fassung der anderen sie
+braucht, und prüft es auch:</p>
+
+<table>
+<tr><th>Analyzer</th><th>ioBroker-Adapter</th><th>wodurch</th></tr>
+<tr><td>0.12.0</td><td>0.0.2</td><td>erste Fassung mit Alarm-Zustellung</td></tr>
+</table>
+
+<p>Die Einstellungsseite nennt die geforderte Adapterfassung, und der
+Testknopf fragt den Adapter vorher danach: Meldet er eine ältere, steht die
+Warnung im Ergebnis — auch dann, wenn er die Probemeldung angenommen hat. Ein
+zu alter Adapter nimmt sie womöglich an, ohne sie zu verarbeiten, und ein
+Erfolg, den es nicht gibt, wäre die schlechteste Auskunft.</p>
+
+<p class="klein">Umgekehrt prüft der Adapter bei jeder Abfrage die Version des
+Analyzers und warnt einmalig im ioBroker-Protokoll, wenn sie zu alt ist.</p>
 <p>Damit das funktioniert, muss im <strong>Adapter</strong> der Empfang
 eingeschaltet sein: <em>Instanz-Einstellungen → Alarme vom Analyzer</em>. Dort
 stehen Port (Vorgabe 8095) und Pfad (Vorgabe <code>/asksin/alarm</code>), aus
@@ -2088,7 +2108,7 @@ häufigste Grund, warum Alarme bei einer Einrichtung von Hand nie ankommen:
 Der Kontaktpunkt steht da, Grafana markiert ihn als „Unused“, und die
 Standardrichtlinie zeigt weiterhin ins Leere.</p>
 
-<h2 id="k19-9">19.9 Grenzen — was hier nicht geht</h2>
+<h2 class="umbruch" id="k19-9">19.9 Grenzen — was hier nicht geht</h2>
 
 <p>Damit niemand danach sucht:</p>
 
@@ -2122,7 +2142,7 @@ bekommt eine Lücke.</p>
 wissen will, findet den freien Platz in der Ansicht <em>Gerätezustand</em>,
 Feld 5 — dort sieht man auch, wie schnell er tatsächlich fällt.</p>
 
-<h2 id="k19-11">19.11 Wenn etwas nicht klappt</h2>
+<h2 class="umbruch" id="k19-11">19.11 Wenn etwas nicht klappt</h2>
 
 <table>
 <tr><th>Beobachtung</th><th>Ursache</th><th>Abhilfe</th></tr>
@@ -2543,7 +2563,7 @@ NVMe-Platine und umgeht USB als Speicherweg vollständig.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.11.0 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.12.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

@@ -40,6 +40,7 @@ laufenden Gerät.
 | Verbund: 5 Analyzer als Gesamtsystem | ✅ komplett: Dashboard, Matrix+Dedup, Flotten-Update, Langzeitdaten nach InfluxDB (M9.1–M9.5, [`docs/verbund.md`](docs/verbund.md)) |
 | Langzeitdaten vor Ort (InfluxDB + Grafana) | ✅ optional auf dem Master: Ein-Klick-Einrichtung, acht fertige Grafana-Ansichten, vier Alarme (M14) |
 | Alarmziele: ioBroker, E-Mail, Telegram | ✅ in der WebUI einstellbar, mit Testversand und deutlichen Fehlermeldungen (M14.2) |
+| Versionsabhängigkeit Analyzer ↔ Adapter | ✅ beide Seiten weisen sie aus **und prüfen sie** (M15) |
 | Protokoll und Absturzsuche (Tab „Wartung“) | ✅ fertig (M13): Stufen, Tagesrotation, Download, Systemjournal ([`docs/protokoll.md`](docs/protokoll.md)) |
 | ioBroker-Adapter | 🔨 Grundgerüst steht (M6, eigenes Repo [`ioBroker.asksinanalyzer-rpi`](https://github.com/ssbingo/ioBroker.asksinanalyzer-rpi), MIT, mehrinstanzfähig) |
 
@@ -343,6 +344,20 @@ eingerichtete Grafana-Alarme nie ankommen.
 
 Für Einsteiger ist das alles im Handbuch Schritt für Schritt beschrieben —
 Kapitel 19.3 bis 19.11, mit Abbildungen aller acht Ansichten.
+
+### Versionsabhängigkeit zum ioBroker-Adapter
+
+Analyzer und Adapter werden getrennt gepflegt. Damit ein Gespann aus zwei
+unpassenden Fassungen nicht als diffuses „geht nicht" auffällt, weist **jede
+Seite aus, welche Fassung der anderen sie braucht — und prüft es**:
+
+| Analyzer | Adapter | wodurch |
+| --- | --- | --- |
+| 0.12.0 | 0.0.2 | erste Fassung mit Alarm-Zustellung |
+
+Der Testknopf im Analyzer fragt den Adapter vorher nach seiner Fassung; der
+Adapter prüft bei jeder Abfrage die des Analyzers. **Jede Änderung an dieser
+Abhängigkeit gehört auf beide Seiten** — sonst behauptet jede etwas anderes.
 
 **Core/Web-UI 0.0.7**
 - **Langzeitdaten nach InfluxDB v2**: jeder Analyzer schreibt dezentral

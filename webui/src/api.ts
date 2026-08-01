@@ -602,8 +602,10 @@ export interface AlarmzielZustand {
   laeuft: boolean;
   /** Liegt der Anstoß seit Minuten unbearbeitet herum? Dann fehlt der Helfer. */
   haengtSeitMinuten: number | null;
-  /** Der Endpunkt im ioBroker-Adapter entsteht erst in einer späteren Phase. */
+  /** Der Endpunkt im ioBroker-Adapter ist ab dessen Fassung mit Alarm-Empfang da. */
   iobrokerBereit: boolean;
+  /** Welche Adapterfassung mindestens gebraucht wird. */
+  adapterMindestversion: string;
 }
 
 export const holeAlarmziel = (): Promise<AlarmzielZustand> => hole('/api/alarmziel');

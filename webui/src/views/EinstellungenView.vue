@@ -820,6 +820,12 @@ const demoUmschalten = (): Promise<void> | undefined => {
         Pushover, E-Mail. Der Vorteil: Man richtet das <strong>einmal im
         ioBroker</strong> ein und nicht ein zweites Mal in Grafana.
       </div>
+      <div class="meldung ok">
+        <strong>Benötigt den ioBroker-Adapter ab Version
+        {{ alarmZustand.adapterMindestversion }}.</strong> Ältere Fassungen
+        nehmen die Alarme nicht entgegen. Der Testknopf unten prüft das mit —
+        er fragt den Adapter nach seiner Fassung, bevor er etwas schickt.
+      </div>
       <div class="meldung ok" v-if="alarmZustand.iobrokerBereit">
         Im ioBroker-Adapter muss der Alarm-Empfang eingeschaltet sein:
         <em>Instanz-Einstellungen → Alarme vom Analyzer</em>. Dort stehen Port

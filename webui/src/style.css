@@ -259,6 +259,26 @@ header.kopf { flex-wrap: wrap; }
 /* OLED-Vorschau rechts, Kennzahlen links. */
 .oled-vorschau { margin-left: auto; }
 
+/* Die drei Spalten der Übersicht bekommen einen eigenen Rahmen: Ohne ihn
+   verschwimmen Kennzahlen, Langzeitdaten und Display-Vorschau zu einer Fläche,
+   und man sieht nicht, was zusammengehört. Bewusst zurückhaltend — eine feine
+   Linie und etwas Luft, kein zweiter Kasten im Kasten. */
+.block {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  background: color-mix(in srgb, var(--panel) 60%, transparent);
+}
+.block > .daten { margin: 0; }
+.block > h4 {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 /* Lange Token, Adressen und Payloads dürfen umbrechen statt auszubrechen. */
 .panel, .kachel { overflow-wrap: anywhere; }
 table.daten { overflow-wrap: normal; }

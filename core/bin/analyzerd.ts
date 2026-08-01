@@ -59,6 +59,11 @@ import {
   pruefeAlarmziel,
 } from '../src/langzeit/alarmziel.ts';
 import type { Alarmkanal, Alarmziel } from '../src/langzeit/alarmziel.ts';
+import {
+  ADAPTER_MINDESTVERSION,
+  adapterZuAlt,
+  versionGenuegt,
+} from '../src/langzeit/kompatibilitaet.ts';
 import { deuteSmtpFehler, netzLeitung, smtpTestlauf } from '../src/langzeit/smtp.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
@@ -1325,6 +1330,30 @@ async function schickeProbe(
   return erfolg;
 }
 
+/**
+ * Fragt den Adapter nach seiner Fassung und vergleicht sie.
+ *
+ * Der Adapter beantwortet einen gewoehnlichen Aufruf mit seinen
+ * Versionsangaben — genau dafuer tut er das. Antwortet er nicht oder nennt
+ * keine Fassung, wird nicht gemeckert: Die Pruefung ist eine Hilfe, kein
+ * Hindernis.
+ *
+ * @returns Leerer Text, wenn alles passt; sonst der Hinweis fuer die Oberflaeche.
+ */
+async function pruefeAdapterVersion(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    if (!res.ok) return '';
+    const d = (await res.json()) as { version?: string };
+    if (typeof d.version !== 'string') return '';
+    return versionGenuegt(d.version, ADAPTER_MINDESTVERSION)
+      ? ''
+      : adapterZuAlt(d.version);
+  } catch {
+    return '';
+  }
+}
+
 const alarmzielHooks = {
   zustand: (): unknown => {
     const z = leseAlarmziel();
@@ -1345,6 +1374,7 @@ const alarmzielHooks = {
       // Analyzer nicht wissen — deshalb kein Versprechen, sondern der Weg
       // dorthin in der Oberflaeche.
       iobrokerBereit: true,
+      adapterMindestversion: ADAPTER_MINDESTVERSION,
     };
   },
   einstellen: (auftrag: Record<string, unknown>): void => {
@@ -1387,7 +1417,11 @@ const alarmzielHooks = {
       if (!/^https?:\/\/\S+$/.test(io.url)) {
         throw new Error('Adresse des Adapters fehlt oder ist unvollständig');
       }
-      return schickeProbe(
+      // Vor dem Zustellversuch die Fassung erfragen: Ein zu alter Adapter
+      // nimmt die Meldung womoeglich an, ohne sie zu verarbeiten — dann
+      // meldete der Test einen Erfolg, den es nicht gibt.
+      const alterHinweis = await pruefeAdapterVersion(io.url);
+      const ergebnis = await schickeProbe(
         'iobroker',
         io.url,
         {
@@ -1397,6 +1431,7 @@ const alarmzielHooks = {
         JSON.stringify(baueProbeMeldung(standort, new Date())),
         `Probemeldung an ${io.url} zugestellt — der Adapter hat sie angenommen.`,
       );
+      return alterHinweis === '' ? ergebnis : `${ergebnis}\n\n⚠ ${alterHinweis}`;
     }
 
     if (kanal === 'telegram') {
