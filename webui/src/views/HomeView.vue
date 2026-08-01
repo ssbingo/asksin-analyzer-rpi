@@ -233,6 +233,7 @@ nutzeTakt(async () => {
         <table class="daten" style="max-width: 22rem">
           <tbody>
             <tr><td class="gedimmt">CPU-Last</td><td class="num">{{ status.system.cpuLast.toFixed(2) }}</td></tr>
+            <tr v-if="status.system.luefterUpm !== null && status.system.luefterUpm !== undefined"><td class="gedimmt">Lüfter</td><td class="num">{{ status.system.luefterUpm }} U/min</td></tr>
             <tr v-if="status.system.tempC !== null"><td class="gedimmt">Temperatur</td><td class="num">{{ status.system.tempC.toFixed(1) }} °C</td></tr>
             <tr><td class="gedimmt">RAM frei</td><td class="num">{{ status.system.ramFreiProzent.toFixed(0) }} %</td></tr>
             <tr v-if="status.system.diskFreiProzent !== null"><td class="gedimmt">SSD frei</td><td class="num">{{ status.system.diskFreiProzent.toFixed(0) }} %</td></tr>
@@ -242,12 +243,21 @@ nutzeTakt(async () => {
           ⚠ {{ kontext }}: {{ text }}
         </div>
       </div>
-      <div>
+      <!-- Schiebt die Vorschau an den rechten Rand; die Kennzahlen bleiben
+           links stehen. Auf schmalen Anzeigen hebt style.css das wieder auf,
+           weil die Zeile dort umbricht und ein rechtsbuendiger Block sonst
+           allein in der Gegend steht. -->
+      <div class="oled-vorschau">
         <canvas ref="oledCanvas" width="256" height="64"
                 style="border: 1px solid var(--border); border-radius: 6px; image-rendering: pixelated"></canvas>
         <div class="zeile" style="margin-top: 0.4rem">
           <button @click="blaettern">Blättern (Seite {{ status.seite + 1 }}/{{ status.seitenGesamt ?? status.seiten }})</button>
-          <span class="fussnote" style="margin: 0">Live-Vorschau des OLED — pixelgenau dasselbe Bild wie am Gerät.</span>
+        </div>
+        <!-- Eigene Zeile statt neben dem Knopf: Der Satz drueckte die
+             Vorschau sonst in die Breite. -->
+        <div class="fussnote" style="margin-top: 0.4rem; max-width: 16rem">
+          Live-Vorschau des OLED —<br />
+          pixelgenau dasselbe Bild wie am Gerät.
         </div>
       </div>
     </div>

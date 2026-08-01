@@ -234,6 +234,8 @@ export interface StatusAnzeigeZustand {
     tempC: number | null;
     ramFreiProzent: number;
     diskFreiProzent: number | null;
+    /** Lüfterdrehzahl in U/min; null bei passiv gekühlten Geräten. */
+    luefterUpm: number | null;
   };
   /** SSD1306-Framebuffer (1024 Bytes, base64) für die Live-Vorschau. */
   oledBild: string;

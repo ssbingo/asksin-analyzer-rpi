@@ -256,6 +256,9 @@ header.kopf { flex-wrap: wrap; }
    Zeile auf. Betrifft vor allem die Formularzeilen mit flex: 2 / flex: 1. */
 .zeile > * { min-width: 0; }
 
+/* OLED-Vorschau rechts, Kennzahlen links. */
+.oled-vorschau { margin-left: auto; }
+
 /* Lange Token, Adressen und Payloads dürfen umbrechen statt auszubrechen. */
 .panel, .kachel { overflow-wrap: anywhere; }
 table.daten { overflow-wrap: normal; }
@@ -265,6 +268,10 @@ table.daten { overflow-wrap: normal; }
 }
 
 @media (max-width: 780px) {
+  /* Hier bricht .zeile um — ein rechtsbuendiger Block staende dann allein
+     in der Gegend. Also zurueck an den linken Rand. */
+  .oled-vorschau { margin-left: 0; }
+
   /* Die Grundschriftgröße bleibt bewusst unangetastet. Der erste Entwurf
      verkleinerte sie hier, um mehr unterzubringen — genau falsch herum: Am
      Telefon ist Lesbarkeit knapp, nicht Platz. Platz schafft stattdessen das
