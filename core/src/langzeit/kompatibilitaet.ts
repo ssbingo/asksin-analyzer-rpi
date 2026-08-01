@@ -80,3 +80,43 @@ export function adapterZuAlt(gefunden: string): string {
     `Alarme nicht entgegen. Im ioBroker aktualisieren, dann erneut testen.`
   );
 }
+
+/** Was die Prüfung der Gegenstelle ergeben hat. */
+export type Versionsbefund =
+  | { art: 'passt'; text: string }
+  | { art: 'zuAlt'; text: string }
+  | { art: 'unbekannt'; text: string };
+
+/**
+ * Formuliert das Ergebnis der Versionsprüfung — **auch im guten Fall**.
+ *
+ * Schweigen bei Erfolg wäre mehrdeutig: „geprüft und in Ordnung" sähe genauso
+ * aus wie „konnte nicht prüfen". Wer wissen will, ob zwei Fassungen
+ * zueinander passen, braucht eine Antwort, keine Abwesenheit einer Warnung.
+ *
+ * @param adapterVersion Was der Adapter gemeldet hat; null, wenn er nichts sagte
+ * @param eigeneVersion  Fassung dieses Analyzers
+ */
+export function baueVersionsbefund(
+  adapterVersion: string | null,
+  eigeneVersion: string,
+): Versionsbefund {
+  if (adapterVersion === null || !/^\d/.test(adapterVersion)) {
+    return {
+      art: 'unbekannt',
+      text:
+        'Der Adapter nennt seine Fassung nicht — die Prüfung war nicht ' +
+        `möglich. Ab Adapter ${ADAPTER_MINDESTVERSION} meldet er sie; ` +
+        'ältere Fassungen nehmen die Alarme ohnehin nicht entgegen.',
+    };
+  }
+  if (!versionGenuegt(adapterVersion, ADAPTER_MINDESTVERSION)) {
+    return { art: 'zuAlt', text: adapterZuAlt(adapterVersion) };
+  }
+  return {
+    art: 'passt',
+    text:
+      `Adapter ${adapterVersion} und Analyzer ${eigeneVersion} passen ` +
+      `zueinander (nötig wäre Adapter ab ${ADAPTER_MINDESTVERSION}).`,
+  };
+}

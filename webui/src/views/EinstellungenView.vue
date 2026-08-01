@@ -937,8 +937,10 @@ const demoUmschalten = (): Promise<void> | undefined => {
       übernimmt — ein <code>sudo /opt/asksin-analyzer/update.sh</code> holt ihn
       nach. Die Einstellungen selbst sind gespeichert.
     </div>
+    <!-- pre-line, weil die Antwort mehrzeilig ist: erst das Ergebnis, dann
+         der Versionsbefund. Ohne das liefe beides zu einem Absatz zusammen. -->
     <div class="meldung" :class="alarmTestFehler ? 'fehler' : 'ok'"
-         v-if="alarmTestText !== ''">
+         style="white-space: pre-line" v-if="alarmTestText !== ''">
       {{ alarmTestText }}
     </div>
     <div class="fussnote">

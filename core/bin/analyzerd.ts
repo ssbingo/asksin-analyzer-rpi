@@ -61,9 +61,9 @@ import {
 import type { Alarmkanal, Alarmziel } from '../src/langzeit/alarmziel.ts';
 import {
   ADAPTER_MINDESTVERSION,
-  adapterZuAlt,
-  versionGenuegt,
+  baueVersionsbefund,
 } from '../src/langzeit/kompatibilitaet.ts';
+import type { Versionsbefund } from '../src/langzeit/kompatibilitaet.ts';
 import { deuteSmtpFehler, netzLeitung, smtpTestlauf } from '../src/langzeit/smtp.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
@@ -1334,24 +1334,22 @@ async function schickeProbe(
  * Fragt den Adapter nach seiner Fassung und vergleicht sie.
  *
  * Der Adapter beantwortet einen gewoehnlichen Aufruf mit seinen
- * Versionsangaben — genau dafuer tut er das. Antwortet er nicht oder nennt
- * keine Fassung, wird nicht gemeckert: Die Pruefung ist eine Hilfe, kein
- * Hindernis.
- *
- * @returns Leerer Text, wenn alles passt; sonst der Hinweis fuer die Oberflaeche.
+ * Versionsangaben — genau dafuer tut er das. Das Ergebnis wird IMMER
+ * ausgesprochen, auch wenn alles passt: Schweigen bei Erfolg saehe genauso
+ * aus wie eine nicht durchgefuehrte Pruefung.
  */
-async function pruefeAdapterVersion(url: string): Promise<string> {
+async function pruefeAdapterVersion(url: string): Promise<Versionsbefund> {
+  let gemeldet: string | null = null;
   try {
     const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
-    if (!res.ok) return '';
-    const d = (await res.json()) as { version?: string };
-    if (typeof d.version !== 'string') return '';
-    return versionGenuegt(d.version, ADAPTER_MINDESTVERSION)
-      ? ''
-      : adapterZuAlt(d.version);
+    if (res.ok) {
+      const d = (await res.json()) as { version?: unknown };
+      if (typeof d.version === 'string') gemeldet = d.version;
+    }
   } catch {
-    return '';
+    /* keine Auskunft — das ist ein eigener Befund, kein stiller Erfolg */
   }
+  return baueVersionsbefund(gemeldet, paketVersion());
 }
 
 const alarmzielHooks = {
@@ -1420,7 +1418,10 @@ const alarmzielHooks = {
       // Vor dem Zustellversuch die Fassung erfragen: Ein zu alter Adapter
       // nimmt die Meldung womoeglich an, ohne sie zu verarbeiten — dann
       // meldete der Test einen Erfolg, den es nicht gibt.
-      const alterHinweis = await pruefeAdapterVersion(io.url);
+      // Vor dem Zustellversuch die Fassung erfragen: Ein zu alter Adapter
+      // nimmt die Meldung womoeglich an, ohne sie zu verarbeiten — dann
+      // meldete der Test einen Erfolg, den es nicht gibt.
+      const befund = await pruefeAdapterVersion(io.url);
       const ergebnis = await schickeProbe(
         'iobroker',
         io.url,
@@ -1431,7 +1432,8 @@ const alarmzielHooks = {
         JSON.stringify(baueProbeMeldung(standort, new Date())),
         `Probemeldung an ${io.url} zugestellt — der Adapter hat sie angenommen.`,
       );
-      return alterHinweis === '' ? ergebnis : `${ergebnis}\n\n⚠ ${alterHinweis}`;
+      const zeichen = { passt: '✓', zuAlt: '⚠', unbekannt: 'ℹ' }[befund.art];
+      return `${ergebnis}\n\n${zeichen} ${befund.text}`;
     }
 
     if (kanal === 'telegram') {
