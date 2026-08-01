@@ -39,7 +39,13 @@ import { openDatabase } from '../src/persist/db.ts';
 import { DevListService } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
 import { INFLUX_VORGABEN, InfluxSchreiber } from '../src/influx/schreiber.ts';
-import { geltendeRolle, verlangeMaster } from '../src/langzeit/rolle.ts';
+import {
+  geltendeRolle,
+  istRolle,
+  masterFaehig,
+  rolleMitHardware,
+  verlangeMaster,
+} from '../src/langzeit/rolle.ts';
 import type { Rolle } from '../src/langzeit/rolle.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
@@ -1050,6 +1056,117 @@ const influxHooks = {
   },
 };
 
+// ---- Langzeitdaten vor Ort (M14) ----------------------------------------
+//
+// InfluxDB und Grafana duerfen nur auf dem Master laufen. Die Rolle steht
+// entweder in der Weboberflaeche oder in config.json; die Hardware kann sie
+// ueberstimmen, denn ein Pi 3 traegt die beiden Dienste nicht.
+//
+// Installiert wird ueber eine Anstossdatei: Der Analyzer laeuft unprivilegiert
+// und darf keine Pakete nachladen. Eine systemd-Path-Unit sieht die Datei und
+// startet das Skript als root — dasselbe Muster wie beim Update und beim
+// Neustart per Taster.
+
+const rolleDatei = join(datenDir, 'verbund-rolle.json');
+const langzeitTrigger = join(datenDir, 'langzeit-anstoss');
+const langzeitStatusDatei = join(datenDir, 'langzeit-status.json');
+
+function leseRolleAusUi(): unknown {
+  try {
+    const roh = JSON.parse(readFileSync(rolleDatei, 'utf8')) as {
+      rolle?: unknown;
+    };
+    return roh.rolle;
+  } catch {
+    return undefined;
+  }
+}
+
+function leseModell(): string {
+  try {
+    // Der Knoten endet auf ein Nullbyte — das muss weg, sonst passt kein
+    // Vergleich und die Baureihe wird nie erkannt.
+    return readFileSync('/proc/device-tree/model', 'utf8').replace(/\0/g, '').trim();
+  } catch {
+    return '';
+  }
+}
+
+const hardware = { modell: leseModell(), ramBytes: totalmem() };
+
+/** Rolle, wie sie tatsaechlich gilt — inklusive Hardware-Veto. */
+function aktuelleRolle(): {
+  rolle: Rolle;
+  gewuenscht: Rolle;
+  erzwungen: boolean;
+  grund: string;
+} {
+  const gewuenscht = geltendeRolle(leseRolleAusUi(), konfig.verbund?.rolle);
+  return { gewuenscht, ...rolleMitHardware(gewuenscht, hardware) };
+}
+
+function leseLangzeitStatus(): Record<string, unknown> | null {
+  try {
+    return JSON.parse(readFileSync(langzeitStatusDatei, 'utf8')) as Record<
+      string,
+      unknown
+    >;
+  } catch {
+    return null;
+  }
+}
+
+const langzeitHooks = {
+  zustand: (): unknown => {
+    const r = aktuelleRolle();
+    return {
+      ...r,
+      hardware: {
+        modell: hardware.modell === '' ? 'unbekannt' : hardware.modell,
+        ramGb: Number((hardware.ramBytes / 1024 ** 3).toFixed(1)),
+      },
+      masterFaehig: masterFaehig(hardware),
+      // Vorhandene Installation erkennen, ohne etwas zu starten: Die
+      // Verzeichnisse legen die Pakete an, und sie bleiben auch dann liegen,
+      // wenn das Geraet spaeter zum Client wird.
+      installiert: {
+        influxdb: existsSync('/etc/influxdb') || existsSync('/var/lib/influxdb'),
+        grafana: existsSync('/etc/grafana'),
+      },
+      installation: leseLangzeitStatus(),
+      laeuft: existsSync(langzeitTrigger),
+      // Der Weg zur Oberflaeche — die IP kennt nur der Analyzer selbst.
+      grafanaUrl: `http://${eigeneIp()}:3000`,
+    };
+  },
+  einstellen: (auftrag: Record<string, unknown>): void => {
+    if (auftrag['rolle'] !== undefined) {
+      if (!istRolle(auftrag['rolle'])) {
+        throw new Error("rolle: 'master' oder 'client' erwartet");
+      }
+      writeFileSync(rolleDatei, JSON.stringify({ rolle: auftrag['rolle'] }, null, 2));
+      const r = aktuelleRolle();
+      log(
+        `Verbund-Rolle: ${r.rolle}` +
+          (r.erzwungen ? ` (erzwungen — ${r.grund})` : ''),
+      );
+      return;
+    }
+    if (auftrag['aktion'] === 'installieren') {
+      // Serverseitige Pruefung, nicht nur im Browser: Die API ist im Heimnetz
+      // erreichbar, ein ausgeblendeter Knopf ist keine Zusicherung.
+      verlangeMaster(aktuelleRolle().rolle);
+      if (existsSync(langzeitTrigger)) {
+        throw new Error('Eine Installation läuft bereits');
+      }
+      writeFileSync(langzeitTrigger, `${new Date().toISOString()}\n`);
+      log('Langzeitdaten: Installation angestossen');
+      return;
+    }
+    throw new Error("Unbekannter Auftrag — 'rolle' oder aktion 'installieren'");
+  },
+};
+
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
 // Das Handbuch liegt im Projekt, nicht im Web-UI-Verzeichnis; ausgeliefert
 // wird es über eine eigene Route, damit es auch ohne Internet erreichbar ist.
@@ -1108,6 +1225,7 @@ const api = new ApiServer({
   netzwerk: netzwerkHooks,
   statusAnzeige: statusAnzeigeHooks,
   influx: influxHooks,
+  langzeit: langzeitHooks,
   protokoll: protokollHooks,
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');

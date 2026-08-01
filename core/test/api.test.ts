@@ -45,6 +45,7 @@ async function aufbau(t: TestContext, extra: {
   verbund?: import('../src/api/server.ts').ApiServerOptions['verbund'];
   netzwerk?: import('../src/api/server.ts').NetzwerkHooks;
   statusAnzeige?: import('../src/api/server.ts').ApiServerOptions['statusAnzeige'];
+  langzeit?: import('../src/api/server.ts').ApiServerOptions['langzeit'];
 } = {}): Promise<Aufbau> {
   const time = new FakeTime();
   const ports: FakePort[] = [];
@@ -84,6 +85,7 @@ async function aufbau(t: TestContext, extra: {
     ...(extra.verbund === undefined ? {} : { verbund: extra.verbund }),
     ...(extra.netzwerk === undefined ? {} : { netzwerk: extra.netzwerk }),
     ...(extra.statusAnzeige === undefined ? {} : { statusAnzeige: extra.statusAnzeige }),
+    ...(extra.langzeit === undefined ? {} : { langzeit: extra.langzeit }),
     time,
     onSetConfig: (c) => {
       gesetzt.push(c);
@@ -661,4 +663,59 @@ test('/api/snapshot und /api/health: die Sicht des Analyzers über HTTP', async 
   assert.equal(h['connected'], true);
   assert.equal(h['telegrams'], 1);
   assert.equal(h['standort'], 'Testkeller', 'Standort-Identität im Health');
+});
+
+test('Langzeitdaten: der Client wird serverseitig abgewiesen', async (t) => {
+  // Die Weboberflaeche blendet den Abschnitt beim Client aus. Das ist
+  // Bequemlichkeit, keine Zusicherung — die API ist im Heimnetz erreichbar,
+  // also muss der Server selbst ablehnen.
+  let rolle: 'master' | 'client' = 'client';
+  const versuche: string[] = [];
+  const { base } = await aufbau(t, {
+    authToken: 'geheim',
+    langzeit: {
+      zustand: () => ({ rolle }),
+      einstellen: (auftrag) => {
+        if (auftrag['aktion'] === 'installieren') {
+          if (rolle !== 'master') throw new Error('Nur auf dem Master verfügbar.');
+          versuche.push('installiert');
+        }
+        if (auftrag['rolle'] === 'master') rolle = 'master';
+      },
+    },
+  });
+
+  const senden = (body: unknown): Promise<Response> =>
+    fetch(`${base}/api/langzeitdaten`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer geheim', 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+
+  const abgelehnt = await senden({ aktion: 'installieren' });
+  assert.equal(abgelehnt.ok, false, 'Client darf nicht installieren');
+  assert.equal(versuche.length, 0);
+
+  // Rolle wechseln, dann geht es.
+  const wechsel = await senden({ rolle: 'master' });
+  assert.ok(wechsel.ok, `Rollenwechsel: ${wechsel.status} ${await wechsel.text()}`);
+  assert.ok((await senden({ aktion: 'installieren' })).ok);
+  assert.deepEqual(versuche, ['installiert']);
+
+  const zustand = (await (await fetch(`${base}/api/langzeitdaten`)).json()) as {
+    rolle: string;
+  };
+  assert.equal(zustand.rolle, 'master');
+});
+
+test('Langzeitdaten: ohne Token kein Zugriff auf das Setzen', async (t) => {
+  const { base } = await aufbau(t, {
+    authToken: 'geheim',
+    langzeit: { zustand: () => ({ rolle: 'master' }), einstellen: () => undefined },
+  });
+  const ohne = await fetch(`${base}/api/langzeitdaten`, {
+    method: 'POST',
+    body: JSON.stringify({ aktion: 'installieren' }),
+  });
+  assert.equal(ohne.status, 401);
 });

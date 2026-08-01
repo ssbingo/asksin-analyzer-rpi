@@ -114,6 +114,13 @@ export interface ApiServerOptions {
     zustand(): unknown;
     einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
   };
+  /** Langzeitdaten vor Ort (M14): Verbund-Rolle und Installation von
+   *  InfluxDB und Grafana. Nur der Master darf installieren — geprüft wird
+   *  das im Hook, nicht hier. */
+  langzeit?: {
+    zustand(): unknown;
+    einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
+  };
   /** Protokoll (M13): Stufe und Aufbewahrung einstellen, Dateien herunterladen. */
   protokoll?: {
     zustand(): unknown;
@@ -364,6 +371,11 @@ export class ApiServer {
           if (hooks === undefined) return this.#text(res, 501, 'Keine Influx-Anbindung');
           return this.#json(res, 200, hooks.zustand());
         }
+        case '/api/langzeitdaten': {
+          const hooks = this.#opts.langzeit;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Langzeitdaten');
+          return this.#json(res, 200, hooks.zustand());
+        }
         case '/api/protokoll': {
           const hooks = this.#opts.protokoll;
           if (hooks === undefined) return this.#text(res, 501, 'Kein Protokoll');
@@ -490,6 +502,19 @@ export class ApiServer {
           }
           await hooks.einstellen(auftrag);
           return this.#text(res, 200, 'OK — sofort wirksam');
+        }
+        case '/api/langzeitdaten': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.langzeit;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Langzeitdaten');
+          let auftrag: Record<string, unknown>;
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            return this.#text(res, 400, 'Body muss JSON sein');
+          }
+          await hooks.einstellen(auftrag);
+          return this.#text(res, 200, 'OK');
         }
         case '/api/statusanzeige/seite': {
           const hooks = this.#opts.statusAnzeige;
