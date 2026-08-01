@@ -56,7 +56,7 @@ import {
   pruefeAlarmziel,
 } from '../src/langzeit/alarmziel.ts';
 import type { Alarmziel } from '../src/langzeit/alarmziel.ts';
-import { netzLeitung, smtpTestlauf } from '../src/langzeit/smtp.ts';
+import { deuteSmtpFehler, netzLeitung, smtpTestlauf } from '../src/langzeit/smtp.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
 import type { Stufe } from '../src/log/protokoll.ts';
@@ -1283,19 +1283,25 @@ const alarmzielHooks = {
     if (!e.empfaenger.includes('@')) throw new Error('Empfänger fehlt');
     if (e.smtpHost.trim() === '') throw new Error('SMTP-Server fehlt');
 
-    const leitung = await netzLeitung(e.smtpHost, e.smtpPort);
+    // Alles ab hier gedeutet zurueckgeben: Ein "Interner Fehler: SmtpFehler"
+    // ist keine Auskunft, sondern eine Zumutung.
     try {
-      await smtpTestlauf(leitung, {
-        host: e.smtpHost,
-        port: e.smtpPort,
-        benutzer: e.benutzer,
-        passwort: e.passwort,
-        absender: e.absender,
-        empfaenger: e.empfaenger,
-        standort,
-      });
-    } finally {
-      leitung.schliesse();
+      const leitung = await netzLeitung(e.smtpHost, e.smtpPort);
+      try {
+        await smtpTestlauf(leitung, {
+          host: e.smtpHost,
+          port: e.smtpPort,
+          benutzer: e.benutzer,
+          passwort: e.passwort,
+          absender: e.absender,
+          empfaenger: e.empfaenger,
+          standort,
+        });
+      } finally {
+        leitung.schliesse();
+      }
+    } catch (fehler) {
+      throw new Error(deuteSmtpFehler(fehler));
     }
     log(`Testmail an ${e.empfaenger} verschickt`);
     return `Testmail an ${e.empfaenger} verschickt — der Server hat sie angenommen.`;

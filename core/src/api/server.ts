@@ -535,7 +535,14 @@ export class ApiServer {
           } catch {
             /* leerer Body = gespeicherte Werte nehmen */
           }
-          return this.#text(res, 200, await hooks.testen(auftrag));
+          try {
+            return this.#text(res, 200, await hooks.testen(auftrag));
+          } catch (e) {
+            // 400 statt 500: Ein abgewiesener Versand ist kein Serverfehler,
+            // sondern eine Auskunft ueber die Eingabe — und "Interner Fehler"
+            // davorzuschreiben verdeckt sie nur.
+            return this.#text(res, 400, e instanceof Error ? e.message : String(e));
+          }
         }
         case '/api/alarmziel':
         case '/api/langzeitdaten': {

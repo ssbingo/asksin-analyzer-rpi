@@ -261,3 +261,66 @@ export function netzLeitung(
     sock.once('error', (e) => ablehnen(e));
   });
 }
+
+/**
+ * Übersetzt eine abgelehnte Zustellung in einen Satz, mit dem man etwas
+ * anfangen kann.
+ *
+ * Die wörtliche Serverantwort bleibt dabei erhalten — sie ist der Beweis.
+ * Aber „550 Sender address is not allowed" sagt nur, DASS etwas nicht ging;
+ * die Handlung daraus abzuleiten ist Arbeit, die man dem Anwender abnehmen
+ * kann. Genau daran scheitert Einrichtung sonst: Die Auskunft ist da, aber
+ * sie ist nicht die Antwort auf die Frage „was muss ich jetzt tun?".
+ */
+export function deuteSmtpFehler(e: unknown): string {
+  if (!(e instanceof SmtpFehler)) {
+    const text = e instanceof Error ? e.message : String(e);
+    if (/ECONNREFUSED/.test(text)) {
+      return (
+        'Der Server nimmt auf diesem Port keine Verbindung an. Stimmen ' +
+        'Adresse und Port? Üblich sind 587 (StartTLS) oder 465.\n\n' + text
+      );
+    }
+    if (/ENOTFOUND|EAI_AGAIN/.test(text)) {
+      return `Der Servername ist nicht auflösbar — Tippfehler?\n\n${text}`;
+    }
+    if (/Zeitüberschreitung|ETIMEDOUT/.test(text)) {
+      return (
+        'Keine Antwort vom Server. Blockiert eine Firewall den Port, oder ' +
+        'ist der Port falsch?\n\n' + text
+      );
+    }
+    return text;
+  }
+
+  const roh = e.antwort.text;
+  const code = e.antwort.code;
+  const anhang = `\n\nAntwort des Servers:\n${roh}`;
+
+  if (code === 535 || code === 534 || code === 530) {
+    return (
+      'Benutzername oder Passwort werden nicht angenommen. Viele Anbieter ' +
+      'verlangen ein eigenes E-Mail-Passwort statt des Kundenkennworts — bei ' +
+      'T-Online wird es im Kundencenter vergeben, bei Google und anderen ist ' +
+      'es ein App-Passwort.' + anhang
+    );
+  }
+  if (e.schritt === 'Absender' && /sender|absender|not allowed|not permitted/i.test(roh)) {
+    return (
+      'Der Server erlaubt diese Absenderadresse nicht. Fast immer muss sie ' +
+      'mit der Adresse übereinstimmen, mit der die Anmeldung erfolgt — trage ' +
+      'bei „Absender" dasselbe ein wie bei „Benutzer".' + anhang
+    );
+  }
+  if (e.schritt.startsWith('Empfänger') && /relay/i.test(roh)) {
+    return (
+      'Der Server möchte an diesen Empfänger nicht ausliefern. Das passiert, ' +
+      'wenn die Anmeldung nicht gegriffen hat oder der Anbieter nur an ' +
+      'eigene Adressen zustellt.' + anhang
+    );
+  }
+  if (code === 550 || code === 553 || code === 554) {
+    return `Der Server hat die Nachricht abgelehnt (${e.schritt}).${anhang}`;
+  }
+  return `Abgebrochen bei: ${e.schritt}.${anhang}`;
+}

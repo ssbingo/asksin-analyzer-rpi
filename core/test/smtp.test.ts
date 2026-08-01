@@ -148,3 +148,29 @@ test('Testmail: Umlaute im Betreff werden kodiert', () => {
 test('Testmail: ein Punkt am Zeilenanfang beendet die Nachricht nicht', () => {
   assert.equal(punktSchutz('.geheim\nnormal\n.'), '..geheim\nnormal\n..');
 });
+
+test('Fehlerdeutung: sagt, was zu tun ist — und zeigt die Antwort trotzdem', async () => {
+  const { deuteSmtpFehler } = await import('../src/langzeit/smtp.ts');
+
+  // Genau der Fall vom Testgeraet: angemeldet als eine Adresse, verschickt
+  // unter einer anderen.
+  const abgelehnt = new SmtpFehler('Absender', {
+    code: 550,
+    text: '550-Requested action not taken: mailbox unavailable\n550-Sender address is not allowed.',
+  });
+  const gedeutet = deuteSmtpFehler(abgelehnt);
+  assert.match(gedeutet, /dasselbe ein wie bei „Benutzer"/);
+  assert.match(gedeutet, /Sender address is not allowed/, 'Beweis bleibt stehen');
+
+  assert.match(
+    deuteSmtpFehler(new SmtpFehler('Anmeldung', { code: 535, text: '535 invalid' })),
+    /eigenes E-Mail-Passwort/,
+  );
+  assert.match(
+    deuteSmtpFehler(new Error('connect ECONNREFUSED 1.2.3.4:25')),
+    /Üblich sind 587/,
+  );
+  assert.match(deuteSmtpFehler(new Error('getaddrinfo ENOTFOUND smpt.gmx.de')), /Tippfehler/);
+  // Unbekannte Fehler werden durchgereicht statt verschluckt.
+  assert.match(deuteSmtpFehler(new Error('irgendwas anderes')), /irgendwas anderes/);
+});

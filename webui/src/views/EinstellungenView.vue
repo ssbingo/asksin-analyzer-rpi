@@ -830,7 +830,7 @@ const demoUmschalten = (): Promise<void> | undefined => {
         </label>
         <label class="feld" style="flex: 2">
           <span class="name">Absender</span>
-          <input type="text" v-model="alarm.absender" placeholder="meist derselbe" />
+          <input type="text" v-model="alarm.absender" placeholder="dieselbe wie der Benutzer" />
         </label>
       </div>
       <div class="zeile">
@@ -865,10 +865,13 @@ const demoUmschalten = (): Promise<void> | undefined => {
         {{ alarmTestText }}
       </div>
       <div class="fussnote">
-        Port 587 mit STARTTLS ist der zuverlässigste Weg. Viele Anbieter
+        Port 587 mit STARTTLS ist der zuverlässigste Weg. Zwei Stolpersteine,
+        die fast jeden treffen:
+        <strong>Absender und Benutzer müssen übereinstimmen</strong> — die
+        meisten Anbieter lehnen fremde Absenderadressen ab. Und viele
         verlangen ein <strong>eigenes E-Mail-Passwort</strong> statt des
-        Kundenkennworts — bei T-Online etwa wird es im Kundencenter vergeben,
-        sonst weist der Server die Anmeldung ab.
+        Kundenkennworts; bei IONOS und T-Online wird es im Kundencenter
+        vergeben, bei Google ist es ein App-Passwort.
       </div>
     </template>
 
