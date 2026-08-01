@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref } from 'vue';
+import { onBeforeUnmount, onMounted, onUnmounted, reactive, ref } from 'vue';
 
 import HandbuchFuss from '../components/HandbuchFuss.vue';
 
@@ -12,15 +12,18 @@ import {
   holeNetzwerk,
   holeNetzwerkStatus,
   holeInflux,
+  holeLangzeit,
   holeStatusAnzeige,
   holeVerbundPeers,
   sende,
   sendeInflux,
+  sendeLangzeit,
   sendeNetzwerk,
   sendeStatusAnzeige,
   setzeAuthToken,
 } from '../api.ts';
 import type {
+  LangzeitZustand,
   LedMethode,
   NetzwerkStatus,
   NetzwerkZustand,
@@ -47,6 +50,7 @@ onMounted(async () => {
   void peersLaden();
   void anzeigeLaden();
   void influxLaden();
+  void langzeitLaden();
 });
 
 async function aktion(name: string, fn: () => Promise<unknown>): Promise<void> {
@@ -151,6 +155,47 @@ const anzeigeSpeichern = (): Promise<void> =>
       oled: anzeige.oled,
       helligkeit: Number(anzeige.helligkeit),
     }));
+
+// ---- Langzeitdaten vor Ort (M14) -----------------------------------------
+//
+// Der ganze Abschnitt erscheint nur auf dem Master. Beim Client wird er
+// ausgeblendet — die eigentliche Zusicherung gibt aber der Server, der
+// entsprechende Auftraege ablehnt.
+
+const langzeit = ref<LangzeitZustand | null>(null);
+let langzeitTakt: ReturnType<typeof setInterval> | null = null;
+
+async function langzeitLaden(): Promise<void> {
+  try {
+    langzeit.value = await holeLangzeit();
+    // Waehrend einer Installation haeufiger nachsehen: Sie dauert Minuten,
+    // und ohne Rueckmeldung sieht die Seite aus, als sei nichts passiert.
+    if (langzeit.value.laeuft && langzeitTakt === null) {
+      langzeitTakt = setInterval(() => void langzeitLaden(), 3000);
+    } else if (!langzeit.value.laeuft && langzeitTakt !== null) {
+      clearInterval(langzeitTakt);
+      langzeitTakt = null;
+    }
+  } catch {
+    /* ältere Core-Version — Abschnitt bleibt dann weg */
+  }
+}
+
+onBeforeUnmount(() => {
+  if (langzeitTakt !== null) clearInterval(langzeitTakt);
+});
+
+const rolleSetzen = (rolle: 'master' | 'client'): Promise<void> =>
+  aktion(`Rolle auf „${rolle}“ gesetzt`, async () => {
+    await sendeLangzeit({ rolle });
+    await langzeitLaden();
+  });
+
+const langzeitInstallieren = (): Promise<void> =>
+  aktion('Einrichtung gestartet — das dauert einige Minuten', async () => {
+    await sendeLangzeit({ aktion: 'installieren' });
+    await langzeitLaden();
+  });
 
 // ---- Langzeitdaten / InfluxDB (M9.5) -------------------------------------
 
@@ -540,6 +585,92 @@ const demoUmschalten = (): Promise<void> | undefined => {
       Der <strong>Schiebeschalter SW1</strong> auf der Platine muss zur hier
       gewählten Betriebsart passen. Gestörte Teile meldet die Übersicht.
     </div>
+  </div>
+
+  <div class="panel" v-if="langzeit !== null">
+    <h3 style="margin-top: 0">Langzeitdaten vor Ort</h3>
+    <p style="margin-top: 0">
+      InfluxDB und Grafana auf diesem Gerät — dann bleiben die Daten im Haus
+      und es braucht keinen zweiten Rechner. Das ist eine
+      <strong>Zusatzoption</strong>; der Weg über eine externe Datenbank
+      bleibt daneben bestehen.
+    </p>
+
+    <div class="zeile" style="margin-bottom: 0.6rem">
+      <label class="feld" style="max-width: 18rem">
+        <span class="name">Rolle im Verbund</span>
+        <select
+          :value="langzeit.gewuenscht"
+          :disabled="beschaeftigt || !langzeit.masterFaehig.faehig"
+          @change="rolleSetzen((($event.target as HTMLSelectElement).value) as 'master' | 'client')"
+        >
+          <option value="master">Master — speichert die Langzeitdaten</option>
+          <option value="client">Client — liefert nur zu</option>
+        </select>
+      </label>
+      <span class="chip" :class="langzeit.rolle === 'master' ? '' : 'schwach'">
+        {{ langzeit.hardware.modell }} · {{ langzeit.hardware.ramGb }} GB
+      </span>
+    </div>
+
+    <div class="meldung fehler" v-if="!langzeit.masterFaehig.faehig">
+      {{ langzeit.masterFaehig.grund }}
+    </div>
+
+    <div class="fussnote" v-else-if="langzeit.rolle === 'client'">
+      Als Client speichert dieses Gerät keine Langzeitdaten. Es schickt seine
+      Kennzahlen an die Datenbank des Masters — einzustellen weiter unten
+      unter „Langzeitdaten (InfluxDB)“.
+    </div>
+
+    <template v-else>
+      <div class="zeile" style="margin: 0.8rem 0">
+        <span class="chip" :class="langzeit.installiert.influxdb ? '' : 'schwach'">
+          InfluxDB {{ langzeit.installiert.influxdb ? 'installiert' : 'fehlt' }}
+        </span>
+        <span class="chip" :class="langzeit.installiert.grafana ? '' : 'schwach'">
+          Grafana {{ langzeit.installiert.grafana ? 'installiert' : 'fehlt' }}
+        </span>
+      </div>
+
+      <div class="meldung ok" v-if="langzeit.laeuft">
+        Einrichtung läuft — {{ langzeit.installation?.schritt ?? 'wird vorbereitet' }} …
+        <br />
+        <span class="fussnote">
+          Das dauert einige Minuten: Zwei Pakete werden geladen und
+          eingerichtet. Die Seite darf dabei geschlossen werden.
+        </span>
+      </div>
+      <div class="meldung fehler" v-else-if="langzeit.installation?.fehler">
+        Einrichtung abgebrochen: {{ langzeit.installation.fehler }}
+      </div>
+
+      <button
+        class="primaer"
+        v-if="!langzeit.laeuft && !(langzeit.installiert.influxdb && langzeit.installiert.grafana)"
+        :disabled="beschaeftigt"
+        @click="langzeitInstallieren"
+      >
+        InfluxDB und Grafana einrichten …
+      </button>
+
+      <template v-if="langzeit.installiert.grafana">
+        <p style="margin-bottom: 0.4rem">
+          <a :href="langzeit.grafanaUrl" target="_blank" rel="noopener">
+            Grafana öffnen ({{ langzeit.grafanaUrl }})
+          </a>
+        </p>
+        <div class="fussnote">
+          Erste Anmeldung mit <code>admin</code> / <code>admin</code>; Grafana
+          verlangt dann ein eigenes Passwort. Im Ordner „AskSin-Analyzer“
+          liegen acht fertige Ansichten — Leitstand, Funkqualität,
+          Duty-Cycle-Wächter, Gerätedetail, Störungssuche, Batteriewächter,
+          Verbund-Vergleich und Gerätezustand. Dazu vier Alarme; wohin sie
+          melden sollen, wird einmalig unter <em>Alerting → Contact points</em>
+          eingetragen.
+        </div>
+      </template>
+    </template>
   </div>
 
   <div class="panel" v-if="influxVerfuegbar">

@@ -527,3 +527,43 @@ export async function sendeProtokoll(auftrag: {
 /** Adresse zum Herunterladen einer Logdatei (Browser lädt direkt). */
 export const protokollDateiUrl = (name: string): string =>
   `/api/protokoll/datei/${encodeURIComponent(name)}`;
+
+// ---- Langzeitdaten vor Ort (M14) ----------------------------------------
+
+export interface LangzeitZustand {
+  /** Was tatsächlich gilt — die Hardware kann den Wunsch überstimmen. */
+  rolle: 'master' | 'client';
+  /** Was eingestellt ist. Weicht bei zu schwacher Hardware von `rolle` ab. */
+  gewuenscht: 'master' | 'client';
+  erzwungen: boolean;
+  grund: string;
+  hardware: { modell: string; ramGb: number };
+  masterFaehig: { faehig: boolean; grund: string };
+  installiert: { influxdb: boolean; grafana: boolean };
+  /** Fortschritt des Einrichtungsskripts; null, solange nie eines lief. */
+  installation: {
+    schritt?: string;
+    fertig?: boolean;
+    fehler?: string | null;
+    zeit?: string;
+  } | null;
+  /** Läuft gerade eine Einrichtung? */
+  laeuft: boolean;
+  grafanaUrl: string;
+}
+
+export const holeLangzeit = (): Promise<LangzeitZustand> => hole('/api/langzeitdaten');
+
+export async function sendeLangzeit(
+  auftrag: { rolle: 'master' | 'client' } | { aktion: 'installieren' },
+): Promise<void> {
+  const res = await fetch('/api/langzeitdaten', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify(auftrag),
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+}
