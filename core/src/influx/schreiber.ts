@@ -85,12 +85,36 @@ export interface InfluxDaten {
   telegramsPerMinute: number;
   noiseFloorEwma: number | null;
   deviceCount: number;
+  /** Hoechster Duty-Cycle ueber alle Geraete — spart die Aggregation. */
+  maxDutyCycle: number;
+  /** Wie viele Geraete gerade ueber der Alarmschwelle liegen. */
+  dutyAlarme: number;
+  /** Laufzeit des Dienstes in Sekunden.
+   *
+   *  Der Zaehler `telegramme` faengt bei jedem Neustart wieder bei null an.
+   *  Ohne diesen Wert sieht Grafana das als negativen Ausschlag; mit ihm
+   *  laesst sich der Ruecksetzer erkennen und ausblenden. */
+  laufzeitSekunden: number;
+  /** Zustand des Geraets selbst. Bei der Absturzsuche im Juli 2026 fehlte
+   *  genau das: Es gab Stichproben, aber keine Kurve. */
+  system: {
+    cpuLast: number;
+    tempC: number | null;
+    ramFreiProzent: number;
+    diskFreiProzent: number | null;
+    luefterUpm: number | null;
+  };
   geraete: Array<{
     address: string;
     name: string;
     rssiEwma: number;
     dutyCyclePercent: number;
     telegrams: number;
+    /** Sekunden seit dem letzten Telegramm dieses Geraets.
+     *
+     *  Der praktisch wertvollste Wert der ganzen Reihe: Ein Homematic-Geraet,
+     *  das ploetzlich schweigt, hat fast immer eine leere Batterie. */
+    sekundenSeitEmpfang: number;
   }>;
 }
 
@@ -108,6 +132,27 @@ export function baueZeilen(daten: InfluxDaten, tsMs: number): string[] {
           ? {}
           : { grundrauschen: daten.noiseFloorEwma }),
         geraete: daten.deviceCount,
+        maxDutyCycle: daten.maxDutyCycle,
+        dutyAlarme: daten.dutyAlarme,
+        laufzeitSekunden: daten.laufzeitSekunden,
+      },
+      tsMs,
+    ),
+    // Eigene Messreihe fuer den Geraetezustand: Wer nur die Funkdaten
+    // auswertet, bekommt sie so nicht in die Abfragen gemischt.
+    zeile(
+      'system',
+      standort,
+      {
+        cpuLast: daten.system.cpuLast,
+        ramFreiProzent: daten.system.ramFreiProzent,
+        ...(daten.system.tempC === null ? {} : { tempC: daten.system.tempC }),
+        ...(daten.system.diskFreiProzent === null
+          ? {}
+          : { diskFreiProzent: daten.system.diskFreiProzent }),
+        ...(daten.system.luefterUpm === null
+          ? {}
+          : { luefterUpm: daten.system.luefterUpm }),
       },
       tsMs,
     ),
@@ -121,6 +166,7 @@ export function baueZeilen(daten: InfluxDaten, tsMs: number): string[] {
           rssi: g.rssiEwma,
           dutyCycle: g.dutyCyclePercent,
           telegramme: g.telegrams,
+          sekundenSeitEmpfang: g.sekundenSeitEmpfang,
         },
         tsMs,
       ),

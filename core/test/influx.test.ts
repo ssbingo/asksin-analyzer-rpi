@@ -17,6 +17,16 @@ const DATEN: InfluxDaten = {
   telegramsPerMinute: 12,
   noiseFloorEwma: -90.5,
   deviceCount: 2,
+  maxDutyCycle: 91.2,
+  dutyAlarme: 1,
+  laufzeitSekunden: 3600,
+  system: {
+    cpuLast: 0.42,
+    tempC: 46.8,
+    ramFreiProzent: 71.5,
+    diskFreiProzent: 84.2,
+    luefterUpm: 3120,
+  },
   geraete: [
     {
       address: '350001',
@@ -24,6 +34,7 @@ const DATEN: InfluxDaten = {
       rssiEwma: -93.2,
       dutyCyclePercent: 91.2,
       telegrams: 88,
+      sekundenSeitEmpfang: 4,
     },
     {
       address: '300003',
@@ -31,6 +42,7 @@ const DATEN: InfluxDaten = {
       rssiEwma: -61,
       dutyCyclePercent: 0.4,
       telegrams: 7,
+      sekundenSeitEmpfang: 86_400,
     },
   ],
 };
@@ -45,15 +57,49 @@ test('Line Protocol: Escaping von Leerzeichen, Kommas und Anführungszeichen', (
   );
 });
 
-test('baueZeilen: eine analyzer-Zeile plus eine je Gerät, standort überall', () => {
+test('baueZeilen: analyzer, system und je eine Zeile pro Gerät', () => {
   const zeilen = baueZeilen(DATEN, 1_000_000);
-  assert.equal(zeilen.length, 3);
+  assert.equal(zeilen.length, 4);
   assert.match(zeilen[0]!, /^analyzer,standort=Keller\\ \(Master\) /);
   assert.match(zeilen[0]!, /telegrammeProMinute=12/);
   assert.match(zeilen[0]!, /grundrauschen=-90\.5/);
-  assert.match(zeilen[1]!, /^geraet,standort=.*,adresse=350001,name=Defekt_BWM\\ Carport\\ \(klemmt\) /);
-  assert.match(zeilen[1]!, /dutyCycle=91\.2/);
+  assert.match(zeilen[0]!, /maxDutyCycle=91\.2/);
+  assert.match(zeilen[0]!, /dutyAlarme=1/);
+  assert.match(zeilen[0]!, /laufzeitSekunden=3600/);
+  assert.match(zeilen[1]!, /^system,standort=Keller\\ \(Master\) /);
+  assert.match(zeilen[1]!, /tempC=46\.8/);
+  assert.match(zeilen[1]!, /luefterUpm=3120/);
+  assert.match(zeilen[2]!, /^geraet,standort=.*,adresse=350001,name=Defekt_BWM\\ Carport\\ \(klemmt\) /);
+  assert.match(zeilen[2]!, /dutyCycle=91\.2/);
   assert.ok(zeilen.every((z) => z.endsWith(' 1000000000000')), 'Nanosekunden');
+});
+
+test('baueZeilen: fehlende Sensoren erzeugen kein Feld statt einer Null', () => {
+  // Ein Pi 3 hat keinen Luefter, ein Entwicklungsrechner keinen
+  // Temperatursensor. Wuerde dafuer 0 geschrieben, saehe die Kurve in Grafana
+  // nach eiskaltem Geraet mit stehendem Luefter aus — eine Falschaussage.
+  const zeilen = baueZeilen(
+    {
+      ...DATEN,
+      noiseFloorEwma: null,
+      system: { ...DATEN.system, tempC: null, luefterUpm: null, diskFreiProzent: null },
+    },
+    1_000_000,
+  );
+  assert.doesNotMatch(zeilen[0]!, /grundrauschen/);
+  assert.doesNotMatch(zeilen[1]!, /tempC/);
+  assert.doesNotMatch(zeilen[1]!, /luefterUpm/);
+  assert.doesNotMatch(zeilen[1]!, /diskFreiProzent/);
+  assert.match(zeilen[1]!, /cpuLast=0\.42/, 'vorhandene Werte bleiben');
+});
+
+test('baueZeilen: sekundenSeitEmpfang macht das stumme Gerät auffindbar', () => {
+  // Der Batteriewaechter steht und faellt mit diesem Feld: Ein Geraet, das
+  // seit einem Tag schweigt, muss sich in Grafana sortieren lassen.
+  const zeilen = baueZeilen(DATEN, 1_000_000);
+  const stumm = zeilen.find((z) => z.includes('adresse=300003'));
+  assert.ok(stumm, 'Zeile des stummen Geraets');
+  assert.match(stumm, /sekundenSeitEmpfang=86400/);
 });
 
 test('InfluxSchreiber: schreibt im Takt, zählt Erfolge und Fehler, stoppt sauber', async () => {
@@ -85,7 +131,8 @@ test('InfluxSchreiber: schreibt im Takt, zählt Erfolge und Fehler, stoppt saube
     'http://influx:8086/api/v2/write?org=haus&bucket=asksin&precision=ns',
   );
   assert.equal(anfragen[0]!.token, 'geheim');
-  assert.equal(anfragen[0]!.body.split('\n').length, 3);
+  // analyzer + system + zwei Geraete
+  assert.equal(anfragen[0]!.body.split('\n').length, 4);
   assert.equal(s.status.schreibvorgaenge, 1);
 
   antwortStatus = 500;

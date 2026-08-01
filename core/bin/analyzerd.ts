@@ -396,6 +396,27 @@ const updateHooks: UpdateHooks = {
   },
 };
 
+/** Kerntemperatur in Grad Celsius; null ohne Sensor (Entwicklungsrechner). */
+function leseTempC(): number | null {
+  try {
+    return (
+      Number(readFileSync('/sys/class/thermal/thermal_zone0/temp', 'utf8')) / 1000
+    );
+  } catch {
+    return null;
+  }
+}
+
+/** Freier Platz im Datenverzeichnis in Prozent; null, wenn nicht ermittelbar. */
+function leseDiskFreiProzent(): number | null {
+  try {
+    const fs = statfsSync(datenDir);
+    return (fs.bavail / fs.blocks) * 100;
+  } catch {
+    return null;
+  }
+}
+
 // ---- Verbund-Rolle (M9.2) ------------------------------------------------
 // JEDER Analyzer ist verbundfähig; „Master" wird er dadurch, dass ihm der
 // Anwender unter Einstellungen → Verbund Peers hinzufügt (keine Konsole
@@ -713,20 +734,8 @@ function statusDaten(): StatusDaten {
     .sort((a, b) => b.dutyCyclePercent - a.dutyCyclePercent)
     .slice(0, 5)
     .map((g) => ({ name: g.name, percent: g.dutyCyclePercent }));
-  let tempC: number | null = null;
-  try {
-    tempC =
-      Number(readFileSync('/sys/class/thermal/thermal_zone0/temp', 'utf8')) / 1000;
-  } catch {
-    /* kein Temperatursensor (Dev-Rechner) */
-  }
-  let diskFreiProzent: number | null = null;
-  try {
-    const fs = statfsSync(datenDir);
-    diskFreiProzent = (fs.bavail / fs.blocks) * 100;
-  } catch {
-    /* egal */
-  }
+  const tempC = leseTempC();
+  const diskFreiProzent = leseDiskFreiProzent();
   // Lüfterdrehzahl kommt aus derselben hwmon-Quelle wie in der Diagnose;
   // ohne Lüfter (Pi 3, passiv gekühlt) bleibt der Wert null.
   const luefterUpm = leseLuefterUpm();
@@ -944,20 +953,39 @@ function influxKonfigLesen(): InfluxKonfig {
   return basis;
 }
 
+/** Zeitpunkt des Dienststarts — Grundlage der Laufzeit in den Langzeitdaten. */
+const dienstStartMs = Date.now();
+
 function influxDaten(): InfluxDaten {
   const s = analyzer.snapshot();
+  const jetzt = Date.now();
+  const tempC = leseTempC();
   return {
     standort,
     connected: s.ingest.connected,
     telegramsPerMinute: s.telegramsPerMinute,
     noiseFloorEwma: s.noiseFloor.ewma,
     deviceCount: s.devices.length,
+    maxDutyCycle: s.devices.reduce((m, g) => Math.max(m, g.dutyCyclePercent), 0),
+    dutyAlarme: s.devices.filter((g) => g.dutyCyclePercent >= DUTY_ALARM_PROZENT)
+      .length,
+    laufzeitSekunden: Math.round((jetzt - dienstStartMs) / 1000),
+    system: {
+      cpuLast: loadavg()[0] ?? 0,
+      tempC,
+      ramFreiProzent: (freemem() / totalmem()) * 100,
+      diskFreiProzent: leseDiskFreiProzent(),
+      luefterUpm: leseLuefterUpm(),
+    },
     geraete: s.devices.map((g) => ({
       address: g.address,
       name: g.name,
       rssiEwma: g.rssi.ewma,
       dutyCyclePercent: g.dutyCyclePercent,
       telegrams: g.telegrams,
+      // Sekunden statt Zeitstempel: In Grafana laesst sich damit direkt
+      // sortieren und schwellen, ohne Zeitrechnung in der Abfrage.
+      sekundenSeitEmpfang: Math.max(0, Math.round((jetzt - g.lastSeen) / 1000)),
     })),
   };
 }
