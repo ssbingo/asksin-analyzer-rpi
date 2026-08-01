@@ -1942,7 +1942,24 @@ keine Anmeldung. Von außen ist das von einem Absturz nicht zu unterscheiden,
 und weil auch das Journal auf der toten Platte liegt, bleibt hinterher keine
 Spur. Genau deshalb war der Mitschnitt übers Netz nötig.</p>
 
-<p>Die häufigste Ursache ist banal und liegt <strong>nicht</strong> in der
+<p>Der erste Verdacht fällt meist auf die Stromversorgung, und beim Pi 5 hat
+das einen realen Hintergrund: Er verhandelt beim Start mit seinem Netzteil und
+begrenzt daraufhin den Strom <em>aller</em> USB-Geräte zusammen auf 600 mA,
+sofern nicht mindestens 5 A gemeldet werden. Das reicht für eine
+2,5-Zoll-SATA-SSD nicht, weshalb die Grenze oft mit
+<code>usb_max_current_enable=1</code> aufgehoben wird. Ob daraus tatsächlich
+ein Problem wird, ist aber <strong>messbar</strong> und keine Glaubensfrage:</p>
+
+<pre>sudo bash /opt/asksin-analyzer/tools/strombudget-messen.sh 30</pre>
+
+<p>Das Skript belastet die Platte und tastet dabei die 5-Volt-Schiene ab.
+Bleibt das Minimum über 4,95 V, ist die Versorgung als Ursache erledigt; unter
+4,75 V liegt sie außerhalb der USB-Spezifikation. Beim Testgerät — PoE-Speisung,
+3000 mA gemeldet, Grenze aufgehoben — ergaben 4704 Messungen über 30 Sekunden
+Volllast einen Einbruch von <strong>58 mV</strong> (5,147 V auf 5,099 V). Die
+Speisung war damit entlastet, und die Suche ging weiter.</p>
+
+<p>Die tatsächliche Ursache war banal und lag <strong>nicht</strong> in der
 Platte: zu viele Steckverbindungen im Weg. Beim Testgerät steckte die SSD in
 einem Wechselrahmen, deren Kabel über einen Adapter auf ein Keystone-Modul in
 der Gehäusefront ging und von dort mit einem zweiten Kabel an den Pi — vier

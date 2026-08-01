@@ -20,46 +20,60 @@ Je Position: kurze Anforderungsbeschreibung (worauf es technisch ankommt),
 Affiliate-Links), Bild, ggf. „Finger weg von"-Hinweise (wie bei der
 LED-Farben-Erkenntnis in der Reichelt-Liste).
 
-## Pflichtposition: Stromversorgung beim Pi 5
+## Stromversorgung beim Pi 5: prüfen, nicht annehmen
 
-**Ein Pi 5 versorgt eine USB-SSD nur dann zuverlässig, wenn seine
-Stromversorgung mindestens 5 A meldet.** Das ist keine Komfortempfehlung,
-sondern die Ursache eines Fehlers, der uns mehrere Wochen gekostet hat
-(01.08.2026).
+Der Pi 5 verhandelt beim Start mit seiner Stromversorgung und begrenzt
+daraufhin den Strom **aller** USB-Geräte zusammen. Meldet die Versorgung nur
+3 A, bleiben für USB **600 mA** — zu wenig, um eine 2,5-Zoll-SATA-SSD
+überhaupt anlaufen zu lassen. Üblicherweise hebt man die Grenze dann mit
+`usb_max_current_enable=1` auf.
 
-> **Bei uns kommt der Strom ausschließlich per PoE** — im Datenschrank liegt
-> keine Steckdose. Das offizielle 27-W-Netzteil ist damit keine Option, und
-> die Anforderung verschiebt sich auf das PoE-HAT und den Switch. Siehe
-> „Wenn nur PoE zur Verfügung steht" weiter unten.
+Das klingt nach einer offenen Flanke, und wir haben sie zunächst auch für die
+Ursache unserer Ausfälle gehalten. **Die Messung hat das widerlegt**
+(01.08.2026, Analyzer 01 an PoE, 3000 mA gemeldet, Grenze aufgehoben):
 
-Der Pi 5 verhandelt beim Start mit dem Netzteil und begrenzt daraufhin den
-Strom **aller** USB-Geräte zusammen. Meldet das Netzteil nur 3 A, bleiben für
-USB **600 mA** — zu wenig, um eine 2,5-Zoll-SATA-SSD überhaupt anlaufen zu
-lassen. Wer daraufhin die Grenze mit `usb_max_current_enable=1` aufhebt,
-tauscht eine saubere Abschaltung gegen unkontrollierte Einbrüche der
-5-Volt-Schiene: Bei jeder Stromspitze der Platte startet die USB-Brücke neu,
-meldet sich vom Bus ab und kommt als **neues** Gerät zurück. Das
-Wurzeldateisystem hängt dann am verschwundenen `sda` und ist tot — der Pi
-läuft weiter, kann aber nichts mehr lesen.
+| Messgröße | Wert |
+| --- | --- |
+| 5 V im Leerlauf | 5,147 V |
+| 5 V Minimum unter 30 s Volllast | 5,099 V |
+| Einbruch | **58 mV** |
+| Drosselung | `throttled=0x0` |
 
-Besonders tückisch: Der Rechenkern hat seine eigene Regelung und merkt davon
-nichts. `vcgencmd get_throttled` meldet unbeirrt `0x0`, und im Journal steht
-nichts, weil es auf der toten Platte liegt. Der Fehler ist nur über einen
-Kernel-Mitschnitt übers Netz zu fassen (Handbuch 23.1).
+Eine Speisung, die unter voller Leselast um 0,06 V nachgibt, hat reichlich
+Reserve. Der gemeldete 3-A-Wert ist ein formaler Deckel, keine reale Grenze —
+jedenfalls in diesem Aufbau. **Der Ausfall kam nicht von der Stromversorgung**
+(die tatsächliche Ursache steht im Handbuch, Abschnitt 23.2).
 
-Prüfen lässt sich der Zustand mit zwei Zeilen:
+Die Lehre ist trotzdem eine Position im Einkaufsführer, nur eine andere als
+gedacht: Diese Größen sind **messbar**, und geraten wird hier nicht. Vor jeder
+Kaufentscheidung liefert
+[`tools/strombudget-messen.sh`](../tools/strombudget-messen.sh) die Zahlen.
+Bleibt das Minimum über 4,95 V, ist die Versorgung als Ursache erledigt; unter
+4,75 V liegt sie außerhalb der USB-Spezifikation und ist es sicher nicht.
+
+Besonders tückisch an dieser Klasse von Fehlern: Der Rechenkern hat seine
+eigene Regelung und bekommt von Einbrüchen am USB-Anschluss nichts mit.
+`vcgencmd get_throttled` meldet unbeirrt `0x0`, und im Journal steht nichts,
+weil es auf der ausgefallenen Platte liegt. Zu fassen ist so etwas nur über
+einen Kernel-Mitschnitt übers Netz (Handbuch 23.1).
+
+Den Zustand zeigen zwei Zeilen:
+
 
 ```bash
 python3 -c "print(int.from_bytes(open('/proc/device-tree/chosen/power/max_current','rb').read(),'big'),'mA')"
 vcgencmd get_config usb_max_current_enable
 ```
 
-`5000 mA` ist richtig. `3000 mA` heißt: falsches Netzteil.
+`5000 mA` heißt: alles offen. `3000 mA` heißt: Der Deckel greift, und wer ihn
+aufhebt, sollte einmal nachmessen — nicht mehr und nicht weniger. Bei uns
+ergab die Messung reichlich Reserve.
 
-**Der Pi 4 kennt diese Verhandlung nicht** und gibt seinen USB-Anschlüssen
-ohne Rückfrage genug Strom. Ein Aufbau, der dort seit Monaten läuft, ist
-deshalb **kein** Beleg dafür, dass er auch an einem Pi 5 trägt — bei uns war
-die Verkabelung beider Geräte identisch, und nur der Pi 5 fiel aus.
+**Der Pi 4 kennt diese Verhandlung gar nicht** und gibt seinen USB-Anschlüssen
+ohne Rückfrage Strom. Wer von einem laufenden Pi-4-Aufbau auf einen Pi 5
+schließt, überträgt diese Annahme stillschweigend mit — deshalb steht der
+Hinweis hier, auch wenn sich in unserem Fall die Versorgung als unschuldig
+erwiesen hat.
 
 ### Wenn nur PoE zur Verfügung steht
 
@@ -67,7 +81,7 @@ Dann ist das Budget von außen vorgegeben, und zwar durch die Norm:
 
 | Speisung | Leistung am Gerät | Reicht für Pi 5 + USB-SSD? |
 | --- | --- | --- |
-| 802.3af (PoE) | 12,95 W | nein — das ist schon für den Pi 5 allein knapp |
+| 802.3af (PoE) | 12,95 W | knapp — für den Pi 5 allein schon wenig |
 | 802.3at (PoE+) | 25,5 W | ja, **wenn** das HAT die 5 A auch meldet |
 | 802.3bt (PoE++) | 51 W | reichlich |
 
