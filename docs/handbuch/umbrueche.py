@@ -50,27 +50,60 @@ MITTE = SEITE_HOEHE / 2
 # das scheitert: Deshalb prueft main() zusaetzlich, dass ueberhaupt welche
 # gefunden wurden.
 H2 = re.compile(r'^<h2([^>]*)>(\d+\.\d+)')
+# Zwischenueberschriften tragen keine Nummer, dafuer eine Sprungmarke.
+# Fuer sie gilt dieselbe Regel: Wer unterhalb der Seitenmitte anfaengt,
+# reisst seinen Abschnitt gleich nach dem ersten Satz auseinander.
+H3 = re.compile(r'^<h3([^>]*)>(.*?)</h3>')
 ID = re.compile(r'\sid="([^"]*)"')
 
 
 def markiere(text: str, umbruch: set[str]) -> str:
-    """Allen Minor-Überschriften aus `umbruch` die Klasse setzen, sonst keine."""
+    """Allen Überschriften aus `umbruch` die Klasse setzen, sonst keine."""
     zeilen = text.splitlines()
     for i, z in enumerate(zeilen):
-        m = H2.match(z)
-        if m is None:
+        m2 = H2.match(z)
+        if m2 is not None:
+            attribute, nummer = m2.group(1), m2.group(2)
+            marke = ID.search(attribute)
+            kennung = f' id="{marke.group(1)}"' if marke else ""
+            klasse = ' class="umbruch"' if nummer in umbruch else ""
+            zeilen[i] = f"<h2{klasse}{kennung}>{z[m2.end(1) + 1:]}"
             continue
-        attribute, nummer = m.group(1), m.group(2)
-        marke = ID.search(attribute)
-        kennung = f' id="{marke.group(1)}"' if marke else ""
-        klasse = ' class="umbruch"' if nummer in umbruch else ""
-        inhalt = z[m.end(1) + 1:]
-        zeilen[i] = f"<h2{klasse}{kennung}>{inhalt}"
+        m3 = H3.match(z)
+        if m3 is None:
+            continue
+        marke = ID.search(m3.group(1))
+        if marke is None:
+            continue                       # ohne Marke nicht ansprechbar
+        klasse = ' class="umbruch"' if marke.group(1) in umbruch else ""
+        zeilen[i] = f'<h3{klasse} id="{marke.group(1)}">{m3.group(2)}</h3>'
     return "\n".join(zeilen) + "\n"
 
 
 def alle_minor(text: str) -> list[str]:
-    return [m.group(2) for z in text.splitlines() if (m := H2.match(z))]
+    """Alle ansprechbaren Überschriften in Dokumentreihenfolge.
+
+    Minor-Kapitel über ihre Nummer, Zwischenüberschriften über ihre
+    Sprungmarke — für die Regel sind beide gleich.
+    """
+    aus: list[str] = []
+    for z in text.splitlines():
+        if (m := H2.match(z)):
+            aus.append(m.group(2))
+        elif (m := H3.match(z)) and (marke := ID.search(m.group(1))):
+            aus.append(marke.group(1))
+    return aus
+
+
+def h3_texte(text: str) -> dict[str, list[str]]:
+    """Sprungmarke → Wortfolge der Überschrift, zum Wiederfinden im PDF."""
+    aus: dict[str, list[str]] = {}
+    for z in text.splitlines():
+        m = H3.match(z)
+        if m and (marke := ID.search(m.group(1))):
+            roh = re.sub(r"<[^>]+>", "", m.group(2))
+            aus[marke.group(1)] = roh.replace("\u00a0", " ").split()
+    return aus
 
 
 def baue_pdf() -> None:
@@ -79,28 +112,47 @@ def baue_pdf() -> None:
 
 
 def lage_der_ueberschriften() -> dict[str, float]:
-    """Y-Position jeder Minor-Überschrift in Punkten ab Seitenoberkante.
+    """Y-Position jeder ansprechbaren Überschrift, ab Seitenoberkante.
 
-    Gezählt wird nur das **erste** Vorkommen einer Nummer: Dieselbe Zahl taucht
-    auch im Inhaltsverzeichnis und in Querverweisen auf.
+    Minor-Kapitel sind an ihrer Nummer zu erkennen. Zwischenüberschriften
+    tragen keine — sie werden über ihre **Wortfolge** wiedergefunden, und zwar
+    in Dokumentreihenfolge: Der Wortstrom des PDF läuft in derselben Ordnung
+    wie die Datei. Eine Suche über das ganze Dokument würde bei Überschriften,
+    deren Wortlaut auch im Fliesstext vorkommt, danebengreifen.
+
+    Gezählt wird nur das **erste** Vorkommen: Nummern tauchen auch im
+    Inhaltsverzeichnis und in Querverweisen auf.
     """
     roh = subprocess.run(["pdftotext", "-bbox", str(PDF), "-"],
                          capture_output=True, text=True).stdout
-    lage: dict[str, float] = {}
-    im_inhalt = True
+    strom: list[tuple[float, str]] = []
     for zeile in roh.splitlines():
         m = re.search(
             r'<word xMin="[\d.]+" yMin="([\d.]+)"[^>]*>([^<]*)</word>', zeile)
-        if m is None:
-            continue
-        y, wort = float(m.group(1)), m.group(2)
-        # Das Inhaltsverzeichnis endet mit dem ersten Kapitelanfang.
+        if m:
+            strom.append((float(m.group(1)), m.group(2)))
+
+    lage: dict[str, float] = {}
+    im_inhalt = True
+    for y, wort in strom:
         if im_inhalt:
             if wort == "1.1":
                 continue
             im_inhalt = False
         if re.fullmatch(r"\d{1,2}\.\d{1,2}", wort) and wort not in lage:
             lage[wort] = y
+
+    # Zwischenueberschriften der Reihe nach im Wortstrom suchen.
+    texte = h3_texte(HTML.read_text(encoding="utf8"))
+    stelle = 0
+    for kennung, woerter in texte.items():
+        if not woerter:
+            continue
+        for i in range(stelle, len(strom) - len(woerter) + 1):
+            if all(strom[i + k][1] == woerter[k] for k in range(len(woerter))):
+                lage[kennung] = strom[i][0]
+                stelle = i + len(woerter)
+                break
     return lage
 
 
@@ -129,7 +181,11 @@ def raeume_auf(umbruch: set[str]) -> set[str]:
     das aus, was danach kommt. Wer vorne anfängt, verwirft mit jeder Entnahme
     die Arbeit an allem Folgenden.
     """
-    kandidaten = sorted(umbruch, key=lambda n: [int(t) for t in n.split('.')], reverse=True)
+    # Nach Dokumentreihenfolge, von hinten: Eine Entnahme wirkt sich nur auf
+    # das aus, was danach kommt. Nummern und Sprungmarken stehen gemischt in
+    # der Menge — die Reihenfolge nimmt deshalb die aus dem Dokument.
+    ordnung = alle_minor(HTML.read_text(encoding="utf8"))
+    kandidaten = [n for n in reversed(ordnung) if n in umbruch]
     entfernt = 0
     for nr in kandidaten:
         versuch = umbruch - {nr}

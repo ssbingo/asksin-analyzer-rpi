@@ -219,7 +219,7 @@
   /* Minor-Kapitel duerfen sich eine Seite teilen — aber keines darf
      unterhalb der Seitenmitte beginnen. Ob das der Fall ist, steht erst nach
      dem Satz fest; umbrueche.py misst es und setzt dann `umbruch`. */
-  h2.umbruch { break-before: page; }
+  h2.umbruch, h3.umbruch { break-before: page; }
   /* Ueberschriften nie allein am Seitenende: Ohne diese Regel stand eine
      Zwischenueberschrift schon einmal als letzte Zeile einer Seite, waehrend
      der zugehoerige Text erst auf der naechsten begann. */
@@ -275,7 +275,7 @@ die Bereitschaft, Befehle in ein Terminal zu tippen. Jeder Schritt ist
 vollständig beschrieben: Was du tust, warum du es tust, und woran du erkennst,
 dass es geklappt hat.</p>
 
-<h3>So liest du dieses Handbuch</h3>
+<h3 id="so-liest-du-dieses-handbuch">So liest du dieses Handbuch</h3>
 <div class="hinweis box"><span class="titel">ℹ Hinweis</span>
 Blaue Kästen liefern Hintergrundwissen. Man kann sie überspringen — sie machen
 aber vieles verständlicher.</div>
@@ -352,7 +352,7 @@ auf ihr baut die Firmware unseres Empfängers auf. Das Projekt steht auf den
 Schultern von <strong>jp112sdl</strong> (AskSinAnalyzer), <strong>psi-4ward</strong>
 (AskSinAnalyzerXS) und <strong>der-pw</strong> (Raspberry-Pi-Aufsteckplatine).</div>
 
-<h2 class="erste">Was dieses Projekt anders macht</h2>
+<h2 class="umbruch" id="k1-1">1.1 Was dieses Projekt anders macht</h2>
 <p>Die bekannten AskSinAnalyzer-Varianten laufen auf einem ESP32 mit Display.
 Unser Aufbau zielt auf <strong>Dauerbetrieb im Verteilerschrank</strong>:</p>
 <ul>
@@ -377,7 +377,7 @@ in Netzen mit klassischen Homematic-Geräten.</div>
   <figcaption>Der Weg eines Telegramms: vom Funkgerät bis in den Browser.</figcaption>
 </figure>
 
-<h2 class="erste">Die Arbeitsteilung</h2>
+<h2 id="k2-1">2.1 Die Arbeitsteilung</h2>
 <p>Das System besteht aus zwei Rechnern, die sich die Arbeit teilen — und genau
 diese Teilung macht es zuverlässig:</p>
 
@@ -397,7 +397,7 @@ echtzeitfähig — muss es hier auch nicht sein, denn die Zeilen kommen gemütli
 mit 58&nbsp;824 Baud an.</li>
 </ol>
 
-<h2>Eine Telegrammzeile lesen</h2>
+<h2 class="umbruch" id="k2-2">2.2 Eine Telegrammzeile lesen</h2>
 <p>Alles, was zwischen Mikrocontroller und Pi fließt, ist lesbarer Text. Eine
 typische Zeile:</p>
 
@@ -861,7 +861,7 @@ physisch, der Rest ist undefiniert und wird mal als 1, mal als 0 gelesen.
 für ATmega328P, externe 8 MHz, serielle Schnittstelle UART0, 57 600 Baud.
 Zwei Wege führen zum Ziel; nimm den, der dir näher liegt.</p>
 
-<h3>Weg A — Arduino IDE mit MiniCore (empfohlen für Einsteiger)</h3>
+<h3 id="weg-a-arduino-ide-mit-minicore-empfohlen">Weg A — Arduino IDE mit MiniCore (empfohlen für Einsteiger)</h3>
 <p>Die Arduino IDE setzt Fuses <em>und</em> Bootloader in einem Rutsch — wer Weg A
 geht, kann Abschnitt 7.3 sogar überspringen.</p>
 <ol class="schritte">
@@ -884,7 +884,7 @@ installieren.</li>
 IDE Erfolg — Fuses und Bootloader sind drauf.</li>
 </ol>
 
-<h3>Weg B — Kommandozeile</h3>
+<h3 class="umbruch" id="weg-b-kommandozeile">Weg B — Kommandozeile</h3>
 <ol class="schritte">
 <li>Bootloader-Datei aus dem MiniCore-Repository holen (github.com/MCUdude/MiniCore,
 Ordner <code>avr/bootloaders/optiboot_flash/bootloaders/atmega328p/</code>):
@@ -1018,7 +1018,7 @@ die Weboberfläche gebaut (dauert auf dem Pi ein paar Minuten — normal).</li>
 bewusst ohne Root-Rechte.</li>
 </ol>
 
-<h3>Die Fragen des Assistenten — und was du antwortest</h3>
+<h3 id="die-fragen-des-assistenten-und-was-du-an">Die Fragen des Assistenten — und was du antwortest</h3>
 <table>
 <tr><th>Frage</th><th>Empfehlung und Hintergrund</th></tr>
 <tr><td><strong>Standortname</strong> (Vorgabe: Hostname)</td>
@@ -1060,7 +1060,7 @@ Platine noch nicht steckt, meldet die Kopfzeile „Sniffer getrennt" und der
 Dienst versucht es geduldig weiter — das ist der Normalzustand ohne HAT.
 Zum Ausprobieren gibt es den Demo-Modus (Kapitel 14).</div>
 
-<h3>Was die UART-Einrichtung im Hintergrund macht</h3>
+<h3 id="was-die-uart-einrichtung-im-hintergrund-">Was die UART-Einrichtung im Hintergrund macht</h3>
 <ul>
 <li>Pi 3/4: <code>enable_uart=1</code> + <code>dtoverlay=disable-bt</code> — das
 Bluetooth-Modem räumt die „gute" Hardware-UART, die miniUART mit ihrer
@@ -1074,7 +1074,7 @@ Schnittstellen aufzählt.</li>
 belegen, unsere Reset-Leitung.</li>
 </ul>
 
-<h3>Verwaltung an der Konsole (optional)</h3>
+<h3 class="umbruch" id="verwaltung-an-der-konsole-optional">Verwaltung an der Konsole (optional)</h3>
 <p>Für den Alltag brauchst du die Konsole nicht — alles Wichtige geht über die
 Weboberfläche. Falls doch, installiert der Installer den Befehl
 <code>asksin-analyzer</code>:</p>
@@ -1629,7 +1629,7 @@ nicht mehr zu entziffern.</p>
 <tr><td>letzte Seite</td><td>Übersicht: IP, CPU, RAM, Sniffer — vier Zeilen wie im Vorbild</td></tr>
 </table>
 
-<h3>Wenn ein Gerät den Duty-Cycle ausreizt</h3>
+<h3 class="umbruch" id="wenn-ein-gera-t-den-duty-cycle-ausreizt">Wenn ein Gerät den Duty-Cycle ausreizt</h3>
 <p>Ein einziges defektes Funkgerät kann das ganze Netz zustopfen — im
 Demo-Modus heißt es bezeichnenderweise „Defekt_BWM Carport (klemmt)". Die
 Duty-Cycle-Seite zeigt nur den <em>höchsten</em> Wert; welches Gerät dahinter
@@ -1641,7 +1641,7 @@ denen auch die LED rot blinkt. Höchstens fünf solcher Seiten — sonst wird da
 Durchblättern am Gerät zur Zumutung. Beruhigt sich ein Gerät wieder,
 verschwindet seine Seite von selbst.</p>
 
-<h2 class="umbruch" id="k18-4">18.4 Der Taster — blättern und neu starten</h2>
+<h2 id="k18-4">18.4 Der Taster — blättern und neu starten</h2>
 <table class="schmal">
 <tr><th>Haltedauer</th><th>Wirkung</th></tr>
 <tr><td>ab 50 ms (kurz)</td><td>eine Seite weiter</td></tr>
@@ -1839,7 +1839,7 @@ Sie zeigen die Anordnung und typische Werte, nicht einen echten
 Bildschirmabzug. So bleiben sie lesbar, auch wenn Grafana sein Aussehen
 ändert — und es landen keine Gerätenamen aus einem fremden Haus im Handbuch.</p>
 
-<h3>Leitstand — läuft alles?</h3>
+<h3 id="leitstand-la-uft-alles">Leitstand — läuft alles?</h3>
 
 <figure>
   <img src="img/grafana/leitstand.svg" alt="Ansicht Leitstand">
@@ -1858,7 +1858,7 @@ Bildschirmabzug. So bleiben sie lesbar, auch wenn Grafana sein Aussehen
 <tr><td>8</td><td>Die Zahl der bekannten Geräte über die Zeit. Fällt sie, ist etwas verstummt.</td></tr>
 </table>
 
-<h3>Funkqualität — wer wird wie gut gehört?</h3>
+<h3 id="funkqualita-t-wer-wird-wie-gut-geho-rt">Funkqualität — wer wird wie gut gehört?</h3>
 
 <figure>
   <img src="img/grafana/funkqualitaet.svg" alt="Ansicht Funkqualität">
@@ -1881,7 +1881,7 @@ listet die schwächsten zuerst, farbig hinterlegt — <strong>das ist die
 Arbeitsliste</strong>. Feld 3 zeigt, wie stark der Pegel schwankt; große Werte
 deuten auf Reflexionen oder ein Gerät hin, das bewegt wird.</p>
 
-<h3>Duty-Cycle-Wächter — wer sendet zu viel?</h3>
+<h3 id="duty-cycle-wa-chter-wer-sendet-zu-viel">Duty-Cycle-Wächter — wer sendet zu viel?</h3>
 
 <figure>
   <img src="img/grafana/dutycycle.svg" alt="Ansicht Duty-Cycle-Wächter">
@@ -1899,7 +1899,7 @@ Kontingent, sondern belegt das Band für alle anderen mit.</p>
 die aktuelle Lage und den Spitzenwert im Zeitraum, Feld 4 zeigt den Verlauf mit
 den Linien bei 80 % und 100 %, Feld 5 listet die lautesten Geräte mit Balken.</p>
 
-<h3>Gerätedetail — ein Gerät über alle Standorte</h3>
+<h3 id="gera-tedetail-ein-gera-t-u-ber-alle-stan">Gerätedetail — ein Gerät über alle Standorte</h3>
 
 <figure>
   <img src="img/grafana/geraetedetail.svg" alt="Ansicht Gerätedetail">
@@ -1917,7 +1917,7 @@ und dieser Zähler beginnt bei jedem Dienststart wieder bei null. Die Ansicht
 rechnet deshalb die <em>Zunahme</em> je Zeitfenster aus. Ein Neustart erzeugt
 dadurch keine Delle nach unten, sondern wird schlicht übersprungen.</p>
 
-<h3>Störungssuche — wann stört was?</h3>
+<h3 id="sto-rungssuche-wann-sto-rt-was">Störungssuche — wann stört was?</h3>
 
 <figure>
   <img src="img/grafana/stoerungen.svg" alt="Ansicht Störungssuche">
@@ -1936,7 +1936,7 @@ jeden Abend zur selben Zeit läuft — ein Ladegerät, ein billiges
 Steckernetzteil, eine LED-Beleuchtung mit Schaltnetzteil. Solche Quellen
 findet man sonst nur durch Zufall.</p>
 
-<h3>Batterie- und Ausfallwächter — wer schweigt?</h3>
+<h3 id="batterie-und-ausfallwa-chter-wer-schweig">Batterie- und Ausfallwächter — wer schweigt?</h3>
 
 <figure>
   <img src="img/grafana/batterie.svg" alt="Ansicht Batterie- und Ausfallwächter">
@@ -1956,7 +1956,7 @@ von sich aus nur alle paar Stunden.</p>
 gehört, lebt es. Andernfalls würde jedes Gerät als tot gemeldet, sobald ein
 weit entfernter Standort es nicht mehr empfängt.</p>
 
-<h3>Verbund-Vergleich — die Funkloch-Karte</h3>
+<h3 id="verbund-vergleich-die-funkloch-karte">Verbund-Vergleich — die Funkloch-Karte</h3>
 
 <figure>
   <img src="img/grafana/verbund.svg" alt="Ansicht Verbund-Vergleich">
@@ -1973,7 +1973,7 @@ Zeile schwach ist — dann liegt es am Gerät, nicht am Empfang. Und wo eine gan
 Spalte schwach ist — dann steht dieser Analyzer ungünstig oder hat ein
 Antennenproblem.</p>
 
-<h3>Gerätezustand — wie geht es den Analyzern selbst?</h3>
+<h3 id="gera-tezustand-wie-geht-es-den-analyzern">Gerätezustand — wie geht es den Analyzern selbst?</h3>
 
 <figure>
   <img src="img/grafana/geraetezustand.svg" alt="Ansicht Gerätezustand">
@@ -2011,7 +2011,7 @@ wird in der Weboberfläche des Analyzers eingetragen — unter
 <em>Einstellungen → Alarme: wohin melden?</em> —, nicht in Grafana. Drei Wege
 stehen zur Wahl.</p>
 
-<h3>Weg 1: der ioBroker-Adapter (empfohlen)</h3>
+<h3 class="umbruch" id="weg-1-der-iobroker-adapter-empfohlen">Weg 1: der ioBroker-Adapter (empfohlen)</h3>
 
 <p>Wer ohnehin ioBroker betreibt, hat dort meist schon Telegram, Signal,
 Pushover oder E-Mail eingerichtet. Dann ist es unsinnig, dasselbe ein zweites
@@ -2072,7 +2072,7 @@ ob gerade ein Alarm offen ist, wie viele, die fertige Nachricht sowie Name,
 Standort und Bereich des jüngsten. Wer feiner unterscheiden möchte als
 „Alarm ja/nein", findet in <code>alarm.rohdaten</code> alle Alarme als JSON.</p>
 
-<h3>Weg 2: E-Mail</h3>
+<h3 id="weg-2-e-mail">Weg 2: E-Mail</h3>
 
 <p>Der Analyzer verschickt über den Postausgangsserver des E-Mail-Anbieters.
 Nötig sind fünf Angaben, die alle in den Einrichtungshinweisen des Anbieters
@@ -2107,7 +2107,7 @@ App-Passwort. Mit dem Kundenkennwort antwortet der Server:</p>
 dort eine grüne Bestätigung. Klappt es nicht, steht dort zuerst im Klartext,
 was zu tun ist, und darunter die wörtliche Antwort des Servers als Beleg.</p>
 
-<h3>Weg 3: Telegram</h3>
+<h3 class="umbruch" id="weg-3-telegram">Weg 3: Telegram</h3>
 
 <p>Telegram braucht zwei Angaben, die man sich einmalig besorgt:</p>
 
@@ -2127,7 +2127,7 @@ was zu tun ist, und darunter die wörtliche Antwort des Servers als Beleg.</p>
 <p>Beides eintragen, speichern, fertig. Der häufigste Fehler ist, in das
 Token-Feld den Bot-Namen zu schreiben; die Oberfläche fängt das ab und sagt es.</p>
 
-<h3>Was beim Speichern passiert</h3>
+<h3 id="was-beim-speichern-passiert">Was beim Speichern passiert</h3>
 
 <p>Ein Klick auf <em>Speichern und übernehmen</em> trägt in Grafana
 <strong>zwei</strong> Dinge ein: den Kontaktpunkt <em>und</em> die
@@ -2136,7 +2136,7 @@ häufigste Grund, warum Alarme bei einer Einrichtung von Hand nie ankommen:
 Der Kontaktpunkt steht da, Grafana markiert ihn als „Unused“, und die
 Standardrichtlinie zeigt weiterhin ins Leere.</p>
 
-<h2 class="umbruch" id="k19-9">19.9 Grenzen — was hier nicht geht</h2>
+<h2 id="k19-9">19.9 Grenzen — was hier nicht geht</h2>
 
 <p>Damit niemand danach sucht:</p>
 

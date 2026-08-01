@@ -32,6 +32,7 @@ HTML = Path(__file__).resolve().parent / "handbuch.html"
 H1 = re.compile(r'<h1[^>]*\bid="([^"]*)"[^>]*>.*?<span class="knr">(\d+)</span>([^<]*)')
 H2 = re.compile(r'<h2([^>]*)>(\d+)\.(\d+)\s*([^<]*)')
 ID = re.compile(r'\sid="([^"]*)"')
+OHNE_NUMMER = re.compile(r'<h2[^>]*>(?!\s*\d+\.\d)([^<]+)')
 VERWEIS = re.compile(r'href="#([^"]+)"')
 
 
@@ -50,6 +51,19 @@ def main() -> int:
             marken.append(m1.group(1))
             kapitel, kapitelname = m1.group(2), m1.group(3).strip()
             erwartet = 1
+            continue
+
+        # Eine Ueberschrift OHNE Nummer faellt durch jedes Raster: Sie wird
+        # weder hier geprueft noch von umbrueche.py umbrochen. Genau so kam
+        # "Eine Telegrammzeile lesen" mitten auf einer Seite zu liegen und
+        # riss ihren Abschnitt auseinander. Deshalb ist eine unnummerierte
+        # Unterueberschrift jetzt selbst ein Fehler.
+        roh = OHNE_NUMMER.search(zeile)
+        if roh is not None:
+            fehler.append(
+                f"Zeile {nr}: „{roh.group(1).strip()}“ ist ein Unterkapitel "
+                f"ohne Nummer — es faellt damit aus der Umbruchregel heraus. "
+                f"Erwartet: {kapitel}.{erwartet}")
             continue
 
         m2 = H2.search(zeile)
