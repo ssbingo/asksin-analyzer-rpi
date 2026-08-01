@@ -74,6 +74,12 @@ installiere_dateien() {
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-neustart.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-neustart.service" /etc/systemd/system/ 2>/dev/null || true
+    # Ausloeser fuer die Langzeitdaten-Einrichtung (M14). Genau hier fehlte
+    # gestern die OLED-Unit — neue Units gehoeren mit in diese Liste, sonst
+    # kommen Aenderungen daran nie auf dem Geraet an.
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-langzeit.path" /etc/systemd/system/ 2>/dev/null || true
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-langzeit.service" /etc/systemd/system/ 2>/dev/null || true
+    systemctl enable asksin-analyzer-langzeit.path >/dev/null 2>&1 || true
     install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
     # Ausfuehrungsrecht der Root-Helfer sicherstellen. Fehlt es, scheitert die
     # Unit mit "Permission denied" und die Path-Unit feuert endlos nach.

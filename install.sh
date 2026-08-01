@@ -30,6 +30,7 @@ NODE_MAJOR_MIN=24
 REBOOT_NEEDED=0
 NEUES_TOKEN=""
 VERBUND_MASTER=0
+LANGZEITDATEN=0
 STATUSANZEIGE=0
 OLED_HOEHE=32          # Adafruit PiOLED; 64 fuer 0,96-Zoll-Module
 
@@ -191,6 +192,9 @@ schreibe_konfig() {
     "telegramsDays": 30,
     "noiseDays": 90,
     "deviceHoursDays": 365
+  },
+  "verbund": {
+    "rolle": "$(if [ "$VERBUND_MASTER" -eq 1 ]; then echo master; else echo client; fi)"
   }
 }
 EOF
@@ -242,6 +246,24 @@ if [ "$KONFIGURIEREN" -eq 1 ]; then
         esac
         a="$(ask_tty '  Soll DIESER Analyzer die Verbund-Gesamtuebersicht fuehren (Master)? (j/N): ')"
         case "${a,,}" in j|ja|y|yes) VERBUND_MASTER=1 ;; *) VERBUND_MASTER=0 ;; esac
+        # Langzeitdaten gehoeren auf den Master und nur auf Hardware, die sie
+        # traegt. Die Frage gar nicht erst zu stellen ist ehrlicher, als sie
+        # zu stellen und hinterher abzulehnen.
+        if [ "$VERBUND_MASTER" -eq 1 ]; then
+            RAM_KB="$(awk '/MemTotal/{print $2}' /proc/meminfo)"
+            BAUREIHE="$(sed -nE 's/.*Raspberry Pi ([0-9]+).*/\1/p' <<<"$MODEL")"
+            if { [ -z "$BAUREIHE" ] || [ "$BAUREIHE" -ge 4 ]; } && [ "$RAM_KB" -ge 1887436 ]; then
+                c_info '  InfluxDB und Grafana koennen gleich mit auf dieses Geraet.'
+                c_info '  Dann bleiben die Langzeitdaten im Haus, und acht fertige'
+                c_info '  Grafana-Ansichten liegen bereit. Das laedt rund 400 MB nach.'
+                a="$(ask_tty '  Langzeitdaten (InfluxDB + Grafana) jetzt einrichten? (j/N): ')"
+                case "${a,,}" in j|ja|y|yes) LANGZEITDATEN=1 ;; *) LANGZEITDATEN=0 ;; esac
+            else
+                c_warn "  Langzeitdaten uebersprungen: ${MODEL:-dieses Geraet} mit $((RAM_KB/1024)) MB"
+                c_warn '  reicht dafuer nicht (noetig: ab Pi 4 mit 2 GB). Spaeter nachruestbar,'
+                c_warn '  sobald staerkere Hardware zur Verfuegung steht.'
+            fi
+        fi
         a="$(ask_tty '  Status-LED und OLED-Anzeige (Zubehoer an J5-J7) einrichten? (j/N): ')"
         case "${a,,}" in j|ja|y|yes) STATUSANZEIGE=1 ;; *) STATUSANZEIGE=0 ;; esac
         if [ "$STATUSANZEIGE" -eq 1 ]; then
@@ -442,10 +464,13 @@ install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.service" /etc/systemd/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-netz.path" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-neustart.path" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-neustart.service" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-langzeit.path" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-langzeit.service" /etc/systemd/system/
 systemctl daemon-reload
 systemctl enable asksin-analyzer.service >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-neustart.path >/dev/null 2>&1 || true
+systemctl enable --now asksin-analyzer-langzeit.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-netz.path >/dev/null 2>&1 || true
 systemctl restart asksin-analyzer.service
 c_ok "Dienst aktiviert und gestartet (Updates aus der Weboberflaeche moeglich)."
@@ -471,6 +496,21 @@ echo "    asksin-analyzer logs      # Live-Log"
 echo "    asksin-analyzer config    # Konfiguration aendern"
 echo "    asksin-analyzer update    # auf neue Version aktualisieren"
 echo
+if [ "$LANGZEITDATEN" -eq 1 ]; then
+    echo
+    c_info "Richte InfluxDB und Grafana ein - das dauert einige Minuten..."
+    # Direkt aufrufen statt ueber die Ausloeserdatei: Hier laeuft der Installer
+    # ohnehin als root, und der Anwender sitzt davor und soll den Fortschritt
+    # sehen. Schlaegt es fehl, ist der Analyzer trotzdem fertig eingerichtet —
+    # deshalb bricht der Installer daran nicht ab.
+    if bash "$INSTALL_DIR/deploy/langzeitdaten-einrichten.sh"; then
+        c_ok "Langzeitdaten eingerichtet."
+    else
+        c_warn "Langzeitdaten liessen sich nicht einrichten - der Analyzer laeuft trotzdem."
+        c_warn "Nachholen in der Weboberflaeche unter Einstellungen -> Langzeitdaten."
+    fi
+fi
+
 if [ "$VERBUND_MASTER" -eq 1 ]; then
     c_info "Verbund-Master: Die anderen Analyzer verknuepfst du bequem in der"
     c_info "Weboberflaeche unter Einstellungen -> Verbund (Adresse eintragen,"
