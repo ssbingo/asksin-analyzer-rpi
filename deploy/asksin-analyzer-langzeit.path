@@ -1,0 +1,15 @@
+# Beobachtet die Datei, die die Weboberflaeche beim nachtraeglichen Einrichten
+# der Langzeitdaten anlegt.
+#
+# Der Analyzer laeuft unprivilegiert und darf keine Pakete nachladen — dasselbe
+# Muster wie bei Update, Netzwerk und Neustart: unprivilegierter Dienst
+# schreibt eine Datei, ein eng begrenzter Root-Helfer fuehrt aus.
+[Unit]
+Description=AskSin-Analyzer: Ausloeser fuer die Langzeitdaten-Einrichtung
+
+[Path]
+PathExists=/var/lib/asksin-analyzer/langzeit-anstoss
+Unit=asksin-analyzer-langzeit.service
+
+[Install]
+WantedBy=multi-user.target

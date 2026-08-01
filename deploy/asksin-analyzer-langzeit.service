@@ -1,0 +1,21 @@
+# Installiert InfluxDB und Grafana auf diesem Geraet.
+#
+# ANDERS als beim Neustart-Helfer wird die Ausloeserdatei hier NICHT vorab
+# entfernt: Die Weboberflaeche liest an ihrem Vorhandensein ab, dass gerade
+# etwas laeuft, und das Skript raeumt sie selbst weg — auch im Fehlerfall.
+#
+# Kein Timeout-Wert von der Stange: Auf einem Pi 4 dauert das Nachladen und
+# Einrichten beider Pakete ueber eine langsame Leitung durchaus zehn Minuten.
+[Unit]
+Description=AskSin-Analyzer: Langzeitdaten einrichten
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+TimeoutStartSec=1800
+ExecStart=/bin/bash /opt/asksin-analyzer/deploy/langzeitdaten-einrichten.sh
+# Auch wenn das Skript scheitert: Der Anstoss muss weg, sonst feuert die
+# Path-Unit endlos weiter. Das Skript raeumt selbst auf; das hier ist das Netz
+# darunter, falls es unerwartet abgebrochen wird.
+ExecStopPost=/bin/rm -f /var/lib/asksin-analyzer/langzeit-anstoss
