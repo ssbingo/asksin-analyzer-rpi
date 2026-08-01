@@ -1,0 +1,249 @@
+{
+  "uid": "asksin-funkqualitaet",
+  "title": "AskSin — Funkqualität",
+  "description": "Wer wird wie gut gehört — und wo lohnt ein Repeater.",
+  "tags": [
+    "asksin",
+    "AskSin-Analyzer"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "bucket",
+        "label": "Bucket",
+        "type": "constant",
+        "query": "asksin",
+        "current": {
+          "text": "asksin",
+          "value": "asksin"
+        },
+        "hide": 2
+      },
+      {
+        "name": "standort",
+        "label": "Standort",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "asksin-influx"
+        },
+        "multi": true,
+        "includeAll": true,
+        "refresh": 1,
+        "query": {
+          "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"asksin\", tag: \"standort\")"
+        },
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Empfangsstärke je Gerät",
+      "description": "RSSI, geglättet. Die Linie unten markiert −95 dBm — darunter wird der Empfang unzuverlässig.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"rssi\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"name\", \"standort\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dBm",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": -95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Die schwächsten Empfänge",
+      "description": "Jüngster Messwert je Gerät, schwächste zuerst. Das ist die Liste, nach der man entscheidet, wo ein Repeater hin muss.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 10,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"rssi\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group(columns: [\"standort\", \"name\", \"adresse\"])\n  |> last()\n  |> group()\n  |> keep(columns: [\"standort\", \"name\", \"adresse\", \"_value\"])",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "_value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "RSSI"
+              },
+              {
+                "id": "unit",
+                "value": "dBm"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": -95
+                    },
+                    {
+                      "color": "green",
+                      "value": -85
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "_value",
+            "desc": false
+          }
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Schwankung der Empfangsstärke",
+      "description": "Wie stark der Pegel innerhalb eines Zeitfensters schwankt. Große Werte deuten auf Reflexionen oder ein wanderndes Gerät hin.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 10,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"rssi\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: stddev, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"name\", \"standort\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dBm",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,203 @@
+# Vier fertige Alarme für den AskSin-Analyzer.
+#
+# Diese vier sind der Grund, warum die Langzeitdaten überhaupt lohnen: Sie
+# melden sich, ohne dass jemand ein Dashboard offen hat.
+#
+#   1. Analyzer offline      — der Sniffer liefert keine gültigen Daten mehr
+#   2. Duty-Cycle zu hoch    — ein Gerät stopft das Funknetz zu
+#   3. Gerät verstummt       — vermutlich leere Batterie
+#   4. Grundrauschen hoch    — ein Störer ist aktiv
+#
+# Wohin die Meldungen gehen, steht bewusst NICHT hier. Grafana schickt sie an
+# den vorgegebenen Kontaktpunkt; wer E-Mail, Telegram oder ioBroker möchte,
+# richtet das einmalig unter Alerting → Contact points ein. Diese Datei
+# vorzubelegen hiesse, Zugangsdaten ins Repo zu schreiben.
+#
+# Jede Regel folgt demselben Aufbau:
+#   A  holt die Messwerte (Flux)
+#   B  verdichtet sie auf eine Zahl je Reihe (reduce)
+#   C  vergleicht diese Zahl mit der Schwelle (threshold) — das ist die
+#      Bedingung, die den Alarm auslöst
+
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: AskSin-Analyzer
+    folder: AskSin-Analyzer
+    interval: 5m
+    rules:
+
+      # ------------------------------------------------------ 1. offline
+      - uid: asksin-alarm-offline
+        title: Analyzer offline
+        condition: C
+        for: 10m
+        # NoData bedeutet hier: Es kommen gar keine Messwerte mehr an. Das ist
+        # KEIN "alles in Ordnung", sondern der schwerere Fall — der Analyzer
+        # schreibt nicht einmal mehr. Deshalb loest auch das aus.
+        noDataState: Alerting
+        execErrState: Error
+        annotations:
+          summary: '{{ $labels.standort }}: Sniffer liefert keine Daten'
+          description: >-
+            Der Analyzer am Standort {{ $labels.standort }} meldet seit über
+            zehn Minuten keine gültige Verbindung zum Funkmodul. Prüfen:
+            Steckt die Platine, läuft der Dienst, ist die Baudrate 58824?
+        labels:
+          bereich: analyzer
+        data:
+          - refId: A
+            relativeTimeRange: { from: 900, to: 0 }
+            datasourceUid: asksin-influx
+            model:
+              refId: A
+              query: |
+                from(bucket: "asksin")
+                  |> range(start: -15m)
+                  |> filter(fn: (r) => r._measurement == "analyzer")
+                  |> filter(fn: (r) => r._field == "connected")
+                  |> group(columns: ["standort"])
+                  |> last()
+                  |> map(fn: (r) => ({ r with _value: if r._value then 1.0 else 0.0 }))
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              refId: B
+              type: reduce
+              expression: A
+              reducer: last
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+
+      # --------------------------------------------------- 2. Duty-Cycle
+      - uid: asksin-alarm-dutycycle
+        title: Duty-Cycle über 80 Prozent
+        condition: C
+        for: 15m
+        # Hier KEIN Alarm bei fehlenden Daten: Dass gerade kein Geraet ueber
+        # der Schwelle liegt, ist der Normalfall und liefert eine leere Reihe.
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: '{{ $labels.name }} sendet zu viel ({{ $values.B }} %)'
+          description: >-
+            Das Gerät {{ $labels.name }} liegt seit einer Viertelstunde über
+            80 % Sendezeit. Ein einziges defektes Gerät kann das ganze
+            Funknetz blockieren — bei 100 % darf es per Gesetz nicht mehr
+            senden. Batterie prüfen oder Gerät vom Netz nehmen.
+        labels:
+          bereich: funk
+        data:
+          - refId: A
+            relativeTimeRange: { from: 1800, to: 0 }
+            datasourceUid: asksin-influx
+            model:
+              refId: A
+              query: |
+                from(bucket: "asksin")
+                  |> range(start: -30m)
+                  |> filter(fn: (r) => r._measurement == "geraet")
+                  |> filter(fn: (r) => r._field == "dutyCycle")
+                  |> group(columns: ["name"])
+                  |> max()
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [80] }
+
+      # ------------------------------------------------ 3. Gerät stumm
+      - uid: asksin-alarm-stumm
+        title: Gerät seit 24 Stunden stumm
+        condition: C
+        for: 0m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: '{{ $labels.name }} schweigt seit über 24 Stunden'
+          description: >-
+            Von {{ $labels.name }} kam seit mehr als einem Tag kein Telegramm
+            mehr — an keinem Standort. Bei batteriebetriebenen Homematic-Geräten
+            ist das fast immer eine leere Batterie.
+        labels:
+          bereich: geraete
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: asksin-influx
+            model:
+              refId: A
+              query: |
+                from(bucket: "asksin")
+                  |> range(start: -1h)
+                  |> filter(fn: (r) => r._measurement == "geraet")
+                  |> filter(fn: (r) => r._field == "sekundenSeitEmpfang")
+                  |> group(columns: ["standort", "name"])
+                  |> last()
+                  |> group(columns: ["name"])
+                  |> min()
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [86400] }
+
+      # ------------------------------------------- 4. Grundrauschen hoch
+      - uid: asksin-alarm-rauschen
+        title: Grundrauschen dauerhaft erhöht
+        condition: C
+        for: 30m
+        noDataState: OK
+        execErrState: Error
+        annotations:
+          summary: '{{ $labels.standort }}: Grundrauschen bei {{ $values.B }} dBm'
+          description: >-
+            Am Standort {{ $labels.standort }} liegt das Grundrauschen seit
+            einer halben Stunde über −80 dBm. In dieser Höhe gehen schwache
+            Telegramme unter. Häufigste Ursachen sind Schaltnetzteile und
+            Ladegeräte in unmittelbarer Nähe der Antenne.
+        labels:
+          bereich: funk
+        data:
+          - refId: A
+            relativeTimeRange: { from: 3600, to: 0 }
+            datasourceUid: asksin-influx
+            model:
+              refId: A
+              query: |
+                from(bucket: "asksin")
+                  |> range(start: -1h)
+                  |> filter(fn: (r) => r._measurement == "analyzer")
+                  |> filter(fn: (r) => r._field == "grundrauschen")
+                  |> group(columns: ["standort"])
+                  |> mean()
+          - refId: B
+            datasourceUid: __expr__
+            model: { refId: B, type: reduce, expression: A, reducer: last }
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: B
+              conditions:
+                - evaluator: { type: gt, params: [-80] }

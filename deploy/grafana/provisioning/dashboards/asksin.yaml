@@ -1,0 +1,23 @@
+# Meldet Grafana, wo die mitgelieferten Dashboards liegen.
+#
+# Sie werden bei jedem Start neu eingelesen. Wer eine Vorlage im Browser
+# anpasst und speichert, verliert die Änderung beim nächsten Neustart wieder —
+# das ist Absicht: Die Vorlagen sollen mit dem Repo aktualisierbar bleiben.
+# Für eigene Ansichten legt man ein neues Dashboard AUSSERHALB des Ordners an;
+# `allowUiUpdates: false` verhindert nur das Überschreiben der Vorlagen.
+
+apiVersion: 1
+
+providers:
+  - name: AskSin-Analyzer
+    orgId: 1
+    folder: AskSin-Analyzer
+    type: file
+    disableDeletion: false
+    allowUiUpdates: false
+    updateIntervalSeconds: 60
+    options:
+      path: /var/lib/grafana/dashboards/asksin
+      # Ohne das landet alles flach im Ordner; mit Unterordnern bleibt Platz
+      # fuer eigene Sammlungen daneben.
+      foldersFromFilesStructure: false

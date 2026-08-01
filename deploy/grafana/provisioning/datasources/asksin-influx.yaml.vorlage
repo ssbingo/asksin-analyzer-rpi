@@ -1,0 +1,31 @@
+# Datenquelle für die mitgelieferten AskSin-Dashboards.
+#
+# Diese Datei ist eine VORLAGE: Das Einrichtungsskript ersetzt die Platzhalter
+# und legt das Ergebnis unter /etc/grafana/provisioning/datasources/ ab. Der
+# Zugriffstoken darf nicht im öffentlichen Repo landen, deshalb steht er hier
+# nicht drin.
+#
+# Die uid „asksin-influx" ist fest verdrahtet — genau diese Kennung steht in
+# jedem Dashboard. Wer sie ändert, muss die Vorlagen neu bauen.
+
+apiVersion: 1
+
+datasources:
+  - name: AskSin-Analyzer
+    uid: asksin-influx
+    type: influxdb
+    access: proxy
+    url: __URL__
+    isDefault: true
+    editable: false
+    jsonData:
+      # Flux statt InfluxQL: Der Analyzer schreibt über die 2.x-Schnittstelle,
+      # und die Abfragen der Vorlagen sind in Flux geschrieben.
+      version: Flux
+      organization: __ORG__
+      defaultBucket: __BUCKET__
+      # Grosszuegig: Die Pivot-Abfrage der Empfangsmatrix laeuft ueber alle
+      # Geraete und Standorte und braucht bei viel Historie ihre Zeit.
+      timeout: 60
+    secureJsonData:
+      token: __TOKEN__

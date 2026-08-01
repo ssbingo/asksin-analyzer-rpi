@@ -1,0 +1,400 @@
+{
+  "uid": "asksin-geraet",
+  "title": "AskSin — Gerätedetail",
+  "description": "Ein Gerät im Detail, über alle Standorte hinweg.",
+  "tags": [
+    "asksin",
+    "AskSin-Analyzer"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "bucket",
+        "label": "Bucket",
+        "type": "constant",
+        "query": "asksin",
+        "current": {
+          "text": "asksin",
+          "value": "asksin"
+        },
+        "hide": 2
+      },
+      {
+        "name": "geraet",
+        "label": "Gerät",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "asksin-influx"
+        },
+        "multi": false,
+        "includeAll": false,
+        "refresh": 1,
+        "query": {
+          "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"asksin\", tag: \"name\")"
+        },
+        "current": {},
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Zuletzt gehört vor",
+      "description": "Kleinster Wert über alle Standorte wäre genauer; hier steht der zuletzt geschriebene.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"sekundenSeitEmpfang\")\n  |> filter(fn: (r) => r.name == \"${geraet}\")\n  |> group()\n  |> last()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 21600
+              },
+              {
+                "color": "red",
+                "value": 86400
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Duty-Cycle",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"dutyCycle\")\n  |> filter(fn: (r) => r.name == \"${geraet}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Empfangsstärke",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"rssi\")\n  |> filter(fn: (r) => r.name == \"${geraet}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dBm",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": -95
+              },
+              {
+                "color": "green",
+                "value": -85
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Empfangsstärke je Standort",
+      "description": "Eine Linie je Analyzer. Damit sieht man sofort, welcher Standort dieses Gerät am besten hört — die Funkloch-Karte als Verlauf.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"rssi\")\n  |> filter(fn: (r) => r.name == \"${geraet}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dBm",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": -95
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Duty-Cycle",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"dutyCycle\")\n  |> filter(fn: (r) => r.name == \"${geraet}\")\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              }
+            ]
+          },
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Telegramme pro Zeitfenster",
+      "description": "Aus dem laufenden Zähler gebildet. Der Rücksetzer beim Dienststart wird verschluckt, nicht als Einbruch gezeigt.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 13,
+        "w": 12,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"telegramme\")\n  |> filter(fn: (r) => r.name == \"${geraet}\")\n  |> group(columns: [\"standort\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> difference(nonNegative: true)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}

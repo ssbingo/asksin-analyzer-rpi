@@ -1,0 +1,348 @@
+{
+  "uid": "asksin-batterie",
+  "title": "AskSin — Batterie- und Ausfallwächter",
+  "description": "Welches Gerät schweigt — und seit wann.",
+  "tags": [
+    "asksin",
+    "AskSin-Analyzer"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "bucket",
+        "label": "Bucket",
+        "type": "constant",
+        "query": "asksin",
+        "current": {
+          "text": "asksin",
+          "value": "asksin"
+        },
+        "hide": 2
+      },
+      {
+        "name": "standort",
+        "label": "Standort",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "asksin-influx"
+        },
+        "multi": true,
+        "includeAll": true,
+        "refresh": 1,
+        "query": {
+          "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"asksin\", tag: \"standort\")"
+        },
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Seit über 24 h stumm",
+      "description": "Jedes dieser Geräte hat vermutlich eine leere Batterie — oder ist ausgefallen.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"sekundenSeitEmpfang\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group(columns: [\"name\"])\n  |> last()\n  |> group()\n  |> filter(fn: (r) => r._value > 86400)\n  |> count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Seit über 6 h stumm",
+      "description": "Noch kein Alarm: Manche Geräte melden sich nur alle paar Stunden.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"sekundenSeitEmpfang\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group(columns: [\"name\"])\n  |> last()\n  |> group()\n  |> filter(fn: (r) => r._value > 21600)\n  |> count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Bekannte Geräte",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"geraete\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group()\n  |> last()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Zuletzt gehört",
+      "description": "Was oben steht, ist verdächtig. Über mehrere Standorte zählt der kürzeste Abstand — hat auch nur ein Analyzer das Gerät gehört, lebt es.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 14
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"sekundenSeitEmpfang\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group(columns: [\"standort\", \"name\"])\n  |> last()\n  |> group(columns: [\"name\"])\n  |> min()\n  |> group()\n  |> keep(columns: [\"name\", \"_value\"])",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "_value"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "zuletzt gehört vor"
+              },
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 21600
+                    },
+                    {
+                      "color": "red",
+                      "value": 86400
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "_value",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Zahl der Geräte",
+      "description": "Ein Knick nach unten heißt: Etwas ist verstummt.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"geraete\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never"
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      }
+    }
+  ]
+}
