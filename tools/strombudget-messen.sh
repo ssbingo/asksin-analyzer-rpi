@@ -45,8 +45,15 @@ fi
 echo "  Datenträger         : $PLATTE"
 echo
 
-# Ruhewerte, bevor Last anliegt.
-LEER="$(vcgencmd pmic_read_adc EXT5V_V 2>/dev/null | grep -oE '[0-9.]+V' || true)"
+# Messwert aus "EXT5V_V volt(24)=5.14560000V" holen. Vorsicht: Der Name
+# enthaelt selbst ein "5V" — ein Suchmuster auf Ziffern gefolgt von V trifft
+# zweimal. Deshalb ausdruecklich das, was hinter dem Gleichheitszeichen steht.
+lies_5v() {
+    vcgencmd pmic_read_adc EXT5V_V 2>/dev/null \
+        | sed -nE 's/.*=([0-9]+\.[0-9]+)V.*/\1/p'
+}
+
+LEER="$(lies_5v)"
 echo "=== Messung ueber ${DAUER} s unter Last ==="
 echo "  5V im Leerlauf: ${LEER:-nicht lesbar}"
 
@@ -56,16 +63,19 @@ LAST=$!
 # shellcheck disable=SC2064
 trap "kill $LAST 2>/dev/null || true" EXIT INT TERM
 
+printf "  messe"
 MIN=99; MAX=0; N=0
 ENDE=$(( $(cut -d. -f1 /proc/uptime) + DAUER ))
 while [ "$(cut -d. -f1 /proc/uptime)" -lt "$ENDE" ]; do
-    V="$(vcgencmd pmic_read_adc EXT5V_V 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' || true)"
+    V="$(lies_5v)"
     [ -n "$V" ] || continue
     N=$((N + 1))
     # bc ist nicht ueberall da; awk rechnet zuverlaessig mit Kommazahlen.
     MIN="$(awk -v a="$MIN" -v b="$V" 'BEGIN{print (b<a)?b:a}')"
     MAX="$(awk -v a="$MAX" -v b="$V" 'BEGIN{print (b>a)?b:a}')"
+    [ $((N % 10)) -eq 0 ] && printf "."
 done
+printf "\n"
 
 kill $LAST 2>/dev/null || true
 wait $LAST 2>/dev/null || true
@@ -85,6 +95,10 @@ awk -v min="$MIN" 'BEGIN {
   else print "  Bewertung: ZU WENIG — unterhalb der USB-Spezifikation von 4,75 V.";
 }'
 echo
+echo "=== Alle PMIC-Werte nach der Messung (fuers Protokoll) ==="
+vcgencmd pmic_read_adc 2>/dev/null | sed 's/^/  /'
+echo
+
 echo "Hinweis: Ein einzelner Durchlauf beweist nichts, wenn der Ausfall selten"
 echo "ist. Fuer den Dauerblick auf die Schiene laeuft der Puls des"
 echo "Kernel-Mitschnitts weiter (siehe tools/netconsole-einrichten.sh)."
