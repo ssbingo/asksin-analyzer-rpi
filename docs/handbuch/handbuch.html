@@ -1995,10 +1995,24 @@ denen sich die Adresse zusammensetzt, und dort wird auch eingetragen, an
 welchen Messaging-Adapter weitergereicht werden soll — <code>telegram.0</code>,
 <code>signal-cmb.0</code>, <code>pushover.0</code> oder <code>email.0</code>.</p>
 
+<p><strong>Und das Verbindungspasswort?</strong> Es kommt von nirgendwo her
+und muss auch nirgends beantragt werden. Man denkt es sich aus — wie einen
+WLAN-Schlüssel — und trägt <em>dasselbe</em> auf beiden Seiten ein: im Adapter
+unter <em>Alarme vom Analyzer</em> (dort erzeugt ein Knopf auch eines) und
+hier im Analyzer daneben. Sein Zweck: Der Adapter horcht auf einem Anschluss
+im Heimnetz; ohne Passwort könnte jedes Gerät dort Alarme einwerfen und das
+Telefon klingeln lassen. Wer das nicht braucht, lässt beide Felder leer —
+dann wird nicht geprüft.</p>
+
+<p class="klein">Der Analyzer schickt es als Kopfzeile mit, nicht als Anhängsel
+an der Adresse. Das ist kein Detail: Adressen landen in Protokollen, bei
+Grafana wie beim Empfänger — Kopfzeilen nicht.</p>
+
 <p class="klein">Ob der Weg steht, lässt sich vorab prüfen: die Adresse im
 Browser öffnen. Der Adapter antwortet auf einen gewöhnlichen Aufruf mit einem
 Hinweistext. Kommt der, ist alles bereit — und man muss nicht erst in Grafana
-suchen, wenn später nichts ankommt.</p>
+suchen, wenn später nichts ankommt. Im Adapter selbst gibt es dazu den Knopf
+<em>Testalarm senden</em>, der eine Probemeldung durch den ganzen Weg schickt.</p>
 
 <p class="klein">Der Adapter legt dabei States unter <code>alarm.*</code> an:
 ob gerade ein Alarm offen ist, wie viele, die fertige Nachricht sowie Name,
@@ -2069,7 +2083,7 @@ häufigste Grund, warum Alarme bei einer Einrichtung von Hand nie ankommen:
 Der Kontaktpunkt steht da, Grafana markiert ihn als „Unused“, und die
 Standardrichtlinie zeigt weiterhin ins Leere.</p>
 
-<h2 class="umbruch" id="k19-9">19.9 Grenzen — was hier nicht geht</h2>
+<h2 id="k19-9">19.9 Grenzen — was hier nicht geht</h2>
 
 <p>Damit niemand danach sucht:</p>
 
@@ -2103,7 +2117,7 @@ bekommt eine Lücke.</p>
 wissen will, findet den freien Platz in der Ansicht <em>Gerätezustand</em>,
 Feld 5 — dort sieht man auch, wie schnell er tatsächlich fällt.</p>
 
-<h2 class="umbruch" id="k19-11">19.11 Wenn etwas nicht klappt</h2>
+<h2 id="k19-11">19.11 Wenn etwas nicht klappt</h2>
 
 <table>
 <tr><th>Beobachtung</th><th>Ursache</th><th>Abhilfe</th></tr>

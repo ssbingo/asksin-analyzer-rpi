@@ -1232,7 +1232,7 @@ const alarmzielHooks = {
     return {
       kanal: z.kanal,
       aktiv: z.aktiv,
-      iobroker: z.iobroker,
+      iobroker: { ...z.iobroker, hatToken: z.iobroker.token !== '' },
       // Die Geheimnisse gehen mit zurueck, damit man sie in der Oberflaeche
       // nachsehen kann — wer sein SMTP-Passwort sucht, soll es nicht in einer
       // Datei auf dem Pi suchen muessen. Der Preis dafuer: Diese Leseroute

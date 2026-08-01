@@ -37,8 +37,15 @@ export interface Alarmziel {
   aktiv: boolean;
   kanal: Alarmkanal;
   iobroker: {
-    /** Webhook des ioBroker-Adapters, z. B. http://iobroker:8087/asksin/alarm */
+    /** Webhook des ioBroker-Adapters, z. B. http://iobroker:8095/asksin/alarm */
     url: string;
+    /**
+     * Dasselbe Verbindungspasswort, das im Adapter steht.
+     *
+     * Es geht als `Authorization: Bearer …` mit, nicht als `?token=` in der
+     * Adresse: Adressen landen in Protokollen, Kopfzeilen nicht.
+     */
+    token: string;
   };
   email: {
     /** Ein oder mehrere Empfänger, durch Semikolon getrennt. */
@@ -58,7 +65,7 @@ export interface Alarmziel {
 export const ALARMZIEL_VORGABEN: Alarmziel = {
   aktiv: false,
   kanal: 'iobroker',
-  iobroker: { url: '' },
+  iobroker: { url: '', token: '' },
   email: {
     empfaenger: '',
     smtpHost: '',
@@ -94,7 +101,7 @@ export function pruefeAlarmziel(z: Alarmziel): void {
     if (!/^https?:\/\/\S+$/.test(z.iobroker.url)) {
       throw new Error(
         'ioBroker-Adresse: vollständige URL erwartet, z. B. ' +
-          'http://192.168.1.20:8087/asksin/alarm',
+          'http://192.168.1.20:8095/asksin/alarm',
       );
     }
     return;
@@ -189,7 +196,19 @@ function kanalTyp(kanal: Alarmkanal): string {
 function kanalEinstellungen(z: Alarmziel): Record<string, unknown> {
   switch (z.kanal) {
     case 'iobroker':
-      return { url: z.iobroker.url, httpMethod: 'POST' };
+      return {
+        url: z.iobroker.url,
+        httpMethod: 'POST',
+        // Nur setzen, wenn eines hinterlegt ist — sonst schickt Grafana eine
+        // leere Kopfzeile, und der Adapter weist sie ab, obwohl gar kein
+        // Passwort verlangt wird.
+        ...(z.iobroker.token === ''
+          ? {}
+          : {
+              authorization_scheme: 'Bearer',
+              authorization_credentials: z.iobroker.token,
+            }),
+      };
     case 'email':
       // Grafana trennt mehrere Empfaenger mit Semikolon.
       return { addresses: z.email.empfaenger };

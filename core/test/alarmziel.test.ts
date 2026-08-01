@@ -170,3 +170,36 @@ test('SMTP-Umgebung: nur bei E-Mail eingeschaltet, Passwort in Anführungszeiche
   // waere von "mit Leerzeichen" nur "mit" angekommen.
   assert.match(an, /Environment="GF_SMTP_PASSWORD=mit Leerzeichen"/);
 });
+
+test('ioBroker: das Passwort geht als Kopfzeile mit, nicht in der Adresse', () => {
+  // Adressen landen in Protokollen — bei Grafana, im Netz, beim Empfaenger.
+  // Kopfzeilen nicht.
+  const text = baueAlarmProvisionierung(
+    ziel({
+      aktiv: true,
+      kanal: 'iobroker',
+      iobroker: { url: 'http://io:8095/asksin/alarm', token: 'geheim123' },
+    }),
+  );
+  const s = JSON.parse(text) as {
+    contactPoints: Array<{ receivers: Array<{ settings: Record<string, string> }> }>;
+  };
+  const e = s.contactPoints[0]!.receivers[0]!.settings;
+  assert.equal(e['url'], 'http://io:8095/asksin/alarm', 'keine Anhaengsel in der Adresse');
+  assert.equal(e['authorization_scheme'], 'Bearer');
+  assert.equal(e['authorization_credentials'], 'geheim123');
+});
+
+test('ioBroker: ohne Passwort bleibt die Kopfzeile ganz weg', () => {
+  // Eine leere Kopfzeile wuerde der Adapter abweisen, obwohl er gar keins
+  // verlangt.
+  const text = baueAlarmProvisionierung(
+    ziel({ aktiv: true, kanal: 'iobroker', iobroker: { url: 'http://io:8095/a' } }),
+  );
+  const s = JSON.parse(text) as {
+    contactPoints: Array<{ receivers: Array<{ settings: Record<string, string> }> }>;
+  };
+  const e = s.contactPoints[0]!.receivers[0]!.settings;
+  assert.equal(e['authorization_scheme'], undefined);
+  assert.equal(e['authorization_credentials'], undefined);
+});

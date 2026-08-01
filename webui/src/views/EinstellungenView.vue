@@ -168,6 +168,7 @@ const alarm = reactive({
   aktiv: false,
   kanal: 'iobroker' as Alarmkanal,
   iobrokerUrl: '',
+  iobrokerToken: '',
   empfaenger: '',
   smtpHost: '',
   smtpPort: 587,
@@ -198,6 +199,7 @@ async function alarmLaden(): Promise<void> {
     alarm.aktiv = z.aktiv;
     alarm.kanal = z.kanal;
     alarm.iobrokerUrl = z.iobroker.url;
+    alarm.iobrokerToken = z.iobroker.token;
     alarm.empfaenger = z.email.empfaenger;
     alarm.smtpHost = z.email.smtpHost;
     alarm.smtpPort = z.email.smtpPort;
@@ -242,7 +244,7 @@ const alarmSpeichern = (): Promise<void> =>
     await sendeAlarmziel({
       aktiv: alarm.aktiv,
       kanal: alarm.kanal,
-      iobroker: { url: alarm.iobrokerUrl.trim() },
+      iobroker: { url: alarm.iobrokerUrl.trim(), token: alarm.iobrokerToken },
       email: {
         empfaenger: alarm.empfaenger.trim(),
         smtpHost: alarm.smtpHost.trim(),
@@ -815,15 +817,27 @@ const demoUmschalten = (): Promise<void> | undefined => {
         wird auch eingetragen, an welchen Messaging-Adapter weitergereicht
         werden soll.
       </div>
-      <label class="feld">
-        <span class="name">Adresse des Adapters</span>
-        <input type="text" v-model="alarm.iobrokerUrl"
-               placeholder="http://192.168.1.20:8095/asksin/alarm" />
-      </label>
+      <div class="zeile">
+        <label class="feld" style="flex: 2">
+          <span class="name">Adresse des Adapters</span>
+          <input type="text" v-model="alarm.iobrokerUrl"
+                 placeholder="http://192.168.1.20:8095/asksin/alarm" />
+        </label>
+        <GeheimFeld
+          v-model="alarm.iobrokerToken"
+          :name="`Verbindungspasswort ${alarmZustand.iobroker.hatToken ? '(gesetzt)' : '(falls im Adapter eines gesetzt ist)'}`"
+          style="flex: 1" />
+      </div>
       <div class="fussnote">
-        Ob es steht, lässt sich vorab prüfen: Die Adresse im Browser öffnen.
-        Der Adapter antwortet auf einen gewöhnlichen Aufruf mit einem
-        Hinweistext — kommt der, ist der Weg frei.
+        Das Verbindungspasswort denkt man sich nicht hier aus — es steht im
+        <strong>Adapter</strong> unter <em>Alarme vom Analyzer</em>, wo ein
+        Knopf auch eines erzeugt. Hier wird <strong>dasselbe</strong>
+        eingetragen; beide Seiten müssen übereinstimmen. Ist dort keins
+        gesetzt, bleibt dieses Feld leer.
+        <br />
+        Ob der Weg steht, lässt sich vorab prüfen: die Adresse im Browser
+        öffnen. Der Adapter antwortet auf einen gewöhnlichen Aufruf mit einem
+        Hinweistext — kommt der, ist alles bereit.
       </div>
     </template>
 

@@ -577,7 +577,7 @@ export type Alarmkanal = 'iobroker' | 'email' | 'telegram';
 export interface AlarmzielZustand {
   kanal: Alarmkanal;
   aktiv: boolean;
-  iobroker: { url: string };
+  iobroker: { url: string; token: string; hatToken: boolean };
   email: {
     empfaenger: string;
     smtpHost: string;
