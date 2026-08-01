@@ -1858,7 +1858,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>OLED bleibt dunkel</td><td>I²C nicht aktiv oder Kabelbelegung</td><td><code>sudo raspi-config</code> → I²C aktivieren; <code>i2cdetect -y 1</code> muss <code>3c</code> zeigen; J5-Belegung gegen Kapitel 10.3 prüfen</td></tr>
 <tr><td>1-Wire-Sensoren funktionieren nicht mehr</td><td><code>w1-gpio</code> kollidiert mit GPIO4 (Reset)</td><td>In <code>config.txt</code>: <code>dtoverlay=w1-gpio,gpiopin=17</code> o. ä. — nicht GPIO4</td></tr>
 <tr><td>Der Pi fällt hart aus und startet neu — im Journal steht nichts</td><td>Lässt sich aus dem Gerät heraus nicht klären: Was die Ursache erklären würde, wird nicht mehr geschrieben</td><td>Abschnitt 23.1 — Kernel-Meldungen auf einen zweiten Rechner mitschneiden</td></tr>
-<tr><td>Pi reagiert auf nichts mehr, <code>sudo</code> meldet <code>Input/output error</code></td><td>Die USB-SSD hat sich vom Bus abgemeldet und ist als neues Gerät wiedergekommen — das Wurzeldateisystem zeigt ins Leere</td><td>Abschnitt 23.2. Sofortmaßnahme: <code>sudo bash tools/usb-quirk-setzen.sh</code> und neu starten</td></tr>
+<tr><td>Pi reagiert auf nichts mehr, <code>sudo</code> meldet <code>Input/output error</code></td><td>Die USB-SSD hat sich vom Bus abgemeldet und ist als neues Gerät wiedergekommen — das Wurzeldateisystem zeigt ins Leere</td><td>Abschnitt 23.2. Zuerst die Steckerkette prüfen: ein durchgehendes Kabel in den blauen USB-3-Anschluss, keine Koppler dazwischen</td></tr>
 </table>
 
 <h2 class="umbruch" id="k23-1">23.1 Wenn nichts im Journal steht: Mitschnitt übers Netz</h2>
@@ -1942,8 +1942,32 @@ keine Anmeldung. Von außen ist das von einem Absturz nicht zu unterscheiden,
 und weil auch das Journal auf der toten Platte liegt, bleibt hinterher keine
 Spur. Genau deshalb war der Mitschnitt übers Netz nötig.</p>
 
-<p>Die Ursache sind fast immer <strong>USB-SATA-Brücken</strong> in
-preiswerten Gehäusen, vor allem in Verbindung mit UAS (<em>USB Attached
+<p>Die häufigste Ursache ist banal und liegt <strong>nicht</strong> in der
+Platte: zu viele Steckverbindungen im Weg. Beim Testgerät steckte die SSD in
+einem Wechselrahmen, deren Kabel über einen Adapter auf ein Keystone-Modul in
+der Gehäusefront ging und von dort mit einem zweiten Kabel an den Pi — vier
+gesteckte USB-A-Paare hintereinander, wo eines vorgesehen ist.</p>
+
+<p>SuperSpeed sind 5 Gbit/s über impedanzkontrollierte Leitungspaare. Jede
+Steckverbindung ist eine Störstelle, an der ein Teil des Signals
+zurückgeworfen wird; drei zusätzliche in Reihe liegen weit außerhalb dessen,
+was die Spezifikation zulässt. Zwei Folgen, beide im Protokoll ablesbar:
+Die SuperSpeed-Verbindung kommt gar nicht erst zustande, das Gerät meldet sich
+als USB 2.0 an — und ein Federkontakt, der sich über Nacht thermisch bewegt,
+genügt für ein <code>USB disconnect</code>. Erschwerend kommt hinzu, dass
+<strong>USB-A auf USB-A gar kein zulässiger Kabeltyp</strong> ist; solche
+Kabel existieren, aber niemand garantiert ihre Eigenschaften.</p>
+
+<p>Die Abhilfe ist entsprechend mechanisch: <strong>ein einziges,
+durchgehendes Kabel</strong> vom Adapter der Platte in den blauen
+USB-3-Anschluss des Pi. Soll die Platte trotzdem von außen wechselbar bleiben,
+führt man das Kabel durch eine Tülle in der Front, statt es mit einem Koppler
+aufzutrennen. Für ein Gerät, das jahrelang im Schrank läuft, ist beim Pi 5
+eine <strong>NVMe-Platine</strong> die bessere Antwort — damit entfällt USB
+als Speicherweg vollständig.</p>
+
+<p>Bleibt es nach dem Entrümpeln der Steckerkette bei Aussetzern, ist doch die
+Brücke selbst verdächtig — besonders in Verbindung mit UAS (<em>USB Attached
 SCSI</em>). Zwei Zeilen im Bootprotokoll verraten die Gefährdung:</p>
 
 <table>
@@ -1952,8 +1976,10 @@ SCSI</em>). Zwei Zeilen im Bootprotokoll verraten die Gefährdung:</p>
 <tr><td><code>new <strong>high-speed</strong> USB device</code></td><td>USB 2.0, nicht 3.0 — höchstens rund 40 MB/s. Entweder steckt sie im schwarzen Anschluss oder das Kabel taugt nichts. <code>super-speed</code> wäre richtig.</td></tr>
 </table>
 
-<p>Als Sofortmaßnahme lässt sich UAS für genau diese Brücke abschalten. Sie
-fällt dann auf den älteren, langsameren, aber robusten Transport zurück:</p>
+<p>Dann — und erst dann — lässt sich UAS für genau diese Brücke abschalten.
+Sie fällt auf den älteren, langsameren, aber robusten Transport zurück. Gegen
+ein echtes Abmelden vom Bus hilft das <em>nicht</em>: Der Quirk entschärft
+Fehler im Befehlssatz, keine wackelnden Kontakte.</p>
 
 <pre>sudo bash /opt/asksin-analyzer/tools/usb-quirk-setzen.sh
 sudo reboot</pre>
