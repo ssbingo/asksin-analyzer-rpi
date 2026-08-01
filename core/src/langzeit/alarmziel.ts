@@ -1,0 +1,231 @@
+/**
+ * Wohin Grafana seine Alarme meldet (M14.2).
+ *
+ * Grafana kann das selbst — nur muss man es dort an drei Stellen eintragen
+ * (Kontaktpunkt, Benachrichtigungsrichtlinie, SMTP-Zugang in einer
+ * Konfigurationsdatei), und die dritte geht nur über die Konsole. Genau das
+ * soll dem Anwender erspart bleiben: Hier wird einmal ausgewählt, und der
+ * Rest entsteht daraus.
+ *
+ * Drei Wege stehen zur Wahl:
+ *
+ *   **ioBroker** (Vorgabe) — Grafana ruft den Adapter über einen Webhook auf,
+ *     der die Meldung dann über die im ioBroker ohnehin vorhandenen
+ *     Messaging-Adapter verteilt. Das ist der beste Weg für ein Haus, in dem
+ *     ioBroker läuft: Man richtet Telegram, Signal, Pushover oder E-Mail
+ *     **einmal dort** ein und nicht ein zweites Mal in Grafana.
+ *   **E-Mail** — direkt aus Grafana. Braucht einen SMTP-Zugang.
+ *   **Telegram** — direkt aus Grafana, mit Bot-Token und Chat-Kennung.
+ *
+ * ## Warum das Ergebnis JSON ist, obwohl die Datei .yaml heisst
+ *
+ * Grafana liest die Provisionierung als YAML. YAML ist eine Obermenge von
+ * JSON — eine Datei mit gültigem JSON ist also gültiges YAML. Das ist hier
+ * kein Trick, sondern Absicht: Der Core hat **keine Laufzeit-Abhängigkeiten**,
+ * ein YAML-Erzeuger müsste also von Hand geschrieben werden. Und wer schon
+ * einmal Anführungszeichen, Doppelpunkte oder ein führendes @ in einem
+ * handgeschriebenen YAML-Erzeuger vergessen hat, weiß, wie still so etwas
+ * schiefgeht. JSON.stringify kann das seit jeher richtig.
+ */
+
+export type Alarmkanal = 'iobroker' | 'email' | 'telegram';
+
+/** Reihenfolge in der Oberfläche — ioBroker zuerst, weil er im Haus liegt. */
+export const ALARMKANAELE: Alarmkanal[] = ['iobroker', 'email', 'telegram'];
+
+export interface Alarmziel {
+  aktiv: boolean;
+  kanal: Alarmkanal;
+  iobroker: {
+    /** Webhook des ioBroker-Adapters, z. B. http://iobroker:8087/asksin/alarm */
+    url: string;
+  };
+  email: {
+    /** Ein oder mehrere Empfänger, durch Semikolon getrennt. */
+    empfaenger: string;
+    smtpHost: string;
+    smtpPort: number;
+    benutzer: string;
+    passwort: string;
+    absender: string;
+  };
+  telegram: {
+    botToken: string;
+    chatId: string;
+  };
+}
+
+export const ALARMZIEL_VORGABEN: Alarmziel = {
+  aktiv: false,
+  kanal: 'iobroker',
+  iobroker: { url: '' },
+  email: {
+    empfaenger: '',
+    smtpHost: '',
+    // 587 mit STARTTLS statt 465: Grafana geht damit zuverlaessiger um, und
+    // praktisch jeder Anbieter unterstuetzt es.
+    smtpPort: 587,
+    benutzer: '',
+    passwort: '',
+    absender: '',
+  },
+  telegram: { botToken: '', chatId: '' },
+};
+
+export function istAlarmkanal(wert: unknown): wert is Alarmkanal {
+  return ALARMKANAELE.includes(wert as Alarmkanal);
+}
+
+/**
+ * Prüft ein Ziel, bevor es gespeichert wird.
+ *
+ * Die Meldungen sagen, **was** einzutragen ist — nicht nur, dass etwas fehlt.
+ * Ein „ungültige Konfiguration" hilft am Datenschrank niemandem.
+ */
+export function pruefeAlarmziel(z: Alarmziel): void {
+  if (!istAlarmkanal(z.kanal)) {
+    throw new Error("kanal: 'iobroker', 'email' oder 'telegram' erwartet");
+  }
+  // Ausgeschaltet muss nichts stimmen — sonst könnte man ein halb
+  // ausgefülltes Ziel nie abschalten, ohne es vorher zu vervollständigen.
+  if (!z.aktiv) return;
+
+  if (z.kanal === 'iobroker') {
+    if (!/^https?:\/\/\S+$/.test(z.iobroker.url)) {
+      throw new Error(
+        'ioBroker-Adresse: vollständige URL erwartet, z. B. ' +
+          'http://192.168.1.20:8087/asksin/alarm',
+      );
+    }
+    return;
+  }
+
+  if (z.kanal === 'email') {
+    if (!z.email.empfaenger.includes('@')) {
+      throw new Error('Empfänger: E-Mail-Adresse erwartet');
+    }
+    if (z.email.smtpHost.trim() === '') {
+      throw new Error(
+        'SMTP-Server fehlt — z. B. securesmtp.t-online.de oder smtp.gmail.com',
+      );
+    }
+    if (!Number.isInteger(z.email.smtpPort) || z.email.smtpPort < 1 ||
+        z.email.smtpPort > 65535) {
+      throw new Error('SMTP-Port: Zahl zwischen 1 und 65535 erwartet (üblich: 587)');
+    }
+    if (!z.email.absender.includes('@')) {
+      throw new Error('Absender: E-Mail-Adresse erwartet — meist dieselbe wie der Benutzer');
+    }
+    return;
+  }
+
+  // Telegram. Ein Bot-Token sieht immer aus wie 123456789:AA... — die Prüfung
+  // faengt den haeufigsten Fehler ab, naemlich den Bot-NAMEN einzutragen.
+  if (!/^\d+:[\w-]{20,}$/.test(z.telegram.botToken)) {
+    throw new Error(
+      'Bot-Token: erwartet wird die Form 123456789:AA… vom BotFather — ' +
+        'nicht der Name des Bots',
+    );
+  }
+  if (!/^-?\d+$/.test(z.telegram.chatId)) {
+    throw new Error(
+      'Chat-Kennung: Zahl erwartet (bei Gruppen mit Minuszeichen davor)',
+    );
+  }
+}
+
+/** Der eine Kontaktpunkt, den Grafana bekommt. */
+const EMPFAENGER_NAME = 'AskSin-Alarmziel';
+
+/**
+ * Baut die Provisionierung für Grafana: Kontaktpunkt **und** Richtlinie.
+ *
+ * Beides zusammen, weil das eine ohne das andere nichts tut — genau daran
+ * scheitert die Einrichtung von Hand am häufigsten: Der Kontaktpunkt steht
+ * da und ist „Unused", während die Standardrichtlinie weiter ins Leere zeigt.
+ */
+export function baueAlarmProvisionierung(z: Alarmziel): string {
+  const empfaenger = {
+    uid: 'asksin-alarmziel',
+    type: kanalTyp(z.kanal),
+    settings: kanalEinstellungen(z),
+    disableResolveMessage: false,
+  };
+
+  return (
+    JSON.stringify(
+      {
+        apiVersion: 1,
+        contactPoints: [
+          { orgId: 1, name: EMPFAENGER_NAME, receivers: [empfaenger] },
+        ],
+        policies: [
+          {
+            orgId: 1,
+            receiver: EMPFAENGER_NAME,
+            // Nach Standort gruppieren: Faellt ein Analyzer aus, ist das EINE
+            // Meldung — nicht eine je Regel, die dort gerade anschlaegt.
+            group_by: ['alertname', 'standort'],
+            group_wait: '30s',
+            group_interval: '5m',
+            // Zwoelf Stunden statt vier: Bei einer leeren Batterie waere
+            // haeufiger nur laestig, und niemand handelt deswegen schneller.
+            repeat_interval: '12h',
+          },
+        ],
+      },
+      null,
+      2,
+    ) + '\n'
+  );
+}
+
+function kanalTyp(kanal: Alarmkanal): string {
+  // ioBroker bekommt einen gewoehnlichen Webhook — der Adapter verteilt dann
+  // im Haus weiter. Grafana kennt "iobroker" nicht und muss es auch nicht.
+  return kanal === 'iobroker' ? 'webhook' : kanal;
+}
+
+function kanalEinstellungen(z: Alarmziel): Record<string, unknown> {
+  switch (z.kanal) {
+    case 'iobroker':
+      return { url: z.iobroker.url, httpMethod: 'POST' };
+    case 'email':
+      // Grafana trennt mehrere Empfaenger mit Semikolon.
+      return { addresses: z.email.empfaenger };
+    case 'telegram':
+      return { bottoken: z.telegram.botToken, chatid: z.telegram.chatId };
+  }
+}
+
+/**
+ * SMTP-Zugang als systemd-Umgebung statt als Eingriff in die grafana.ini.
+ *
+ * Grafana liest jede Einstellung auch aus `GF_<ABSCHNITT>_<SCHLUESSEL>`. Eine
+ * Ergänzungsdatei zur Unit ist damit gleichwertig — und deutlich sauberer:
+ * Die mitgelieferte `grafana.ini` bleibt unangetastet, ein Paket-Update kann
+ * sie ersetzen, ohne dass etwas verlorengeht, und das Passwort liegt in einer
+ * Datei, die nur root lesen darf statt mitten in der Hauptkonfiguration.
+ */
+export function baueSmtpUmgebung(z: Alarmziel): string {
+  if (!z.aktiv || z.kanal !== 'email') {
+    return (
+      '# Kein E-Mail-Versand eingestellt — Grafana verschickt selbst nichts.\n' +
+      '[Service]\n' +
+      'Environment=GF_SMTP_ENABLED=false\n'
+    );
+  }
+  const e = z.email;
+  return (
+    '# Erzeugt vom AskSin-Analyzer. Nicht von Hand bearbeiten —\n' +
+    '# die Datei wird bei jeder Änderung in der Weboberfläche neu geschrieben.\n' +
+    '[Service]\n' +
+    'Environment=GF_SMTP_ENABLED=true\n' +
+    `Environment=GF_SMTP_HOST=${e.smtpHost}:${e.smtpPort}\n` +
+    `Environment=GF_SMTP_USER=${e.benutzer}\n` +
+    `Environment="GF_SMTP_PASSWORD=${e.passwort}"\n` +
+    `Environment=GF_SMTP_FROM_ADDRESS=${e.absender}\n` +
+    'Environment=GF_SMTP_FROM_NAME=AskSin-Analyzer\n' +
+    'Environment=GF_SMTP_STARTTLS_POLICY=MandatoryStartTLS\n'
+  );
+}
