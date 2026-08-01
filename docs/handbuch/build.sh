@@ -34,8 +34,33 @@ sed -i -E \
     handbuch.html
 echo "Handbuch weist Software ${VERSION} aus."
 
-chromium --headless=new --disable-gpu --no-pdf-header-footer \
-  --generate-pdf-document-outline \
-  --print-to-pdf=AskSin-Analyzer-Handbuch.pdf \
-  "file://$PWD/handbuch.html"
+# Gebaut wird mit WeasyPrint, nicht mit Chromium.
+#
+# Der Grund ist ein einziger, aber ein harter: Chromium setzt fest
+# positionierte Elemente zwingend INNERHALB des Satzspiegels ab. Der Fusssteg
+# landete damit im Textbereich und verdeckte Text — auf jeder Seite, an der
+# der Text bis unten reichte. Ein negatives `bottom` liess ihn dort auf die
+# naechste Seite umlaufen; es gab keinen Weg, ihn in den Seitenrand zu
+# bringen. WeasyPrint beherrscht CSS-Seitenraender und kann das.
+#
+# WeasyPrint kommt aus einer eigenen Umgebung neben diesem Skript. Kein
+# Systempaket, kein sudo: Die noetigen Bibliotheken (Pango, Cairo) bringt
+# jedes Desktop-Debian ohnehin mit.
+UMGEBUNG="$PWD/.venv"
+if [ ! -x "$UMGEBUNG/bin/weasyprint" ]; then
+  echo "==> Richte WeasyPrint ein (einmalig)..."
+  python3 -m venv "$UMGEBUNG"
+  "$UMGEBUNG/bin/pip" install --quiet --upgrade pip
+  "$UMGEBUNG/bin/pip" install --quiet weasyprint \
+    || { echo "WeasyPrint liess sich nicht einrichten." >&2; exit 1; }
+fi
+
+"$UMGEBUNG/bin/weasyprint" handbuch.html AskSin-Analyzer-Handbuch.pdf \
+  2>&1 | grep -vE "print-color-adjust|overflow-x" || true
+
 pdfinfo AskSin-Analyzer-Handbuch.pdf | grep -E "Pages|Page size"
+
+# Der Fusssteg darf keinen Text verdecken. Das ist keine Kosmetik, sondern
+# die Vorgabe, an der die vorige Fassung gescheitert ist — deshalb wird sie
+# bei jedem Bau nachgerechnet.
+python3 pruefe_fusssteg.py

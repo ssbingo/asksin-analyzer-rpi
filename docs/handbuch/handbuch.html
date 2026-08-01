@@ -18,7 +18,23 @@
      Aussenabstand bringen sie zuverlaessig in den Rand — Chromium laesst sie
      dann auf die naechste Seite umlaufen und zeichnet sie oben. Der groessere
      Rand haelt stattdessen den Text von ihr fern. */
-  @page { size: A4; margin: 16mm 15mm 26mm 15mm; }
+  @page { size: A4; margin: 16mm 15mm 22mm 15mm; }
+
+  /* Gliederung im PDF-Betrachter. Chromium erzeugte sie ueber einen
+     Kommandozeilenschalter; WeasyPrint nimmt dafuer CSS. Ohne das faende man
+     sich in 99 Seiten nur ueber das Inhaltsverzeichnis zurecht. */
+  h1 { bookmark-level: 1; bookmark-label: content(); }
+  h2 { bookmark-level: 2; bookmark-label: content(); }
+  h3 { bookmark-level: 3; bookmark-label: content(); }
+  .fusssteg, .deckblatt h1 { bookmark-level: none; }
+
+  /* Eigene Seitenvorlage fuers Deckblatt: Der schmale untere Rand schiebt den
+     fest positionierten Fusssteg unter die Blattkante, wo er nicht mehr
+     gezeichnet wird. So bleibt das Deckblatt frei, ohne dass der Steg zum
+     Randkasten werden muss — als Randkasten waere der Verweis zum
+     Inhaltsverzeichnis nicht mehr anklickbar. */
+  @page deckblatt { margin: 0 0 3mm 0; }
+  .deckblatt { page: deckblatt; }
 
   /* Fusszeile auf JEDER Seite.
      Chromium unterstuetzt in den Randbereichen der Druckseite (@bottom-center
@@ -26,18 +42,25 @@
      jeder Seite erscheint, ist ein fest positioniertes Element. Chromium
      wiederholt solche Elemente beim Druck auf jeder Seite und erzeugt dabei
      auch die Verweis-Annotationen; genau das ist nachgeprueft. */
-  /* ---- Fusssteg auf jeder Seite ab Kapitel 1 -------------------------
-     Chromium kennt in den Randbereichen der Druckseite keine eigenen Inhalte;
-     der einzige Weg zu etwas, das auf JEDER Seite erscheint, ist ein fest
-     positioniertes Element. Weder ein negatives `bottom` noch ein negativer
-     Aussenabstand bringen es in den Rand — beides laesst die Zeile umlaufen
-     und oben auf der Seite landen. Also `bottom: 0` und dafuer ein grosszuegig
-     bemessener unterer Seitenrand. */
+  /* ---- Fusssteg auf jeder Seite ------------------------------------
+     Gebaut wird das Handbuch mit WeasyPrint, nicht mehr mit Chromium. Der
+     Grund steht genau hier: Chromium setzt fest positionierte Elemente
+     zwingend INNERHALB des Satzspiegels ab — ein negatives `bottom` liess die
+     Zeile dort auf die naechste Seite umlaufen. Der Steg landete damit
+     unvermeidlich im Textbereich und verdeckte Text. Das ist nicht
+     hinnehmbar, und es war mit Chromium auch nicht zu beheben.
+
+     WeasyPrint beherrscht CSS-Seitenraender: Ein negatives `bottom` schiebt
+     den Steg sauber in den unteren Seitenrand. Damit KANN er keinen Text
+     mehr verdecken — nicht, weil genug Abstand eingeplant waere, sondern
+     weil er ausserhalb des Bereichs liegt, in dem Text fliesst.
+
+     -14 mm gegenueber dem 22-mm-Rand heisst: rund 8 mm Luft ueber dem Steg,
+     rund 7 mm unter ihm bis zur Blattkante. pruefe_fusssteg.py rechnet das
+     nach und schlaegt fehl, wenn sich Text und Steg je wieder beruehren. */
   .fusssteg {
     position: fixed;
-    /* 2 mm statt 0: Bei 0 endete der Rahmen genau an der Unterkante des
-       Satzspiegels und blitzte unter der Deckblatt-Abdeckung hervor. */
-    bottom: 2mm;
+    bottom: -14mm;
     left: 0;
     right: 0;
     z-index: 1;
@@ -78,21 +101,20 @@
      Seiten durchscheint, waere ein Fehler. */
   .vorspann, .toc { break-before: page; }
 
-  /* Auf dem Deckblatt bleibt der Fusssteg unsichtbar: Dort waere ein Verweis
+  /* Auf dem Deckblatt bleibt der Fusssteg unsichtbar — dort waere ein Verweis
      aufs Inhaltsverzeichnis sinnlos, und die Zeile wuerde die ganzseitige
-     Abbildung stoeren. Das Deckblatt fuellt seine Seite ohnehin vollstaendig
-     und deckt den Steg mit eigenem Grund und hoeherer Stapelebene ab — beim
-     Vorspann liess sich dasselbe NICHT verlaesslich erreichen, weil sein Text
-     die Seite nicht ausfuellt. Dort steht der Steg deshalb bewusst mit. */
+     Abbildung stoeren. Erreicht wird das ueber die eigene Seitenvorlage
+     @page deckblatt (siehe oben), nicht mehr ueber eine Abdeckung.
+
+     Die Hoehe ist genau der Satzspiegel dieser Vorlage: A4 297 mm minus 3 mm
+     unten. Zu wenig laesst einen weissen Streifen stehen, zu viel treibt das
+     Deckblatt auf Seite 2 und hinterlaesst dort einen Petrolbalken — beides
+     ist frueher schon passiert. */
   .deckblatt {
     position: relative;
     z-index: 3;
-    /* Genau der Satzspiegel: A4 297 mm minus 16 mm oben minus 26 mm unten.
-       Mit 265 mm lief das Deckblatt auf Seite 2 aus und hinterliess dort
-       einen Petrolbalken. Weniger als 254 mm deckt den Fusssteg nicht mehr
-       ab — der sitzt am unteren Ende des Satzspiegels. */
-    min-height: 254mm;
-    max-height: 254mm;
+    min-height: 294mm;
+    max-height: 294mm;
     overflow: hidden;
   }
   .deckblatt { background: var(--petrol-dunkel); }
@@ -167,16 +189,22 @@
   figcaption { font-size: 9pt; color: var(--grau); margin-top: 1.5mm; }
 
   /* Deckblatt */
-  .deckblatt { height: 257mm; border-radius: 14px; overflow: hidden; position: relative;
+  .deckblatt { height: 294mm; border-radius: 0; overflow: hidden; position: relative;
       background: linear-gradient(150deg, #083344 0%, #0e7490 55%, #155e75 100%); color: #fff; }
-  .deckblatt .inner { padding: 22mm 18mm; }
+  .deckblatt .inner { padding: 30mm 26mm; }
   .deckblatt h1 { font-size: 34pt; margin: 4mm 0 2mm; color:#fff; }
   .deckblatt .unter { font-size: 14pt; color: #a5f3fc; margin-bottom: 10mm; }
   .deckblatt .badge { display:inline-block; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.35);
       border-radius: 999px; padding: 1mm 5mm; margin: 0 2mm 2mm 0; font-size: 10pt; }
   .deckblatt img.held { width: 100%; border-radius: 10px; margin-top: 8mm; background:#fff; }
   .deckblatt .fuss { position: absolute; bottom: 12mm; left: 18mm; right: 18mm;
-      display: flex; justify-content: space-between; font-size: 10pt; color: #cffafe; }
+      font-size: 10pt; color: #cffafe; }
+  /* Kein flex: WeasyPrint bricht die beiden Angaben darin mitten im Wort um.
+     Zwei Bloecke mit fester Breite tun dasselbe und sind unempfindlich. */
+  .deckblatt .fuss span { display: inline-block; width: 40%; vertical-align: top; }
+  /* Die rechte Angabe ist die laengere — sie bekommt mehr Platz. */
+  .deckblatt .fuss span + span { width: 58%; }
+  .deckblatt .fuss span + span { text-align: right; }
 
   /* Inhaltsverzeichnis */
   /* ---- Umbruchregeln (Grundregel der Handbuchgestaltung) --------------
@@ -730,7 +758,7 @@ Platine hat dafür thermische Entlastungen — wenn ein Pin trotzdem zäh ist:
 Spitze 2–3 Sekunden vorheizen lassen, dann Zinn zugeben. Nicht mit Gewalt und
 viel Zinn „zukleistern".</div>
 
-<h2 id="k6-4">6.4 Endkontrolle vor dem ersten Strom</h2>
+<h2 class="umbruch" id="k6-4">6.4 Endkontrolle vor dem ersten Strom</h2>
 <table>
 <tr><th>Prüfung</th><th>Multimeter</th><th>Sollwert</th></tr>
 <tr><td>Kurzschluss 5 V ↔ Masse?</td><td>Widerstand zwischen TP3 (+5V) und TP4 (GND)</td><td>deutlich &gt; 1 kΩ, nicht 0 Ω</td></tr>
@@ -1061,7 +1089,7 @@ Weboberfläche. Falls doch, installiert der Installer den Befehl
 <tr><td><code>sudo asksin-analyzer update</code></td><td>Update von Hand (geht auch per Klick, Kapitel 15)</td></tr>
 </table>
 
-<h2 class="umbruch" id="k9-3">9.3 Platine aufstecken und lauschen</h2>
+<h2 id="k9-3">9.3 Platine aufstecken und lauschen</h2>
 <ol class="schritte">
 <li>Pi <strong>stromlos</strong> machen. Analyzer-Platine auf den Header des
 PoE-HAT stecken (Kapitel 10 zeigt die Mechanik im Detail), Antenne über das
@@ -1506,14 +1534,14 @@ Funklöcher? Welcher Analyzer „besitzt" welches Gerät? Wohin gehört die
 nächste Antenne? Der Knopf <em>CSV herunterladen</em> exportiert die Matrix
 für die Planung am Schreibtisch.</p>
 
-<h2 class="umbruch" id="k17-4">17.4 Die zusammengeführte Telegrammliste</h2>
+<h2 id="k17-4">17.4 Die zusammengeführte Telegrammliste</h2>
 <p>Gleicher Absender + gleiche laufende Nummer + gleicher Typ und Länge
 innerhalb von ±1,5 Sekunden = <strong>ein</strong> Funkereignis. Die Liste zeigt
 jedes Telegramm genau einmal, mit farbigen Chips je Standort:
 <span class="kv">Keller (−62)</span> <span class="kv">DG (−88)</span>. So siehst
 du je Ereignis sofort, wer es wie gut gehört hat.</p>
 
-<h2 class="umbruch" id="k17-5">17.5 Das Flotten-Update</h2>
+<h2 id="k17-5">17.5 Das Flotten-Update</h2>
 <p>Der Knopf <em>Alle Analyzer aktualisieren…</em> rollt ein Software-Update
 über alle Standorte aus — bewusst vorsichtig: <strong>nacheinander</strong>,
 jeder Analyzer erst nach bestandenem Gesundheits-Check des vorherigen.
@@ -1800,7 +1828,7 @@ nächsten Neustart wieder weg — sonst liessen sie sich nicht mit dem Projekt
 aktualisieren. Für Eigenes legt man ein neues Dashboard
 <strong>ausserhalb</strong> dieses Ordners an; das bleibt unangetastet.</p>
 
-<h2 class="umbruch" id="k19-7">19.7 Die acht Ansichten im Einzelnen</h2>
+<h2 id="k19-7">19.7 Die acht Ansichten im Einzelnen</h2>
 
 <p>Jede Ansicht beantwortet eine bestimmte Frage. Wer weiß, welche Frage er
 hat, findet damit sofort die richtige Seite. Die Zahlen in den Bildern
@@ -2142,7 +2170,7 @@ bekommt eine Lücke.</p>
 wissen will, findet den freien Platz in der Ansicht <em>Gerätezustand</em>,
 Feld 5 — dort sieht man auch, wie schnell er tatsächlich fällt.</p>
 
-<h2 class="umbruch" id="k19-11">19.11 Wenn etwas nicht klappt</h2>
+<h2 id="k19-11">19.11 Wenn etwas nicht klappt</h2>
 
 <table>
 <tr><th>Beobachtung</th><th>Ursache</th><th>Abhilfe</th></tr>
@@ -2349,7 +2377,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>Pi reagiert auf nichts mehr, <code>sudo</code> meldet <code>Input/output error</code></td><td>Die USB-SSD hat sich vom Bus abgemeldet und ist als neues Gerät wiedergekommen — das Wurzeldateisystem zeigt ins Leere</td><td>Abschnitt 23.2. Zuerst die Steckerkette prüfen: ein durchgehendes Kabel in den blauen USB-3-Anschluss, keine Koppler dazwischen</td></tr>
 </table>
 
-<h2 class="umbruch" id="k23-1">23.1 Wenn nichts im Journal steht: Mitschnitt übers Netz</h2>
+<h2 id="k23-1">23.1 Wenn nichts im Journal steht: Mitschnitt übers Netz</h2>
 
 <p>Es gibt eine Sorte Ausfall, bei der die üblichen Mittel versagen: Der Pi ist
 schlagartig weg und startet neu, und das Journal endet mitten im Satz oder
@@ -2532,7 +2560,7 @@ NVMe-Platine und umgeht USB als Speicherweg vollständig.</p>
 <tr><td>TP8</td><td>CS</td><td>SPI-Auswahl Funkmodul</td></tr>
 </table>
 
-<h2 class="umbruch" id="k24-3">24.3 Glossar</h2>
+<h2 id="k24-3">24.3 Glossar</h2>
 <table>
 <tr><th>Begriff</th><th>Bedeutung</th></tr>
 <tr><td>BidCoS</td><td>„Bidirectional Communication Standard" — das Funkprotokoll klassischer Homematic-Geräte</td></tr>

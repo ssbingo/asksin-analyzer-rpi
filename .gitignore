@@ -16,3 +16,4 @@ hardware/kicad/board.ses
 *-backups/
 fp-info-cache
 /adapter/
+docs/handbuch/.venv/

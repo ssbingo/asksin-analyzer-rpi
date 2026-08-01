@@ -111,6 +111,43 @@ def seitenzahl() -> str:
     return m.group(1) if m else "?"
 
 
+def raeume_auf(umbruch: set[str]) -> set[str]:
+    """Entfernt Marken, die sich im fertigen Satz als überflüssig erweisen.
+
+    Der Aufbau in Runden hat einen eingebauten Nachteil: Eine Marke aus der
+    ersten Runde verschiebt alles Folgende — und wird dadurch womöglich selbst
+    überflüssig. Zurückgenommen wurde sie nie, weil die Schleife nur wächst.
+    Das Ergebnis waren 23 Seiten unter 45 % Füllung; ganze Seiten mit drei
+    Zeilen darauf sehen nach Nachlässigkeit aus, und das zu Recht.
+
+    Hier wird deshalb jede Marke einmal versuchsweise entfernt. Hält die Regel
+    danach immer noch, bleibt sie weg. Das kostet einen Satzlauf je Marke —
+    einige Minuten —, aber es passiert nur beim Bauen des Handbuchs, nicht im
+    Betrieb.
+
+    Vorgegangen wird von hinten nach vorn: Eine Änderung wirkt sich nur auf
+    das aus, was danach kommt. Wer vorne anfängt, verwirft mit jeder Entnahme
+    die Arbeit an allem Folgenden.
+    """
+    kandidaten = sorted(umbruch, key=lambda n: [int(t) for t in n.split('.')], reverse=True)
+    entfernt = 0
+    for nr in kandidaten:
+        versuch = umbruch - {nr}
+        HTML.write_text(markiere(HTML.read_text(encoding="utf8"), versuch), encoding="utf8")
+        baue_pdf()
+        lage = lage_der_ueberschriften()
+        # Haelt die Regel fuer ALLE, nicht nur fuer die entfernte?
+        if all(lage.get(x, 0.0) <= MITTE for x in alle_minor(HTML.read_text(encoding="utf8"))
+               if x not in versuch):
+            umbruch = versuch
+            entfernt += 1
+            print(f"  {nr} braucht keine eigene Seite mehr")
+        else:
+            HTML.write_text(markiere(HTML.read_text(encoding="utf8"), umbruch), encoding="utf8")
+    print(f"Aufräumen: {entfernt} von {len(kandidaten)} Marken entfernt.")
+    return umbruch
+
+
 def main() -> int:
     umbruch: set[str] = set()
     gefunden = alle_minor(HTML.read_text(encoding="utf8"))
@@ -134,6 +171,13 @@ def main() -> int:
         if not neu:
             print(f"Runde {runde}: stabil — {seitenzahl()} Seiten, "
                   f"{len(umbruch)} Überschriften auf eigener Seite.")
+            if "--schnell" not in sys.argv:
+                umbruch = raeume_auf(umbruch)
+                HTML.write_text(markiere(HTML.read_text(encoding="utf8"), umbruch),
+                                encoding="utf8")
+                baue_pdf()
+                print(f"Fertig — {seitenzahl()} Seiten, {len(umbruch)} "
+                      f"Überschriften auf eigener Seite.")
             return 0
 
         print(f"Runde {runde}: {len(neu)} Überschriften beginnen unter der "
