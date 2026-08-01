@@ -38,6 +38,7 @@ laufenden Gerät.
 | Status-LED + OLED integriert | ✅ Software fertig (M11) — Hardware-Test steht aus ([`docs/status-led-oled.md`](docs/status-led-oled.md)) |
 | Einkaufsführer Zubehör (README + Handbuch) | 📋 geplant (M12, [`docs/einkaufsfuehrer.md`](docs/einkaufsfuehrer.md)) |
 | Verbund: 5 Analyzer als Gesamtsystem | ✅ komplett: Dashboard, Matrix+Dedup, Flotten-Update, Langzeitdaten nach InfluxDB (M9.1–M9.5, [`docs/verbund.md`](docs/verbund.md)) |
+| Langzeitdaten vor Ort (InfluxDB + Grafana) | ✅ optional auf dem Master: Ein-Klick-Einrichtung, acht fertige Grafana-Ansichten, vier Alarme (M14) |
 | Protokoll und Absturzsuche (Tab „Wartung“) | ✅ fertig (M13): Stufen, Tagesrotation, Download, Systemjournal ([`docs/protokoll.md`](docs/protokoll.md)) |
 | ioBroker-Adapter | 🔨 Grundgerüst steht (M6, eigenes Repo [`ioBroker.asksinanalyzer-rpi`](https://github.com/ssbingo/ioBroker.asksinanalyzer-rpi), MIT, mehrinstanzfähig) |
 
@@ -297,6 +298,30 @@ SMD-Massepad bekommt sein Stützvia vor dem Routen, alle Vias getentet, und
 ### v0.0.7 — 29.07.2026
 
 Langzeitdaten (M9.5) — der Verbund ist komplett. Hardware unverändert (0.0.1).
+
+### Langzeitdaten: extern oder vor Ort
+
+Zwei Wege, die sich nicht ausschliessen:
+
+**Extern** (unverändert) — jeder Analyzer schreibt seine Kennzahlen in eine
+vorhandene InfluxDB v2, etwa auf einem Server oder NAS. Einzustellen unter
+*Einstellungen → Langzeitdaten*.
+
+**Vor Ort** (neu, optional) — InfluxDB und Grafana laufen auf dem Analyzer
+selbst. Nur auf dem **Master** und nur ab **Raspberry Pi 4 mit 2 GB**; beides
+wird geprüft, auf schwächerer Hardware erscheint die Option gar nicht. Ein
+Klick unter *Einstellungen → Langzeitdaten vor Ort*, oder gleich beim
+Einrichten — der Installer fragt danach.
+
+Mitgeliefert werden **acht Grafana-Ansichten** (Leitstand, Funkqualität,
+Duty-Cycle-Wächter, Gerätedetail, Störungssuche, Batteriewächter,
+Verbund-Vergleich, Gerätezustand) und **vier Alarme** (Analyzer offline,
+Duty-Cycle über 80 %, Gerät seit 24 h stumm, Grundrauschen erhöht). Die
+Dashboards liegen als JSON unter [`deploy/grafana/dashboards/`](deploy/grafana/dashboards/)
+und lassen sich auch in ein bestehendes Grafana importieren.
+
+Platzbedarf: rund 5–10 MB je Tag und Analyzer, also etwa 10–15 GB im Jahr bei
+fünf Geräten. Aufbewahrt wird zwei Jahre.
 
 **Core/Web-UI 0.0.7**
 - **Langzeitdaten nach InfluxDB v2**: jeder Analyzer schreibt dezentral
