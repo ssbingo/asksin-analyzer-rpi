@@ -1858,6 +1858,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>OLED bleibt dunkel</td><td>I²C nicht aktiv oder Kabelbelegung</td><td><code>sudo raspi-config</code> → I²C aktivieren; <code>i2cdetect -y 1</code> muss <code>3c</code> zeigen; J5-Belegung gegen Kapitel 10.3 prüfen</td></tr>
 <tr><td>1-Wire-Sensoren funktionieren nicht mehr</td><td><code>w1-gpio</code> kollidiert mit GPIO4 (Reset)</td><td>In <code>config.txt</code>: <code>dtoverlay=w1-gpio,gpiopin=17</code> o. ä. — nicht GPIO4</td></tr>
 <tr><td>Der Pi fällt hart aus und startet neu — im Journal steht nichts</td><td>Lässt sich aus dem Gerät heraus nicht klären: Was die Ursache erklären würde, wird nicht mehr geschrieben</td><td>Abschnitt 23.1 — Kernel-Meldungen auf einen zweiten Rechner mitschneiden</td></tr>
+<tr><td>Pi reagiert auf nichts mehr, <code>sudo</code> meldet <code>Input/output error</code></td><td>Die USB-SSD hat sich vom Bus abgemeldet und ist als neues Gerät wiedergekommen — das Wurzeldateisystem zeigt ins Leere</td><td>Abschnitt 23.2. Sofortmaßnahme: <code>sudo bash tools/usb-quirk-setzen.sh</code> und neu starten</td></tr>
 </table>
 
 <h2 class="umbruch" id="k23-1">23.1 Wenn nichts im Journal steht: Mitschnitt übers Netz</h2>
@@ -1911,6 +1912,62 @@ dieser Zeitstempel ist die eigentliche Information:</p>
 spricht nichts dagegen, ihn bei einem Gerät mit unklarem Verhalten einfach
 liegen zu lassen, bis der nächste Ausfall kommt — das ist deutlich billiger,
 als jedes Mal aufs Neue zu raten.</p>
+
+<h2 id="k23-2">23.2 Der Klassiker: die USB-SSD meldet sich ab</h2>
+
+<p>Beim Testgerät führte genau dieser Mitschnitt zur Aufklärung, und weil der
+Fall typisch ist, steht er hier vollständig. Über Wochen wirkte der Pi, als
+stürze er ab: Nach Minuten bis Stunden reagierte er auf nichts mehr, und im
+Journal stand nie etwas — es endete mitten im Satz. Verdächtigt und der Reihe
+nach ausgeschlossen wurden Netzteil, Temperatur, Speichermangel und die
+Platine. Der Mitschnitt zeigte dann in vier Zeilen, was wirklich geschah:</p>
+
+<pre>05:16:23  AskSin-Puls up=47178s load=0.28 temp=45C throttled=0x0
+05:17:21  usb 1-1: USB disconnect, device number 2
+05:17:21  device offline error, dev sda, sector 13914304 op 0x1:(WRITE)
+05:17:22  usb 1-1: new high-speed USB device number 3 using xhci-hcd
+05:17:22  sd 1:0:0:0: [sdb] Attached SCSI disk</pre>
+
+<p>Die SSD hatte sich <strong>im Leerlauf</strong> vom USB-Bus abgemeldet —
+bei Last 0,28 und 45 °C, ohne Drosselung. Sie kam 0,8 Sekunden später zurück,
+aber als <em>neues</em> Gerät: <code>sdb</code> statt <code>sda</code>. Das
+Wurzeldateisystem hing weiter am verschwundenen <code>sda</code> und war damit
+tot.</p>
+
+<p>Und hier liegt die eigentliche Tücke: <strong>Der Pi stürzt dabei gar nicht
+ab.</strong> Er lief anschließend noch über vier Stunden weiter und schrieb
+ununterbrochen Fehler. Nur konnte er nichts mehr lesen, was nicht zufällig im
+Arbeitsspeicher lag — kein <code>sudo</code>, kein <code>systemctl</code>,
+keine Anmeldung. Von außen ist das von einem Absturz nicht zu unterscheiden,
+und weil auch das Journal auf der toten Platte liegt, bleibt hinterher keine
+Spur. Genau deshalb war der Mitschnitt übers Netz nötig.</p>
+
+<p>Die Ursache sind fast immer <strong>USB-SATA-Brücken</strong> in
+preiswerten Gehäusen, vor allem in Verbindung mit UAS (<em>USB Attached
+SCSI</em>). Zwei Zeilen im Bootprotokoll verraten die Gefährdung:</p>
+
+<table>
+<tr><th>Zeile im Protokoll</th><th>Was sie bedeutet</th></tr>
+<tr><td><code>scsi host0: uas</code></td><td>Die Platte läuft mit UAS. Schnell, aber bei billigen Brücken berüchtigt instabil.</td></tr>
+<tr><td><code>new <strong>high-speed</strong> USB device</code></td><td>USB 2.0, nicht 3.0 — höchstens rund 40 MB/s. Entweder steckt sie im schwarzen Anschluss oder das Kabel taugt nichts. <code>super-speed</code> wäre richtig.</td></tr>
+</table>
+
+<p>Als Sofortmaßnahme lässt sich UAS für genau diese Brücke abschalten. Sie
+fällt dann auf den älteren, langsameren, aber robusten Transport zurück:</p>
+
+<pre>sudo bash /opt/asksin-analyzer/tools/usb-quirk-setzen.sh
+sudo reboot</pre>
+
+<p>Das Skript erkennt die Brücke selbst, sichert <code>cmdline.txt</code> vor
+der Änderung und prüft das Ergebnis nach — sieht es falsch aus, spielt es die
+Sicherung zurück, statt ein Gerät zu hinterlassen, das nicht mehr startet.
+Rückgängig mit <code>--aus</code>. Nach dem Neustart muss im Protokoll
+<code>usb-storage</code> stehen, wo vorher <code>uas</code> stand.</p>
+
+<p class="klein">Das ist eine Notmaßnahme, keine Reparatur. Wer den Analyzer
+dauerhaft betreiben will, ersetzt das Gehäuse durch eines mit bewährter Brücke
+(JMicron JMS578/583, ASMedia ASM1153E) — oder nutzt beim Pi 5 gleich eine
+NVMe-Platine und umgeht USB als Speicherweg vollständig.</p>
 
 <!-- ==================================================== KAPITEL 14 -->
 <h1 class="kapitel" id="k24"><span class="knr">24</span>Anhang</h1>
