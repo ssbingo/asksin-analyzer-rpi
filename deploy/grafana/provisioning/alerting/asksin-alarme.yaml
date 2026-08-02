@@ -45,6 +45,9 @@ groups:
         # KEIN "alles in Ordnung", sondern der schwerere Fall — der Analyzer
         # schreibt nicht einmal mehr. Deshalb loest auch das aus.
         noDataState: Alerting
+        # Bleibt Error: Dieser Waechter soll auch dann anschlagen, wenn die
+        # Datenbank selbst nicht mehr antwortet — dann stimmt erst recht
+        # etwas nicht. Die zehn Minuten unter 'for' fangen kurze Aussetzer.
         execErrState: Error
         annotations:
           # Der Regelname steht als KLARTEXT voran, nicht als Platzhalter.
@@ -97,7 +100,14 @@ groups:
         # Hier KEIN Alarm bei fehlenden Daten: Dass gerade kein Geraet ueber
         # der Schwelle liegt, ist der Normalfall und liefert eine leere Reihe.
         noDataState: OK
-        execErrState: Error
+        # KeepLast statt Error: Eine kurzzeitig gescheiterte Abfrage — etwa
+        # waehrend Grafana neu startet — ist kein Grund fuer eine Meldung
+        # aufs Telefon. Genau das ist passiert: Nach einem Neustart kamen
+        # drei 'DatasourceError' an, obwohl gar nichts los war. Bleibt die
+        # Abfrage dauerhaft kaputt, faellt es hier trotzdem auf, weil die
+        # Regel in Grafana rot steht — und weil ohne Daten der Waechter
+        # 'Analyzer offline' anschlaegt.
+        execErrState: KeepLast
         annotations:
           summary: >-
             Duty-Cycle über 80 %{{ if $labels.name }} — {{ $labels.name }}{{ end }}
@@ -137,9 +147,19 @@ groups:
       - uid: asksin-alarm-stumm
         title: Gerät seit 24 Stunden stumm
         condition: C
-        for: 0m
+        # Zehn Minuten statt sofort: Eine einzelne Auswertung genuegte bisher,
+        # um zu melden. Ein Geraet, das seit 24 Stunden schweigt, schweigt auch
+        # zehn Minuten spaeter noch — Eile bringt hier nichts ausser Fehlalarmen.
+        for: 10m
         noDataState: OK
-        execErrState: Error
+        # KeepLast statt Error: Eine kurzzeitig gescheiterte Abfrage — etwa
+        # waehrend Grafana neu startet — ist kein Grund fuer eine Meldung
+        # aufs Telefon. Genau das ist passiert: Nach einem Neustart kamen
+        # drei 'DatasourceError' an, obwohl gar nichts los war. Bleibt die
+        # Abfrage dauerhaft kaputt, faellt es hier trotzdem auf, weil die
+        # Regel in Grafana rot steht — und weil ohne Daten der Waechter
+        # 'Analyzer offline' anschlaegt.
+        execErrState: KeepLast
         annotations:
           summary: >-
             Gerät seit über 24 Stunden stumm{{ if $labels.name }} — {{ $labels.name }}{{ end }}
@@ -182,7 +202,14 @@ groups:
         condition: C
         for: 30m
         noDataState: OK
-        execErrState: Error
+        # KeepLast statt Error: Eine kurzzeitig gescheiterte Abfrage — etwa
+        # waehrend Grafana neu startet — ist kein Grund fuer eine Meldung
+        # aufs Telefon. Genau das ist passiert: Nach einem Neustart kamen
+        # drei 'DatasourceError' an, obwohl gar nichts los war. Bleibt die
+        # Abfrage dauerhaft kaputt, faellt es hier trotzdem auf, weil die
+        # Regel in Grafana rot steht — und weil ohne Daten der Waechter
+        # 'Analyzer offline' anschlaegt.
+        execErrState: KeepLast
         annotations:
           summary: >-
             Grundrauschen erhöht{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}

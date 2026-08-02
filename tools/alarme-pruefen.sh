@@ -88,9 +88,16 @@ from(bucket: "'"$BUCKET"'")
 
 echo
 echo "Welche Felder liegen ueberhaupt in der Datenbank?"
+# Die Spaltennummer NICHT raten: InfluxDB schickt eine Kopfzeile, in der
+# steht, welche Spalte "_value" ist. Ein festes $4 traf je nach Antwort
+# danebeneben — deshalb stand hier vorher nichts.
 curl -sS -X POST "${URL%/}/api/v2/query?org=$(printf '%s' "$ORG" | jq -sRr @uri)" \
     -H "Authorization: Token $TOKEN" -H 'Content-Type: application/vnd.flux' \
     -H 'Accept: application/csv' --data-binary '
 import "influxdata/influxdb/schema"
 schema.fieldKeys(bucket: "'"$BUCKET"'")' \
-  | grep -vE '^(#|,|$)' | awk -F, '{print "  "$4}' | sort -u | head -20
+  | awk -F, '
+      /^,result/ { for (i = 1; i <= NF; i++) if ($i == "_value") spalte = i; next }
+      /^#/ || NF < 2 { next }
+      spalte && $spalte != "" { print "  " $spalte }' \
+  | sort -u
