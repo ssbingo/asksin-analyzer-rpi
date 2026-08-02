@@ -8,7 +8,7 @@ Root-README **und** im Handbuch.
 
 | Position | Zweck im Projekt |
 | --- | --- |
-| **SSD-Wechselrahmen** | Boot-SSD der Pis (SD nur Notbehelf), wartungsfreundlich im Datenschrank; am schnellsten bei AliExpress zu finden (30.07.2026) — Einsatz im 19″-Rahmen: [`hardware/3d-druck/19-zoll-rahmen/`](../hardware/3d-druck/19-zoll-rahmen/README.md) |
+| **SSD-Wechselrahmen** | Boot-SSD der Pis **ab Pi 4** (SD nur Notbehelf), wartungsfreundlich im Datenschrank; am schnellsten bei AliExpress zu finden (30.07.2026) — Einsatz im 19″-Rahmen: [`hardware/3d-druck/19-zoll-rahmen/`](../hardware/3d-druck/19-zoll-rahmen/README.md). **Nicht für den Pi 3** — der läuft von SD-Karte, siehe unten |
 | **OLED-Display** | Statusanzeige an J5 (I²C, Phase M11) |
 | **WS2812B** | Status-LED an J7 (Phase M11) |
 | **Keystone-Module** | saubere Durchführungen im Datenschrank (RJ45/USB) |
@@ -19,6 +19,33 @@ Je Position: kurze Anforderungsbeschreibung (worauf es technisch ankommt),
 1–2 **Beispiellinks** (Amazon/Reichelt — als Beispiele gekennzeichnet, keine
 Affiliate-Links), Bild, ggf. „Finger weg von"-Hinweise (wie bei der
 LED-Farben-Erkenntnis in der Reichelt-Liste).
+
+## Bootmedium: SSD ab Pi 4, SD-Karte beim Pi 3
+
+Der Analyzer schreibt rund um die Uhr in seine Datenbank. SD-Karten nutzen
+sich dabei ab — deshalb ist der Betrieb von SSD in diesem Projekt der
+Standard. **Für den Raspberry Pi 3 gilt das ausdrücklich nicht.**
+
+| | Pi 3 | ab Pi 4 |
+| --- | --- | --- |
+| Bootmedium | **SD-Karte**, ab 32 GB, Markenware | SSD über USB-SATA |
+| Warum | Netzwerk hängt selbst am USB-Bus; nur USB 2.0; Starten von USB ist wacklig | eigener USB-3-Controller, Netzwerk getrennt |
+| Rolle im Verbund | nur Client | Client oder Master |
+
+Die drei Gründe im Einzelnen:
+
+1. **Netzwerk und USB teilen sich einen Anschluss.** Beim Pi 3 hängt die
+   Netzwerkbuchse selbst am USB-Bus. Eine SSD, die dauernd schreibt, nimmt dem
+   Netzwerk Bandbreite weg — und der Analyzer braucht beides gleichzeitig.
+2. **Nur USB 2.0.** Statt der 400 MB/s einer SATA-SSD bleiben höchstens 40.
+   Der Vorteil gegenüber einer guten SD-Karte schrumpft damit auf fast nichts.
+3. **Das Starten von USB ist wacklig.** Beim Pi 3 B muss es erst einmalig
+   freigeschaltet werden, und nicht jeder USB-SATA-Adapter wird beim Start
+   erkannt.
+
+Weil ein Pi 3 ohnehin nur als **Client** laufen kann (die Langzeitdaten liegen
+beim Master), schreibt er deutlich weniger — mit einer ordentlichen Karte und
+kürzerer Aufbewahrung ist der Verschleiß gut beherrschbar.
 
 ## Stromversorgung beim Pi 5: prüfen, nicht annehmen
 

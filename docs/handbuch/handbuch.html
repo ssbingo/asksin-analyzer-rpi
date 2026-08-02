@@ -452,7 +452,7 @@ und selbst aufgelötet.</p>
 <tr><th>Menge</th><th>Teil</th><th>Bemerkung</th></tr>
 <tr><td>1</td><td>Raspberry Pi 4</td><td>Modell B, RAM-Größe egal — der Analyzer selbst braucht wenig</td></tr>
 <tr><td>1</td><td>PoE-HAT mit <strong>durchgeschleiftem</strong> 40-Pin-Header</td><td>z.&nbsp;B. Waveshare PoE HAT (B). Wichtig ist der Stapelheader obendrauf — der offizielle Raspberry-Pi-PoE+-HAT hat keinen!</td></tr>
-<tr><td>1</td><td>microSD-Karte, ab 16 GB</td><td>für Raspberry Pi OS</td></tr>
+<tr><td>1</td><td>microSD-Karte, ab 16 GB</td><td>für Raspberry Pi OS. Beim <strong>Pi 3 ab 32 GB von einem Markenhersteller</strong> — dort ist sie das dauerhafte Bootmedium, nicht nur der Starthelfer (Kapitel 9.1).</td></tr>
 <tr><td>1</td><td>Analyzer-Platine V4, SMD-bestückt</td><td>Fertigung nach Kapitel 5</td></tr>
 </table>
 
@@ -992,6 +992,37 @@ SSD</strong> (über einen USB-SATA-Adapter) der Standard. Die SD-Karte bleibt
 Notbehelf für schnelle Tests. Der Pi 4 bootet ab Werk von USB; sollte deiner
 das nicht tun, einmal mit aktueller SD-Karte starten und
 <code>sudo raspi-config</code> → <em>Advanced → Boot Order</em> auf USB stellen.</div>
+
+<div class="box achtung">
+<span class="titel">Ausnahme: Raspberry Pi 3 läuft von SD-Karte</span>
+<p style="margin-bottom: 0">
+Der Pi 3 wird <strong>nicht</strong> von SSD betrieben, sondern von
+<strong>SD-Karte</strong>. Drei Gründe, die zusammenkommen:
+</p>
+<ul style="margin-bottom: 0">
+<li><strong>Netzwerk und USB teilen sich einen Anschluss.</strong> Beim Pi 3
+    hängt die Netzwerkbuchse selbst am USB-Bus. Eine SSD, die dauernd
+    schreibt, nimmt dem Netzwerk Bandbreite weg — und der Analyzer braucht
+    beides gleichzeitig.</li>
+<li><strong>Nur USB 2.0.</strong> Statt der 400 MB/s einer SATA-SSD bleiben
+    höchstens 40. Der Vorteil gegenüber einer guten SD-Karte schrumpft damit
+    auf fast nichts.</li>
+<li><strong>Das Starten von USB ist wacklig.</strong> Beim Pi 3 B muss es
+    erst einmalig freigeschaltet werden, und nicht jeder USB-SATA-Adapter
+    wird beim Start erkannt.</li>
+</ul>
+<p style="margin-bottom: 0">
+Für einen Pi 3 gilt deshalb: <strong>SD-Karte ab 32 GB von einem
+Markenhersteller</strong>, und die Aufbewahrung der Telegramme kürzer
+einstellen (Kapitel 13.4). Zum Verschleiß siehe unten — er ist real, aber
+mit einer ordentlichen Karte und weniger Aufbewahrung gut beherrschbar.
+</p>
+<p class="klein" style="margin-bottom: 0">
+Ohnehin gilt: Ein Pi 3 kann kein <em>Master</em> sein (Kapitel 19.4). Er läuft
+als Client — und ein Client schreibt deutlich weniger, weil die Langzeitdaten
+beim Master liegen.
+</p>
+</div>
 <ol class="schritte">
 <li>Mit dem <strong>Raspberry Pi Imager</strong> (raspberrypi.com/software)
 <em>Raspberry Pi OS Lite (64-bit)</em> auf die <strong>SSD</strong> schreiben
@@ -1004,7 +1035,7 @@ Netzwerkstruktur; die Software ändert ihn nie von sich aus.</li>
 anmelden: <code>ssh benutzer@asksin-analyzer-01</code>.</li>
 </ol>
 
-<h2 class="umbruch" id="k9-2">9.2 Die Ein-Befehl-Installation</h2>
+<h2 id="k9-2">9.2 Die Ein-Befehl-Installation</h2>
 <pre>curl -fsSL https://raw.githubusercontent.com/ssbingo/asksin-analyzer-rpi/main/install.sh | sudo bash</pre>
 <p>Der Installer ist <strong>idempotent</strong>: Du kannst ihn jederzeit
 erneut ausführen — er aktualisiert dann die Installation und stellt die Fragen
@@ -1024,7 +1055,7 @@ die Weboberfläche gebaut (dauert auf dem Pi ein paar Minuten — normal).</li>
 bewusst ohne Root-Rechte.</li>
 </ol>
 
-<h3 id="die-fragen-des-assistenten-und-was-du-an">Die Fragen des Assistenten — und was du antwortest</h3>
+<h3 class="umbruch" id="die-fragen-des-assistenten-und-was-du-an">Die Fragen des Assistenten — und was du antwortest</h3>
 <table>
 <tr><th>Frage</th><th>Empfehlung und Hintergrund</th></tr>
 <tr><td><strong>Standortname</strong> (Vorgabe: Hostname)</td>
@@ -1066,7 +1097,7 @@ Platine noch nicht steckt, meldet die Kopfzeile „Sniffer getrennt" und der
 Dienst versucht es geduldig weiter — das ist der Normalzustand ohne HAT.
 Zum Ausprobieren gibt es den Demo-Modus (Kapitel 14).</div>
 
-<h3 id="was-die-uart-einrichtung-im-hintergrund-">Was die UART-Einrichtung im Hintergrund macht</h3>
+<h3 class="umbruch" id="was-die-uart-einrichtung-im-hintergrund-">Was die UART-Einrichtung im Hintergrund macht</h3>
 <ul>
 <li>Pi 3/4: <code>enable_uart=1</code> + <code>dtoverlay=disable-bt</code> — das
 Bluetooth-Modem räumt die „gute" Hardware-UART, die miniUART mit ihrer
@@ -1745,7 +1776,7 @@ der Weboberfläche gar nicht erst.</p>
 <table>
 <tr><th>Bedingung</th><th>Wert</th><th>Warum genau so</th></tr>
 <tr><td>Rolle</td><td><strong>Master</strong></td><td>Ein Verbund braucht genau <em>eine</em> Datenhaltung. Liefen fünf Datenbanken parallel, hätte man fünf Teilwahrheiten und keine Gesamtsicht — und viermal die Schreiblast umsonst.</td></tr>
-<tr><td>Baureihe</td><td>ab <strong>Raspberry&nbsp;Pi&nbsp;4</strong></td><td>Der Pi 3 hat einen deutlich langsameren Prozessor und hängt sein Netzwerk am USB-Bus. InfluxDB schreibt im Sekundentakt — das bekämen Sniffer und Datenbank dort nicht zusammen sauber hin.</td></tr>
+<tr><td>Baureihe</td><td>ab <strong>Raspberry&nbsp;Pi&nbsp;4</strong></td><td>Der Pi 3 hat einen deutlich langsameren Prozessor und hängt sein Netzwerk am USB-Bus. InfluxDB schreibt im Sekundentakt — das bekämen Sniffer und Datenbank dort nicht zusammen sauber hin. Aus demselben Grund läuft ein Pi 3 auch nicht von SSD, sondern von SD-Karte (Kapitel 9.1).</td></tr>
 <tr><td>Arbeitsspeicher</td><td>mindestens <strong>2&nbsp;GB</strong></td><td>InfluxDB belegt rund 400–500 MB, Grafana 150–250 MB, dazu der Analyzer selbst. Unter 2 GB lagert der Rechner Speicher auf die Platte aus und wird dadurch <em>langsamer</em>, nicht nur voller.</td></tr>
 <tr><td>Freier Plattenplatz</td><td>mindestens <strong>20&nbsp;GB</strong></td><td>Zwei Jahre Aufbewahrung brauchen bei fünf Analyzern etwa 10–15 GB. Der Rest ist Luft, damit nicht irgendwann alles gleichzeitig eng wird.</td></tr>
 <tr><td>Internet</td><td>beim <strong>Einrichten</strong></td><td>Die beiden Programme kommen aus ihren offiziellen Paketquellen, zusammen rund 400 MB. Danach läuft alles ohne Internet weiter.</td></tr>

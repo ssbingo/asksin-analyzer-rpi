@@ -62,8 +62,33 @@ case "$MODEL" in
     *"Raspberry Pi 3"*) PI_GEN=3 ;;
     *) PI_GEN=0 ;;
 esac
+# Der Pi 3 gehoert auf eine SD-Karte, nicht auf eine SSD am USB: Seine
+# Netzwerkbuchse haengt selbst am USB-Bus, es gibt nur USB 2.0, und das Starten
+# von USB ist wacklig. Wer es trotzdem so aufbaut, merkt das erst im Betrieb —
+# als zaehes Netzwerk und gelegentliche Aussetzer. Deshalb hier ein Wort dazu,
+# solange noch jemand davor sitzt.
+pruefe_bootmedium() {
+    [ "$PI_GEN" -eq 3 ] || return 0
+    local wurzel
+    wurzel="$(findmnt -no SOURCE / 2>/dev/null || echo '')"
+    case "$wurzel" in
+        /dev/mmcblk*) return 0 ;;   # SD-Karte, genau richtig
+        "") return 0 ;;
+    esac
+    echo
+    c_warn "Dieser Pi 3 startet offenbar NICHT von SD-Karte ($wurzel)."
+    c_warn "Empfohlen ist beim Pi 3 die SD-Karte:"
+    c_warn "  - Netzwerk und USB teilen sich hier einen Anschluss; eine dauernd"
+    c_warn "    schreibende SSD nimmt dem Netzwerk Bandbreite weg."
+    c_warn "  - Nur USB 2.0: statt 400 MB/s bleiben hoechstens 40."
+    c_warn "  - Das Starten von USB ist beim Pi 3 wacklig."
+    c_warn "Der Analyzer laeuft trotzdem — nur eben mit diesen Nachteilen."
+    c_warn "Einzelheiten: Handbuch Kapitel 9.1."
+    echo
+}
+
 case "$MODEL" in
-    *Raspberry*) c_ok "Erkannt: $MODEL" ;;
+    *Raspberry*) c_ok "Erkannt: $MODEL"; pruefe_bootmedium ;;
     *)
         c_warn "Kein Raspberry Pi erkannt (${MODEL:-unbekannt})."
         a="$(ask_tty 'Trotzdem fortfahren? (j/N): ')"
@@ -78,7 +103,10 @@ export DEBIAN_FRONTEND=noninteractive
 export npm_config_update_notifier=false
 apt-get update -qq
 # gpiod: 328P-Reset ueber GPIO4; avrdude: Firmware-Flash; jq: netz-anwenden.sh
-apt-get install -y -qq git curl ca-certificates gpiod avrdude jq
+# gnupg fuer --dearmor der Paketquellen-Schluessel: Ohne es scheitert die
+# Node.js-Installation gleich darauf, und zwar auf einem frischen System
+# immer.
+apt-get install -y -qq git curl ca-certificates gnupg gpiod avrdude jq
 c_ok "System-Pakete installiert."
 
 # --- Node.js ------------------------------------------------------------------
@@ -87,7 +115,23 @@ if command -v node >/dev/null 2>&1 && [ "$(node_major)" -ge "$NODE_MAJOR_MIN" ];
     c_ok "Node.js $(node --version) vorhanden."
 else
     c_info "Installiere Node.js ${NODE_MAJOR_MIN} (NodeSource)..."
-    curl -fsSL "https://deb.nodesource.com/setup_${NODE_MAJOR_MIN}.x" | bash - >/dev/null
+    # Die Paketquelle selbst eintragen, statt das Einrichtungsskript von
+    # NodeSource per "curl | bash" als root auszufuehren. Zwei Gruende:
+    #
+    #  - Jenes Skript benutzt intern das Kommando 'apt' und erzeugt damit die
+    #    Warnung "apt does not have a stable CLI interface". Sie ist harmlos,
+    #    aber sie sieht nach einem Fehler aus, und niemand kann sie einordnen.
+    #  - Ein fremdes Skript ungesehen mit Root-Rechten laufen zu lassen, ist
+    #    eine Gewohnheit, die man sich nicht antrainieren sollte. Was hier
+    #    passiert, steht jetzt in vier nachvollziehbaren Zeilen.
+    install -d -m 0755 /etc/apt/keyrings
+    curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key \
+        | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+        || { c_err "Schluessel von deb.nodesource.com nicht erreichbar."; exit 1; }
+    chmod 0644 /etc/apt/keyrings/nodesource.gpg
+    echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR_MIN}.x nodistro main" \
+        > /etc/apt/sources.list.d/nodesource.list
+    apt-get update -qq
     apt-get install -y -qq nodejs
     c_ok "Node.js $(node --version) installiert."
 fi
