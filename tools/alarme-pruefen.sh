@@ -39,8 +39,22 @@ frage() {                       # frage <name> <flux>
         --data-binary "$flux" 2>&1)"
     http="$(tail -1 <<<"$antwort")"
     antwort="$(sed '$d' <<<"$antwort")"
+    # Ergebniszeilen richtig zaehlen. Der erste Anlauf zaehlte fuer JEDE
+    # Abfrage genau 1 — das war die Leerzeile am Ende, nicht ein Ergebnis.
+    # Flux-CSV sieht so aus:
+    #   #datatype,...      Anmerkungen, beginnen mit #
+    #   ,result,table,_value   Kopfzeile, beginnt mit Komma
+    #   ,,0,connected          Daten, beginnen ebenfalls mit Komma
+    # Nach Zeilen zu filtern, die NICHT mit Komma beginnen, laesst also gerade
+    # die Daten weg. Und die Zeilenenden sind CRLF, weshalb die Leerzeile am
+    # Ende nicht leer ist, sondern ein \r enthaelt.
     local zeilen
-    zeilen="$(grep -cvE '^(#|,|$)' <<<"$antwort" || true)"
+    zeilen="$(awk '
+        { sub(/\r$/, "") }
+        /^#/ || $0 == "" { next }
+        /^,result,/ { next }        # Kopfzeile
+        { n++ }
+        END { print n + 0 }' <<<"$antwort")"
 
     if [ "$http" = "200" ]; then
         printf '  ok   %-28s %s Ergebniszeile(n)\n' "$name" "$zeilen"
@@ -97,6 +111,11 @@ curl -sS -X POST "${URL%/}/api/v2/query?org=$(printf '%s' "$ORG" | jq -sRr @uri)
 import "influxdata/influxdb/schema"
 schema.fieldKeys(bucket: "'"$BUCKET"'")' \
   | awk -F, '
+      # InfluxDB liefert CSV mit CRLF. Ohne diese Zeile traegt das LETZTE Feld
+      # jeder Zeile ein \r — der Vergleich auf "_value" schlaegt dann fehl,
+      # die Spalte bleibt unbekannt, und die Liste bleibt still leer. Genau
+      # daran ist der erste Anlauf gescheitert.
+      { sub(/\r$/, "") }
       /^,result/ { for (i = 1; i <= NF; i++) if ($i == "_value") spalte = i; next }
       /^#/ || NF < 2 { next }
       spalte && $spalte != "" { print "  " $spalte }' \
