@@ -13,7 +13,15 @@
 # richtet das einmalig unter Alerting → Contact points ein. Diese Datei
 # vorzubelegen hiesse, Zugangsdaten ins Repo zu schreiben.
 #
+# Zu "DatasourceError": Scheitert die ABFRAGE selbst (Datenbank weg, Token
+# falsch, Bucket leer), meldet Grafana das als eigenen Alarm mit der Kennung
+# DatasourceError — mit den Annotationen der Regel, aber ohne Daten. Jeder
+# Platzhalter faellt dann auf "[no value]" zurueck. Deshalb beginnt jede
+# summary hier mit KLARTEXT und ergaenzt Einzelheiten nur, wenn es sie gibt.
+# So sagt selbst eine gescheiterte Abfrage noch, welche Regel betroffen ist.
+#
 # Jede Regel folgt demselben Aufbau:
+#
 #   A  holt die Messwerte (Flux)
 #   B  verdichtet sie auf eine Zahl je Reihe (reduce)
 #   C  vergleicht diese Zahl mit der Schwelle (threshold) — das ist die
@@ -39,7 +47,12 @@ groups:
         noDataState: Alerting
         execErrState: Error
         annotations:
-          summary: '{{ $labels.standort }}: Sniffer liefert keine Daten'
+          # Der Regelname steht als KLARTEXT voran, nicht als Platzhalter.
+          # Scheitert die Abfrage selbst, hat Grafana keine Etiketten — dann
+          # faellt jeder Platzhalter auf "[no value]" zurueck und die Meldung
+          # sagt gar nichts mehr. Der Standort kommt nur dazu, wenn es ihn gibt.
+          summary: >-
+            Analyzer offline{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}
           description: >-
             Der Analyzer am Standort {{ $labels.standort }} meldet seit über
             zehn Minuten keine gültige Verbindung zum Funkmodul. Prüfen:
@@ -86,7 +99,8 @@ groups:
         noDataState: OK
         execErrState: Error
         annotations:
-          summary: '{{ $labels.name }} sendet zu viel ({{ $values.B }} %)'
+          summary: >-
+            Duty-Cycle über 80 %{{ if $labels.name }} — {{ $labels.name }}{{ end }}
           description: >-
             Das Gerät {{ $labels.name }} liegt seit einer Viertelstunde über
             80 % Sendezeit. Ein einziges defektes Gerät kann das ganze
@@ -127,7 +141,8 @@ groups:
         noDataState: OK
         execErrState: Error
         annotations:
-          summary: '{{ $labels.name }} schweigt seit über 24 Stunden'
+          summary: >-
+            Gerät seit über 24 Stunden stumm{{ if $labels.name }} — {{ $labels.name }}{{ end }}
           description: >-
             Von {{ $labels.name }} kam seit mehr als einem Tag kein Telegramm
             mehr — an keinem Standort. Bei batteriebetriebenen Homematic-Geräten
@@ -169,7 +184,8 @@ groups:
         noDataState: OK
         execErrState: Error
         annotations:
-          summary: '{{ $labels.standort }}: Grundrauschen bei {{ $values.B }} dBm'
+          summary: >-
+            Grundrauschen erhöht{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}
           description: >-
             Am Standort {{ $labels.standort }} liegt das Grundrauschen seit
             einer halben Stunde über −80 dBm. In dieser Höhe gehen schwache

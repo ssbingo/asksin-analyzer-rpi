@@ -537,8 +537,9 @@ const verbundHooks = {
       if (typeof auftrag['name'] === 'string' && auftrag['name'].trim() !== '') {
         neu.name = auftrag['name'].trim();
       }
-      if (typeof auftrag['token'] === 'string' && auftrag['token'] !== '') {
-        neu.token = auftrag['token'];
+      if (typeof auftrag['token'] === 'string' && auftrag['token'].trim() !== '') {
+        // Getrimmt wie ueberall, wo ein Token von Hand eingefuegt wird.
+        neu.token = auftrag['token'].trim();
       }
       uiPeers.push(neu);
     } else if (aktion === 'entfernen') {
@@ -1035,6 +1036,20 @@ async function influxAufbauen(): Promise<void> {
   log(`Langzeitdaten aktiv: ${k.url} (Bucket ${k.bucket}, alle ${k.intervallSekunden} s)`);
 }
 
+/**
+ * Nimmt einen von Hand eingefuegten Token entgegen.
+ *
+ * Leer heisst "den vorhandenen behalten" — er wird ja bei jeder anderen
+ * Aenderung mitgeschickt. Alles andere wird getrimmt: Beim Kopieren aus einer
+ * Datei oder einem Terminal haengt regelmaessig ein Zeilenumbruch dran, und
+ * der macht aus einem gueltigen Token einen ungueltigen.
+ */
+function geputzterToken(roh: unknown, bisher: string): string {
+  if (typeof roh !== 'string') return bisher;
+  const sauber = roh.trim();
+  return sauber === '' ? bisher : sauber;
+}
+
 const influxHooks = {
   zustand: (): Record<string, unknown> => {
     const k = influxKonfigLesen();
@@ -1064,11 +1079,12 @@ const influxHooks = {
         typeof auftrag['bucket'] === 'string' && auftrag['bucket'].trim() !== ''
           ? auftrag['bucket'].trim()
           : alt.bucket,
-      // Leeres Token-Feld = vorhandenes behalten (es wird nie angezeigt):
-      token:
-        typeof auftrag['token'] === 'string' && auftrag['token'] !== ''
-          ? auftrag['token']
-          : alt.token,
+      // Getrimmt, und zwar zwingend: Ein Token wird immer kopiert, und beim
+      // Kopieren haengt regelmaessig ein Zeilenumbruch oder Leerzeichen dran.
+      // Die Kopfzeile lautet dann "Token abc\n", und InfluxDB antwortet mit
+      // 401 unauthorized — ein Fehler, der wie ein falscher Token aussieht,
+      // obwohl der Token stimmt. Genau daran ist Silvio haengengeblieben.
+      token: geputzterToken(auftrag['token'], alt.token),
       intervallSekunden: Math.round(intervall),
     };
     writeFileSync(influxKonfigDatei, JSON.stringify(neu, null, 2));

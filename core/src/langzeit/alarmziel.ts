@@ -90,6 +90,13 @@ export function istAlarmkanal(wert: unknown): wert is Alarmkanal {
  * Ein „ungültige Konfiguration" hilft am Datenschrank niemandem.
  */
 export function pruefeAlarmziel(z: Alarmziel): void {
+  // Tokens werden kopiert, und beim Kopieren haengt regelmaessig ein
+  // Zeilenumbruch dran. Ein Token mit unsichtbarem Anhaengsel sieht aus wie
+  // ein falscher Token — deshalb hier weg damit, bevor irgendetwas prueft.
+  z.iobroker.token = z.iobroker.token.trim();
+  z.telegram.botToken = z.telegram.botToken.trim();
+  z.telegram.chatId = z.telegram.chatId.trim();
+
   if (!istAlarmkanal(z.kanal)) {
     throw new Error("kanal: 'iobroker', 'email' oder 'telegram' erwartet");
   }

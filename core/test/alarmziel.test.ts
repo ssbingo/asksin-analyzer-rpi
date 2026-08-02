@@ -203,3 +203,18 @@ test('ioBroker: ohne Passwort bleibt die Kopfzeile ganz weg', () => {
   assert.equal(e['authorization_scheme'], undefined);
   assert.equal(e['authorization_credentials'], undefined);
 });
+
+test('Tokens werden getrimmt — ein kopierter Zeilenumbruch macht sie sonst ungültig', () => {
+  // Genau daran ist die Einrichtung einmal gescheitert: Ein Token mit
+  // angehaengtem Zeilenumbruch erzeugt die Kopfzeile "Token abc\n", und der
+  // Empfaenger antwortet mit 401 — ein Fehler, der wie ein falscher Token
+  // aussieht, obwohl der Token stimmt.
+  const z = ziel({
+    aktiv: true,
+    kanal: 'telegram',
+    telegram: { botToken: ' 123456789:AAEhBOweik6ad9r_ABCDEFGHIJKL\n', chatId: ' -1001234 ' },
+  });
+  assert.doesNotThrow(() => pruefeAlarmziel(z));
+  assert.equal(z.telegram.botToken, '123456789:AAEhBOweik6ad9r_ABCDEFGHIJKL');
+  assert.equal(z.telegram.chatId, '-1001234');
+});
