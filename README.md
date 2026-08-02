@@ -356,6 +356,29 @@ Seite aus, welche Fassung der anderen sie braucht — und prüft es**:
 | --- | --- | --- |
 | 0.12.0 | 0.0.2 | erste Fassung mit Alarm-Zustellung |
 
+### Die Clients an die Datenbank anschließen
+
+Nur der Master speichert. Die übrigen Analyzer schicken ihre Kennzahlen
+dorthin — einzustellen auf **jedem Client** unter *Einstellungen →
+Langzeitdaten (InfluxDB)*:
+
+| Feld | Wert |
+| --- | --- |
+| InfluxDB-URL | `http://<IP-des-Masters>:8086` |
+| Organisation | `asksin` |
+| Bucket | `asksin` |
+| API-Token | **derselbe wie auf dem Master** |
+
+Den Token gibt es nur einmal, für alle. Zu finden auf dem Master in der
+Weboberfläche (Augensymbol) oder in `/etc/asksin-analyzer/influx-zugang.txt`.
+
+Ob es geklappt hat, steht unter den Feldern („12 Schreibvorgänge, 0 Fehler")
+und auf der Übersichtsseite des Masters als **Zahl der Standorte** — die kommt
+aus der Datenbank selbst und steht erst dann auf 5, wenn wirklich alle fünf
+schreiben.
+
+Schritt für Schritt samt der drei üblichen Stolpersteine: Handbuch 19.6.
+
 Der Testknopf im Analyzer fragt den Adapter vorher nach seiner Fassung; der
 Adapter prüft bei jeder Abfrage die des Analyzers. **Jede Änderung an dieser
 Abhängigkeit gehört auf beide Seiten** — sonst behauptet jede etwas anderes.

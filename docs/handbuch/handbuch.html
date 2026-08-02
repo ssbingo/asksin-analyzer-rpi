@@ -1829,7 +1829,87 @@ von Hand im Kasten darunter. Eine bestehende Anbindung stillschweigend
 umzuleiten wäre die falsche Art von Hilfsbereitschaft — womöglich hängen an
 der anderen Datenbank noch ganz andere Auswertungen.</p>
 
-<h2 class="umbruch" id="k19-6">19.6 Das erste Anmelden in Grafana</h2>
+<h2 class="umbruch" id="k19-6">19.6 Die anderen Analyzer anschließen</h2>
+
+<p>Bis hierher speichert nur der Master. Die übrigen Analyzer — im Verbund die
+<em>Clients</em> — müssen ihre Kennzahlen noch dorthin schicken. Ohne diesen
+Schritt zeigen alle Auswertungen nur einen einzigen Standort.</p>
+
+<p>Es ist derselbe Weg wie bei einer externen Datenbank (Abschnitt 19.1), nur
+dass die Datenbank diesmal auf dem Master liegt.</p>
+
+<h3>Was gebraucht wird — und woher es kommt</h3>
+
+<table>
+<tr><th>Angabe</th><th>Wert</th><th>Woher</th></tr>
+<tr><td>InfluxDB-URL</td><td><code>http://&lt;IP-des-Masters&gt;:8086</code></td><td>Die IP des Masters, <strong>nicht</strong> 127.0.0.1 — das wäre der Client selbst.</td></tr>
+<tr><td>Organisation</td><td><code>asksin</code></td><td>Wird beim Einrichten angelegt und heißt immer so.</td></tr>
+<tr><td>Bucket</td><td><code>asksin</code></td><td>Ebenso.</td></tr>
+<tr><td>API-Token</td><td>eine lange Zeichenfolge</td><td><strong>Vom Master.</strong> Siehe unten — es gibt keinen eigenen Token je Client.</td></tr>
+<tr><td>Intervall</td><td><code>30</code></td><td>Sekunden. Häufiger bringt bei diesen Kennzahlen nichts.</td></tr>
+</table>
+
+<p><strong>Den Token findest du auf dem Master an zwei Stellen</strong>, es ist
+derselbe:</p>
+
+<ul>
+<li>In der Weboberfläche des Masters unter <em>Einstellungen → Langzeitdaten
+    (InfluxDB)</em>. Das Augensymbol neben dem Feld macht ihn lesbar.</li>
+<li>Auf dem Gerät in <code>/etc/asksin-analyzer/influx-zugang.txt</code> —
+    lesbar nur für root, also mit <code>sudo cat</code>.</li>
+</ul>
+
+<p>Alle Analyzer schreiben mit demselben Token. Das ist Absicht: Ein eigener
+Zugang je Gerät brächte hier keinen Gewinn, sondern nur fünf Zeichenfolgen,
+die man auseinanderhalten müsste.</p>
+
+<h3>Schritt für Schritt auf jedem Client</h3>
+
+<ol>
+<li>Weboberfläche des <strong>Clients</strong> öffnen, auf
+    <strong>Einstellungen</strong> gehen.</li>
+<li>Zum Kasten <strong>Langzeitdaten (InfluxDB)</strong> blättern — nicht zu
+    verwechseln mit „Langzeitdaten vor Ort", den es auf einem Client gar
+    nicht gibt.</li>
+<li>Häkchen bei <strong>aktiv</strong> setzen.</li>
+<li>Die fünf Angaben aus der Tabelle oben eintragen.</li>
+<li><strong>Speichern.</strong></li>
+</ol>
+
+<p>Ob es geklappt hat, steht unter den Feldern — dort zählt der Analyzer seine
+Schreibvorgänge mit:</p>
+
+<pre>12 Schreibvorgänge, 0 Fehler</pre>
+
+<p>Nach spätestens einer Minute muss die erste Zahl steigen. Bleibt sie bei
+null, sagt die Fehlermeldung daneben, woran es liegt.</p>
+
+<h3>Die drei Stolpersteine</h3>
+
+<table>
+<tr><th>Meldung</th><th>Ursache</th><th>Abhilfe</th></tr>
+<tr><td><code>HTTP 401: unauthorized access</code></td><td>Der Token wird nicht angenommen. In neun von zehn Fällen ist er <strong>richtig</strong> — beim Kopieren hing nur ein unsichtbarer Zeilenumbruch dran.</td><td>Seit dieser Ausgabe schneidet der Analyzer solche Anhängsel selbst ab. Token noch einmal einfügen und speichern.</td></tr>
+<tr><td><code>HTTP 404</code> oder <code>organization not found</code></td><td>Das Feld <em>Organisation</em> ist leer oder falsch.</td><td>Dort gehört <code>asksin</code> hinein — es wird gern übersehen.</td></tr>
+<tr><td>Zeitüberschreitung, keine Antwort</td><td>Die Adresse zeigt nicht auf den Master, oder er ist nicht erreichbar.</td><td>Vom Client aus prüfen: <code>curl -sS http://&lt;master&gt;:8086/health</code> muss antworten.</td></tr>
+</table>
+
+<p class="klein">InfluxDB horcht ab Werk auf allen Netzwerkschnittstellen; es
+muss dafür nichts freigeschaltet werden. Steht zwischen den Geräten eine
+Firewall, braucht sie den Port <strong>8086</strong>.</p>
+
+<h3>Wann es sich gelohnt hat</h3>
+
+<p>Sobald alle Clients schreiben, zeigt der Master auf seiner Übersichtsseite
+im Block <em>Langzeitdaten</em> die Zahl der Standorte — bei fünf Analyzern
+also <em>5 Standorte</em>. Diese Zahl kommt aus der Datenbank selbst, nicht
+aus einer Liste: Sie steht erst dann auf 5, wenn wirklich alle fünf schreiben.
+Damit ist sie die ehrlichste Erfolgskontrolle, die es hier gibt.</p>
+
+<p>In Grafana füllen sich damit die Ansichten, die vorher wenig hergaben —
+vor allem der <em>Verbund-Vergleich</em> mit der Empfangsmatrix und das
+<em>Gerätedetail</em> mit einer Linie je Standort.</p>
+
+<h2 class="umbruch" id="k19-7">19.7 Das erste Anmelden in Grafana</h2>
 
 <p>Grafana läuft jetzt auf demselben Gerät, aber unter einer eigenen Adresse:
 der IP des Analyzers, gefolgt von <code>:3000</code> — also etwa
@@ -1865,7 +1945,7 @@ nächsten Neustart wieder weg — sonst liessen sie sich nicht mit dem Projekt
 aktualisieren. Für Eigenes legt man ein neues Dashboard
 <strong>ausserhalb</strong> dieses Ordners an; das bleibt unangetastet.</p>
 
-<h2 id="k19-7">19.7 Die acht Ansichten im Einzelnen</h2>
+<h2 id="k19-8">19.8 Die acht Ansichten im Einzelnen</h2>
 
 <p>Jede Ansicht beantwortet eine bestimmte Frage. Wer weiß, welche Frage er
 hat, findet damit sofort die richtige Seite. Die Zahlen in den Bildern
@@ -2028,7 +2108,7 @@ Lüfterdrehzahl (Feld 2) auf null, während die Temperatur (Feld 1) steigt, ist
 der Lüfter defekt. Feld 5 ist der Wert, den man mit lokaler Datenbank im Auge
 behalten sollte — er fällt zwangsläufig, nur eben sehr langsam.</p>
 
-<h2 class="umbruch" id="k19-8">19.8 Alarme: wohin sie melden sollen</h2>
+<h2 class="umbruch" id="k19-9">19.9 Alarme: wohin sie melden sollen</h2>
 
 <p>Vier Alarme sind fertig eingerichtet. Sie melden sich, <strong>ohne dass
 jemand ein Dashboard offen hat</strong> — und genau das ist der eigentliche
@@ -2173,7 +2253,7 @@ häufigste Grund, warum Alarme bei einer Einrichtung von Hand nie ankommen:
 Der Kontaktpunkt steht da, Grafana markiert ihn als „Unused“, und die
 Standardrichtlinie zeigt weiterhin ins Leere.</p>
 
-<h2 id="k19-9">19.9 Grenzen — was hier nicht geht</h2>
+<h2 id="k19-10">19.10 Grenzen — was hier nicht geht</h2>
 
 <p>Damit niemand danach sucht:</p>
 
@@ -2193,7 +2273,7 @@ merkt sich der Analyzer das als Fehlerzähler und arbeitet unbeirrt weiter. Es
 geht nichts verloren, was die Weboberfläche zeigt — nur die Langzeitreihe
 bekommt eine Lücke.</p>
 
-<h2 class="umbruch" id="k19-10">19.10 Was das Ganze an Platz braucht</h2>
+<h2 class="umbruch" id="k19-11">19.11 Was das Ganze an Platz braucht</h2>
 
 <table>
 <tr><th>Grösse</th><th>Wert</th></tr>
@@ -2207,13 +2287,14 @@ bekommt eine Lücke.</p>
 wissen will, findet den freien Platz in der Ansicht <em>Gerätezustand</em>,
 Feld 5 — dort sieht man auch, wie schnell er tatsächlich fällt.</p>
 
-<h2 id="k19-11">19.11 Wenn etwas nicht klappt</h2>
+<h2 id="k19-12">19.12 Wenn etwas nicht klappt</h2>
 
 <table>
 <tr><th>Beobachtung</th><th>Ursache</th><th>Abhilfe</th></tr>
 <tr><td>Der Kasten „Langzeitdaten vor Ort“ fehlt ganz</td><td>Analyzer ist als Client eingetragen, oder der Core ist älter als diese Fassung</td><td>Rolle prüfen; <code>sudo asksin-analyzer update</code></td></tr>
 <tr><td>Die Auswahl der Rolle ist grau</td><td>Hardware zu schwach</td><td>Der Grund steht direkt darunter. Siehe 19.4 — ein anderes Gerät muss Master werden.</td></tr>
 <tr><td>„wird übernommen …“ steht ewig da</td><td>Der Helfer, der es nach Grafana überträgt, fehlt auf dem Gerät</td><td>Nach zehn Minuten sagt die Oberfläche das selbst. <code>sudo asksin-analyzer update</code> holt ihn nach.</td></tr>
+<tr><td>Grafana meldet <code>DatasourceError</code></td><td>Die Abfrage selbst ist gescheitert — meist, weil Grafana gerade neu gestartet wurde</td><td>Einmalig ist das harmlos; die drei Schwellenregeln behalten dabei ihren Zustand. Bleibt es dabei: <code>sudo bash tools/alarme-pruefen.sh</code> stellt dieselben vier Fragen direkt an die Datenbank und gibt die Antwort im Wortlaut zurück, samt Liste aller vorhandenen Felder.</td></tr>
 <tr><td>Grafana zeigt „No data“ in allen Ansichten</td><td>Der Analyzer schreibt noch nicht in die lokale Datenbank</td><td>Im Kasten <em>Langzeitdaten (InfluxDB)</em> muss <code>http://127.0.0.1:8086</code> stehen und „aktiv“ gesetzt sein.</td></tr>
 <tr><td>Einzelne Ansichten sind leer, andere nicht</td><td>Für diesen Zeitraum liegen noch keine Daten vor</td><td>Oben rechts den Zeitraum verkleinern — direkt nach der Einrichtung hilft „letzte 15 Minuten“.</td></tr>
 <tr><td>Die Testmail scheitert</td><td>siehe die beiden Stolpersteine in 19.8</td><td>Die Meldung unter dem Knopf nennt Ursache und Abhilfe im Klartext.</td></tr>
