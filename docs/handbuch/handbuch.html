@@ -1227,7 +1227,7 @@ Kondensator C8 als Reset-Puls an den Mikrocontroller weitergereicht.</p>
 du lädst nur die HEX-Datei im Browser hoch:</p>
 <ol class="schritte">
 <li>Weboberfläche → <em>Info → Sniffer-Firmware</em>.</li>
-<li>HEX-Datei auswählen (Herkunft: siehe Kasten unten), <em>Firmware
+<li>HEX-Datei auswählen (woher sie kommt: Abschnitt 11.3), <em>Firmware
 flashen…</em> klicken und die Rückfrage bestätigen.</li>
 <li>Der Dienst prüft die Datei (Intel-HEX-Struktur), <strong>pausiert die
 Aufzeichnung</strong>, gibt den seriellen Port frei, löst den Reset über GPIO4
@@ -1267,12 +1267,104 @@ Ein Update über den Bootloader kann den Bootloader selbst nicht überschreiben
 (Stromausfall, Tippfehler), einfach wiederholen. Nur der allererste
 Bootloader-Brennvorgang braucht den USBasp.</div>
 
-<div class="achtung box"><span class="titel">⚠ Woher kommt die .hex-Datei?</span>
-Die Arduino IDE legt sie beim Kompilieren ab: <em>Sketch → Kompilierte Binärdatei
-exportieren</em> erzeugt sie direkt im Sketch-Ordner
-(<code>AskSinSniffer328P.ino.hex</code> — die Variante <em>ohne</em>
-„with_bootloader" im Namen verwenden). Mit PlatformIO liegt sie nach
-<code>pio run</code> unter <code>.pio/build/…/firmware.hex</code>.</div>
+
+<h2 class="umbruch" id="k11-3">11.3 Woher die HEX-Datei kommt</h2>
+
+<p>Beide Wege oben verlangen eine <strong>HEX-Datei</strong>. Im Repo der
+Firmware liegt aber nur der Quelltext — eine <code>.ino</code>-Datei. Das ist
+kein Versehen: Eine HEX-Datei ist maschinenlesbar und gilt immer nur für eine
+bestimmte Einstellung von Takt und Baudrate. Wer sie mitliefert, liefert
+zwangsläufig die falsche für irgendjemanden.</p>
+
+<p>Man erzeugt sie also selbst. Das klingt nach mehr, als es ist: Es sind
+dieselben Schritte wie beim ersten Aufspielen (Kapitel 8) — nur dass am Ende
+nicht übertragen, sondern gespeichert wird.</p>
+
+<h3>Was ist eine HEX-Datei überhaupt?</h3>
+
+<p>Die <code>.ino</code> ist der <em>Quelltext</em> — lesbarer Text, den ein
+Mensch geschrieben hat. Der Mikrocontroller versteht davon nichts. Beim
+Kompilieren wird daraus Maschinencode, und die HEX-Datei ist die
+Transportform dieses Codes: reine Zahlen, zeilenweise, mit Prüfsummen. Genau
+das schiebt <code>avrdude</code> in den Speicher des ATmega328P.</p>
+
+<p>Das erklärt auch, warum es keine allgemeingültige HEX-Datei gibt: Ob der
+Chip mit 8 oder 16 MHz läuft und mit welcher Baudrate er spricht, steckt fest
+im Maschinencode. Eine fremde Datei mit anderen Einstellungen ergibt ein
+Gerät, das entweder schweigt oder Buchstabensalat sendet.</p>
+
+<h3>Schritt für Schritt mit der Arduino IDE</h3>
+
+<ol>
+<li><strong>Quelltext holen.</strong> Auf der Projektseite der Firmware
+    <em>Code → Download ZIP</em>, dann entpacken. Darin liegt
+    <code>AskSinSniffer328P.ino</code>.</li>
+<li><strong>Bibliotheken einrichten</strong> — AskSinPP, EnableInterrupt und
+    Low-Power, wie in Kapitel 8.1 beschrieben. Ohne sie bricht das
+    Kompilieren mit „No such file or directory" ab.</li>
+<li><strong>Die <code>.ino</code> öffnen</strong> (Doppelklick genügt).</li>
+<li><strong>Board-Einstellungen setzen</strong> — und zwar genau die aus
+    Kapitel 7.4: MiniCore, ATmega328, <em>External 8 MHz</em>. Das ist der
+    Schritt, an dem es schiefgeht, wenn man ihn überspringt.</li>
+<li><strong>Kompilieren und speichern:</strong>
+    <em>Sketch → Kompilierte Binärdatei exportieren</em>
+    (Tastenkürzel <code>Strg</code>+<code>Alt</code>+<code>S</code>).
+    <strong>Nicht</strong> „Hochladen" — es soll ja nichts übertragen werden,
+    die Platine steckt am Pi.</li>
+</ol>
+
+<div class="box achtung">
+<span class="titel">Wo die Datei landet — je nach IDE-Fassung woanders</span>
+<p>Das ist die häufigste Stolperstelle, und sie kostet regelmäßig eine
+Viertelstunde Suchen:</p>
+<ul style="margin-bottom: 0">
+<li><strong>Arduino IDE 2.x</strong> (die aktuelle): Die Dateien landen in
+    einem <strong>Unterordner <code>build</code></strong> neben der
+    <code>.ino</code>, also etwa
+    <code>AskSinSniffer328P/build/MiniCore.avr.328/AskSinSniffer328P.ino.hex</code>.</li>
+<li><strong>Arduino IDE 1.8</strong> (die ältere): direkt im Sketch-Ordner
+    neben der <code>.ino</code>.</li>
+</ul>
+</div>
+
+<div class="box achtung">
+<span class="titel">Zwei Dateien — die richtige nehmen</span>
+<p style="margin-bottom: 0">
+Es entstehen immer <strong>zwei</strong> HEX-Dateien:
+</p>
+<table style="margin-bottom: 0">
+<tr><th>Datei</th><th>nehmen?</th><th>warum</th></tr>
+<tr><td><code>AskSinSniffer328P.ino.hex</code></td><td><strong>ja</strong></td><td>nur das Programm</td></tr>
+<tr><td><code>…ino.with_bootloader.hex</code></td><td><strong>nein</strong></td><td>enthält zusätzlich den Bootloader — und genau der darf beim Update nicht überschrieben werden. Er ist es, der das Update überhaupt entgegennimmt.</td></tr>
+</table>
+</div>
+
+<h3>Alternative: die Kommandozeile</h3>
+
+<p>Wer <code>arduino-cli</code> nutzt, bekommt die Datei in einem Aufruf und
+weiß sofort, wo sie liegt:</p>
+
+<pre>arduino-cli compile \
+  --fqbn MiniCore:avr:328:bootloader=uart0,clock=external_8MHz \
+  --output-dir ./hex \
+  AskSinSniffer328P</pre>
+
+<p>Danach liegt sie unter <code>./hex/AskSinSniffer328P.ino.hex</code>. Mit
+PlatformIO heißt sie nach <code>pio run</code> schlicht
+<code>.pio/build/&lt;umgebung&gt;/firmware.hex</code>.</p>
+
+<h3>Und dann?</h3>
+
+<p>Die Datei liegt jetzt auf dem <strong>PC</strong>, nicht auf dem Pi. Für
+den bequemen Weg (11.1) ist das genau richtig: Im Browser
+<em>Info → Sniffer-Firmware</em> öffnen, die Datei auswählen, flashen. Der
+Analyzer prüft sie vorher auf gültige Intel-HEX-Struktur — eine verwechselte
+oder halb heruntergeladene Datei wird also abgewiesen, bevor irgendetwas
+geschrieben wird.</p>
+
+<p class="klein">Für den Handweg (11.2) muss sie erst auf den Pi, etwa mit
+<code>scp AskSinSniffer328P.ino.hex benutzer@asksin-analyzer-01:~</code>.</p>
+
 
 <!-- ==================================================== KAPITEL 12 -->
 <h1 class="kapitel" id="k12"><span class="knr">12</span>Die Software: Überblick und Architektur</h1>
