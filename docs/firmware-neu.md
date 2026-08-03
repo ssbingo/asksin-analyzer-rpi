@@ -212,7 +212,7 @@ Bewertet nach Nutzen im Alltag, nicht nach technischer Eleganz.
 
 Diese drei zusammen ergeben ein Protokoll, das **prüfbar** ist:
 
-```
+```text
 :5A0E011A2B3C…;A7          statt      :5A0E011A2B3C…;
         └ laufende Nummer und Prüfsumme, angehängt
 ```
@@ -274,10 +274,50 @@ und erst dann ist ein Vorher-Nachher-Vergleich überhaupt aussagekräftig: Ohne
 festgenagelte Umgebung wüsste man bei einem Unterschied nie, ob die Änderung
 oder der Übersetzer ihn verursacht hat.
 
-**Offene Frage an Silvio:** Welche AskSinPP-Fassung liegt in deiner Arduino
-IDE? (In der IDE: *Werkzeuge → Bibliotheken verwalten*, nach AskSinPP suchen —
-oder im Ordner `~/Arduino/libraries/AskSinPP/library.properties` die Zeile
-`version=`.) Damit ließe sich die Lücke sofort schließen.
+**Geklärt (03.08.2026).** Die Umgebung ist:
+
+| | |
+| --- | --- |
+| Arduino IDE | 2.3.10 (arduino-cli 1.5.1) |
+| MiniCore | 3.1.2 |
+| AskSinPP | **5.0.3** — dieselbe Fassung, die auch die PlatformIO-Bauten nutzten |
+| **Compiler LTO** | **enabled** |
+
+Die AskSinPP-Fassung war also nie der Unterschied. Es ist **`Compiler LTO`** —
+eine Menüeinstellung, die in keiner unserer Anleitungen stand. Sie fasst beim
+Binden das ganze Programm zusammen und wirft heraus, was nicht erreichbar ist;
+rund 500 Byte weniger sind dafür ein üblicher Betrag.
+
+Ein Nachbauversuch mit PlatformIO und gesetzten LTO-Schaltern brachte
+**keine** Änderung (7 416 Byte, unverändert) — PlatformIO reicht die Schalter
+für AVR nicht durch. Damit steht auch fest: **PlatformIO ist für den Nachbau
+ungeeignet.** Phase F1 nagelt die Umgebung stattdessen auf `arduino-cli` mit
+MiniCore 3.1.2 fest, also auf dieselbe Werkzeugkette, die auch die IDE
+benutzt.
+
+Die Einstellung ist inzwischen in Handbuch 7.4 und in `firmware/README.md`
+nachgetragen.
+
+**Nebenbefund, unabhängig davon.** Beim Nachschlagen der Optionsnamen in
+`boards.txt` fiel auf, dass der `arduino-cli`-Befehl im Handbuch seit jeher
+`clock=external_8MHz` enthielt. MiniCore kennt nur `clock=8MHz_external`. Der
+Befehl im Handbuch konnte also nie funktionieren — er bricht sofort mit einer
+Fehlermeldung ab. Aufgefallen ist es nie, weil praktisch alle den Weg über die
+IDE nehmen; getroffen hätte es ausgerechnet den, der sich wörtlich an die
+Anleitung hält.
+
+Korrigiert, und gegen eine Wiederholung abgesichert:
+`firmware/pruefe-fqbn.py` hält jeden Optionsnamen in der Doku gegen die
+Tabelle aus MiniCore 3.1.2 und besteht zusätzlich darauf, dass Takt, Variante
+und LTO zu diesem Projekt passen. Die Tabelle liegt im Repo, damit die Prüfung
+ohne Netz läuft — eine Prüfung, die bei fehlender Verbindung stillschweigend
+durchwinkt, ist keine.
+
+Alle fünf maschinellen Prüfungen des Projekts laufen jetzt über einen Aufruf:
+
+```bash
+bash tools/pruefe-alles.sh
+```
 
 ## 7. Projektplan (Weg A + ausgewählte Teile)
 

@@ -883,6 +883,8 @@ installieren.</li>
 <tr><td>Variant</td><td><strong>328P / 328PA</strong></td></tr>
 <tr><td>Clock</td><td><strong>External 8 MHz</strong></td></tr>
 <tr><td>BOD</td><td><strong>2.7 V</strong></td></tr>
+<tr><td><strong>Compiler LTO</strong></td><td><strong>LTO enabled</strong> — diese Zeile fehlte hier bis zum 03.08.2026. Sie macht das fertige Programm rund 500&nbsp;Byte kleiner. Wer sie abgeschaltet lässt, bekommt eine andere Datei als die mitgelieferte — beide laufen, aber vergleichen lassen sie sich dann nicht.</td></tr>
+<tr><td>EEPROM</td><td>EEPROM retained</td></tr>
 <tr><td>Bootloader</td><td><strong>Yes (UART0)</strong></td></tr>
 <tr><td>Programmer</td><td><strong>USBasp</strong></td></tr>
 </table></li>
@@ -1314,8 +1316,9 @@ Gerät, das entweder schweigt oder Buchstabensalat sendet.</p>
     Kompilieren mit „No such file or directory" ab.</li>
 <li><strong>Die <code>.ino</code> öffnen</strong> (Doppelklick genügt).</li>
 <li><strong>Board-Einstellungen setzen</strong> — und zwar genau die aus
-    Kapitel 7.4: MiniCore, ATmega328, <em>External 8 MHz</em>. Das ist der
-    Schritt, an dem es schiefgeht, wenn man ihn überspringt.</li>
+    Kapitel 7.4: MiniCore, ATmega328, <em>External 8 MHz</em> — und
+    <em>Compiler LTO: enabled</em>. Das ist der Schritt, an dem es schiefgeht,
+    wenn man ihn überspringt.</li>
 <li><strong>Kompilieren und speichern:</strong>
     <em>Sketch → Kompilierte Binärdatei exportieren</em>
     (Tastenkürzel <code>Strg</code>+<code>Alt</code>+<code>S</code>).
@@ -1349,19 +1352,61 @@ Es entstehen immer <strong>zwei</strong> HEX-Dateien:
 </table>
 </div>
 
+<h3>Wenn die eigene Datei anders aussieht als die mitgelieferte</h3>
+
+<p>Das ist normal und kein Fehler. Zwei Fassungen desselben Quelltextes können
+sich um mehrere hundert Byte unterscheiden, ohne dass eine davon falsch wäre —
+es genügt eine andere Fassung einer Bibliothek oder eine einzige andere
+Einstellung im Menü <em>Werkzeuge</em>.</p>
+
+<p>Wir haben das ausprobiert: Drei Bauversuche, alle mit denselben
+Board-Einstellungen, ergaben 7 416, 7 490 und 7 734 Byte — die mitgelieferte
+Datei hat 6 922. Der Unterschied war am Ende <strong>eine einzige
+Menüzeile</strong>, nämlich <em>Compiler LTO</em>. Steht sie auf
+<em>enabled</em>, fasst der Übersetzer beim letzten Arbeitsschritt das ganze
+Programm zusammen und wirft heraus, was nie erreicht wird; rund 500 Byte
+weniger sind dafür ein üblicher Betrag.</p>
+
+<p>Wer die mitgelieferte Datei <em>genau</em> nachbauen will, braucht deshalb
+diese Fassungen:</p>
+
+<div class="tabelle">
+<table>
+<tr><th>Bestandteil</th><th>Fassung</th></tr>
+<tr><td>Arduino IDE</td><td>2.3.10 (<code>arduino-cli</code> 1.5.1)</td></tr>
+<tr><td>MiniCore</td><td>3.1.2</td></tr>
+<tr><td>AskSinPP</td><td>5.0.3</td></tr>
+<tr><td>Compiler LTO</td><td><strong>enabled</strong></td></tr>
+</table>
+</div>
+
+<p>Für den täglichen Gebrauch spielt das keine Rolle: Eine selbst kompilierte
+Datei mit den Einstellungen aus Kapitel 7.4 läuft einwandfrei, auch wenn ihre
+Größe abweicht. Wichtig wird die Übereinstimmung erst, wenn man zwei Fassungen
+<em>vergleichen</em> möchte — etwa um zu belegen, dass eine Änderung wirklich
+etwas bewirkt hat.</p>
+
 <h3>Alternative: die Kommandozeile</h3>
 
 <p>Wer <code>arduino-cli</code> nutzt, bekommt die Datei in einem Aufruf und
 weiß sofort, wo sie liegt:</p>
 
 <pre>arduino-cli compile \
-  --fqbn MiniCore:avr:328:bootloader=uart0,clock=external_8MHz \
+  --fqbn MiniCore:avr:328:variant=modelP,bootloader=uart0,\
+clock=8MHz_external,BOD=2v7,eeprom=keep,LTO=Os_flto \
   --output-dir ./hex \
   AskSinSniffer328P</pre>
 
-<p>Danach liegt sie unter <code>./hex/AskSinSniffer328P.ino.hex</code>. Mit
-PlatformIO heißt sie nach <code>pio run</code> schlicht
-<code>.pio/build/&lt;umgebung&gt;/firmware.hex</code>.</p>
+<p>Danach liegt sie unter <code>./hex/AskSinSniffer328P.ino.hex</code>.</p>
+
+<p>Der Anhang <code>LTO=Os_flto</code> ist genau die Menüzeile aus dem
+vorigen Abschnitt. Wer ihn weglässt, bekommt die Voreinstellung — und damit
+eine größere Datei als die mitgelieferte.</p>
+
+<p><strong>Von PlatformIO ist an dieser Stelle abzuraten.</strong> Es bringt
+eine eigene Werkzeugkette mit und übernimmt diese Einstellung nicht; das
+Ergebnis weicht ab, ohne dass etwas fehlschlägt. Zum Kompilieren dieser
+Firmware nimmt man die Arduino IDE oder <code>arduino-cli</code>.</p>
 
 <h3>Und dann?</h3>
 

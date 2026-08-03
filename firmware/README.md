@@ -9,9 +9,9 @@ Abschnitt 11.3.
 
 Der Quelltext der Firmware liegt im Projekt, aus dem sie stammt — dort gibt es
 aber nur die `.ino`. Eine HEX-Datei muss jeder selbst kompilieren, und zwar
-mit **genau** den Board-Einstellungen aus Handbuch 7.4 (MiniCore, ATmega328,
-External 8 MHz). Wer das einmal getan hat, will es nicht bei jedem Gerät
-wiederholen.
+mit **genau** den Board-Einstellungen aus Handbuch 7.4 — die vollständige
+Liste steht weiter unten unter *Die Bauumgebung*. Wer das einmal getan hat,
+will es nicht bei jedem Gerät wiederholen.
 
 Deshalb dieses Verzeichnis: **eine geprüfte Datei, fünfmal aufgespielt.** Bei
 fünf Analyzern im Verbund ist das der Unterschied zwischen einer Viertelstunde
@@ -27,7 +27,7 @@ und einem Nachmittag.
 
 ## Benennung
 
-```
+```text
 asksin-sniffer-<jahr><monat><tag>-8mhz.hex
 ```
 
@@ -68,14 +68,62 @@ gemeldet und die Programmgröße gegen den verfügbaren Flash gehalten.
 | --- | --- | --- | --- |
 | `asksin-sniffer-20260803-8mhz.hex` | 03.08.2026 | 6 922 Byte, `0x0000`–`0x1b09` | `064de4ad…0848c8` |
 
-Kompiliert aus dem **unveränderten** Sketch `AskSinSniffer328P` mit den
-Board-Einstellungen aus Handbuch 7.4 (MiniCore, ATmega328, External 8 MHz).
-Am Sketch selbst hat sich im Quellprojekt seit dem 04.10.2021 nichts geändert
+Kompiliert aus dem **unveränderten** Sketch `AskSinSniffer328P`. Am Sketch
+selbst hat sich im Quellprojekt seit dem 04.10.2021 nichts geändert
 (Commit `faa4c3e`).
+
+### Die Bauumgebung — vollständig
+
+Ohne diese Angaben ist die Datei nicht nachbaubar. Das ist keine
+Förmlichkeit: Drei plausible Umgebungen ergaben drei verschiedene
+Binärdateien, die 500 bis 800 Byte auseinanderlagen.
+
+| | |
+| --- | --- |
+| Arduino IDE | 2.3.10 (arduino-cli 1.5.1) |
+| Board-Paket | MiniCore 3.1.2 (MCUdude) |
+| AskSinPP | 5.0.3 |
+| EnableInterrupt, Low-Power | jeweils aktuelle Fassung aus dem Bibliotheksverwalter |
+| Board | ATmega328, Variant 328P/328PA |
+| Takt | External 8 MHz |
+| BOD | 2.7 V |
+| **Compiler LTO** | **enabled** |
+| EEPROM | retained |
+
+**`Compiler LTO` ist die Einstellung, die am leichtesten übersehen wird** —
+sie stand bis zum 03.08.2026 in keiner unserer Anleitungen. Sie macht das
+Programm rund 500 Byte kleiner; mit *disabled* entsteht eine andere Datei.
+Beide laufen, aber nur eine ist die hier beiliegende.
+
+**PlatformIO ist für den Nachbau ungeeignet.** Es bringt eine eigene
+Werkzeugkette mit und reicht die LTO-Schalter nicht durch; die Ergebnisse
+weichen ab. Wer nachbauen will, nimmt die Arduino IDE oder `arduino-cli` mit
+den Angaben oben.
+
+Als eine Zeile — dieselben Einstellungen, nur ohne Menü:
+
+```bash
+arduino-cli compile \
+  --fqbn MiniCore:avr:328:variant=modelP,bootloader=uart0,clock=8MHz_external,BOD=2v7,eeprom=keep,LTO=Os_flto \
+  --output-dir ./hex AskSinSniffer328P
+```
+
+Diese Zeichenkette wird maschinell geprüft:
+
+```bash
+python3 firmware/pruefe-fqbn.py
+```
+
+Der Anlass war ein Tippfehler in genau dieser Zeile, der jahrelang im Handbuch
+stand: `clock=external_8MHz` statt `clock=8MHz_external`. MiniCore kennt die
+erste Schreibweise nicht — wer den Befehl kopierte, bekam eine Fehlermeldung
+statt einer Datei. Die Prüfung hält jeden Optionsnamen gegen `boards.txt` von
+MiniCore 3.1.2 und besteht darauf, dass Takt, Variante und LTO zu diesem
+Projekt passen.
 
 Vollständige Prüfsumme:
 
-```
+```text
 064de4add8a84c79d2835120f5ac1b3ee4f250fc5c039ed44c937484ef0848c8
 ```
 
