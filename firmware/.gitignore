@@ -1,12 +1,13 @@
-# HEX-Dateien bleiben vorerst draussen.
+# HEX-Dateien werden mitgeliefert.
 #
-# Nicht aus Nachlaessigkeit: Die Firmware stammt aus einem anderen Projekt,
-# und eine kompilierte Fassung hier einzuchecken hiesse, sie oeffentlich zu
-# verbreiten. Ob deren Lizenz das erlaubt und welche Hinweise dabei
-# mitzuliefern sind, ist noch nicht geklaert — siehe README.md.
+# Geprueft am 03.08.2026: Das Quellprojekt jp112sdl/AskSinAnalyzer steht unter
+# CC BY-NC-SA 3.0. Die Lizenz erlaubt die Weitergabe ausdruecklich ("Share —
+# copy and redistribute the material in any medium or format"), an drei
+# Bedingungen: Namensnennung, keine kommerzielle Nutzung, Weitergabe unter
+# gleichen Bedingungen. Alle drei sind erfuellt, die Belege stehen in
+# README.md.
 #
-# Sobald das geklaert ist, wird diese Zeile entfernt.
-*.hex
+# Deshalb hier KEIN *.hex-Ausschluss.
 
 # Zwischenstaende des Compilers gehoeren nie hierher.
 *.elf

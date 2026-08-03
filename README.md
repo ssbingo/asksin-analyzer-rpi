@@ -585,6 +585,7 @@ cd .. && git clone https://github.com/der-pw/AskSinAnalyzerXS-RPi.git AskSinAnal
 | Komponente | Lizenz | Urheber |
 | --- | --- | --- |
 | Hardware, Doku, Core (dieses Repo) | **CC BY-NC-SA 4.0** | © 2026 S. Sternitzke |
+| Sniffer-Firmware (`firmware/*.hex`) | **CC BY-NC-SA 3.0** | © jp112sdl — unverändert kompiliert, [Quelle](https://github.com/jp112sdl/AskSinAnalyzer) |
 | Web-UI (`webui/`, eigener Nachbau ohne Fremdcode) | **MIT** | © 2026 S. Sternitzke |
 | Apache ECharts (Diagramme der Web-UI) | Apache-2.0 | Apache Software Foundation |
 | Firmware `AskSinSniffer328P` (unverändert übernommen) | CC BY-NC-SA 3.0 | jp112sdl |

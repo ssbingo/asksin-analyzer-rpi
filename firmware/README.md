@@ -64,18 +64,51 @@ gemeldet und die Programmgröße gegen den verfügbaren Flash gehalten.
 
 ## Vorhandene Fassungen
 
-| Datei | Stand | Quelle | Bemerkung |
+| Datei | Stand | Programm | SHA-256 |
 | --- | --- | --- | --- |
-| _(noch keine)_ | | | |
+| `asksin-sniffer-20260803-8mhz.hex` | 03.08.2026 | 6 922 Byte, `0x0000`–`0x1b09` | `064de4ad…0848c8` |
 
-## Zur Lizenz
+Kompiliert aus dem **unveränderten** Sketch `AskSinSniffer328P` mit den
+Board-Einstellungen aus Handbuch 7.4 (MiniCore, ATmega328, External 8 MHz).
+Am Sketch selbst hat sich im Quellprojekt seit dem 04.10.2021 nichts geändert
+(Commit `faa4c3e`).
 
-Die Firmware stammt nicht aus diesem Projekt. Bevor eine kompilierte Fassung
-hier **eingecheckt** und damit öffentlich verbreitet wird, gehört geklärt, ob
-ihre Lizenz das erlaubt und welche Hinweise mitzuliefern sind. Bis dahin
-bleibt das Verzeichnis der Ablageort für den eigenen Gebrauch — die
-`.gitignore` daneben hält HEX-Dateien deshalb vorerst aus der Versionierung
-heraus.
+Vollständige Prüfsumme:
 
-Soll eine Datei mitgeliefert werden, wird die Zeile in der `.gitignore`
-entfernt und hier der Lizenzhinweis der Quelle ergänzt.
+```
+064de4add8a84c79d2835120f5ac1b3ee4f250fc5c039ed44c937484ef0848c8
+```
+
+## Herkunft und Lizenz
+
+Die Firmware stammt **nicht** aus diesem Projekt.
+
+| | |
+| --- | --- |
+| Werk | `AskSinSniffer328P` aus [jp112sdl/AskSinAnalyzer](https://github.com/jp112sdl/AskSinAnalyzer) |
+| Urheber | © jp112sdl |
+| Lizenz | [CC BY-NC-SA 3.0](https://creativecommons.org/licenses/by-nc-sa/3.0/) |
+| Änderungen | **keine** — der Sketch wurde unverändert kompiliert |
+
+**Warum die Weitergabe erlaubt ist.** CC BY-NC-SA 3.0 gestattet ausdrücklich,
+das Werk „in any medium or format" zu vervielfältigen und weiterzugeben. Eine
+kompilierte Fassung ist genau das: dasselbe Werk in einem anderen Format. Die
+drei Bedingungen der Lizenz sind erfüllt:
+
+1. **Namensnennung** — Urheber, Quelle und Lizenz stehen in dieser Tabelle,
+   in der `LICENSE` des Projekts und im Handbuch.
+2. **Nicht kommerziell** — dieses Projekt steht selbst unter CC BY-NC-SA und
+   wird nicht kommerziell verwertet.
+3. **Weitergabe unter gleichen Bedingungen** — die HEX-Datei bleibt unter
+   CC BY-NC-SA 3.0, also unter der Lizenz des Originals. Sie fällt
+   **nicht** unter die MIT-Lizenz der Web-UI und auch nicht unter die
+   CC BY-NC-SA 4.0 des übrigen Projekts.
+
+Geprüft am 03.08.2026 gegen den Wortlaut der `LICENSE` im Quellprojekt:
+
+> This software is licensed under CC BY-NC-SA 3.0.
+> It is NOT free for commercial and governmental use!
+
+Der zweite Satz ist zu beachten: **Für gewerbliche und behördliche Nutzung ist
+diese Firmware nicht frei.** Wer den Analyzer in einem solchen Umfeld
+einsetzen möchte, klärt das mit dem Urheber.

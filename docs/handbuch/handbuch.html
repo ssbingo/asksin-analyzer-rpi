@@ -1270,8 +1270,18 @@ Bootloader-Brennvorgang braucht den USBasp.</div>
 
 <h2 class="umbruch" id="k11-3">11.3 Woher die HEX-Datei kommt</h2>
 
-<p>Beide Wege oben verlangen eine <strong>HEX-Datei</strong>. Im Repo der
-Firmware liegt aber nur der Quelltext — eine <code>.ino</code>-Datei. Das ist
+<div class="hinweis box"><span class="titel">Der schnellste Weg: sie liegt bei</span>
+Seit dieser Ausgabe liefert das Projekt eine fertige HEX-Datei mit —
+<code>firmware/asksin-sniffer-20260803-8mhz.hex</code>, kompiliert aus dem
+unveränderten Sketch mit den Einstellungen aus Kapitel 7.4. Wer nichts ändern
+will, nimmt einfach diese und überspringt den Rest dieses Abschnitts. Prüfsumme
+und Herkunft stehen in <code>firmware/README.md</code>; die Firmware bleibt
+dabei unter der Lizenz ihres Urhebers (CC&nbsp;BY-NC-SA&nbsp;3.0,
+© jp112sdl) und ist für gewerbliche Nutzung nicht frei.</div>
+
+<p>Wer selbst kompilieren möchte, liest weiter. Beide Wege oben verlangen eine
+<strong>HEX-Datei</strong>. Im Repo der Firmware liegt aber nur der Quelltext
+— eine <code>.ino</code>-Datei. Das ist
 kein Versehen: Eine HEX-Datei ist maschinenlesbar und gilt immer nur für eine
 bestimmte Einstellung von Takt und Baudrate. Wer sie mitliefert, liefert
 zwangsläufig die falsche für irgendjemanden.</p>

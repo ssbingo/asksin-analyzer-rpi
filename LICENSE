@@ -22,5 +22,20 @@ Die Firmware des Empfängers ist der UNVERÄNDERTE Sketch AskSinSniffer328P
 aus dem AskSinAnalyzer-Projekt von jp112sdl und verbleibt unter dessen
 Lizenz und Urheberschaft.
 
+Seit dem 03.08.2026 liegt in firmware/ eine daraus kompilierte HEX-Datei
+bei. Sie ist dasselbe Werk in einem anderen Format und steht deshalb
+weiterhin unter
+
+    CC BY-NC-SA 3.0, © jp112sdl
+    https://github.com/jp112sdl/AskSinAnalyzer
+
+und NICHT unter der Lizenz dieses Projekts. Die Weitergabe ist von jener
+Lizenz ausdrücklich gedeckt; Namensnennung, nicht-kommerzielle Nutzung und
+Weitergabe unter gleichen Bedingungen sind eingehalten. Einzelheiten und
+Prüfsumme: firmware/README.md.
+
+Zu beachten: Das Quellprojekt schließt gewerbliche und behördliche Nutzung
+ausdrücklich aus.
+
 Der geplante ioBroker-Adapter entsteht in einem eigenen Repository ohne
 abgeleitete Anteile und wird unter der MIT-Lizenz veröffentlicht.
