@@ -164,6 +164,20 @@ Vollständige Prüfsumme:
 064de4add8a84c79d2835120f5ac1b3ee4f250fc5c039ed44c937484ef0848c8
 ```
 
+## Die erweiterte Fassung
+
+Seit August 2026 gibt es eine zweite Firmware:
+**[asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware)**
+— abgewandelt aus demselben Original, mit Versionsauskunft, Folgenummer,
+Prüfsumme und einem Selbsttest des Funkmoduls.
+
+Die hier liegende **unveränderte** Fassung bleibt der Rückfallweg. Beide
+laufen mit demselben Analyzer, und beide lassen sich jederzeit gegeneinander
+austauschen: Die erweiterte Fassung verhält sich im Auslieferungszustand
+Zeichen für Zeichen wie diese hier.
+
+Ausführlich: Handbuch 11.5.
+
 ## Herkunft und Lizenz
 
 Die Firmware stammt **nicht** aus diesem Projekt.
