@@ -1453,6 +1453,110 @@ geschrieben wird.</p>
 <p class="klein">Für den Handweg (11.2) muss sie erst auf den Pi, etwa mit
 <code>scp AskSinSniffer328P.ino.hex benutzer@asksin-analyzer-01:~</code>.</p>
 
+<h2 id="k11-4">11.4 Vorher messen: der Mitschnitt</h2>
+
+<p>Bevor du eine neue Firmware aufspielst, halte fest, wie sich die alte
+verhält. Sonst lässt sich hinterher nicht sagen, ob es besser geworden ist —
+man vergliche eine Messung mit einer Erinnerung.</p>
+
+<p>Das klingt nach Umstand, ist aber eine Sache von einer Stunde Wartezeit und
+zwei Befehlen. Und es beantwortet später genau die Frage, die sonst
+unbeantwortbar bleibt: <em>„War das vorher auch schon so?"</em></p>
+
+<h3>Was aufgezeichnet wird</h3>
+
+<p>Der Analyzer schreibt jede Zeile mit, die vom Sniffer hereinkommt — mit
+Zeitstempel, <strong>bevor</strong> er sie auswertet. Gerade das, was er sonst
+wegwirft, ist hier wichtig: Boot-Meldungen, abgeschnittene Zeilen,
+Zeichensalat. Diese Fälle sind selten genug, dass man sie im Alltag übersieht,
+und häufig genug, dass sie in einer Stunde mehrfach auftreten.</p>
+
+<p>Das Format ist schlichter Text, eine Zeile je Ereignis:</p>
+
+<pre># asksin-mitschnitt 1
+# begonnen 2026-08-03T09:12:00.000Z
+# geraet /dev/ttyAMA0 baud 58824
+1754212320123	:5A;
+1754212320873	:5A;</pre>
+
+<p>Kein eigenes Dateiformat, kein Programm nötig zum Hineinsehen:
+<code>tail</code>, <code>grep</code> und <code>wc&nbsp;-l</code> tun es auch.
+Ein Mitschnitt, den man nur mit dem passenden Werkzeug lesen kann, ist in fünf
+Jahren nichts mehr wert.</p>
+
+<h3>Aufzeichnen — der empfohlene Weg</h3>
+
+<p>In der Konfigurationsdatei <code>/etc/asksin-analyzer/config.json</code>:</p>
+
+<pre>{
+  "mitschnitt": { "aktiv": true }
+}</pre>
+
+<p>Danach <code>sudo systemctl restart asksin-analyzer</code>. Der Analyzer
+läuft dabei ganz normal weiter — Weboberfläche, Datenbank, Alarme, alles wie
+sonst. Die Datei landet neben der Datenbank unter
+<code>/var/lib/asksin-analyzer/mitschnitt.txt</code>.</p>
+
+<p>Nach einer Stunde wieder auf <code>false</code> setzen und neu starten. Die
+Aufzeichnung kostet Schreibvorgänge auf dem Bootmedium; für eine Grundlinie
+genügt eine Stunde, dauerhaft braucht sie niemand.</p>
+
+<div class="hinweis">
+<p><strong>Warum nicht dauerhaft?</strong> Rund 90 Zeilen je Minute ergeben
+etwa 4 MB am Tag. Das ist wenig, aber es sind Schreibvorgänge, und bei einem
+Gerät, das jahrelang unbeaufsichtigt durchläuft, will man die nicht ohne
+Anlass. Die Größe ist außerdem gedeckelt (256 MB); danach hört die Datei auf
+zu wachsen und meldet das beim Beenden.</p>
+</div>
+
+<h3>Aufzeichnen ohne laufenden Dienst</h3>
+
+<p>Es geht auch ohne Konfigurationsdatei — dann muss der Analyzer aber
+stehen. Eine serielle Schnittstelle verträgt nur einen Leser:</p>
+
+<pre>sudo systemctl stop asksin-analyzer
+node core/bin/mitschnitt.ts aufzeichnen /tmp/vorher.txt --dauer 60
+sudo systemctl start asksin-analyzer</pre>
+
+<p>Abbruch jederzeit mit <code>Strg</code>+<code>C</code> — das bis dahin
+Aufgezeichnete bleibt erhalten.</p>
+
+<h3>Ansehen, was dabei herauskam</h3>
+
+<pre>node core/bin/mitschnitt.ts auswerten /var/lib/asksin-analyzer/mitschnitt.txt</pre>
+
+<p>Drei Zahlen sind dabei die wichtigen:</p>
+
+<div class="tabelle">
+<table>
+<tr><th>Größe</th><th>Was sie bedeutet</th></tr>
+<tr><td><strong>Rauschtakt</strong></td><td>Der Sniffer meldet alle 750 ms den Empfangspegel. Dieser Takt hängt an nichts als der Firmware — nicht am Funkverkehr, nicht an der CCU, nicht am Wetter. Deshalb ist er der ehrlichste Gesundheitswert, den wir haben. Wird er unruhig, hängt das Programm irgendwo, und zwar lange bevor Telegramme fehlen.</td></tr>
+<tr><td><strong>Lücken</strong></td><td>Zeiträume ohne jede Zeile. <em>Vorsicht bei der Deutung:</em> Eine Lücke heißt nicht zwingend, dass etwas verloren ging — vielleicht war einfach Funkstille. Beides zu unterscheiden ist heute unmöglich, und genau das soll die laufende Nummer in einer künftigen Firmware ändern.</td></tr>
+<tr><td><strong>Verworfene</strong></td><td>Zeilen, die nicht zu deuten waren, aufgeschlüsselt nach Grund. Heute die einzige Spur von Übertragungsfehlern, die wir überhaupt sehen.</td></tr>
+</table>
+</div>
+
+<h3>Vorher und nachher gegenüberstellen</h3>
+
+<pre>node core/bin/mitschnitt.ts vergleichen /tmp/vorher.txt /tmp/nachher.txt</pre>
+
+<p>Das Werkzeug stellt beide nebeneinander und schreibt dazu, was besser und
+was schlechter geworden ist. Bewertet wird dabei nur, was tatsächlich von der
+Firmware abhängt.</p>
+
+<p>Telegrammzahl und Pegel stehen mit einem Sternchen daneben und werden
+<strong>nicht</strong> bewertet: Sie hängen davon ab, was im Haus gerade funkt.
+Zwei Aufzeichnungen an verschiedenen Tagen sind darin nicht vergleichbar, und
+eine höhere Telegrammzahl wäre kein Verdienst der neuen Firmware, sondern
+vielleicht nur ein Rollladen mehr. Sie stehen trotzdem in der Tabelle, damit
+man sieht, ob die beiden Zeiträume überhaupt ähnlich belebt waren — hätte der
+eine dreimal so viel Verkehr wie der andere, taugte auch der Rest des
+Vergleichs wenig.</p>
+
+<p>Hat sich eine der belastbaren Größen verschlechtert, endet der Befehl mit
+einem Fehlercode. So lässt er sich in einen automatischen Ablauf hängen, ohne
+dass jemand die Tabelle lesen muss.</p>
+
 
 <!-- ==================================================== KAPITEL 12 -->
 <h1 class="kapitel" id="k12"><span class="knr">12</span>Die Software: Überblick und Architektur</h1>

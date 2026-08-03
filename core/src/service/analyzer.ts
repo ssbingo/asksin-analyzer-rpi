@@ -59,6 +59,11 @@ export interface AnalyzerOptions {
   >;
   /** Jede geparste Zeile, nach der internen Verbuchung — für Live-Feeds. */
   onLine?: (line: ParsedLine) => void;
+  /**
+   * Die rohe Zeile vor dem Parsen — für den Mitschnitt (Grundlinie vor
+   * Firmware-Änderungen). Läuft im heißen Pfad; siehe SerialIngestOptions.
+   */
+  onRawLine?: (zeile: string, ts: number) => void;
   onStateChange?: (change: StateChange) => void;
   /** Fehler aus Flush/Aufräumtakt (werden gezählt, stoppen nichts). */
   onError?: (error: unknown) => void;
@@ -129,6 +134,9 @@ export class Analyzer {
     };
     if (options.onStateChange !== undefined) {
       ingestOptionen.onStateChange = options.onStateChange;
+    }
+    if (options.onRawLine !== undefined) {
+      ingestOptionen.onRawLine = options.onRawLine;
     }
     this.#ingest = new SerialIngest(ingestOptionen);
   }

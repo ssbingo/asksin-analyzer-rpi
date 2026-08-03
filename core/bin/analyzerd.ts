@@ -39,6 +39,7 @@ import { DEFAULT_BAUD, DEFAULT_DEVICE, sttyPortOpener } from '../src/ingest/stty
 import { openDatabase } from '../src/persist/db.ts';
 import { DevListService } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
+import { MitschnittSchreiber } from '../src/mitschnitt/schreiber.ts';
 import { INFLUX_VORGABEN, InfluxSchreiber } from '../src/influx/schreiber.ts';
 import {
   geltendeRolle,
@@ -139,6 +140,25 @@ interface Konfiguration {
     helligkeit?: number;
     /** Bauhöhe des OLED: 32 (Adafruit PiOLED, Vorgabe) oder 64. */
     oledHoehe?: 32 | 64;
+  };
+  /**
+   * Mitschnitt des rohen Zeilenstroms (Phase F1) — die Grundlinie, gegen die
+   * eine geänderte Sniffer-Firmware später gehalten wird.
+   *
+   * Standardmäßig **aus**. Er kostet Schreibvorgänge auf dem Bootmedium, und
+   * bei einem Gerät, das jahrelang durchläuft, schaltet man so etwas bewusst
+   * ein und nicht aus Versehen. Für eine Grundlinie genügt eine Stunde.
+   *
+   * Der Weg über den Dienst hat einen Vorteil gegenüber
+   * `bin/mitschnitt.ts aufzeichnen`: Der Analyzer läuft dabei weiter. Die
+   * serielle Schnittstelle verträgt nur einen Leser.
+   */
+  mitschnitt?: {
+    aktiv?: boolean;
+    /** Zieldatei. Vorgabe: <Datenverzeichnis>/mitschnitt.txt */
+    pfad?: string;
+    /** Obergrenze in MiB, danach wächst die Datei nicht weiter. Vorgabe 256. */
+    maxMiB?: number;
   };
 }
 
@@ -285,10 +305,36 @@ if (devList === undefined) {
   log('Keine CCU konfiguriert — Geräte erscheinen als Hex-Adressen');
 }
 
+// ---- Mitschnitt (F1) ------------------------------------------------------
+// Nur wenn ausdrücklich eingeschaltet. Ein Fehler beim Anlegen darf den
+// Analyzer nicht am Start hindern: Die Aufzeichnung ist ein Hilfsmittel,
+// nicht sein Zweck.
+let mitschnitt: MitschnittSchreiber | null = null;
+if (konfig.mitschnitt?.aktiv === true) {
+  const ziel =
+    konfig.mitschnitt.pfad ?? join(dirname(konfig.db), 'mitschnitt.txt');
+  try {
+    mitschnitt = new MitschnittSchreiber({
+      pfad: ziel,
+      geraet: konfig.device,
+      baud: konfig.baud,
+      maxBytes: (konfig.mitschnitt.maxMiB ?? 256) * 1024 * 1024,
+      onFehler: (f) => log(`Mitschnitt: ${String(f)}`),
+    });
+    log(`Mitschnitt aktiv → ${ziel}`);
+    log('Auswerten: node core/bin/mitschnitt.ts auswerten ' + ziel);
+  } catch (fehler) {
+    log(`Mitschnitt konnte nicht starten: ${String(fehler)} — Analyzer läuft weiter`);
+  }
+}
+
 const analyzer = new Analyzer({
   openPort: demoAktiv
     ? demoPortOpener()
     : sttyPortOpener(konfig.device, konfig.baud),
+  ...(mitschnitt === null
+    ? {}
+    : { onRawLine: (z: string, ts: number) => mitschnitt?.zeile(z, ts) }),
   db,
   ...(devList === undefined ? {} : { devList }),
   retention: demoAktiv
@@ -1782,6 +1828,17 @@ async function herunterfahren(code: number): Promise<void> {
     await influxSchreiber?.stop();
     await statusAnzeige?.stop();    // LED dunkel, OLED aus
     await analyzer.stop();          // letzter Flush passiert hier
+    // Nach analyzer.stop(): Erst dann kommen keine Zeilen mehr nach, und der
+    // letzte Puffer landet vollstaendig in der Datei.
+    if (mitschnitt !== null) {
+      mitschnitt.stop();
+      const m = mitschnitt.stats();
+      log(
+        `Mitschnitt: ${m.geschrieben} Zeilen` +
+          (m.verworfen > 0 ? `, ${m.verworfen} im Puffer verworfen` : '') +
+          (m.abgeschnitten > 0 ? `, ${m.abgeschnitten} nach Groessengrenze` : ''),
+      );
+    }
     db.close();
     log('Sauber beendet');
   } catch (err) {

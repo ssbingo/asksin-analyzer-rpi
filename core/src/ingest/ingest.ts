@@ -58,6 +58,20 @@ export interface SerialIngestOptions {
   openPort: PortOpener;
   /** Wird für jede geparste Zeile gerufen — auch für verworfene. */
   onLine?: (line: ParsedLine) => void | Promise<void>;
+  /**
+   * Die **rohe** Zeile, bevor sie geparst wird — für den Mitschnitt.
+   *
+   * Getrennt von `onLine`, weil der Zweck ein anderer ist: `onLine` liefert
+   * Ausgewertetes, hier soll genau das ankommen, was auf der Leitung stand.
+   * Für einen Vorher-Nachher-Vergleich zweier Firmware-Fassungen ist gerade
+   * das Unausgewertete interessant — auch und besonders die Zeilen, die der
+   * Parser später verwirft.
+   *
+   * Absichtlich synchron und ohne Fehlerbehandlung: Der Mitschnitt darf den
+   * Datenstrom weder bremsen noch stören. Wer hier eine Ausnahme wirft, legt
+   * die Ingest-Schleife lahm — der Schreiber puffert deshalb und fängt selbst.
+   */
+  onRawLine?: (zeile: string, ts: number) => void;
   onStateChange?: (change: StateChange) => void;
   time?: TimeSource;
   /** Stille auf der Leitung, ab der die Verbindung als tot gilt. */
@@ -272,7 +286,19 @@ export class SerialIngest {
 
   async #verarbeiten(zeile: string): Promise<void> {
     this.#lines++;
-    this.#lastLineAt = this.#time.now();
+    const jetzt = this.#time.now();
+    this.#lastLineAt = jetzt;
+
+    // Vor dem Parsen: Der Mitschnitt soll die Leitung sehen, nicht unsere
+    // Deutung davon. Ein Fehler hier darf den Empfang nicht anhalten.
+    if (this.#opts.onRawLine) {
+      try {
+        this.#opts.onRawLine(zeile, jetzt);
+      } catch {
+        this.#consumerErrors++;
+      }
+    }
+
     const parsed = parseLine(zeile, () => this.#time.now());
 
     if (parsed.kind === 'telegram') this.#telegrams++;

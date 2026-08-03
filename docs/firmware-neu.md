@@ -360,21 +360,46 @@ Vorschlag in vier Phasen, jede für sich abgeschlossen und nutzbar.
 
 ### Phase F1 — Grundlage (2–3 Tage)
 
-* Eigenes Repository `asksin-sniffer-firmware`, CC BY-NC-SA 3.0, mit
-  ausdrücklicher Kennzeichnung als abgewandelte Fassung
-* Bau über PlatformIO, reproduzierbar, mit CI
-* Der Sketch **unverändert** übernommen und zum Laufen gebracht — als
-  Ausgangspunkt, gegen den alles Weitere gemessen wird
-* **Umgebung festnageln**: Core, Bibliotheksfassungen und Übersetzer auf
-  feste Stände. Der erste Bauversuch (Abschnitt 6a) hat gezeigt, dass drei
-  plausible Umgebungen drei verschiedene Binärdateien ergeben — ohne
-  Festlegung wäre jeder Vorher-Nachher-Vergleich wertlos
-* Die mitgelieferte HEX-Datei aus dieser Umgebung neu erzeugen, damit
-  Anleitung und Beilage übereinstimmen
-* Prüfstand: Aufzeichnung echter Telegramme, damit Änderungen gegen dieselben
-  Daten geprüft werden können
+Stand 03.08.2026: **weitgehend erledigt**, siehe Abschnitte 6a und 6b.
+
+| | |
+| --- | --- |
+| ✅ | **Umgebung festgenagelt** — `firmware/nachbauen.sh` bindet `arduino-cli` 1.5.1, MiniCore 3.1.2, AskSinPP 5.0.3 und LTO. Nötig war das, weil drei plausible Umgebungen drei verschiedene Binärdateien ergaben |
+| ✅ | **Reproduzierbarer Bau** — die mitgelieferte HEX-Datei entsteht bit-identisch neu, unter Linux wie unter Windows. Zwei Gegenproben belegen, dass die Prüfung auch anschlägt |
+| ✅ | **Anleitung und Beilage stimmen überein** — Handbuch 7.4/11.3 und `firmware/README.md` nennen dieselben Fassungen, maschinell geprüft durch `firmware/pruefe-fqbn.py` |
+| ✅ | **Prüfstand für die Grundlinie** — `core/bin/mitschnitt.ts` zeichnet den rohen Zeilenstrom auf und wertet ihn aus; Handbuch 11.4 |
+| ⬜ | Eigenes Repository `asksin-sniffer-firmware` mit CI — steht noch aus. Der Nachbau ist als Skript im Hauptrepo vorhanden, das genügt bis zur ersten eigenen Änderung |
+
+**Zum Bauweg:** Der Plan sah PlatformIO vor. Das hat sich als falsch erwiesen —
+PlatformIO bringt eine eigene Werkzeugkette mit und reicht die LTO-Schalter für
+AVR nicht durch; das Ergebnis weicht ab, ohne dass etwas fehlschlägt.
+Festgelegt ist deshalb `arduino-cli` mit MiniCore, also dieselbe Kette, die
+auch die Arduino IDE benutzt.
+
+**Was der Prüfstand misst.** Nicht „läuft" oder „läuft nicht" — das sieht man
+ohnehin. Sondern die drei Größen, die sich schleichend verschlechtern können
+und **nur von der Firmware abhängen**:
+
+* **Rauschtakt** (Soll 750 ms): der ehrlichste Gesundheitswert überhaupt, weil
+  er nicht am Funkverkehr hängt. Unruhe hier zeigt blockierende Stellen im
+  Programm, lange bevor Telegramme fehlen.
+* **Lücken**: Zeiträume ohne jede Zeile. Heute nicht von Funkstille zu
+  unterscheiden — genau das soll Verbesserung 2 (laufende Nummer) ändern. Der
+  Mitschnitt beziffert vorher, wie oft es überhaupt vorkommt.
+* **Verworfene je Minute**: die einzige Spur von Übertragungsfehlern, die wir
+  heute haben. Je Minute, nicht absolut — sonst gewänne im Vergleich immer der
+  kürzere Lauf.
+
+Telegrammzahl und Pegel werden bewusst **nicht** bewertet: Sie hängen davon
+ab, was im Haus gerade funkt. Eine höhere Telegrammzahl wäre kein Verdienst
+der neuen Firmware, sondern womöglich nur ein Rollladen mehr.
 
 *Abnahme: Die selbst gebaute HEX-Datei verhält sich wie die mitgelieferte.*
+**Erfüllt** — sie ist bit-identisch, also verhält sie sich zwangsläufig gleich.
+
+**Vor dem Eintreffen der Platine** ist damit nur noch eines zu tun: eine
+Stunde Grundlinie am laufenden Gerät aufzeichnen und wegsichern. Ohne dieses
+Vorher gibt es später kein Nachher.
 
 ### Phase F2 — Prüfbares Protokoll (3–4 Tage)
 
