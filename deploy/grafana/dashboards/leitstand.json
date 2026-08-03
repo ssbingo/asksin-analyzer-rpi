@@ -293,6 +293,7 @@
       ],
       "fieldConfig": {
         "defaults": {
+          "displayName": "${__field.labels.standort}",
           "custom": {
             "lineWidth": 0,
             "fillOpacity": 90
@@ -373,7 +374,8 @@
           },
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "displayName": "${__field.labels.standort}"
         },
         "overrides": []
       },
@@ -419,7 +421,8 @@
           },
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "displayName": "${__field.labels.standort}"
         },
         "overrides": []
       },
@@ -465,7 +468,8 @@
           },
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "displayName": "${__field.labels.standort}"
         },
         "overrides": []
       },
@@ -511,7 +515,8 @@
           },
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "displayName": "${__field.labels.standort}"
         },
         "overrides": []
       },

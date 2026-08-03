@@ -94,13 +94,27 @@ def letzter_wert_je_geraet(feld: str) -> str:
 
 # ----------------------------------------------------------------- Panels
 
+# Wie die Linien in der Legende heissen sollen.
+#
+# Ohne Angabe schreibt Grafana den ganzen Etikettensatz hin:
+#   {name="BWM_Einfahrt", standort="Gartenhaus"}
+# Das ist korrekt, aber unlesbar — und bei zwanzig Geraeten fuellt es den
+# halben Bildschirm. Mit displayName steht dort nur noch, was zaehlt.
+NACH_STANDORT = "${__field.labels.standort}"
+NACH_GERAET = "${__field.labels.name} · ${__field.labels.standort}"
+NUR_GERAET = "${__field.labels.name}"
+
+
 def _feld(einheit: str = "", schwellen: list | None = None,
-          min_: float | None = None, max_: float | None = None) -> dict:
+          min_: float | None = None, max_: float | None = None,
+          legende: str | None = NACH_STANDORT) -> dict:
     vorgaben: dict = {
         "unit": einheit,
         "custom": {"lineWidth": 2, "fillOpacity": 8, "showPoints": "never"},
         "color": {"mode": "palette-classic"},
     }
+    if legende is not None:
+        vorgaben["displayName"] = legende
     if schwellen is not None:
         vorgaben["thresholds"] = {"mode": "absolute", "steps": schwellen}
         vorgaben["custom"]["thresholdsStyle"] = {"mode": "line"}
@@ -114,7 +128,8 @@ def _feld(einheit: str = "", schwellen: list | None = None,
 def verlauf(titel: str, abfrage: str, x: int, y: int, w: int = 12, h: int = 8,
             einheit: str = "", beschreibung: str = "",
             schwellen: list | None = None,
-            min_: float | None = None, max_: float | None = None) -> dict:
+            min_: float | None = None, max_: float | None = None,
+            legende: str | None = NACH_STANDORT) -> dict:
     return {
         "type": "timeseries",
         "title": titel,
@@ -122,7 +137,7 @@ def verlauf(titel: str, abfrage: str, x: int, y: int, w: int = 12, h: int = 8,
         "datasource": DS,
         "gridPos": {"x": x, "y": y, "w": w, "h": h},
         "targets": [{"refId": "A", "query": abfrage}],
-        "fieldConfig": _feld(einheit, schwellen, min_, max_),
+        "fieldConfig": _feld(einheit, schwellen, min_, max_, legende),
         "options": {"legend": {"displayMode": "list", "placement": "bottom",
                                "showLegend": True},
                     "tooltip": {"mode": "multi", "sort": "desc"}},
@@ -186,6 +201,7 @@ def zustandsband(titel: str, abfrage: str, x: int, y: int, w: int = 24,
         "targets": [{"refId": "A", "query": abfrage}],
         "fieldConfig": {
             "defaults": {
+                "displayName": NACH_STANDORT,
                 "custom": {"lineWidth": 0, "fillOpacity": 90},
                 "mappings": abbildung or [],
                 "color": {"mode": "thresholds"},
@@ -354,7 +370,7 @@ def leitstand() -> dict:
 def funkqualitaet() -> dict:
     p = [
         verlauf("Empfangsstärke je Gerät", nach_geraet("rssi"), 0, 0, w=24, h=10,
-                einheit="dBm",
+                einheit="dBm", legende=NACH_GERAET,
                 beschreibung="RSSI, geglättet. Die Linie unten markiert −95 dBm — "
                              "darunter wird der Empfang unzuverlässig.",
                 schwellen=[{"color": "green", "value": None},
@@ -380,6 +396,7 @@ def funkqualitaet() -> dict:
                     ]}]),
         verlauf("Schwankung der Empfangsstärke",
                 nach_geraet("rssi", "stddev"), 12, 10, w=12, h=10, einheit="dBm",
+                legende=NACH_GERAET,
                 beschreibung="Wie stark der Pegel innerhalb eines Zeitfensters "
                              "schwankt. Große Werte deuten auf Reflexionen oder "
                              "ein wanderndes Gerät hin."),
@@ -422,7 +439,7 @@ def dutycycle() -> dict:
             beschreibung="Auch ein kurzer Ausreißer zählt — er kann das Funknetz "
                          "für Minuten blockiert haben."),
         verlauf("Duty-Cycle je Gerät", nach_geraet("dutyCycle", "max"),
-                0, 4, w=24, h=10, einheit="percent", min_=0,
+                0, 4, w=24, h=10, einheit="percent", min_=0, legende=NUR_GERAET,
                 beschreibung=f"Linien bei {DUTY_WARNUNG} % und 100 %. Ein "
                              "einziges defektes Gerät kann das Funknetz "
                              "zustopfen — so fällt es auf.",
@@ -789,6 +806,13 @@ def main() -> int:
         # Ueberlappende Panels sind in Grafana erlaubt, sehen aber kaputt aus.
         belegt: set[tuple[int, int]] = set()
         for panel in d["panels"]:
+            # Ein Diagramm ohne Anzeigenamen beschriftet seine Linien mit dem
+            # ganzen Etikettensatz — {name="…", standort="…"}. Korrekt, aber
+            # unlesbar, und bei zwanzig Geraeten fuellt es den halben
+            # Bildschirm.
+            if panel["type"] in ("timeseries", "state-timeline") and \
+               "displayName" not in panel["fieldConfig"]["defaults"]:
+                fehler.append(f"{name}/{panel.get('title')}: ohne Anzeigenamen")
             g = panel["gridPos"]
             if g["x"] + g["w"] > 24:
                 fehler.append(f"{name}/{panel.get('title')}: ragt über 24 Spalten")

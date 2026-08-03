@@ -85,7 +85,8 @@
           },
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "displayName": "${__field.labels.standort}"
         },
         "overrides": []
       },
@@ -165,7 +166,8 @@
           },
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "displayName": "${__field.labels.standort}"
         },
         "overrides": []
       },

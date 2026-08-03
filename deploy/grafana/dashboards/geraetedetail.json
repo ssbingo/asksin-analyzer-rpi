@@ -259,6 +259,7 @@
           "color": {
             "mode": "palette-classic"
           },
+          "displayName": "${__field.labels.standort}",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -321,6 +322,7 @@
           "color": {
             "mode": "palette-classic"
           },
+          "displayName": "${__field.labels.standort}",
           "thresholds": {
             "mode": "absolute",
             "steps": [
@@ -380,7 +382,8 @@
           },
           "color": {
             "mode": "palette-classic"
-          }
+          },
+          "displayName": "${__field.labels.standort}"
         },
         "overrides": []
       },

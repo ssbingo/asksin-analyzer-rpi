@@ -254,6 +254,7 @@
           "color": {
             "mode": "palette-classic"
           },
+          "displayName": "${__field.labels.name}",
           "thresholds": {
             "mode": "absolute",
             "steps": [
