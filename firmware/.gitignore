@@ -1,0 +1,15 @@
+# HEX-Dateien bleiben vorerst draussen.
+#
+# Nicht aus Nachlaessigkeit: Die Firmware stammt aus einem anderen Projekt,
+# und eine kompilierte Fassung hier einzuchecken hiesse, sie oeffentlich zu
+# verbreiten. Ob deren Lizenz das erlaubt und welche Hinweise dabei
+# mitzuliefern sind, ist noch nicht geklaert — siehe README.md.
+#
+# Sobald das geklaert ist, wird diese Zeile entfernt.
+*.hex
+
+# Zwischenstaende des Compilers gehoeren nie hierher.
+*.elf
+*.bin
+*.eep
+build/
