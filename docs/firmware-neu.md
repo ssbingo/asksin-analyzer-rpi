@@ -238,6 +238,47 @@ ununterscheidbar von einem ruhigen Funknetz. Ein Selbsttest beim Start (Chip
 
 ---
 
+## 6a. Erster Befund aus Phase F1 (03.08.2026)
+
+Der Bau wurde sofort ausprobiert, bevor irgendetwas geändert wird. Ergebnis:
+
+| Bauumgebung | Programmgröße |
+| --- | --- |
+| Arduino-Pro-Core + AskSinPP 5.0.3 (PlatformIO-Registrierung) | 7 490 Byte |
+| **MiniCore** + AskSinPP 5.0.3 (Registrierung) | 7 416 Byte |
+| **MiniCore** + AskSinPP aus `reference/` (Commit 21bab8b) | 7 734 Byte |
+| **Die mitgelieferte Datei** | **6 922 Byte** |
+
+**Die mitgelieferte HEX-Datei lässt sich mit den dokumentierten Einstellungen
+nicht reproduzieren.** Sie ist 500 bis 800 Byte kleiner als jeder Bau, der
+nach Handbuch 7.4 entsteht.
+
+Das ist kein Fehler an der Datei — sie ist geprüft und funktioniert. Aber es
+heißt: **Binärdatei und Bauanleitung gehören derzeit nicht zusammen.** Wer der
+Anleitung folgt, bekommt etwas anderes als das, was beiliegt.
+
+Zwei Nebenbefunde:
+
+* Die `platformio.ini` des Quellprojekts nennt `pro8MHzatmega328` — den
+  gewöhnlichen Arduino-Core. Unser Handbuch verlangt **MiniCore**. Beides
+  läuft, aber es sind verschiedene Binärdateien.
+* In der PlatformIO-Registrierung gibt es von AskSinPP nur **eine** Fassung
+  (5.0.3). Die Kommentarzeile im Quellprojekt („use latest master until
+  pollRSSI is available") deutet darauf hin, dass dort zeitweise direkt von
+  GitHub gebaut wurde — dann hängt das Ergebnis am Tag des Baus.
+
+**Was daraus folgt:** Phase F1 muss die Umgebung *festnageln* — Core,
+Bibliotheksfassungen, Übersetzer — und die mitgelieferte Datei aus genau
+dieser Umgebung neu erzeugen. Erst dann stimmen Anleitung und Beilage überein,
+und erst dann ist ein Vorher-Nachher-Vergleich überhaupt aussagekräftig: Ohne
+festgenagelte Umgebung wüsste man bei einem Unterschied nie, ob die Änderung
+oder der Übersetzer ihn verursacht hat.
+
+**Offene Frage an Silvio:** Welche AskSinPP-Fassung liegt in deiner Arduino
+IDE? (In der IDE: *Werkzeuge → Bibliotheken verwalten*, nach AskSinPP suchen —
+oder im Ordner `~/Arduino/libraries/AskSinPP/library.properties` die Zeile
+`version=`.) Damit ließe sich die Lücke sofort schließen.
+
 ## 7. Projektplan (Weg A + ausgewählte Teile)
 
 Vorschlag in vier Phasen, jede für sich abgeschlossen und nutzbar.
@@ -249,6 +290,12 @@ Vorschlag in vier Phasen, jede für sich abgeschlossen und nutzbar.
 * Bau über PlatformIO, reproduzierbar, mit CI
 * Der Sketch **unverändert** übernommen und zum Laufen gebracht — als
   Ausgangspunkt, gegen den alles Weitere gemessen wird
+* **Umgebung festnageln**: Core, Bibliotheksfassungen und Übersetzer auf
+  feste Stände. Der erste Bauversuch (Abschnitt 6a) hat gezeigt, dass drei
+  plausible Umgebungen drei verschiedene Binärdateien ergeben — ohne
+  Festlegung wäre jeder Vorher-Nachher-Vergleich wertlos
+* Die mitgelieferte HEX-Datei aus dieser Umgebung neu erzeugen, damit
+  Anleitung und Beilage übereinstimmen
 * Prüfstand: Aufzeichnung echter Telegramme, damit Änderungen gegen dieselben
   Daten geprüft werden können
 
