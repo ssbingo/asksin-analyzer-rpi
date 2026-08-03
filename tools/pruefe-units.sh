@@ -55,11 +55,54 @@ for pfad in deploy/*.service deploy/*.path; do
     done
 done
 
+# ---------------------------------------------------------------------------
+# Dieselbe Frage fuer die Grafana-Vorlagen.
+#
+# Sie sind auf denselben Fehler hereingefallen wie die OLED-Unit: einmal beim
+# Einrichten geschrieben, danach nie wieder. Verbesserte Alarmtexte lagen
+# wochenlang im Repo, waehrend auf dem Geraet die alten liefen — und niemand
+# konnte das ahnen, weil nichts fehlschlug.
+#
+# Zwei Dateien sind ausgenommen, mit Grund:
+#   asksin-influx.yaml.vorlage  enthaelt den Zugangstoken, den nur das
+#                               Einrichtungsskript kennt
+VORLAGEN_AUSNAHMEN=("asksin-influx.yaml.vorlage")
+
+vorlage_ausgenommen() {
+    local e
+    for e in "${VORLAGEN_AUSNAHMEN[@]}"; do
+        [ "$e" = "$1" ] && return 0
+    done
+    return 1
+}
+
+echo
+for pfad in deploy/grafana/provisioning/*/*.yaml* deploy/grafana/dashboards/*.json; do
+    [ -e "$pfad" ] || continue
+    datei="$(basename "$pfad")"
+    gesamt=$((gesamt + 1))
+    if vorlage_ausgenommen "$datei"; then
+        printf '  ~  %-38s nur beim Einrichten (Ausnahme)\n' "$datei"
+        continue
+    fi
+    # Die acht Dashboards werden als Gruppe kopiert (dashboards/*.json),
+    # deshalb genuegt der Nachweis des Verzeichnisses.
+    if grep -q "deploy/grafana/dashboards/\*.json" update.sh && \
+       [ "${pfad#deploy/grafana/dashboards/}" != "$pfad" ]; then
+        continue
+    fi
+    if grep -q "$datei" update.sh; then
+        continue
+    fi
+    printf '  FEHLT  %-34s wird von update.sh nicht ausgerollt\n' "$datei"
+    fehlt=$((fehlt + 1))
+done
+
 echo
 if [ "$fehlt" -gt 0 ]; then
-    echo "$fehlt fehlende Zuordnung(en) bei $gesamt Units." >&2
-    echo "Eine Unit, die nicht ausgerollt wird, altert auf dem Geraet vor sich" >&2
-    echo "hin — ihre Aenderungen kommen nie an." >&2
+    echo "$fehlt fehlende Zuordnung(en) bei $gesamt Dateien." >&2
+    echo "Was nicht ausgerollt wird, altert auf dem Geraet vor sich hin —" >&2
+    echo "seine Aenderungen kommen nie an, und nichts schlaegt fehl." >&2
     exit 1
 fi
-echo "$gesamt Units, alle werden von install.sh und update.sh ausgerollt."
+echo "$gesamt Dateien (Units und Grafana-Vorlagen), alle werden ausgerollt."

@@ -148,6 +148,32 @@ installiere_dateien() {
             > /etc/systemd/journald.conf.d/asksin.conf
         systemctl restart systemd-journald 2>/dev/null || true
     fi
+    # Grafana-Vorlagen und Alarmregeln mitziehen.
+    #
+    # Genau das fehlte: Beides wurde EINMAL beim Einrichten geschrieben und
+    # danach nie wieder. Jede Verbesserung an den acht Ansichten und an den
+    # vier Alarmen blieb damit im Repo liegen — auf dem Geraet lief weiter die
+    # Fassung vom Installationstag. Silvio bekam deshalb naechtelang
+    # Alarmtexte, die laengst berichtigt waren.
+    #
+    # NICHT angefasst werden zwei Dateien: die Datenquelle (sie enthaelt den
+    # Zugangstoken, den nur das Einrichtungsskript kennt) und das vom Core
+    # erzeugte Alarmziel.
+    if [ -d /etc/grafana ]; then
+        install -d -m 0755 /etc/grafana/provisioning/alerting \
+                           /etc/grafana/provisioning/dashboards \
+                           /var/lib/grafana/dashboards/asksin
+        install -m 0644 "$INSTALL_DIR/deploy/grafana/provisioning/alerting/asksin-alarme.yaml" \
+            /etc/grafana/provisioning/alerting/asksin-alarme.yaml
+        install -m 0644 "$INSTALL_DIR/deploy/grafana/provisioning/dashboards/asksin.yaml" \
+            /etc/grafana/provisioning/dashboards/asksin.yaml
+        install -m 0644 "$INSTALL_DIR"/deploy/grafana/dashboards/*.json \
+            /var/lib/grafana/dashboards/asksin/
+        chown -R grafana:grafana /var/lib/grafana/dashboards/asksin 2>/dev/null || true
+        systemctl restart grafana-server 2>/dev/null || true
+        echo "  ok Grafana-Vorlagen und Alarmregeln aktualisiert."
+    fi
+
     systemctl daemon-reload
     systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-neustart.path >/dev/null 2>&1 || true
