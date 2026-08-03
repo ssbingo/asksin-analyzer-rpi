@@ -549,6 +549,9 @@ export interface MitschnittZustand {
 export const holeMitschnitt = (): Promise<MitschnittZustand> =>
   hole('/api/mitschnitt');
 
+/** Adresse zum Herunterladen der Aufzeichnung (Browser lädt direkt). */
+export const mitschnittDateiUrl = (): string => '/api/mitschnitt/datei';
+
 export async function sendeMitschnitt(auftrag: {
   aktiv: boolean;
   /** Nur mit ausdrücklicher Bestätigung — eine Grundlinie ist unersetzlich. */

@@ -402,6 +402,13 @@ const mitschnittHooks = {
     else mitschnittStoppen();
     writeFileSync(mitschnittWahl, JSON.stringify({ aktiv }, null, 2) + '\n');
   },
+  datei: (): Buffer | null => {
+    // Vor dem Ausliefern spuelen, sonst fehlen dem Herunterladenden die
+    // letzten Sekunden — und ausgerechnet die schaut man sich zuerst an.
+    mitschnitt?.spuelen();
+    if (!existsSync(mitschnittZiel)) return null;
+    return readFileSync(mitschnittZiel);
+  },
 };
 
 const analyzer = new Analyzer({

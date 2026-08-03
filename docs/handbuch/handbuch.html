@@ -1568,7 +1568,11 @@ Aufgezeichnete bleibt erhalten.</p>
 
 <h3>Ansehen, was dabei herauskam</h3>
 
-<pre>node core/bin/mitschnitt.ts auswerten /var/lib/asksin-analyzer/mitschnitt.txt</pre>
+<p>Die Aufzeichnung liegt auf dem Pi, ausgewertet wird sie am PC. Auf derselben
+Seite steht dafür <em>Aufzeichnung herunterladen</em> — der Browser speichert
+die Datei ab, kein <code>scp</code> nötig.</p>
+
+<pre>node core/bin/mitschnitt.ts auswerten mitschnitt.txt</pre>
 
 <p>Drei Zahlen sind dabei die wichtigen:</p>
 

@@ -6,6 +6,7 @@ import HandbuchFuss from '../components/HandbuchFuss.vue';
 import {
   holeMitschnitt,
   holeProtokoll,
+  mitschnittDateiUrl,
   protokollDateiUrl,
   sendeMitschnitt,
   sendeProtokoll,
@@ -282,10 +283,18 @@ nutzeTakt(async () => {
       Ein erneuter Start hängt hinten an, statt sie zu überschreiben.
     </p>
 
+    <p v-if="mitschnitt.vorhanden">
+      <a class="knopf" :href="mitschnittDateiUrl()" download="mitschnitt.txt">
+        Aufzeichnung herunterladen
+      </a>
+    </p>
+
     <p class="gedimmt" v-if="mitschnitt.vorhanden">
-      Ablage auf dem Gerät: <code>{{ mitschnitt.pfad }}</code><br />
-      Auswerten auf dem Pi:
-      <code>node core/bin/mitschnitt.ts auswerten {{ mitschnitt.pfad }}</code>
+      Die Datei liegt auf dem Gerät unter <code>{{ mitschnitt.pfad }}</code>.
+      Ausgewertet wird sie am PC:<br />
+      <code>node core/bin/mitschnitt.ts auswerten mitschnitt.txt</code><br />
+      Zwei Aufzeichnungen vergleichen:<br />
+      <code>node core/bin/mitschnitt.ts vergleichen vorher.txt nachher.txt</code>
     </p>
   </div>
 

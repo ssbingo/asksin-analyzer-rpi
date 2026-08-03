@@ -736,6 +736,7 @@ test('Mitschnitt: ueber die Weboberflaeche schaltbar, ohne Konsole', async (t) =
         if (typeof a['aktiv'] !== 'boolean') throw new Error('aktiv erwartet');
         aktiv = a['aktiv'];
       },
+      datei: () => Buffer.from('# asksin-mitschnitt 1\n# demo ja\n1\t:5A;\n'),
     },
   });
 
@@ -769,6 +770,7 @@ test('Mitschnitt: unsinnige Werte sind ein Eingabefehler, kein Serverfehler', as
       einstellen: (a) => {
         if (typeof a['aktiv'] !== 'boolean') throw new Error('aktiv: true oder false erwartet');
       },
+      datei: () => null,
     },
   });
   const res = await fetch(`${base}/api/mitschnitt`, {
@@ -785,7 +787,11 @@ test('Mitschnitt: ohne Token kein Schalten', async (t) => {
   // Bootmedium mit Schreibvorgaengen belegen.
   const { base } = await aufbau(t, {
     authToken: 'geheim',
-    mitschnitt: { zustand: () => ({ aktiv: false }), einstellen: () => undefined },
+    mitschnitt: {
+      zustand: () => ({ aktiv: false }),
+      einstellen: () => undefined,
+      datei: () => null,
+    },
   });
   const ohne = await fetch(`${base}/api/mitschnitt`, {
     method: 'POST',
@@ -798,4 +804,42 @@ test('Mitschnitt: ohne Token kein Schalten', async (t) => {
 test('Mitschnitt: aeltere Fassung ohne Hooks meldet 501 statt zu stuerzen', async (t) => {
   const { base } = await aufbau(t);
   assert.equal((await fetch(`${base}/api/mitschnitt`)).status, 501);
+});
+
+test('Mitschnitt: Datei laesst sich herunterladen — ohne scp, ohne Konsole', async (t) => {
+  // Die Aufzeichnung entsteht auf dem Geraet, ausgewertet wird sie am PC.
+  // Ohne diesen Weg braeuchte man eine Shell, und genau das soll das Projekt
+  // niemandem zumuten.
+  let aktiv = false;
+  const { base } = await aufbau(t, {
+    mitschnitt: {
+      zustand: () => ({ aktiv, demo: true, pfad: '/tmp/m.txt', vorhanden: aktiv }),
+      einstellen: (a) => {
+        aktiv = a['aktiv'] === true;
+      },
+      datei: () => Buffer.from('# asksin-mitschnitt 1\n# demo ja\n1000\t:5A;\n'),
+    },
+  });
+
+  const res = await fetch(`${base}/api/mitschnitt/datei`);
+  assert.equal(res.status, 200);
+  assert.match(res.headers.get('content-disposition') ?? '', /attachment/);
+  assert.match(res.headers.get('content-type') ?? '', /text\/plain/);
+  const text = await res.text();
+  assert.match(text, /^# asksin-mitschnitt 1$/m);
+  // Die Herkunft muss mitkommen — sonst waere am PC nicht mehr zu sehen,
+  // ob die Daten simuliert waren.
+  assert.match(text, /^# demo ja$/m);
+});
+
+test('Mitschnitt: nichts aufgezeichnet ergibt 404, keinen leeren Download', async (t) => {
+  const { base } = await aufbau(t, {
+    mitschnitt: {
+      zustand: () => ({ aktiv: false }),
+      einstellen: () => undefined,
+      datei: () => null,
+    },
+  });
+  const res = await fetch(`${base}/api/mitschnitt/datei`);
+  assert.equal(res.status, 404);
 });

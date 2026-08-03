@@ -143,6 +143,16 @@ export interface ApiServerOptions {
   mitschnitt?: {
     zustand(): unknown;
     einstellen(auftrag: Record<string, unknown>): void;
+    /**
+     * Die Aufzeichnung zum Herunterladen.
+     *
+     * Muss sein: Die Datei liegt auf dem Geraet, ausgewertet wird sie am PC.
+     * Ohne diesen Weg braeuchte man scp — also die Konsole, und genau das
+     * soll das Projekt niemandem zumuten.
+     *
+     * Liefert `null`, wenn noch nichts aufgezeichnet wurde.
+     */
+    datei(): Buffer | null;
   };
 }
 
@@ -422,6 +432,26 @@ export class ApiServer {
           if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
           return this.#json(res, 200, netz.status() ?? { running: false });
         }
+      }
+      // Mitschnitt herunterladen. Wie beim Protokoll ohne Token, weil der
+      // Browser bei einem einfachen Link keine Kopfzeile mitschicken kann —
+      // und weil dieselben Telegramme ohnehin ueber /api/telegrams zu haben
+      // sind. Wer das Geraet ins offene Netz haengt, sichert es ueber die
+      // Netzwerkeinstellungen ab, nicht ueber einzelne Endpunkte.
+      if (pfad === '/api/mitschnitt/datei') {
+        const hooks = this.#opts.mitschnitt;
+        if (hooks === undefined) return this.#text(res, 501, 'Kein Mitschnitt');
+        const inhalt = hooks.datei();
+        if (inhalt === null) {
+          return this.#text(res, 404, 'Noch nichts aufgezeichnet');
+        }
+        res.writeHead(200, {
+          'Content-Type': 'text/plain; charset=utf-8',
+          'Content-Disposition': 'attachment; filename="mitschnitt.txt"',
+          'Content-Length': String(inhalt.byteLength),
+        });
+        res.end(inhalt);
+        return;
       }
       // Logdatei herunterladen: /api/protokoll/datei/asksin-JJJJ-MM-TT.log
       if (pfad.startsWith('/api/protokoll/datei/')) {
