@@ -17,3 +17,8 @@ hardware/kicad/board.ses
 fp-info-cache
 /adapter/
 docs/handbuch/.venv/
+
+# Aus dem PDF extrahierte Seitenbilder. Sie sind Kopien der eingebetteten
+# Screenshots — sie verdoppelten jeden Fehler darin, auch einen versehentlich
+# mitfotografierten Hostnamen. Von nichts referenziert.
+docs/handbuch/AskSin-Analyzer-Handbuch-*_*.png

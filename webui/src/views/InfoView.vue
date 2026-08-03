@@ -86,6 +86,20 @@ async function updateInstallieren(): Promise<void> {
   }
 }
 
+/**
+ * Farbe der Firmware-Meldung.
+ *
+ * Nur 'funkmodul' ist wirklich eine Stoerung — da antwortet das CC1101
+ * nicht. 'original' ist eine Feststellung: Die alte Firmware laeuft seit
+ * Jahren und tut, wofuer sie da ist. Sie rot zu faerben hiesse, einen Fehler
+ * zu behaupten, den es nicht gibt — und wer rot sieht, sucht.
+ */
+function befundStil(art: string): string {
+  if (art === 'passt') return 'ok';
+  if (art === 'funkmodul') return 'fehler';
+  return 'neutral';
+}
+
 // ---- Sniffer-Firmware ----------------------------------------------------
 
 const hexDatei = ref<File | null>(null);
@@ -200,10 +214,9 @@ async function firmwareFlashen(): Promise<void> {
     <h3 style="margin-top: 0">Sniffer-Firmware (328P)</h3>
 
     <template v-if="health?.sniffer">
-      <div
-        class="meldung"
-        :class="health.sniffer.befund.art === 'passt' ? 'ok' : 'fehler'"
-      >{{ health.sniffer.befund.text }}</div>
+      <div class="meldung" :class="befundStil(health.sniffer.befund.art)">{{
+        health.sniffer.befund.text
+      }}</div>
 
       <div class="daten" v-if="health.sniffer.firmware">
         <div class="zeile">

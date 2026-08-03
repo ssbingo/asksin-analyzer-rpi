@@ -222,6 +222,9 @@ button:disabled { opacity: 0.5; cursor: default; }
 .meldung { padding: 0.5rem 0.8rem; border-radius: 7px; margin: 0.8rem 0; font-size: 0.88rem; }
 .meldung.ok { background: color-mix(in srgb, var(--gut) 12%, transparent); color: var(--gut); }
 .meldung.fehler { background: color-mix(in srgb, var(--schlecht) 12%, transparent); color: var(--schlecht); }
+/* Weder gut noch schlecht: eine Feststellung. Rot waere hier eine Luege —
+   "es laeuft die Originalfirmware" ist kein Fehler, sondern eine Auskunft. */
+.meldung.neutral { background: color-mix(in srgb, var(--muted) 14%, transparent); color: var(--muted); }
 
 .fussnote { color: var(--muted); font-size: 0.8rem; margin-top: 0.5rem; }
 

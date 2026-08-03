@@ -705,7 +705,35 @@ async function kommando(cmd: string, args: string[]): Promise<string> {
   return stdout;
 }
 
+/**
+ * Beispielhafte Netzangaben für den Demo-Modus — gleiche Begründung wie
+ * DEMO_NETZ in der API: Wer den Demo-Modus herzeigt oder abfotografiert,
+ * soll die interne Adressierung nicht mit veröffentlichen.
+ *
+ * 192.0.2.0/24 ist der für Dokumentation reservierte Bereich (RFC 5737).
+ */
+const DEMO_NETZANGABEN: Record<string, unknown> = {
+  hostname: 'asksin-analyzer-demo',
+  iface: 'eth0',
+  verbindung: 'Demo',
+  methode: 'dhcp',
+  // Im Demo-Modus wird nichts umgestellt — es gibt ja kein echtes Netz
+  // dahinter. Die Oberflaeche zeigt den Grund an, statt einen toten Knopf.
+  aenderbar: false,
+  grund: 'Demo-Modus — die Angaben sind Beispielwerte (RFC 5737).',
+  // Form wie beim echten Zustand: Objekte mit address/prefix, und ntp.aktiv
+  // ist der GERADE benutzte Server (Zeichenkette), nicht ein Schalter.
+  adressen: [{ address: '192.0.2.10', prefix: 24 }],
+  gateway: '192.0.2.1',
+  dns: ['192.0.2.1'],
+  ntp: { server: '192.0.2.1', aktiv: '192.0.2.1', sync: true },
+};
+
 async function netzZustand(): Promise<Record<string, unknown>> {
+  // Im Demo-Modus nichts Echtes herausgeben. Der Demo-Modus ist zum
+  // Herzeigen da, und Screenshots davon landen im Handbuch.
+  if (demoAktiv) return DEMO_NETZANGABEN;
+
   // Standardroute → Schnittstelle + Gateway
   let iface: string | null = null;
   let gateway: string | null = null;

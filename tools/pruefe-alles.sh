@@ -49,6 +49,9 @@ optional() {  # optional <Beschreibung> <Bedingung> <Befehl...>
 lauf "systemd-Units und Grafana-Vorlagen werden ausgerollt" \
     bash tools/pruefe-units.sh
 
+lauf "Keine Spuren echter Netze und Rechner" \
+    bash tools/pruefe-keine-echtdaten.sh
+
 lauf "Firmware: FQBN in der Dokumentation" \
     python3 firmware/pruefe-fqbn.py
 

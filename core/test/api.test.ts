@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 import assert from 'node:assert/strict';
+import { hostname } from 'node:os';
 
 import { ApiServer } from '../src/api/server.ts';
 import { dayOf, dayRange, toVersionParts } from '../src/api/compat.ts';
@@ -47,6 +48,7 @@ async function aufbau(t: TestContext, extra: {
   statusAnzeige?: import('../src/api/server.ts').ApiServerOptions['statusAnzeige'];
   langzeit?: import('../src/api/server.ts').ApiServerOptions['langzeit'];
   mitschnitt?: import('../src/api/server.ts').ApiServerOptions['mitschnitt'];
+  demo?: boolean;
 } = {}): Promise<Aufbau> {
   const time = new FakeTime();
   const ports: FakePort[] = [];
@@ -77,7 +79,7 @@ async function aufbau(t: TestContext, extra: {
     db,
     ...(devList === undefined ? {} : { devList }),
     version: '0.0.1',
-    config: { ccuip: 'ccu.local', standort: 'Testkeller' },
+    config: { ccuip: 'ccu.local', standort: 'Testkeller', demo: extra.demo === true },
     ...(extra.authToken === undefined ? {} : { authToken: extra.authToken }),
     ...(extra.maxLogBatch === undefined ? {} : { maxLogBatch: extra.maxLogBatch }),
     ...(extra.onReboot === undefined ? {} : { onReboot: extra.onReboot }),
@@ -842,4 +844,34 @@ test('Mitschnitt: nichts aufgezeichnet ergibt 404, keinen leeren Download', asyn
   });
   const res = await fetch(`${base}/api/mitschnitt/datei`);
   assert.equal(res.status, 404);
+});
+
+test('Demo-Modus gibt keine echte Netzidentitaet preis', async (t) => {
+  // Der Demo-Modus ist zum Herzeigen da — Screenshots davon landen im
+  // Handbuch. In alten Handbuch-Bildern standen dadurch die interne
+  // Adressierung, der Hostname und eine MAC-Adresse. Beim Anfertigen faellt
+  // das niemandem auf; herauszubekommen ist es dann nur noch durch
+  // Umschreiben der Git-Historie.
+  const { base } = await aufbau(t, { demo: true });
+  const cfg = (await (await fetch(`${base}/getConfig`)).json()) as Record<
+    string,
+    string
+  >;
+
+  assert.equal(cfg['hostname'], 'asksin-analyzer-demo');
+  assert.equal(cfg['macaddress'], '00:00:5e:00:53:10');
+  // 192.0.2.0/24 ist der fuer Dokumentation reservierte Bereich (RFC 5737).
+  assert.match(cfg['ip'] ?? '', /^192\.0\.2\./);
+  assert.notEqual(cfg['hostname'], hostname());
+});
+
+test('ohne Demo bleibt die echte Auskunft erhalten', async (t) => {
+  // Sonst waere die Info-Ansicht im Normalbetrieb wertlos — dort will man
+  // ja gerade wissen, unter welcher Adresse das Geraet erreichbar ist.
+  const { base } = await aufbau(t);
+  const cfg = (await (await fetch(`${base}/getConfig`)).json()) as Record<
+    string,
+    string
+  >;
+  assert.equal(cfg['hostname'], hostname());
 });
