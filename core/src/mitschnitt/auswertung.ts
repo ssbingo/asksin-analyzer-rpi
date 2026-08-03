@@ -51,6 +51,14 @@ export interface Auswertung {
   quelle: string;
   geraet: string | null;
   baud: number | null;
+  /**
+   * Demo-Mitschnitt? `null` bei aelteren Dateien ohne die Kopfzeile.
+   *
+   * `null` ist NICHT dasselbe wie `false`: Eine Datei ohne Angabe kann aus
+   * beidem stammen. Sie deshalb als echt zu behandeln waere die gefaehrliche
+   * Richtung — dann verglichen wir stillschweigend Simulation mit Wirklichkeit.
+   */
+  demo: boolean | null;
   von: number;
   bis: number;
   dauerMs: number;
@@ -100,6 +108,7 @@ interface Kopf {
   format: number;
   geraet: string | null;
   baud: number | null;
+  demo: boolean | null;
 }
 
 /** Wertet den Textinhalt eines Mitschnitts aus. */
@@ -111,7 +120,7 @@ export function werteAus(
   const luckeAb = options.luckeAbMs ?? RAUSCH_TAKT_MS * 3;
   const maxLuecken = options.maxLuecken ?? 20;
 
-  const kopf: Kopf = { format: 0, geraet: null, baud: null };
+  const kopf: Kopf = { format: 0, geraet: null, baud: null, demo: null };
   let zeilen = 0;
   let unlesbar = 0;
   let telegramme = 0;
@@ -195,6 +204,7 @@ export function werteAus(
     quelle,
     geraet: kopf.geraet,
     baud: kopf.baud,
+    demo: kopf.demo,
     von: zeilen > 0 ? von : 0,
     bis: zeilen > 0 ? bis : 0,
     dauerMs,
@@ -220,9 +230,16 @@ function liesKopf(zeile: string, kopf: Kopf): void {
   const teile = zeile.slice(1).trim().split(/\s+/);
   if (teile[0] === 'asksin-mitschnitt' && teile[1] !== undefined) {
     kopf.format = Number(teile[1]) || 0;
+  } else if (teile[0] === 'demo') {
+    kopf.demo = teile[1] === 'ja';
   } else if (teile[0] === 'geraet') {
-    kopf.geraet = teile[1] ?? null;
+    // Alles zwischen 'geraet' und 'baud' ist der Name — er darf Leerzeichen
+    // enthalten. "DEMO (simuliert)" wurde sonst zu "DEMO", und genau die
+    // Klammer ist der Teil mit der Warnung darin.
     const b = teile.indexOf('baud');
+    const ende = b > 0 ? b : teile.length;
+    const name = teile.slice(1, ende).join(' ');
+    kopf.geraet = name === '' ? null : name;
     if (b >= 0 && teile[b + 1] !== undefined) kopf.baud = Number(teile[b + 1]);
   }
 }

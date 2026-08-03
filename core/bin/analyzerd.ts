@@ -316,12 +316,20 @@ if (konfig.mitschnitt?.aktiv === true) {
   try {
     mitschnitt = new MitschnittSchreiber({
       pfad: ziel,
-      geraet: konfig.device,
+      geraet: demoAktiv ? 'DEMO (simuliert)' : konfig.device,
       baud: konfig.baud,
+      demo: demoAktiv,
       maxBytes: (konfig.mitschnitt.maxMiB ?? 256) * 1024 * 1024,
       onFehler: (f) => log(`Mitschnitt: ${String(f)}`),
     });
     log(`Mitschnitt aktiv → ${ziel}`);
+    if (demoAktiv) {
+      // Deutlich, und zwar hier: Wer im Demobetrieb mitschneidet, meint
+      // meistens eine Grundlinie — und die waere wertlos. Lieber einmal zu
+      // viel gewarnt als eine falsche Messung als Beleg im Repo.
+      log('ACHTUNG: DEMO-MODUS — dieser Mitschnitt enthaelt SIMULIERTE Daten');
+      log('Als Grundlinie fuer einen Firmware-Vergleich ist er NICHT geeignet.');
+    }
     log('Auswerten: node core/bin/mitschnitt.ts auswerten ' + ziel);
   } catch (fehler) {
     log(`Mitschnitt konnte nicht starten: ${String(fehler)} — Analyzer läuft weiter`);

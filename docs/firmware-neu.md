@@ -397,9 +397,35 @@ der neuen Firmware, sondern womöglich nur ein Rollladen mehr.
 *Abnahme: Die selbst gebaute HEX-Datei verhält sich wie die mitgelieferte.*
 **Erfüllt** — sie ist bit-identisch, also verhält sie sich zwangsläufig gleich.
 
-**Vor dem Eintreffen der Platine** ist damit nur noch eines zu tun: eine
-Stunde Grundlinie am laufenden Gerät aufzeichnen und wegsichern. Ohne dieses
-Vorher gibt es später kein Nachher.
+**Die Grundlinie selbst steht noch aus — und kann es auch.** Der jetzige
+Analyzer läuft im Demo-Modus, weil es noch keine funktionierende Platine gibt.
+Eine Aufzeichnung daraus wäre als Grundlinie nicht bloß nutzlos, sondern
+irreführend: Die Simulation hält einen künstlich sauberen Takt, kennt keine
+Übertragungsfehler und keine Aussetzer. Gegen eine spätere Messung an echter
+Hardware gehalten, ergäbe sie eine Verbesserung, die allein der Simulation
+gehört — in genau den drei Größen, auf die es ankommt.
+
+Damit das nicht aus Versehen geschieht, trägt jeder Mitschnitt seine Herkunft
+in der Datei (`# demo ja|nein`). Die Auswertung stellt einen Kasten darüber,
+und der Vergleich zweier Mitschnitten unterschiedlicher Herkunft wird
+**abgelehnt statt gerechnet**. Fehlt die Angabe — bei Dateien aus der Zeit vor
+dieser Kennzeichnung —, gilt die Herkunft als *unbekannt* und nicht als
+*echt*; die vorsichtige Richtung.
+
+**Reihenfolge, sobald die Platine da ist:**
+
+1. Platine anschließen, Demo-Modus aus, Analyzer läuft an echter Hardware
+2. Eine Stunde Grundlinie aufzeichnen — **mit der mitgelieferten Firmware**,
+   also dem unveränderten Original. Diese Datei ist unwiederbringlich: Sie
+   lässt sich nach dem Flashen nicht nachholen.
+3. Erst dann die neue Firmware aufspielen
+4. Eine Stunde unter möglichst ähnlichen Bedingungen erneut aufzeichnen
+5. `mitschnitt.ts vergleichen vorher.txt nachher.txt`
+
+Eine **Probeaufzeichnung im Demobetrieb** ist davon unbenommen sinnvoll: Sie
+belegt, dass der Weg trägt — Konfigurationsschalter, Neustart, Datei am
+erwarteten Ort, Auswertung läuft durch. Das will man wissen, bevor die Platine
+da ist, nicht danach.
 
 ### Phase F2 — Prüfbares Protokoll (3–4 Tage)
 

@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.12.2</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.13.0</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.12.2 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.13.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -1484,6 +1484,27 @@ und häufig genug, dass sie in einer Stunde mehrfach auftreten.</p>
 Ein Mitschnitt, den man nur mit dem passenden Werkzeug lesen kann, ist in fünf
 Jahren nichts mehr wert.</p>
 
+<div class="box achtung">
+<span class="titel">Nicht im Demo-Modus aufzeichnen</span>
+<p>Solange der Analyzer
+simulierte Daten erzeugt — weil noch keine Platine da ist oder der Schalter
+<em>Demo</em> gesetzt ist —, taugt der Mitschnitt nicht als Grundlinie. Die
+Simulation hält einen künstlich sauberen Takt, kennt keine
+Übertragungsfehler und keine Aussetzer. Gegen eine spätere Messung an echter
+Hardware gehalten, würde sie eine Verbesserung ausweisen, die es nie gab — und
+zwar in genau den drei Größen, auf die es ankommt.</p>
+
+<p>Das kann nicht aus Versehen passieren: Die Herkunft steht in der Datei
+(<code>#&nbsp;demo&nbsp;ja</code>), die Auswertung schreibt es in einem Kasten
+darüber, und der Vergleich zweier Mitschnitte unterschiedlicher Herkunft wird
+abgelehnt statt gerechnet.</p>
+
+<p>Eine <strong>Probeaufzeichnung</strong> im Demobetrieb ist trotzdem
+sinnvoll: Sie zeigt, dass der Weg funktioniert — Konfiguration, Neustart,
+Datei am erwarteten Ort. Das will man wissen, bevor die Platine kommt, und
+nicht danach.</p>
+</div>
+
 <h3>Aufzeichnen — der empfohlene Weg</h3>
 
 <p>In der Konfigurationsdatei <code>/etc/asksin-analyzer/config.json</code>:</p>
@@ -1501,8 +1522,9 @@ sonst. Die Datei landet neben der Datenbank unter
 Aufzeichnung kostet Schreibvorgänge auf dem Bootmedium; für eine Grundlinie
 genügt eine Stunde, dauerhaft braucht sie niemand.</p>
 
-<div class="hinweis">
-<p><strong>Warum nicht dauerhaft?</strong> Rund 90 Zeilen je Minute ergeben
+<div class="box hinweis">
+<span class="titel">Warum nicht dauerhaft?</span>
+<p style="margin-bottom: 0">Rund 90 Zeilen je Minute ergeben
 etwa 4 MB am Tag. Das ist wenig, aber es sind Schreibvorgänge, und bei einem
 Gerät, das jahrelang unbeaufsichtigt durchläuft, will man die nicht ohne
 Anlass. Die Größe ist außerdem gedeckelt (256 MB); danach hört die Datei auf
@@ -2993,7 +3015,7 @@ NVMe-Platine und umgeht USB als Speicherweg vollständig.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.12.2 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.13.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

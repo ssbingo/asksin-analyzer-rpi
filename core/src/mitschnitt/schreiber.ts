@@ -20,12 +20,18 @@
  *     # asksin-mitschnitt 1
  *     # begonnen 2026-08-03T09:12:00.000Z
  *     # geraet /dev/ttyAMA0 baud 58824
+ *     # demo nein
  *     1754212320123\t:5A;
  *     1754212320873\t:5A;
  *
  * Zeitstempel in Millisekunden seit Epoch, Tabulator, Rohzeile. Kein JSON,
  * kein Binärformat: Ein Mitschnitt, den man nur mit dem eigenen Werkzeug lesen
  * kann, ist in fünf Jahren wertlos.
+ *
+ * Kopfzeilen beginnen mit `#`; unbekannte werden überlesen. Deshalb bleibt die
+ * Formatnummer bei 1, obwohl `# demo` später dazugekommen ist: Alte Dateien
+ * lassen sich weiter auswerten, neue auch mit älteren Werkzeugen lesen. Fehlt
+ * die Zeile, gilt die Herkunft als **unbekannt** — nicht als „echt".
  *
  * Warum gepuffert
  * ---------------
@@ -49,6 +55,19 @@ export interface MitschnittOptions {
   /** Kopfzeilen-Angaben, rein dokumentarisch. */
   geraet?: string;
   baud?: number;
+  /**
+   * Stammen die Daten aus dem Demo-Modus?
+   *
+   * Das ist die wichtigste Angabe im Kopf. Ein Mitschnitt aus dem Demobetrieb
+   * sieht aus wie ein echter, ist als Grundlinie aber wertlos: Der simulierte
+   * Takt ist kuenstlich sauber, es gibt keine Uebertragungsfehler und keine
+   * Aussetzer. Wer ihn spaeter gegen eine Messung an echter Hardware haelt,
+   * bekommt eine Verbesserung bescheinigt, die es nie gab — und zwar in genau
+   * den drei Groessen, auf die es ankommt.
+   *
+   * Deshalb steht es in der Datei und nicht nur im Dateinamen.
+   */
+  demo?: boolean;
   /** Wie viele Zeilen gesammelt werden, bevor geschrieben wird. Vorgabe 200. */
   bündelGroesse?: number;
   /** Spätestens nach so vielen ms wird geschrieben. Vorgabe 5 s. */
@@ -133,6 +152,7 @@ export class MitschnittSchreiber {
         `# asksin-mitschnitt ${MITSCHNITT_FORMAT}`,
         `# begonnen ${new Date(this.#seit).toISOString()}`,
         `# geraet ${options.geraet ?? 'unbekannt'} baud ${options.baud ?? 0}`,
+        `# demo ${options.demo === true ? 'ja' : 'nein'}`,
         '',
       ].join('\n');
       this.#schreibeDirekt(kopf);

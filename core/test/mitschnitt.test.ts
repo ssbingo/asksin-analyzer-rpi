@@ -43,8 +43,9 @@ describe('MitschnittSchreiber', () => {
     assert.equal(zeilen[0], `# asksin-mitschnitt ${MITSCHNITT_FORMAT}`);
     assert.match(zeilen[1] as string, /^# begonnen \d{4}-/);
     assert.equal(zeilen[2], '# geraet /dev/ttyAMA0 baud 58824');
-    assert.equal(zeilen[3], '1100\t:5A;');
-    assert.equal(zeilen[4], '1850\t:5B;');
+    assert.equal(zeilen[3], '# demo nein');
+    assert.equal(zeilen[4], '1100\t:5A;');
+    assert.equal(zeilen[5], '1850\t:5B;');
     assert.equal(s.stats().geschrieben, 2);
   });
 
@@ -293,6 +294,46 @@ describe('Auswertung', () => {
     assert.equal(a.dauerMs, 0);
     assert.equal(a.rauschTakt, null);
     assert.equal(a.zeilenProMinute, 0);
+  });
+});
+
+describe('Herkunft der Daten', () => {
+  it('schreibt die Demo-Kennzeichnung in den Kopf', () => {
+    const p = pfad();
+    const s = new MitschnittSchreiber({ pfad: p, demo: true, jetzt: () => 0 });
+    s.zeile(':5A;', 1);
+    s.stop();
+    assert.ok(readFileSync(p, 'utf8').includes('# demo ja'));
+    assert.equal(werteAus(readFileSync(p, 'utf8'), p).demo, true);
+  });
+
+  it('unterscheidet "nein" von "keine Angabe"', () => {
+    // Der gefaehrliche Fall ist die alte Datei ohne Kopfzeile. Sie als echt zu
+    // behandeln hiesse, Simulation und Wirklichkeit stillschweigend zu mischen.
+    assert.equal(werteAus('# asksin-mitschnitt 1\n# demo nein\n1\t:5A;\n').demo, false);
+    assert.equal(werteAus('# asksin-mitschnitt 1\n1\t:5A;\n').demo, null);
+    assert.equal(werteAus('# asksin-mitschnitt 1\n# demo ja\n1\t:5A;\n').demo, true);
+  });
+
+  it('behaelt Leerzeichen im Geraetenamen', () => {
+    // "DEMO (simuliert)" wurde zu "DEMO" — und die Klammer war genau der
+    // Teil, der die Warnung transportiert.
+    const a = werteAus(
+      '# asksin-mitschnitt 1\n# geraet DEMO (simuliert) baud 58824\n1\t:5A;\n',
+    );
+    assert.equal(a.geraet, 'DEMO (simuliert)');
+    assert.equal(a.baud, 58824);
+  });
+
+  it('ueberliest unbekannte Kopfzeilen, statt sie als Daten zu zaehlen', () => {
+    // Damit bleiben Dateien aus kuenftigen Fassungen lesbar — und aeltere
+    // Werkzeuge stolpern nicht ueber Zeilen, die es frueher nicht gab.
+    const a = werteAus(
+      '# asksin-mitschnitt 1\n# irgendwas Neues\n# demo nein\n1000\t:5A;\n',
+    );
+    assert.equal(a.zeilen, 1);
+    assert.equal(a.unlesbar, 0);
+    assert.equal(a.demo, false);
   });
 });
 

@@ -81,6 +81,24 @@ function zeigeAuswertung(a: Auswertung): void {
     stdout.write(`${z.join('\n')}\n`);
     return;
   }
+  if (a.demo === true) {
+    z.push('');
+    z.push('  ###############################################################');
+    z.push('  #  SIMULIERTE DATEN — als Grundlinie NICHT verwendbar          #');
+    z.push('  #                                                             #');
+    z.push('  #  Dieser Mitschnitt entstand im Demo-Modus. Der Takt ist      #');
+    z.push('  #  kuenstlich sauber, es gibt keine Uebertragungsfehler und    #');
+    z.push('  #  keine Aussetzer. Gegen eine echte Messung gehalten ergaebe  #');
+    z.push('  #  er eine Verbesserung, die es nie gab.                       #');
+    z.push('  ###############################################################');
+    z.push('');
+  } else if (a.demo === null) {
+    z.push('');
+    z.push('  Hinweis: Die Datei sagt nicht, woher sie stammt (aeltere');
+    z.push('  Fassung ohne "# demo"-Zeile). Vor einem Vergleich klaeren,');
+    z.push('  ob sie an echter Hardware entstanden ist.');
+    z.push('');
+  }
   z.push(`Gerät:      ${a.geraet ?? 'unbekannt'}${a.baud ? `, ${a.baud} Baud` : ''}`);
   z.push(`Zeitraum:   ${new Date(a.von).toISOString()} … ${new Date(a.bis).toISOString()}`);
   z.push(`Dauer:      ${ms(a.dauerMs)}`);
@@ -149,6 +167,35 @@ function zeigeAuswertung(a: Auswertung): void {
 }
 
 function zeigeVergleich(vorher: Auswertung, nachher: Auswertung): void {
+  // Vor allem anderen: Passen die beiden ueberhaupt zusammen? Simulation
+  // gegen Wirklichkeit zu halten ergibt Zahlen, die aussehen wie ein Ergebnis
+  // und keines sind. Das faellt beim Lesen der Tabelle nicht auf — deshalb
+  // hier, vor der Tabelle, und mit Abbruch.
+  if (vorher.demo !== nachher.demo) {
+    const benenne = (a: Auswertung): string =>
+      a.demo === true ? 'Demo (simuliert)'
+      : a.demo === false ? 'echte Hardware'
+      : 'unbekannte Herkunft';
+    stdout.write(
+      `Diese beiden Mitschnitte sind nicht vergleichbar.\n\n` +
+        `  vorher:  ${benenne(vorher)}  (${vorher.quelle})\n` +
+        `  nachher: ${benenne(nachher)}  (${nachher.quelle})\n\n` +
+        'Im Demo-Modus ist der Takt kuenstlich sauber, es gibt keine\n' +
+        'Uebertragungsfehler und keine Aussetzer. Ein solcher Vergleich\n' +
+        'wuerde eine Verbesserung ausweisen, die allein der Simulation\n' +
+        'gehoert — in genau den drei Groessen, auf die es ankommt.\n\n' +
+        'Beide Mitschnitte muessen an derselben Art Gegenstelle entstehen.\n',
+    );
+    exit(2);
+  }
+  if (vorher.demo === true) {
+    stdout.write(
+      'Beide Mitschnitte stammen aus dem Demo-Modus. Der Vergleich zeigt\n' +
+        'also, wie sich die SIMULATION verhaelt — als Beleg fuer eine\n' +
+        'Firmware-Aenderung taugt er nicht.\n\n',
+    );
+  }
+
   const zeilen = vergleiche(vorher, nachher);
   const b1 = Math.max(30, ...zeilen.map((z) => z.groesse.length));
   const b2 = Math.max(8, ...zeilen.map((z) => z.vorher.length));
