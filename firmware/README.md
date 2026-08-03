@@ -72,11 +72,42 @@ Kompiliert aus dem **unveränderten** Sketch `AskSinSniffer328P`. Am Sketch
 selbst hat sich im Quellprojekt seit dem 04.10.2021 nichts geändert
 (Commit `faa4c3e`).
 
+### Nachbauen — ein Aufruf
+
+```bash
+bash firmware/nachbauen.sh
+```
+
+Das Skript holt `arduino-cli`, Board-Paket und Bibliotheken in **genau** den
+Fassungen unten, übersetzt den Quelltext und vergleicht das Ergebnis mit der
+Prüfsumme der mitgelieferten Datei. Beim ersten Mal lädt es rund 200 MB;
+danach dauert ein Durchlauf Sekunden.
+
+**Nachgewiesen am 03.08.2026:** Arduino IDE 2.3.10 unter Windows und
+`arduino-cli` 1.5.1 unter Linux ergeben dieselbe Datei — Byte für Byte,
+gleiche SHA-256. Der Bau hängt also nicht am Betriebssystem, sondern
+ausschließlich an den Fassungen und Schaltern unten.
+
+Damit muss niemand der mitgelieferten Binärdatei glauben. Wer wissen will, was
+darin steckt, baut sie nach und vergleicht. Das ist bei Software, die
+jahrelang unbeaufsichtigt auf fremden Geräten läuft, der Unterschied zwischen
+Vertrauen und Nachprüfen.
+
+Der Quelltext gehört nicht uns und liegt deshalb nicht im Repo. Falls
+`reference/` fehlt:
+
+```bash
+git clone --depth 1 https://github.com/jp112sdl/AskSinAnalyzer \
+    reference/AskSinAnalyzer
+```
+
 ### Die Bauumgebung — vollständig
 
 Ohne diese Angaben ist die Datei nicht nachbaubar. Das ist keine
 Förmlichkeit: Drei plausible Umgebungen ergaben drei verschiedene
-Binärdateien, die 500 bis 800 Byte auseinanderlagen.
+Binärdateien, die 500 bis 800 Byte auseinanderlagen. Wie eng das zugeht, zeigt
+eine Gegenprobe: **AskSinPP 5.0.2 statt 5.0.3** ergibt 6 886 statt 6 922 Byte
+— eine Nebenversion Unterschied, und die Datei ist eine andere.
 
 | | |
 | --- | --- |
@@ -91,9 +122,15 @@ Binärdateien, die 500 bis 800 Byte auseinanderlagen.
 | EEPROM | retained |
 
 **`Compiler LTO` ist die Einstellung, die am leichtesten übersehen wird** —
-sie stand bis zum 03.08.2026 in keiner unserer Anleitungen. Sie macht das
-Programm rund 500 Byte kleiner; mit *disabled* entsteht eine andere Datei.
-Beide laufen, aber nur eine ist die hier beiliegende.
+sie stand bis zum 03.08.2026 in keiner unserer Anleitungen. Gemessen:
+
+| | Programmgröße |
+| --- | --- |
+| LTO enabled | **6 922 Byte** ← die mitgelieferte Datei |
+| LTO disabled | 7 750 Byte |
+
+828 Byte Unterschied bei identischem Quelltext. Beide Fassungen laufen, aber
+nur eine ist die hier beiliegende — und vergleichen lassen sie sich nicht.
 
 **PlatformIO ist für den Nachbau ungeeignet.** Es bringt eine eigene
 Werkzeugkette mit und reicht die LTO-Schalter nicht durch; die Ergebnisse

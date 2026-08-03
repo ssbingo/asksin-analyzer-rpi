@@ -253,6 +253,12 @@ Der Bau wurde sofort ausprobiert, bevor irgendetwas geändert wird. Ergebnis:
 nicht reproduzieren.** Sie ist 500 bis 800 Byte kleiner als jeder Bau, der
 nach Handbuch 7.4 entsteht.
 
+> **Nachtrag, wenige Stunden später:** erledigt. Es fehlte die Menüzeile
+> *Compiler LTO* in der Anleitung — mit ihr stimmt die Datei bis aufs Byte.
+> Der Ablauf steht in 6b; wer nur das Ergebnis braucht, springt dorthin. Der
+> folgende Abschnitt bleibt stehen, weil die Beobachtung richtig war und der
+> Weg dahin zeigt, wie leicht so etwas unbemerkt bleibt.
+
 Das ist kein Fehler an der Datei — sie ist geprüft und funktioniert. Aber es
 heißt: **Binärdatei und Bauanleitung gehören derzeit nicht zusammen.** Wer der
 Anleitung folgt, bekommt etwas anderes als das, was beiliegt.
@@ -318,6 +324,35 @@ Alle fünf maschinellen Prüfungen des Projekts laufen jetzt über einen Aufruf:
 ```bash
 bash tools/pruefe-alles.sh
 ```
+
+### 6b. Der Nachbau gelingt — bit-identisch
+
+Mit den geklärten Fassungen ist der Befund vom Vortag erledigt.
+`firmware/nachbauen.sh` holt `arduino-cli` 1.5.1, MiniCore 3.1.2 und
+AskSinPP 5.0.3, übersetzt mit LTO und vergleicht:
+
+| | |
+| --- | --- |
+| Gebaut (Linux, arduino-cli) | 6 922 Byte, `064de4ad…0848c8` |
+| Mitgeliefert (Windows, Arduino IDE) | 6 922 Byte, `064de4ad…0848c8` |
+| | **identisch** |
+
+Zwei Betriebssysteme, zwei Oberflächen, dieselbe Datei. Der Bau ist damit
+**reproduzierbar** — das war die Voraussetzung für alles Weitere, denn ohne
+sie ließe sich später nicht belegen, dass eine Änderung an der Firmware
+wirklich die Wirkung hatte, die wir ihr zuschreiben.
+
+Zwei Gegenproben belegen, dass das Skript auch wirklich prüft und nicht nur
+zustimmt:
+
+* Erwartete Prüfsumme verfälscht → erkannt, Abbruch mit Erklärung.
+* AskSinPP auf 5.0.2 heruntergesetzt → 6 886 Byte, andere Prüfsumme, erkannt.
+  Danach stellt das Skript die festgelegte Fassung selbst wieder her.
+
+Die zweite Probe ist der eigentliche Beleg: **eine Nebenversion einer
+Bibliothek genügt für eine andere Binärdatei.** Genau deshalb steht jede
+Fassung ausgeschrieben im Skript und nicht nur in einer Beschreibung, die beim
+Abschreiben schrumpft.
 
 ## 7. Projektplan (Weg A + ausgewählte Teile)
 

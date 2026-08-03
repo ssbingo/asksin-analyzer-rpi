@@ -1364,8 +1364,17 @@ Board-Einstellungen, ergaben 7 416, 7 490 und 7 734 Byte — die mitgelieferte
 Datei hat 6 922. Der Unterschied war am Ende <strong>eine einzige
 Menüzeile</strong>, nämlich <em>Compiler LTO</em>. Steht sie auf
 <em>enabled</em>, fasst der Übersetzer beim letzten Arbeitsschritt das ganze
-Programm zusammen und wirft heraus, was nie erreicht wird; rund 500 Byte
-weniger sind dafür ein üblicher Betrag.</p>
+Programm zusammen und wirft heraus, was nie erreicht wird:</p>
+
+<div class="tabelle">
+<table>
+<tr><th>Einstellung</th><th>Programmgröße</th></tr>
+<tr><td>LTO enabled</td><td><strong>6 922 Byte</strong> — die mitgelieferte Datei</td></tr>
+<tr><td>LTO disabled</td><td>7 750 Byte</td></tr>
+</table>
+</div>
+
+<p>828 Byte Unterschied bei Zeichen für Zeichen demselben Quelltext.</p>
 
 <p>Wer die mitgelieferte Datei <em>genau</em> nachbauen will, braucht deshalb
 diese Fassungen:</p>
@@ -1380,11 +1389,35 @@ diese Fassungen:</p>
 </table>
 </div>
 
+<p>Wie eng das zugeht, zeigt eine Gegenprobe: Schon <em>AskSinPP 5.0.2</em>
+statt 5.0.3 — eine Nebenversion — ergibt 6 886 statt 6 922 Byte.</p>
+
 <p>Für den täglichen Gebrauch spielt das keine Rolle: Eine selbst kompilierte
 Datei mit den Einstellungen aus Kapitel 7.4 läuft einwandfrei, auch wenn ihre
 Größe abweicht. Wichtig wird die Übereinstimmung erst, wenn man zwei Fassungen
 <em>vergleichen</em> möchte — etwa um zu belegen, dass eine Änderung wirklich
 etwas bewirkt hat.</p>
+
+<h3>Nachprüfen, statt zu glauben</h3>
+
+<p>Die mitgelieferte Datei ist Maschinencode — ansehen kann man ihr nichts.
+Wer nicht darauf vertrauen möchte, dass sie aus genau dem angegebenen
+Quelltext entstanden ist, baut sie nach:</p>
+
+<pre>bash firmware/nachbauen.sh</pre>
+
+<p>Das Skript holt <code>arduino-cli</code>, Board-Paket und Bibliotheken in
+den Fassungen aus der Tabelle oben, übersetzt und vergleicht die Prüfsumme mit
+der mitgelieferten Datei. Beim ersten Mal lädt es rund 200 MB herunter, danach
+dauert ein Durchlauf Sekunden. Stimmt am Ende alles überein, meldet es
+<em>Nachgebaut und identisch</em> — und dann ist bewiesen, was in der Datei
+steckt.</p>
+
+<p>Das ist keine graue Theorie: Am 03.08.2026 haben wir es gegengeprüft. Die
+Datei, die unter Windows mit der Arduino IDE 2.3.10 entstanden ist, und die,
+die unter Linux mit <code>arduino-cli</code> gebaut wurde, sind Byte für Byte
+dieselbe. Der Bau hängt also nicht am Betriebssystem, sondern nur an den
+Fassungen und Schaltern.</p>
 
 <h3>Alternative: die Kommandozeile</h3>
 

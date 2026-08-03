@@ -38,8 +38,8 @@ lauf() {  # lauf <Beschreibung> <Befehl...>
 optional() {  # optional <Beschreibung> <Bedingung> <Befehl...>
     local titel="$1" pruefung="$2"; shift 2
     if ! eval "$pruefung" >/dev/null 2>&1; then
-        uebersprungen+=("$titel")
-        printf '\n%s== %s ==%s\n  übersprungen (nicht installiert)\n' \
+        uebersprungen+=("$titel — PDF bauen mit: bash docs/handbuch/build.sh")
+        printf '\n%s== %s ==%s\n  übersprungen (PDF oder pdftotext fehlt)\n' \
             "$blau" "$titel" "$aus"
         return 0
     fi
@@ -64,12 +64,24 @@ optional "Handbuch: Fußsteg verdeckt keinen Text" \
 lauf "Handbuch: Nummerierung und Sprungmarken" \
     python3 docs/handbuch/pruefe_nummerierung.py
 
+# Der Nachbau der Firmware braucht Netz und beim ersten Mal rund 200 MB.
+# Deshalb läuft er nur auf Verlangen — eine Prüfung, die jeden Durchlauf
+# minutenlang aufhält, wird sonst bald mit --skip umgangen, und dann ist sie
+# weg. Vor jedem Release gehört sie aber gelaufen:
+#   ASKSIN_NACHBAU=1 bash tools/pruefe-alles.sh
+if [ "${ASKSIN_NACHBAU:-0}" = "1" ]; then
+    lauf "Firmware: Nachbau stimmt mit der Auslieferung überein" \
+        bash firmware/nachbauen.sh
+else
+    uebersprungen+=("Firmware-Nachbau (ASKSIN_NACHBAU=1 zum Ausführen)")
+fi
+
 # ---------------------------------------------------------------------------
 printf '\n%s== Ergebnis ==%s\n' "$blau" "$aus"
 
 if [ "${#uebersprungen[@]}" -gt 0 ]; then
-    printf 'Übersprungen: %s\n' "${uebersprungen[*]}"
-    echo "  (Handbuch-PDF fehlt? bash docs/handbuch/build.sh)"
+    echo "Übersprungen:"
+    printf '  - %s\n' "${uebersprungen[@]}"
 fi
 
 if [ "${#durchgefallen[@]}" -gt 0 ]; then
