@@ -70,6 +70,8 @@ export interface Auswertung {
 
   telegramme: number;
   rauschzeilen: number;
+  /** Antwortzeilen der Firmware (`:!…;`) — nur bei der erweiterten Fassung. */
+  antworten: number;
   verworfen: number;
   verworfenNachGrund: Partial<Record<IgnoreReason, number>>;
 
@@ -134,6 +136,7 @@ export function werteAus(
   let zeilen = 0;
   let unlesbar = 0;
   let nahtstellen = 0;
+  let antworten = 0;
   let telegramme = 0;
   let rauschzeilen = 0;
   let verworfen = 0;
@@ -203,6 +206,11 @@ export function werteAus(
         rauschAbstaende.push(ts - letztesRauschen);
       }
       letztesRauschen = ts;
+    } else if (geparst.kind === 'antwort') {
+      // Eine Antwort der Firmware auf einen Befehl. Kein Fehler — im
+      // Gegenteil: Sie belegt, dass die neue Firmware laeuft und mit dem
+      // Analyzer spricht.
+      antworten++;
     } else {
       verworfen++;
       nachGrund[geparst.reason] = (nachGrund[geparst.reason] ?? 0) + 1;
@@ -231,6 +239,7 @@ export function werteAus(
     zeilenProMinute: dauerMs > 0 ? (zeilen / dauerMs) * 60_000 : 0,
     telegramme,
     rauschzeilen,
+    antworten,
     verworfen,
     verworfenNachGrund: nachGrund,
     rauschTakt: verteilung(rauschAbstaende),

@@ -1,6 +1,11 @@
 import { decodeFlags } from './flags.ts';
 import { decodeMsgType, isHmIpType } from './msgTypes.ts';
-import type { IgnoreReason, ParsedLine, Telegram } from './types.ts';
+import type {
+  Firmwareantwort,
+  IgnoreReason,
+  ParsedLine,
+  Telegram,
+} from './types.ts';
 
 /*
  * Zeilenformat (verifiziert, siehe docs/serial-protocol.md):
@@ -47,6 +52,70 @@ const RSSI_MAGNITUDE_MAX = 140;
 
 const HEX_RE = /^[0-9A-Fa-f]*$/;
 
+/**
+ * Anhang der erweiterten Firmware:  ;+NNNNKK
+ *
+ *   NNNN  Folgenummer, 16 Bit
+ *   KK    8-Bit-Summe über alles davor, einschließlich der Folgenummer
+ *
+ * Das `+` ist unverwechselbar — keine Hexziffer, kein `:` oder `;`. Deshalb
+ * lässt sich ohne jede Zweideutigkeit erkennen, wo die eigentliche Zeile
+ * endet, auch wenn man den Anhang gar nicht kennt.
+ *
+ * Vollständige Beschreibung: asksin-sniffer-firmware/docs/protokoll.md
+ */
+const ANHANG_RE = /^(.*;)\+([0-9A-Fa-f]{4})([0-9A-Fa-f]{2})$/;
+
+/** Antwort der Firmware auf einen Befehl: `:!…;` */
+const ANTWORT_RE = /^:!([^;]*);$/;
+
+/**
+ * 8-Bit-Summe, wie die Firmware sie bildet.
+ *
+ * Muss zeichenweise mit `protokoll.cpp` übereinstimmen — beide Seiten sind
+ * durch `docs/protokoll.md` gebunden. Weicht eine ab, verwirft der Analyzer
+ * jede Zeile, und zwar mit dem Grund 'checksum'; das ist immerhin ein
+ * sprechendes Fehlerbild.
+ */
+export function pruefsumme(text: string): number {
+  let summe = 0;
+  for (let i = 0; i < text.length; i++) {
+    summe = (summe + (text.charCodeAt(i) & 0xff)) & 0xff;
+  }
+  return summe;
+}
+
+/**
+ * Deutet eine Antwortzeile der Firmware.
+ *
+ * Gibt `null` zurück, wenn die Zeile keine Antwort ist — der Aufrufer parst
+ * sie dann normal weiter.
+ */
+export function parseAntwort(raw: string): Firmwareantwort | null {
+  const treffer = ANTWORT_RE.exec(raw.trim());
+  if (treffer === null) return null;
+  const felder = (treffer[1] ?? '').split(',');
+
+  if (felder[0] === 'AS' && felder.length >= 5) {
+    const zahl = (i: number): number => Number.parseInt(felder[i] ?? '', 10);
+    const chip = felder[4] ?? '';
+    return {
+      art: 'version',
+      protokoll: zahl(1),
+      firmware: zahl(2),
+      taktMHz: zahl(3),
+      // '--' heißt: Das Funkmodul antwortet nicht. Bewusst null und nicht 0 —
+      // 0 wäre ein Messwert, null ist „keine Antwort".
+      cc1101: /^[0-9A-Fa-f]{2}$/.test(chip) ? Number.parseInt(chip, 16) : null,
+    };
+  }
+  if (felder[0] === 'E' && felder.length >= 2) {
+    return { art: 'erweitert', an: felder[1] === '1' };
+  }
+  if (felder[0] === '?') return { art: 'unbekannter-befehl' };
+  return null;
+}
+
 function ignored(reason: IgnoreReason, raw: string): ParsedLine {
   return { kind: 'ignored', reason, raw };
 }
@@ -70,9 +139,33 @@ export function parseLine(raw: string, now: () => number = Date.now): ParsedLine
   const line = raw.trim();
 
   if (line.length === 0) return ignored('empty', raw);
-  if (!line.startsWith(':') || !line.endsWith(';')) return ignored('no-frame', raw);
 
-  const body = line.slice(1, -1);
+  // Antworten der Firmware zuerst: Sie sind gerahmt, aber kein Hex, und
+  // liefen sonst als 'not-hex' durch — also als Fehler, obwohl sie genau das
+  // sind, wonach gefragt wurde.
+  const antwort = parseAntwort(line);
+  if (antwort !== null) return { kind: 'antwort', antwort, raw: line };
+
+  // Anhang abtrennen und prüfen, BEVOR der Rahmen gedeutet wird. Eine
+  // verfälschte Zeile soll nicht erst als Telegramm durchgehen und dann
+  // nachträglich verworfen werden — sie könnte sonst gezählt sein.
+  let folge: number | undefined;
+  let rumpfzeile = line;
+  const anhang = ANHANG_RE.exec(line);
+  if (anhang !== null) {
+    const rahmen = anhang[1] as string;
+    const nummer = anhang[2] as string;
+    const summe = Number.parseInt(anhang[3] as string, 16);
+    if (pruefsumme(rahmen + nummer) !== summe) return ignored('checksum', raw);
+    folge = Number.parseInt(nummer, 16);
+    rumpfzeile = rahmen;
+  }
+
+  if (!rumpfzeile.startsWith(':') || !rumpfzeile.endsWith(';')) {
+    return ignored('no-frame', raw);
+  }
+
+  const body = rumpfzeile.slice(1, -1);
   if (!HEX_RE.test(body)) return ignored('not-hex', raw);
   if (body.length % 2 !== 0) return ignored('odd-length', raw);
   if (body.length < 2) return ignored('too-short', raw);
@@ -85,7 +178,9 @@ export function parseLine(raw: string, now: () => number = Date.now): ParsedLine
 
   // Rauschzeile: exakt ein Byte im Rahmen, entspricht `line.length === 4`.
   if (body.length === 2) {
-    return { kind: 'noise', noise: { ts: now(), rssi } };
+    return folge === undefined
+      ? { kind: 'noise', noise: { ts: now(), rssi } }
+      : { kind: 'noise', noise: { ts: now(), rssi }, folge };
   }
 
   if (body.length < HEADER_HEX_LEN) return ignored('too-short', raw);
@@ -119,8 +214,13 @@ export function parseLine(raw: string, now: () => number = Date.now): ParsedLine
     fromAddr: parseInt(from, 16),
     toAddr: parseInt(to, 16),
     payloadHex: body.slice(OFF_PAYLOAD).toUpperCase(),
-    raw: line,
+    // Die Rohzeile OHNE Anhang: Sie geht in die Datenbank und in den
+    // Wiedergabe-Modus, und dort soll das Format stabil bleiben, egal ob die
+    // Firmware gerade erweitert läuft.
+    raw: rumpfzeile,
   };
 
-  return { kind: 'telegram', telegram };
+  return folge === undefined
+    ? { kind: 'telegram', telegram }
+    : { kind: 'telegram', telegram, folge };
 }

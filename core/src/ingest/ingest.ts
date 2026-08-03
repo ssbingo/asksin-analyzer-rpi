@@ -28,7 +28,9 @@
 
 import { parseLine } from '../decode/parseLine.ts';
 import { emptyIgnoreCounters } from '../decode/types.ts';
-import type { IgnoreCounters, ParsedLine } from '../decode/types.ts';
+import type { Firmwareantwort, IgnoreCounters, ParsedLine } from '../decode/types.ts';
+import { Folgezaehler } from './folge.ts';
+import type { Folgestatistik } from './folge.ts';
 import { LineSplitter } from './lineSplitter.ts';
 import { BoundedQueue } from './queue.ts';
 import { ExponentialBackoff, systemTime } from './time.ts';
@@ -38,6 +40,14 @@ import type { TimeSource } from './time.ts';
 export interface IngestStream {
   readable: AsyncIterable<Uint8Array>;
   close(): void | Promise<void>;
+  /**
+   * Auf die Schnittstelle schreiben — für Befehle an die Firmware.
+   *
+   * Optional, weil der Analyzer jahrelang ausschließlich gelesen hat und die
+   * alte Firmware nichts entgegennimmt. Fehlt die Methode, unterbleibt die
+   * Freischaltung und alles läuft wie bisher.
+   */
+  schreibe?(text: string): void | Promise<void>;
 }
 
 export type PortOpener = (signal: AbortSignal) => Promise<IngestStream>;
@@ -76,6 +86,16 @@ export interface SerialIngestOptions {
   time?: TimeSource;
   /** Stille auf der Leitung, ab der die Verbindung als tot gilt. */
   silenceTimeoutMs?: number;
+  /**
+   * Nach dem Verbindungsaufbau die erweiterte Firmware freischalten
+   * (`:?;` und `:E1;`). Vorgabe: an.
+   *
+   * Antwortet nichts, läuft die alte Firmware — dann bleibt alles beim
+   * Alten, ohne Fehlermeldung. Das Ausbleiben der Antwort IST die Auskunft.
+   */
+  erweiterungAnfordern?: boolean;
+  /** Wird gerufen, wenn die Firmware ihre Auskunft gibt. */
+  onFirmware?: (antwort: Firmwareantwort) => void;
   queueCapacity?: number;
   maxLineLength?: number;
   backoff?: { baseMs?: number; capMs?: number; factor?: number };
@@ -91,6 +111,15 @@ export interface IngestStats {
   ignored: IgnoreCounters;
   /** durch Queue-Überlauf verlorene Zeilen (Drop-Oldest) */
   droppedLines: number;
+  /**
+   * Auswertung der Folgenummern — nur mit erweiterter Firmware.
+   * `gesehen === 0` heißt: Die Firmware liefert keine Nummern.
+   */
+  folge: Folgestatistik;
+  /** Läuft die Gegenstelle im erweiterten Betrieb? */
+  erweitert: boolean;
+  /** Letzte Auskunft der Firmware, oder null bei der Originalfassung. */
+  firmware: Firmwareantwort | null;
   overlongLines: number;
   partialLines: number;
   /** Ausnahmen aus dem onLine-Verbraucher (gefangen, gezählt, weiter) */
@@ -120,6 +149,11 @@ export class SerialIngest {
   #consumerErrors = 0;
   #reconnects = 0;
   #lastLineAt: number | null = null;
+  readonly #folge = new Folgezaehler();
+  #erweitert = false;
+  #firmware: Firmwareantwort | null = null;
+  /** Der offene Port der laufenden Sitzung — für Befehle an die Firmware. */
+  #strom: IngestStream | null = null;
 
   constructor(options: SerialIngestOptions) {
     this.#opts = options;
@@ -137,6 +171,9 @@ export class SerialIngest {
       noise: this.#noise,
       ignored: { ...this.#ignored },
       droppedLines: this.#dropped,
+      folge: this.#folge.stats(),
+      erweitert: this.#erweitert,
+      firmware: this.#firmware,
       overlongLines: this.#overlong,
       partialLines: this.#partial,
       consumerErrors: this.#consumerErrors,
@@ -207,6 +244,13 @@ export class SerialIngest {
     stream: IngestStream,
     signal: AbortSignal,
   ): Promise<DisconnectReason> {
+    this.#strom = stream;
+    // Bei jedem Neuaufbau von vorn: Die Firmware faengt nach einem Neustart
+    // wieder bei 0 an, und eine ueber die Trennung hinweg fortgefuehrte
+    // Rechnung ergaebe einen Scheinverlust in Groessenordnung des ganzen
+    // Zahlenraums.
+    this.#folge.zuruecksetzen();
+    this.#erweitert = false;
     const splitter = new LineSplitter(this.#opts.maxLineLength ?? 1024);
     const queue = new BoundedQueue<string>(this.#opts.queueCapacity ?? 10_000);
     const sessionEnde = new AbortController();
@@ -303,19 +347,61 @@ export class SerialIngest {
 
     if (parsed.kind === 'telegram') this.#telegrams++;
     else if (parsed.kind === 'noise') this.#noise++;
-    else this.#ignored[parsed.reason]++;
+    // Antworten der Firmware zählen weder als Nutzdaten noch als Fehler —
+    // sie sind das, wonach gefragt wurde.
+    else if (parsed.kind === 'ignored') this.#ignored[parsed.reason]++;
+
+    if (parsed.kind === 'antwort') {
+      this.#verbucheAntwort(parsed.antwort);
+    } else if (parsed.kind !== 'ignored' && parsed.folge !== undefined) {
+      this.#folge.melde(parsed.folge);
+    }
 
     if (parsed.kind !== 'ignored' && !this.#connected) {
       this.#connected = true;
       this.#connectedSince = this.#time.now();
       this.#backoff.reset();
       this.#opts.onStateChange?.({ connected: true });
+      // Erst jetzt fragen, nicht schon beim Öffnen des Ports: Ein
+      // /dev/ttyAMA0 lässt sich auch dann öffnen, wenn am anderen Ende
+      // nichts lebt. Die erste gültige Zeile ist der Beleg, dass jemand da
+      // ist und zuhören kann.
+      void this.#freischalten();
     }
 
     try {
       await this.#opts.onLine?.(parsed);
     } catch {
       this.#consumerErrors++;
+    }
+  }
+
+  #verbucheAntwort(antwort: Firmwareantwort): void {
+    if (antwort.art === 'version') {
+      this.#firmware = antwort;
+    } else if (antwort.art === 'erweitert') {
+      this.#erweitert = antwort.an;
+    }
+    this.#opts.onFirmware?.(antwort);
+  }
+
+  /**
+   * Fragt die Firmware und schaltet die Erweiterungen frei.
+   *
+   * Schlägt fehl oder bleibt unbeantwortet, passiert nichts weiter — dann
+   * läuft die Originalfassung, und alles bleibt wie seit Jahren. Das
+   * Ausbleiben der Antwort ist selbst die Auskunft und kein Fehler.
+   */
+  async #freischalten(): Promise<void> {
+    if (this.#opts.erweiterungAnfordern === false) return;
+    const strom = this.#strom;
+    if (strom?.schreibe === undefined) return;
+    try {
+      await strom.schreibe(':?;');
+      await strom.schreibe(':E1;');
+    } catch {
+      // Der Empfang ist wichtiger als die Freischaltung. Ein Schreibfehler
+      // darf die Verbindung nicht kosten.
     }
   }
 

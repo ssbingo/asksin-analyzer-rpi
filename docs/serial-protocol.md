@@ -175,3 +175,84 @@ ist auf BidCoS ausgelegt.
    Abweichungen wären nicht vergleichbar.
 5. Ringpuffer fester Kapazität statt der unbegrenzten `counts`-Liste von XS
    (Designdoc, Abschnitt 7 „Speicherbegrenzung").
+
+---
+
+## 10. Erweitertes Protokoll (ab Firmware-Protokoll 1)
+
+Seit dem 03.08.2026 gibt es eine eigene Fassung der Sniffer-Firmware:
+[`asksin-sniffer-firmware`](https://github.com/ssbingo/asksin-sniffer-firmware),
+abgewandelt aus dem Original (CC BY-NC-SA 3.0). Sie beantwortet drei Fragen,
+die das Original offenließ.
+
+Vollständige Beschreibung des Drahtformats:
+`asksin-sniffer-firmware/docs/protokoll.md`. Hier steht nur, was die
+Analyzer-Seite davon wissen muss.
+
+### Der Auslieferungszustand ist unverändert
+
+Nach dem Einschalten verhält sich die neue Firmware **Zeichen für Zeichen wie
+das Original**. Alles Folgende passiert nur, wenn der Analyzer es anfordert.
+
+Das ist keine Zaghaftigkeit, sondern die einzige Wahl, die den Austausch
+gefahrlos macht: Wäre erweitert die Vorgabe, würde ein Analyzer mit älterer
+Software nach dem Aufspielen schlagartig jede Zeile verwerfen — mit dem
+irreführendsten aller Fehlerbilder, „es kommt nichts mehr an", bei tadelloser
+Funkstrecke.
+
+### Ablauf
+
+Nach der ersten gültigen Zeile — nicht schon beim Öffnen des Ports, denn
+`/dev/ttyAMA0` lässt sich auch öffnen, wenn am anderen Ende nichts lebt —
+sendet der Analyzer:
+
+```
+:?;      →  :!AS,1,1,8,14;      Protokoll 1, Firmware 1, 8 MHz, CC1101 0x14
+:E1;     →  :!E,1;              ab jetzt mit Anhang
+```
+
+Bleibt eine Antwort aus, läuft die Originalfassung. Das ist **kein Fehler**,
+sondern selbst die Auskunft; der Analyzer bleibt dann im bisherigen Betrieb.
+
+### Der Anhang
+
+```
+:5A;+0000A3
+    └┬┘└─┬┘└┬┘
+     │   │  └─ Prüfsumme, 8-Bit-Summe über alles davor
+     │   └──── Folgenummer, 16 Bit, läuft bei FFFF über
+     └──────── Beginn des Anhangs
+```
+
+Zwei Dinge sind daran wesentlich:
+
+**Die Prüfsumme deckt die Folgenummer mit ab.** Sonst könnte gerade die Zahl
+kippen, die den Verlust sichtbar machen soll — und niemand merkte es.
+
+**Die Rohzeile in der Datenbank bleibt ohne Anhang.** Sie geht in die
+Wiedergabe, und dort muss das Format stabil bleiben, egal in welchem Betrieb
+die Firmware gerade läuft.
+
+### Was der Analyzer daraus macht
+
+`core/src/ingest/folge.ts` rechnet aus den Sprüngen, wie viele Zeilen fehlen.
+Drei Fälle müssen dabei auseinandergehalten werden:
+
+| Sprung | Deutung |
+| --- | --- |
+| klein vorwärts | **Verlust** — genau so viele Zeilen fehlen |
+| `FFFF` → `0000` | **Überlauf**, alle zwei Wochen, kein Verlust |
+| weit weg | **Neuanfang** — die Firmware hat neu gestartet |
+| ein paar zurück | **Rückwärts** — Doppelung; darf auf einer UART nie vorkommen |
+
+Der dritte Fall ist der wichtigste: Nach einem Firmware-Neustart beginnt die
+Zählung wieder bei 0. Als Verlust gebucht wäre das ein Ausfall von zwei
+Wochen — und ein Alarm, wo nur ein Neustart war.
+
+### Neuer Verwurfsgrund `checksum`
+
+Er unterscheidet sich grundsätzlich von allen anderen: Die übrigen bedeuten
+„das war nie eine Telegrammzeile", dieser bedeutet „das war eine, und
+unterwegs ist etwas kaputtgegangen". Häufen sich Prüfsummenfehler, stimmt
+etwas mit Leitung oder Baudrate nicht — vorher wäre daraus stillschweigend ein
+Telegramm mit falschem Inhalt geworden.

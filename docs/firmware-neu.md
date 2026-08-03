@@ -427,15 +427,47 @@ belegt, dass der Weg trägt — Konfigurationsschalter, Neustart, Datei am
 erwarteten Ort, Auswertung läuft durch. Das will man wissen, bevor die Platine
 da ist, nicht danach.
 
-### Phase F2 — Prüfbares Protokoll (3–4 Tage)
+### Phase F2 — Prüfbares Protokoll
 
-* Verbesserungen 1, 2, 3, 9
-* Analyzer-Seite: Anhang erkennen, Lücken zählen, in der Oberfläche zeigen
-* Versionsabhängigkeit Firmware ↔ Analyzer nach derselben Regel wie beim
-  Adapter
+Stand 03.08.2026: **umgesetzt, wartet auf die Platine.**
+
+| | |
+| --- | --- |
+| ✅ | Verbesserungen 1, 2, 3 und 9 — eigenes Repository [`asksin-sniffer-firmware`](https://github.com/ssbingo/asksin-sniffer-firmware) |
+| ✅ | Analyzer-Seite: Anhang erkennen, Lücken zählen, in *Info → Sniffer-Firmware* zeigen |
+| ✅ | Versionsabhängigkeit Firmware ↔ Analyzer (`core/src/decode/firmwarebefund.ts`) |
+| ⬜ | Live-Prüfung an echter Hardware |
+
+**Die Entscheidung, die alles trägt:** Die Erweiterungen sind **aus**, bis der
+Analyzer sie mit `:E1;` anfordert. Im Auslieferungszustand verhält sich die
+neue Firmware Zeichen für Zeichen wie das Original.
+
+Das macht den Austausch gefahrlos. Andersherum — erweitert als Vorgabe —
+hätte jeder Analyzer mit älterer Software nach dem Aufspielen schlagartig jede
+Zeile verworfen, und zwar mit dem irreführendsten aller Fehlerbilder: „es
+kommt nichts mehr an", bei tadelloser Funkstrecke.
+
+**Was ohne Platine geprüft werden konnte,** ist geprüft:
+
+* 130 Prüfungen der Firmware selbst, auf dem PC. `protokoll.h`/`.cpp` haben
+  keine Arduino-Abhängigkeit und laufen mit `g++`.
+* 273 Prüfungen im Analyzer, darunter Überlauf, Neustart, Rücksprung,
+  verfälschte Prüfsumme und das Ausbleiben einer Antwort.
+* Der Sketch übersetzt mit der festgenagelten Werkzeugkette: 7 588 Byte,
+  23 % des Flash (Original: 6 922).
+
+Zwei Fehler hat das schon gefunden, bevor Hardware im Spiel war:
+
+1. Im Kommentar stand, die Prüfsumme bemerke vertauschte Zeichen. Eine Summe
+   ist kommutativ und bemerkt sie nicht. Der Test hat es nachgerechnet statt
+   es zu glauben — sonst stünde die falsche Zusage bis heute in der
+   Protokollbeschreibung.
+2. Ein kleiner Rücksprung der Folgenummer wäre in der Sammelkategorie
+   „Firmware-Neustart" verschwunden. Auf einer UART darf er nie vorkommen; er
+   ist jetzt ein eigener Befund.
 
 *Abnahme: Der Analyzer zeigt verlorene Zeilen an. Alte Firmware läuft
-unverändert weiter.*
+unverändert weiter.* — **Erfüllt, soweit ohne Hardware feststellbar.**
 
 ### Phase F3 — Betriebsverbesserungen (2–3 Tage)
 

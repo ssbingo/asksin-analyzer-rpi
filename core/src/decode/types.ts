@@ -53,11 +53,53 @@ export type IgnoreReason =
   /** Längenbyte passt nicht zur tatsächlichen Zeilenlänge. */
   | 'length-mismatch'
   /** RSSI außerhalb des physikalisch möglichen Bereichs des CC1101. */
-  | 'implausible-rssi';
+  | 'implausible-rssi'
+  /**
+   * Anhang vorhanden, aber die Prüfsumme stimmt nicht.
+   *
+   * Das ist der einzige Verwurfsgrund, der eine **verfälschte** Zeile meldet
+   * statt einer unverständlichen. Alle anderen bedeuten „das war nie eine
+   * Telegrammzeile"; dieser bedeutet „das war eine, und unterwegs ist etwas
+   * kaputtgegangen". Der Unterschied ist bei der Fehlersuche wesentlich:
+   * Häufen sich Prüfsummenfehler, stimmt etwas mit der Leitung oder der
+   * Baudrate nicht.
+   */
+  | 'checksum';
+
+/**
+ * Antwort der Firmware auf einen Befehl — `:!…;`.
+ *
+ * Die alte Firmware kennt keine Befehle und antwortet nie. Bleibt `antwort`
+ * also aus, ist das selbst eine Auskunft: Es läuft die Originalfassung.
+ */
+export type Firmwareantwort =
+  | {
+      art: 'version';
+      /** Fassung des Drahtprotokolls. */
+      protokoll: number;
+      /** Fassung der Firmware. */
+      firmware: number;
+      /** Quarzfrequenz in MHz. */
+      taktMHz: number;
+      /**
+       * Versionsregister des CC1101, oder null, wenn das Modul nicht
+       * antwortet. null heißt: Funkmodul fehlt, sitzt schief, oder SPI hängt
+       * — bisher von einer ruhigen Funkstrecke nicht zu unterscheiden.
+       */
+      cc1101: number | null;
+    }
+  | { art: 'erweitert'; an: boolean }
+  | { art: 'unbekannter-befehl' };
 
 export type ParsedLine =
-  | { kind: 'telegram'; telegram: Telegram }
-  | { kind: 'noise'; noise: RssiNoise }
+  | {
+      kind: 'telegram';
+      telegram: Telegram;
+      /** Folgenummer aus dem Anhang; fehlt im kompatiblen Betrieb. */
+      folge?: number;
+    }
+  | { kind: 'noise'; noise: RssiNoise; folge?: number }
+  | { kind: 'antwort'; antwort: Firmwareantwort; raw: string }
   | { kind: 'ignored'; reason: IgnoreReason; raw: string };
 
 /** Zähler über verworfene Zeilen — gehört als Selbstmetrik in den Health-Endpoint. */
@@ -71,6 +113,7 @@ export function emptyIgnoreCounters(): IgnoreCounters {
     'odd-length': 0,
     'too-short': 0,
     'length-mismatch': 0,
+    checksum: 0,
     'implausible-rssi': 0,
   };
 }

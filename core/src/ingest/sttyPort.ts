@@ -1,9 +1,13 @@
 /**
  * Produktions-Portöffner — ohne native Abhängigkeit.
  *
- * Der Sniffer sendet nur; der Core schreibt nie auf die Schnittstelle. Ein
- * lesender Dateistrom auf das Gerät genügt also — konfiguriert wird der Port
- * vorher einmalig mit `stty`. Das erspart die native `serialport`-Abhängigkeit
+ * Gelesen wird über einen Dateistrom auf das Gerät; konfiguriert wird der Port
+ * vorher einmalig mit `stty`.
+ *
+ * Seit der erweiterten Firmware wird auch **geschrieben** — zwei kurze Befehle
+ * beim Verbindungsaufbau (`:?;`, `:E1;`). Dafür wird die Datei zusätzlich
+ * schreibend geöffnet. Der Analyzer sendet nichts über die Funkstrecke; die
+ * Befehle gehen an den Mikrocontroller, nicht ins 868-MHz-Band. Das erspart die native `serialport`-Abhängigkeit
  * samt Prebuilds für jede Pi-Architektur, und `stty` beherrscht auf Linux
  * auch die krumme Rate **58824** (über die BOTHER-Schnittstelle des Kernels;
  * Begründung der Rate: hardware/README.md, Abschnitt 2.5).
@@ -13,7 +17,7 @@
  */
 
 import { execFile } from 'node:child_process';
-import { createReadStream } from 'node:fs';
+import { createReadStream, createWriteStream } from 'node:fs';
 import { promisify } from 'node:util';
 
 import type { IngestStream, PortOpener } from './ingest.ts';
@@ -48,13 +52,37 @@ export function sttyPortOpener(
   return async (signal): Promise<IngestStream> => {
     await execFileAsync('stty', buildSttyArgs(device, baud), { signal });
     const stream = createReadStream(device, { highWaterMark: 4096 });
-    return {
+
+    // Getrennter Schreibstrom auf dasselbe Gerät. Scheitert das Öffnen —
+    // etwa weil die Rechte nur zum Lesen reichen —, bleibt es beim Lesen:
+    // Der Empfang ist die Hauptsache, die Freischaltung nur eine Zugabe.
+    let schreiber: ReturnType<typeof createWriteStream> | null = null;
+    try {
+      schreiber = createWriteStream(device);
+      // Ein Fehler auf einem Stream ohne Zuhörer beendet den Prozess.
+      schreiber.on('error', () => {});
+    } catch {
+      schreiber = null;
+    }
+
+    const strom: IngestStream = {
       readable: stream,
       close: () =>
         new Promise<void>((resolve) => {
+          schreiber?.destroy();
           stream.once('close', () => resolve());
           stream.destroy();
         }),
     };
+    if (schreiber !== null) {
+      const s = schreiber;
+      strom.schreibe = (text: string) =>
+        new Promise<void>((resolve) => {
+          // Fehler werden verschluckt: Die alte Firmware nimmt nichts
+          // entgegen, und daraus darf kein Störungsbild werden.
+          s.write(`${text}\r\n`, () => resolve());
+        });
+    }
+    return strom;
   };
 }

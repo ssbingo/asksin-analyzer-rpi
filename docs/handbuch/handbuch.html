@@ -1618,6 +1618,72 @@ einem Fehlercode. So lässt er sich in einen automatischen Ablauf hängen, ohne
 dass jemand die Tabelle lesen muss.</p>
 
 
+<h2 id="k11-5">11.5 Die erweiterte Firmware</h2>
+
+<p>Seit August 2026 gibt es eine zweite Firmware für den Sniffer. Sie stammt
+aus demselben Ursprung, kann aber vier Dinge, die das Original offenließ.</p>
+
+<div class="tabelle">
+<table>
+<tr><th>Sie kann …</th><th>Wozu das gut ist</th></tr>
+<tr><td><strong>sagen, wer sie ist</strong></td><td>Nach einem Firmware-Update war bisher nicht feststellbar, ob es überhaupt gegriffen hat — außer am veränderten Verhalten. Jetzt steht die Fassung in der Weboberfläche.</td></tr>
+<tr><td><strong>ihre Zeilen zählen</strong></td><td>Ging eine Zeile verloren, sah der Analyzer schlicht weniger Telegramme — und hielt das für Funkstille. Beides war nicht zu unterscheiden. Jetzt wird gerechnet: Fehlt zwischen 0041 und 0045 etwas, sind es genau drei.</td></tr>
+<tr><td><strong>ihre Zeilen sichern</strong></td><td>Kippte unterwegs ein Zeichen, entstand mit etwas Pech eine gültige Zeile mit falschem Inhalt — ein Gerät, das es nie gab. Jetzt fällt das auf.</td></tr>
+<tr><td><strong>ihr Funkmodul prüfen</strong></td><td>Ein totes CC1101 sah aus wie eine ruhige Funkstrecke. Man suchte an der Antenne statt am Steckverbinder.</td></tr>
+</table>
+</div>
+
+<h3>Das Aufspielen ist gefahrlos</h3>
+
+<p>Nach dem Einschalten verhält sich die neue Firmware <strong>Zeichen für
+Zeichen wie das Original</strong>. Die Erweiterungen schaltet der Analyzer
+erst ausdrücklich frei — und nur, wenn er sie versteht.</p>
+
+<p>Das ist mit Absicht so herum gebaut. Wären die Erweiterungen von vornherein
+an, würde ein Analyzer mit älterer Software nach dem Aufspielen jede Zeile
+verwerfen. Das Fehlerbild wäre „es kommt nichts mehr an" — bei völlig
+tadelloser Funkstrecke, also der denkbar irreführendste Hinweis.</p>
+
+<div class="box hinweis">
+<span class="titel">Zurück geht auch</span>
+<p style="margin-bottom: 0">Die Originalfirmware liegt weiterhin bei und lässt
+sich jederzeit wieder aufspielen. Beide Fassungen laufen mit demselben
+Analyzer.</p>
+</div>
+
+<h3>Was danach in der Weboberfläche steht</h3>
+
+<p>Unter <em>Info → Sniffer-Firmware</em> erscheint ein Satz zum Zustand —
+und zwar <strong>auch dann, wenn alles in Ordnung ist</strong>:</p>
+
+<div class="tabelle">
+<table>
+<tr><th>Meldung</th><th>Bedeutung</th></tr>
+<tr><td>Firmware und Analyzer passen zueinander</td><td>Alles gut. Verlorene Zeilen werden erkannt.</td></tr>
+<tr><td>Es läuft die Originalfassung</td><td>Kein Fehler. Sie arbeitet einwandfrei, kann nur nichts über Verluste sagen.</td></tr>
+<tr><td>Das Funkmodul antwortet nicht</td><td><strong>Hier ist wirklich etwas kaputt.</strong> Sitz des CC1101 und die Lötstellen der SPI-Leitungen prüfen — nicht die Antenne.</td></tr>
+<tr><td>Zuerst den Analyzer aktualisieren</td><td>Die Firmware ist neuer als der Analyzer. Es geht nichts verloren; sie bleibt so lange im kompatiblen Betrieb.</td></tr>
+</table>
+</div>
+
+<p class="klein">Warum auch der gute Fall ausgesprochen wird: Schweigen wäre
+mehrdeutig. „Geprüft und in Ordnung" sähe genauso aus wie „konnte nicht
+prüfen" — und wer wissen will, ob zwei Fassungen zusammenpassen, braucht eine
+Antwort, nicht das Ausbleiben einer Warnung. Dieselbe Überlegung steht hinter
+der Versionsprüfung zum ioBroker-Adapter.</p>
+
+<h3>Die Zahlen darunter</h3>
+
+<p>Läuft die erweiterte Fassung, stehen dort zusätzlich <em>Zeilen
+geprüft</em> und <em>davon verloren</em>. Die Zähler beginnen bei jedem
+Verbindungsaufbau neu.</p>
+
+<p>Ein paar verlorene Zeilen am Tag sind unauffällig. Steigt der Anteil über
+etwa ein Prozent, lohnt ein Blick auf die Leitung: zu lange Strippen zum HAT,
+schlechte Masseverbindung, oder eine Baudrate, die nicht zum Quarz passt
+(Kapitel 23).</p>
+
+
 <!-- ==================================================== KAPITEL 12 -->
 <h1 class="kapitel" id="k12"><span class="knr">12</span>Die Software: Überblick und Architektur</h1>
 <div class="kapitelband"></div>

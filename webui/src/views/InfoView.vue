@@ -198,6 +198,58 @@ async function firmwareFlashen(): Promise<void> {
 
   <div class="panel">
     <h3 style="margin-top: 0">Sniffer-Firmware (328P)</h3>
+
+    <template v-if="health?.sniffer">
+      <div
+        class="meldung"
+        :class="health.sniffer.befund.art === 'passt' ? 'ok' : 'fehler'"
+      >{{ health.sniffer.befund.text }}</div>
+
+      <div class="daten" v-if="health.sniffer.firmware">
+        <div class="zeile">
+          <span class="name">Fassung</span>
+          <span class="wert">
+            Firmware {{ health.sniffer.firmware.firmware }},
+            Protokoll {{ health.sniffer.firmware.protokoll }},
+            {{ health.sniffer.firmware.taktMHz }} MHz
+          </span>
+        </div>
+        <div class="zeile">
+          <span class="name">Funkmodul</span>
+          <span class="wert" v-if="health.sniffer.firmware.cc1101 !== null">
+            antwortet (CC1101 0x{{ health.sniffer.firmware.cc1101.toString(16).toUpperCase() }})
+          </span>
+          <span class="wert" v-else><strong>antwortet nicht</strong></span>
+        </div>
+      </div>
+
+      <div class="daten" v-if="health.sniffer.erweitert">
+        <div class="zeile">
+          <span class="name">Zeilen geprüft</span>
+          <span class="wert num">{{ health.sniffer.folge.gesehen }}</span>
+        </div>
+        <div class="zeile">
+          <span class="name">davon verloren</span>
+          <span class="wert num">
+            {{ health.sniffer.folge.verloren }}
+            <template v-if="health.sniffer.folge.verlustProzent !== null">
+              ({{ health.sniffer.folge.verlustProzent.toFixed(2) }} %)
+            </template>
+          </span>
+        </div>
+        <div class="zeile" v-if="health.sniffer.folge.neuanfaenge > 0">
+          <span class="name">Firmware-Neustarts</span>
+          <span class="wert num">{{ health.sniffer.folge.neuanfaenge }}</span>
+        </div>
+      </div>
+
+      <div class="fussnote" v-if="health.sniffer.erweitert">
+        Verlorene Zeilen werden aus den Folgenummern errechnet, nicht
+        geschätzt: Fehlt zwischen 0041 und 0045 etwas, sind es genau drei.
+        Die Zähler beginnen bei jedem Verbindungsaufbau neu.
+      </div>
+    </template>
+
     <div class="zeile">
       <input type="file" accept=".hex" @change="dateiGewaehlt" />
       <button :disabled="flasht || hexDatei === null" @click="firmwareFlashen">

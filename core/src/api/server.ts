@@ -26,6 +26,7 @@ import { hostname, networkInterfaces } from 'node:os';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import type { DatabaseSync } from 'node:sqlite';
 
+import { baueFirmwarebefund } from '../decode/firmwarebefund.ts';
 import { decodeFlags } from '../decode/flags.ts';
 import { decodeMsgType, isHmIpType } from '../decode/msgTypes.ts';
 import { systemTime } from '../ingest/time.ts';
@@ -941,6 +942,18 @@ export class ApiServer {
       demo: this.#config.demo === true,
       updateVerfuegbar: this.#opts.update?.updateVerfuegbar?.() ?? false,
       standort: this.#config.standort ?? '',
+      // Sniffer-Firmware: Fassung, Selbsttest und Lueckenerkennung. Steht
+      // im Health-Endpunkt, weil es zur Betriebsbereitschaft gehoert — ein
+      // stummes Funkmodul ist kein Detail fuer eine Unterseite.
+      sniffer: {
+        erweitert: s.ingest.erweitert,
+        firmware: s.ingest.firmware,
+        befund: baueFirmwarebefund(
+          s.ingest.firmware,
+          this.#opts.version ?? '0.0.1',
+        ),
+        folge: s.ingest.folge,
+      },
     };
   }
 

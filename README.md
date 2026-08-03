@@ -27,7 +27,9 @@ laufenden Gerät.
 | **Hardware v0.2.0** (L-Platine neben dem Pi) | ✅ **in Produktion** (31.07.2026) — DRC/ERC 0/0, 26 Fertigungsprüfungen bestanden |
 | Fertigungsdaten (Gerber, BOM, CPL, JLCPCB) | ✅ [`hardware/kicad/fab/`](hardware/kicad/fab/) + Archiv |
 | J1-Rettungsadapter für die Chargen v0.0.1 | ✅ [`hardware/kicad/adapter/`](hardware/kicad/adapter/README.md) |
-| Firmware | ✅ unveränderter `AskSinSniffer328P` (jp112sdl) |
+| Firmware | ✅ unveränderter `AskSinSniffer328P` (jp112sdl), nachbaubar bis aufs Byte ([`firmware/`](firmware/README.md)) |
+| Firmware, erweiterte Fassung | 🔨 gebaut, wartet auf die Platine — eigenes Repo [`asksin-sniffer-firmware`](https://github.com/ssbingo/asksin-sniffer-firmware): Versionsauskunft, Folgenummer, Prüfsumme, CC1101-Selbsttest. Im Auslieferungszustand Zeichen für Zeichen wie das Original |
+| Mitschnitt der Funkstrecke | ✅ Grundlinie vor Firmware-Änderungen, Schalter unter *Wartung* (F1) |
 | Core: Parser + Duty-Cycle | ✅ fertig ([`core/`](core/)) |
 | Core: Serial-Ingest, SQLite, CCU-Namen, Analyzer | ✅ fertig verdrahtet (M2–M4) |
 | Core: REST-API inkl. XS-Kompat-Endpunkten | ✅ fertig, 108 Unit-Tests gesamt (M5) |

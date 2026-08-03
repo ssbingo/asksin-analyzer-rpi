@@ -104,6 +104,38 @@ export interface Health {
   updateVerfuegbar: boolean;
   /** Standort-Identität dieses Analyzers (M9.1). */
   standort: string;
+  /**
+   * Zustand der Sniffer-Firmware. Fehlt bei älteren Core-Fassungen.
+   */
+  sniffer?: SnifferZustand;
+}
+
+/** Auskunft der Firmware auf `:?;` — nur bei der erweiterten Fassung. */
+export interface SnifferFirmware {
+  art: string;
+  protokoll: number;
+  firmware: number;
+  taktMHz: number;
+  /** Versionsregister des CC1101; null = das Funkmodul antwortet nicht. */
+  cc1101: number | null;
+}
+
+export interface SnifferZustand {
+  /** Liefert die Firmware Folgenummern und Prüfsummen? */
+  erweitert: boolean;
+  firmware: SnifferFirmware | null;
+  befund: {
+    art: 'passt' | 'original' | 'zuAlt' | 'zuNeu' | 'funkmodul';
+    text: string;
+  };
+  folge: {
+    gesehen: number;
+    verloren: number;
+    neuanfaenge: number;
+    ueberlaeufe: number;
+    letzte: number | null;
+    verlustProzent: number | null;
+  };
 }
 
 /** /getConfig — die Felder, die die UI tatsächlich anzeigt. */
