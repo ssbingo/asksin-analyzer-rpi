@@ -135,6 +135,15 @@ export interface ApiServerOptions {
     /** Inhalt einer Logdatei; null, wenn der Name ungültig ist oder fehlt. */
     datei(name: string): string | null;
   };
+  /**
+   * Mitschnitt des rohen Sniffer-Stroms (F1) — Grundlinie vor
+   * Firmware-Änderungen. Ein- und ausschaltbar im laufenden Betrieb, damit
+   * dafür niemand an die Konfigurationsdatei muss.
+   */
+  mitschnitt?: {
+    zustand(): unknown;
+    einstellen(auftrag: Record<string, unknown>): void;
+  };
 }
 
 /**
@@ -403,6 +412,11 @@ export class ApiServer {
           if (hooks === undefined) return this.#text(res, 501, 'Kein Protokoll');
           return this.#json(res, 200, hooks.zustand());
         }
+        case '/api/mitschnitt': {
+          const hooks = this.#opts.mitschnitt;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Mitschnitt');
+          return this.#json(res, 200, hooks.zustand());
+        }
         case '/api/netzwerk/status': {
           const netz = this.#opts.netzwerk;
           if (netz === undefined) return this.#text(res, 501, 'Keine Netzwerk-Verwaltung');
@@ -511,6 +525,23 @@ export class ApiServer {
             return this.#text(res, 400, err instanceof Error ? err.message : String(err));
           }
           return this.#text(res, 200, 'OK — sofort wirksam');
+        }
+        case '/api/mitschnitt': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.mitschnitt;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Mitschnitt');
+          let auftrag: Record<string, unknown>;
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            return this.#text(res, 400, 'Body muss JSON sein');
+          }
+          try {
+            hooks.einstellen(auftrag);
+          } catch (err) {
+            return this.#text(res, 400, err instanceof Error ? err.message : String(err));
+          }
+          return this.#json(res, 200, hooks.zustand());
         }
         case '/api/influx': {
           if (!this.#autorisiert(req, res)) return;

@@ -530,6 +530,39 @@ export async function sendeProtokoll(auftrag: {
 export const protokollDateiUrl = (name: string): string =>
   `/api/protokoll/datei/${encodeURIComponent(name)}`;
 
+// --- Mitschnitt (Grundlinie vor Firmware-Änderungen) ----------------------
+
+export interface MitschnittZustand {
+  aktiv: boolean;
+  /** Läuft der Analyzer im Demo-Modus? Dann sind die Daten simuliert. */
+  demo: boolean;
+  pfad: string;
+  vorhanden: boolean;
+  bytes: number;
+  geschrieben: number;
+  verworfen: number;
+  abgeschnitten: number;
+  fehler: number;
+  seit: number | null;
+}
+
+export const holeMitschnitt = (): Promise<MitschnittZustand> =>
+  hole('/api/mitschnitt');
+
+export async function sendeMitschnitt(auftrag: {
+  aktiv: boolean;
+  /** Nur mit ausdrücklicher Bestätigung — eine Grundlinie ist unersetzlich. */
+  loeschen?: boolean;
+}): Promise<MitschnittZustand> {
+  const res = await fetch('/api/mitschnitt', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify(auftrag),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as MitschnittZustand;
+}
+
 // ---- Langzeitdaten vor Ort (M14) ----------------------------------------
 
 export interface LangzeitZustand {

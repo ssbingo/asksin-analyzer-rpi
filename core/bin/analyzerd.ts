@@ -306,43 +306,112 @@ if (devList === undefined) {
 }
 
 // ---- Mitschnitt (F1) ------------------------------------------------------
-// Nur wenn ausdrücklich eingeschaltet. Ein Fehler beim Anlegen darf den
-// Analyzer nicht am Start hindern: Die Aufzeichnung ist ein Hilfsmittel,
-// nicht sein Zweck.
+// Grundlinie vor Firmware-Änderungen. Im laufenden Betrieb ein- und
+// ausschaltbar (API /api/mitschnitt, Schalter in den Einstellungen) — dafür
+// soll niemand die Konfigurationsdatei anfassen müssen.
+//
+// Ein Fehler beim Anlegen darf den Analyzer nicht am Start hindern: Die
+// Aufzeichnung ist ein Hilfsmittel, nicht sein Zweck.
+const mitschnittZiel =
+  konfig.mitschnitt?.pfad ?? join(dirname(konfig.db), 'mitschnitt.txt');
+const mitschnittWahl = join(dirname(konfig.db), 'mitschnitt.json');
 let mitschnitt: MitschnittSchreiber | null = null;
-if (konfig.mitschnitt?.aktiv === true) {
-  const ziel =
-    konfig.mitschnitt.pfad ?? join(dirname(konfig.db), 'mitschnitt.txt');
+
+function mitschnittStarten(): void {
+  if (mitschnitt !== null) return;
+  mitschnitt = new MitschnittSchreiber({
+    pfad: mitschnittZiel,
+    geraet: demoAktiv ? 'DEMO (simuliert)' : konfig.device,
+    baud: konfig.baud,
+    demo: demoAktiv,
+    maxBytes: (konfig.mitschnitt?.maxMiB ?? 256) * 1024 * 1024,
+    onFehler: (f) => log(`Mitschnitt: ${String(f)}`),
+  });
+  log(`Mitschnitt aktiv → ${mitschnittZiel}`);
+  if (demoAktiv) {
+    // Deutlich, und zwar hier: Wer im Demobetrieb mitschneidet, meint
+    // meistens eine Grundlinie — und die waere wertlos. Lieber einmal zu
+    // viel gewarnt als eine falsche Messung als Beleg im Repo.
+    log('ACHTUNG: DEMO-MODUS — dieser Mitschnitt enthaelt SIMULIERTE Daten');
+    log('Als Grundlinie fuer einen Firmware-Vergleich ist er NICHT geeignet.');
+  }
+}
+
+function mitschnittStoppen(): void {
+  if (mitschnitt === null) return;
+  mitschnitt.stop();
+  const m = mitschnitt.stats();
+  log(
+    `Mitschnitt beendet: ${m.geschrieben} Zeilen` +
+      (m.verworfen > 0 ? `, ${m.verworfen} im Puffer verworfen` : '') +
+      (m.abgeschnitten > 0 ? `, ${m.abgeschnitten} nach Groessengrenze` : ''),
+  );
+  mitschnitt = null;
+}
+
+// Die Wahl aus der Weboberfläche hat Vorrang vor der Konfigurationsdatei —
+// sonst käme nach jedem Neustart wieder der alte Stand zurück, und der
+// Schalter im Browser wäre eine Lüge.
+let mitschnittGewuenscht = konfig.mitschnitt?.aktiv === true;
+try {
+  const gespeichert = JSON.parse(readFileSync(mitschnittWahl, 'utf8')) as {
+    aktiv?: unknown;
+  };
+  if (typeof gespeichert.aktiv === 'boolean') mitschnittGewuenscht = gespeichert.aktiv;
+} catch {
+  // Keine Datei: Es gilt die Konfiguration. Kein Fehler.
+}
+if (mitschnittGewuenscht) {
   try {
-    mitschnitt = new MitschnittSchreiber({
-      pfad: ziel,
-      geraet: demoAktiv ? 'DEMO (simuliert)' : konfig.device,
-      baud: konfig.baud,
-      demo: demoAktiv,
-      maxBytes: (konfig.mitschnitt.maxMiB ?? 256) * 1024 * 1024,
-      onFehler: (f) => log(`Mitschnitt: ${String(f)}`),
-    });
-    log(`Mitschnitt aktiv → ${ziel}`);
-    if (demoAktiv) {
-      // Deutlich, und zwar hier: Wer im Demobetrieb mitschneidet, meint
-      // meistens eine Grundlinie — und die waere wertlos. Lieber einmal zu
-      // viel gewarnt als eine falsche Messung als Beleg im Repo.
-      log('ACHTUNG: DEMO-MODUS — dieser Mitschnitt enthaelt SIMULIERTE Daten');
-      log('Als Grundlinie fuer einen Firmware-Vergleich ist er NICHT geeignet.');
-    }
-    log('Auswerten: node core/bin/mitschnitt.ts auswerten ' + ziel);
+    mitschnittStarten();
   } catch (fehler) {
     log(`Mitschnitt konnte nicht starten: ${String(fehler)} — Analyzer läuft weiter`);
   }
 }
 
+const mitschnittHooks = {
+  zustand: (): Record<string, unknown> => {
+    const s = mitschnitt?.stats() ?? null;
+    return {
+      aktiv: mitschnitt !== null,
+      demo: demoAktiv,
+      pfad: mitschnittZiel,
+      // Auch wenn gerade nichts läuft: Was schon aufgezeichnet wurde, soll
+      // sichtbar bleiben — sonst wirkt die Datei nach dem Ausschalten weg.
+      vorhanden: existsSync(mitschnittZiel),
+      bytes: s?.bytes ?? (existsSync(mitschnittZiel) ? statSync(mitschnittZiel).size : 0),
+      geschrieben: s?.geschrieben ?? 0,
+      verworfen: s?.verworfen ?? 0,
+      abgeschnitten: s?.abgeschnitten ?? 0,
+      fehler: s?.fehler ?? 0,
+      seit: s?.seit ?? null,
+    };
+  },
+  einstellen: (auftrag: Record<string, unknown>): void => {
+    const aktiv = auftrag['aktiv'];
+    if (typeof aktiv !== 'boolean') throw new Error('aktiv: true oder false erwartet');
+    if (auftrag['loeschen'] === true) {
+      // Ausdrücklich verlangt, nie nebenbei: Eine Grundlinie ist nicht
+      // wiederbeschaffbar, und ein versehentlich geleerter Mitschnitt wäre
+      // genau der Verlust, den das Ganze verhindern soll.
+      mitschnittStoppen();
+      rmSync(mitschnittZiel, { force: true });
+      log('Mitschnitt gelöscht (ausdrücklich angefordert)');
+    }
+    if (aktiv) mitschnittStarten();
+    else mitschnittStoppen();
+    writeFileSync(mitschnittWahl, JSON.stringify({ aktiv }, null, 2) + '\n');
+  },
+};
+
 const analyzer = new Analyzer({
   openPort: demoAktiv
     ? demoPortOpener()
     : sttyPortOpener(konfig.device, konfig.baud),
-  ...(mitschnitt === null
-    ? {}
-    : { onRawLine: (z: string, ts: number) => mitschnitt?.zeile(z, ts) }),
+  // Immer gesetzt, auch wenn gerade nicht aufgezeichnet wird: Nur so lässt
+  // sich der Mitschnitt im laufenden Betrieb einschalten. Ist er aus, kostet
+  // der Aufruf einen null-Vergleich je Zeile.
+  onRawLine: (z: string, ts: number) => mitschnitt?.zeile(z, ts),
   db,
   ...(devList === undefined ? {} : { devList }),
   retention: demoAktiv
@@ -1620,6 +1689,7 @@ const api = new ApiServer({
   langzeit: langzeitHooks,
   alarmziel: alarmzielHooks,
   protokoll: protokollHooks,
+  mitschnitt: mitschnittHooks,
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');
     void herunterfahren(0);
@@ -1838,15 +1908,7 @@ async function herunterfahren(code: number): Promise<void> {
     await analyzer.stop();          // letzter Flush passiert hier
     // Nach analyzer.stop(): Erst dann kommen keine Zeilen mehr nach, und der
     // letzte Puffer landet vollstaendig in der Datei.
-    if (mitschnitt !== null) {
-      mitschnitt.stop();
-      const m = mitschnitt.stats();
-      log(
-        `Mitschnitt: ${m.geschrieben} Zeilen` +
-          (m.verworfen > 0 ? `, ${m.verworfen} im Puffer verworfen` : '') +
-          (m.abgeschnitten > 0 ? `, ${m.abgeschnitten} nach Groessengrenze` : ''),
-      );
-    }
+    mitschnittStoppen();
     db.close();
     log('Sauber beendet');
   } catch (err) {

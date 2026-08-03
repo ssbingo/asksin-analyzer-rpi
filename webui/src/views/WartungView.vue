@@ -4,11 +4,17 @@ import { reactive, ref } from 'vue';
 import HandbuchFuss from '../components/HandbuchFuss.vue';
 
 import {
+  holeMitschnitt,
   holeProtokoll,
   protokollDateiUrl,
+  sendeMitschnitt,
   sendeProtokoll,
 } from '../api.ts';
-import type { ProtokollStufe, ProtokollZustand } from '../api.ts';
+import type {
+  MitschnittZustand,
+  ProtokollStufe,
+  ProtokollZustand,
+} from '../api.ts';
 import { nutzeTakt } from '../takt.ts';
 
 const zustand = ref<ProtokollZustand | null>(null);
@@ -60,7 +66,72 @@ function groesse(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-nutzeTakt(laden, 15_000);
+// --- Mitschnitt ----------------------------------------------------------
+
+const mitschnitt = ref<MitschnittZustand | null>(null);
+const mitschnittBeschaeftigt = ref(false);
+
+async function mitschnittLaden(): Promise<void> {
+  try {
+    mitschnitt.value = await holeMitschnitt();
+  } catch {
+    // Ältere Core-Fassungen kennen den Endpunkt nicht. Das ist kein Fehler,
+    // den der Anwender sehen muss — der Abschnitt bleibt dann einfach leer.
+    mitschnitt.value = null;
+  }
+}
+
+async function mitschnittSchalten(aktiv: boolean): Promise<void> {
+  mitschnittBeschaeftigt.value = true;
+  meldung.value = null;
+  try {
+    mitschnitt.value = await sendeMitschnitt({ aktiv });
+    meldung.value = {
+      art: 'ok',
+      text: aktiv
+        ? 'Mitschnitt läuft. Der Analyzer arbeitet dabei normal weiter.'
+        : 'Mitschnitt beendet. Die Datei bleibt erhalten.',
+    };
+  } catch (err) {
+    meldung.value = {
+      art: 'fehler',
+      text: err instanceof Error ? err.message : String(err),
+    };
+  } finally {
+    mitschnittBeschaeftigt.value = false;
+  }
+}
+
+async function mitschnittLeeren(): Promise<void> {
+  // Zweifache Rückfrage wäre zu viel, keine wäre zu wenig: Eine Grundlinie
+  // lässt sich nach dem Flashen der Firmware nicht nachholen.
+  if (
+    !window.confirm(
+      'Mitschnitt wirklich löschen?\n\n' +
+        'Eine Aufzeichnung mit der alten Firmware lässt sich später nicht ' +
+        'nachholen — nach dem Aufspielen der neuen ist sie unwiederbringlich weg.',
+    )
+  ) {
+    return;
+  }
+  mitschnittBeschaeftigt.value = true;
+  try {
+    mitschnitt.value = await sendeMitschnitt({ aktiv: false, loeschen: true });
+    meldung.value = { art: 'ok', text: 'Mitschnitt gelöscht.' };
+  } catch (err) {
+    meldung.value = {
+      art: 'fehler',
+      text: err instanceof Error ? err.message : String(err),
+    };
+  } finally {
+    mitschnittBeschaeftigt.value = false;
+  }
+}
+
+nutzeTakt(async () => {
+  await laden();
+  await mitschnittLaden();
+}, 15_000);
 </script>
 
 <template>
@@ -152,5 +223,71 @@ nutzeTakt(laden, 15_000);
     </p>
   </div>
 
-  <HandbuchFuss hinweis="Kapitel 22 erklärt das Protokoll und wofür die vier Stufen gut sind." />
+  <div class="panel" v-if="mitschnitt !== null">
+    <h3>Mitschnitt der Funkstrecke</h3>
+    <p class="gedimmt">
+      Zeichnet auf, was der Sniffer <em>wörtlich</em> auf die Leitung schreibt —
+      mit Zeitstempel, vor jeder Auswertung. Gedacht ist das für eine Sache:
+      festzuhalten, wie sich die Firmware <strong>heute</strong> verhält, bevor
+      eine neue aufgespielt wird. Ohne dieses Vorher lässt sich hinterher nicht
+      belegen, dass es besser geworden ist.
+    </p>
+
+    <div class="meldung fehler" v-if="mitschnitt.demo">
+      <strong>Demo-Modus:</strong> Diese Daten sind simuliert. Für eine
+      Grundlinie taugen sie <strong>nicht</strong> — der Takt ist künstlich
+      sauber, es gibt keine Übertragungsfehler und keine Aussetzer. Zum
+      Ausprobieren des Ablaufs ist es dagegen genau richtig. Die Aufzeichnung
+      merkt sich ihre Herkunft; ein späterer Vergleich mit echten Daten wird
+      abgelehnt statt gerechnet.
+    </div>
+
+    <p>
+      <button
+        v-if="!mitschnitt.aktiv"
+        class="primaer"
+        :disabled="mitschnittBeschaeftigt"
+        @click="mitschnittSchalten(true)"
+      >Aufzeichnung starten</button>
+      <button
+        v-else
+        :disabled="mitschnittBeschaeftigt"
+        @click="mitschnittSchalten(false)"
+      >Aufzeichnung beenden</button>
+
+      <button
+        v-if="mitschnitt.vorhanden && !mitschnitt.aktiv"
+        class="gefahr"
+        :disabled="mitschnittBeschaeftigt"
+        @click="mitschnittLeeren()"
+      >Mitschnitt löschen</button>
+    </p>
+
+    <p class="gedimmt" v-if="mitschnitt.aktiv">
+      <strong>Läuft.</strong> {{ mitschnitt.geschrieben }} Zeilen,
+      {{ groesse(mitschnitt.bytes) }}. Der Analyzer arbeitet dabei ganz normal
+      weiter. Für eine Grundlinie genügt eine Stunde — dauerhaft braucht sie
+      niemand, sie kostet nur Schreibvorgänge auf dem Bootmedium.
+      <span v-if="mitschnitt.verworfen > 0">
+        <br /><strong>{{ mitschnitt.verworfen }} Zeilen verworfen</strong> — die
+        Platte kam nicht mit. Die Lücke ist ausgewiesen, nicht verschwiegen.
+      </span>
+      <span v-if="mitschnitt.fehler > 0">
+        <br /><strong>{{ mitschnitt.fehler }} Schreibfehler.</strong>
+      </span>
+    </p>
+
+    <p class="gedimmt" v-else-if="mitschnitt.vorhanden">
+      Aufzeichnung beendet. Vorhandene Datei: {{ groesse(mitschnitt.bytes) }}.
+      Ein erneuter Start hängt hinten an, statt sie zu überschreiben.
+    </p>
+
+    <p class="gedimmt" v-if="mitschnitt.vorhanden">
+      Ablage auf dem Gerät: <code>{{ mitschnitt.pfad }}</code><br />
+      Auswerten auf dem Pi:
+      <code>node core/bin/mitschnitt.ts auswerten {{ mitschnitt.pfad }}</code>
+    </p>
+  </div>
+
+  <HandbuchFuss hinweis="Kapitel 22 erklärt das Protokoll, Kapitel 11.4 den Mitschnitt." />
 </template>

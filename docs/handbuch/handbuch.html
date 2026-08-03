@@ -1505,22 +1505,45 @@ Datei am erwarteten Ort. Das will man wissen, bevor die Platine kommt, und
 nicht danach.</p>
 </div>
 
-<h3>Aufzeichnen — der empfohlene Weg</h3>
+<h3>Aufzeichnen — zwei Klicks</h3>
 
-<p>In der Konfigurationsdatei <code>/etc/asksin-analyzer/config.json</code>:</p>
+<div class="schritte">
+<ol>
+<li>Im Browser <em>Wartung → Mitschnitt der Funkstrecke</em> öffnen.</li>
+<li><em>Aufzeichnung starten</em>.</li>
+<li>Eine Stunde warten.</li>
+<li><em>Aufzeichnung beenden</em>.</li>
+</ol>
+</div>
+
+<p>Mehr ist es nicht. Der Analyzer läuft dabei ganz normal weiter —
+Weboberfläche, Datenbank, Alarme, alles wie sonst; ein Neustart ist nicht
+nötig. Während der Aufzeichnung zeigt die Seite laufend, wie viele Zeilen
+schon geschrieben sind.</p>
+
+<p>Die Datei landet neben der Datenbank unter
+<code>/var/lib/asksin-analyzer/mitschnitt.txt</code>. Ein erneuter Start hängt
+hinten an, statt sie zu überschreiben — ein Neustart des Dienstes mitten in
+der Aufzeichnung verliert also nichts.</p>
+
+<p>Die Wahl überlebt einen Neustart: Wer das Beenden vergisst, findet die
+Aufzeichnung am nächsten Tag noch laufend vor. Das ist Absicht — die
+umgekehrte Überraschung, eine über Nacht heimlich beendete Grundlinie, wäre
+die schlimmere.</p>
+
+<h3>Für Experten: die Konfigurationsdatei</h3>
+
+<p>Wer den Analyzer ohne Weboberfläche einrichtet, kann die Aufzeichnung auch
+in <code>/etc/asksin-analyzer/config.json</code> vorgeben:</p>
 
 <pre>{
-  "mitschnitt": { "aktiv": true }
+  "mitschnitt": { "aktiv": true, "maxMiB": 256 }
 }</pre>
 
-<p>Danach <code>sudo systemctl restart asksin-analyzer</code>. Der Analyzer
-läuft dabei ganz normal weiter — Weboberfläche, Datenbank, Alarme, alles wie
-sonst. Die Datei landet neben der Datenbank unter
-<code>/var/lib/asksin-analyzer/mitschnitt.txt</code>.</p>
-
-<p>Nach einer Stunde wieder auf <code>false</code> setzen und neu starten. Die
-Aufzeichnung kostet Schreibvorgänge auf dem Bootmedium; für eine Grundlinie
-genügt eine Stunde, dauerhaft braucht sie niemand.</p>
+<p>Das ist nur die <em>Voreinstellung beim Start</em>. Sobald der Schalter in
+der Weboberfläche einmal benutzt wurde, hat dessen Stand Vorrang — sonst käme
+nach jedem Neustart der alte Zustand zurück, und der Schalter im Browser wäre
+eine Lüge.</p>
 
 <div class="box hinweis">
 <span class="titel">Warum nicht dauerhaft?</span>

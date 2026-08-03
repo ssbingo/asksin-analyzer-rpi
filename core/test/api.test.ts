@@ -46,6 +46,7 @@ async function aufbau(t: TestContext, extra: {
   netzwerk?: import('../src/api/server.ts').NetzwerkHooks;
   statusAnzeige?: import('../src/api/server.ts').ApiServerOptions['statusAnzeige'];
   langzeit?: import('../src/api/server.ts').ApiServerOptions['langzeit'];
+  mitschnitt?: import('../src/api/server.ts').ApiServerOptions['mitschnitt'];
 } = {}): Promise<Aufbau> {
   const time = new FakeTime();
   const ports: FakePort[] = [];
@@ -84,6 +85,7 @@ async function aufbau(t: TestContext, extra: {
     ...(extra.update === undefined ? {} : { update: extra.update }),
     ...(extra.verbund === undefined ? {} : { verbund: extra.verbund }),
     ...(extra.netzwerk === undefined ? {} : { netzwerk: extra.netzwerk }),
+    ...(extra.mitschnitt === undefined ? {} : { mitschnitt: extra.mitschnitt }),
     ...(extra.statusAnzeige === undefined ? {} : { statusAnzeige: extra.statusAnzeige }),
     ...(extra.langzeit === undefined ? {} : { langzeit: extra.langzeit }),
     time,
@@ -718,4 +720,82 @@ test('Langzeitdaten: ohne Token kein Zugriff auf das Setzen', async (t) => {
     body: JSON.stringify({ aktion: 'installieren' }),
   });
   assert.equal(ohne.status, 401);
+});
+
+test('Mitschnitt: ueber die Weboberflaeche schaltbar, ohne Konsole', async (t) => {
+  // Projektregel: Alles, was der Anwender braucht, muss ueber die
+  // Weboberflaeche gehen. Der Mitschnitt war zuerst nur ueber config.json
+  // erreichbar — also nur ueber die Konsole. Das ist der Test dagegen.
+  let aktiv = false;
+  const auftraege: Array<Record<string, unknown>> = [];
+  const { base } = await aufbau(t, {
+    mitschnitt: {
+      zustand: () => ({ aktiv, demo: true, pfad: '/tmp/m.txt', vorhanden: aktiv }),
+      einstellen: (a) => {
+        auftraege.push(a);
+        if (typeof a['aktiv'] !== 'boolean') throw new Error('aktiv erwartet');
+        aktiv = a['aktiv'];
+      },
+    },
+  });
+
+  const vorher = (await (await fetch(`${base}/api/mitschnitt`)).json()) as {
+    aktiv: boolean;
+  };
+  assert.equal(vorher.aktiv, false);
+
+  const ein = await fetch(`${base}/api/mitschnitt`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ aktiv: true }),
+  });
+  assert.equal(ein.status, 200);
+  // Die Antwort ist der neue Zustand — die Oberflaeche muss nicht nachfragen.
+  assert.equal(((await ein.json()) as { aktiv: boolean }).aktiv, true);
+  assert.deepEqual(auftraege, [{ aktiv: true }]);
+
+  const aus = await fetch(`${base}/api/mitschnitt`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ aktiv: false }),
+  });
+  assert.equal(((await aus.json()) as { aktiv: boolean }).aktiv, false);
+});
+
+test('Mitschnitt: unsinnige Werte sind ein Eingabefehler, kein Serverfehler', async (t) => {
+  const { base } = await aufbau(t, {
+    mitschnitt: {
+      zustand: () => ({ aktiv: false }),
+      einstellen: (a) => {
+        if (typeof a['aktiv'] !== 'boolean') throw new Error('aktiv: true oder false erwartet');
+      },
+    },
+  });
+  const res = await fetch(`${base}/api/mitschnitt`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ aktiv: 'vielleicht' }),
+  });
+  assert.equal(res.status, 400);
+  assert.match(await res.text(), /true oder false/);
+});
+
+test('Mitschnitt: ohne Token kein Schalten', async (t) => {
+  // Ein fremder Zugriff koennte sonst die Grundlinie beenden oder das
+  // Bootmedium mit Schreibvorgaengen belegen.
+  const { base } = await aufbau(t, {
+    authToken: 'geheim',
+    mitschnitt: { zustand: () => ({ aktiv: false }), einstellen: () => undefined },
+  });
+  const ohne = await fetch(`${base}/api/mitschnitt`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ aktiv: true }),
+  });
+  assert.equal(ohne.status, 401);
+});
+
+test('Mitschnitt: aeltere Fassung ohne Hooks meldet 501 statt zu stuerzen', async (t) => {
+  const { base } = await aufbau(t);
+  assert.equal((await fetch(`${base}/api/mitschnitt`)).status, 501);
 });
