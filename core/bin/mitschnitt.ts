@@ -150,6 +150,16 @@ function zeigeAuswertung(a: Auswertung): void {
   } else {
     z.push('Lücken: keine.');
   }
+  if (a.nahtstellen > 0) {
+    z.push('');
+    z.push(
+      `Nahtstellen: ${a.nahtstellen} — hier wurde die Aufzeichnung ` +
+        'unterbrochen und fortgesetzt.',
+    );
+    z.push('  Die Pausen dort sind KEINE Funkstille und zählen nicht als');
+    z.push('  Lücke. Der Mitschnitt deckt seinen Zeitraum also nicht');
+    z.push('  lückenlos ab — bei der Deutung mitdenken.');
+  }
   z.push('');
 
   if (a.rssi) {

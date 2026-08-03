@@ -90,6 +90,16 @@ export interface Auswertung {
   /** Alle gefundenen Lücken, ungekürzt. */
   lueckenAnzahl: number;
   lueckenGesamtMs: number;
+  /**
+   * Stellen, an denen eine unterbrochene Aufzeichnung fortgesetzt wurde.
+   *
+   * Dort entsteht eine Pause, die KEINE Funkstille ist — der Sniffer sendete
+   * weiter, nur schrieb niemand mit. Sie wird deshalb nicht als Lücke
+   * gezählt, aber ausgewiesen: Ein Mitschnitt mit vielen Nahtstellen deckt
+   * seinen Zeitraum nicht lückenlos ab, und das gehört bei der Deutung auf
+   * den Tisch.
+   */
+  nahtstellen: number;
 
   /** Verschiedene Absenderadressen. */
   absender: number;
@@ -123,6 +133,7 @@ export function werteAus(
   const kopf: Kopf = { format: 0, geraet: null, baud: null, demo: null };
   let zeilen = 0;
   let unlesbar = 0;
+  let nahtstellen = 0;
   let telegramme = 0;
   let rauschzeilen = 0;
   let verworfen = 0;
@@ -143,6 +154,13 @@ export function werteAus(
     if (roh === '') continue;
     if (roh.startsWith('#')) {
       liesKopf(roh, kopf);
+      if (roh.startsWith('# fortgesetzt')) {
+        // Die Kette bricht hier bewusst ab: Der Abstand über die Naht hinweg
+        // ist Aufzeichnungspause, nicht Funkstille.
+        nahtstellen++;
+        letzteZeit = null;
+        letztesRauschen = null;
+      }
       continue;
     }
 
@@ -220,6 +238,7 @@ export function werteAus(
     luecken: luecken.slice(0, maxLuecken),
     lueckenAnzahl: luecken.length,
     lueckenGesamtMs: luekenGesamt,
+    nahtstellen,
     absender: absender.size,
     rssi: verteilung(rssiWerte),
     zeilenlaenge: verteilung(laengen),

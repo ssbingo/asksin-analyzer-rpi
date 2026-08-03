@@ -49,6 +49,29 @@ describe('MitschnittSchreiber', () => {
     assert.equal(s.stats().geschrieben, 2);
   });
 
+  it('setzt beim Fortsetzen eine Naht — sonst sieht die Pause aus wie ein Ausfall', () => {
+    // Beim ersten Probelauf auf dem Geraet gemeldet: 23 Sekunden zwischen dem
+    // Ende der einen und dem Start der naechsten Aufzeichnung wurden als
+    // Luecke ausgewiesen. Bei einer echten Grundlinie haette man das der
+    // Firmware angelastet.
+    const p = pfad();
+    const a = new MitschnittSchreiber({ pfad: p, jetzt: () => 1_000 });
+    a.zeile(':5A;', 1_000);
+    a.stop();
+
+    const b = new MitschnittSchreiber({ pfad: p, jetzt: () => 60_000 });
+    b.zeile(':5B;', 60_000);
+    b.stop();
+
+    const inhalt = readFileSync(p, 'utf8');
+    assert.match(inhalt, /^# fortgesetzt \d{4}-/m);
+
+    const aus = werteAus(inhalt, 'naht');
+    assert.equal(aus.nahtstellen, 1);
+    assert.equal(aus.lueckenAnzahl, 0, 'die 59 s ueber die Naht sind keine Luecke');
+    assert.equal(aus.zeilen, 2);
+  });
+
   it('haengt an eine bestehende Datei an, statt sie zu ueberschreiben', () => {
     // Ein Neustart des Dienstes mitten in der Aufzeichnung darf die
     // Grundlinie nicht loeschen — sonst waere sie nach jedem Update weg.
@@ -63,6 +86,7 @@ describe('MitschnittSchreiber', () => {
 
     const inhalt = readFileSync(p, 'utf8');
     assert.equal(inhalt.match(/# asksin-mitschnitt/g)?.length, 1, 'nur ein Kopf');
+    assert.equal(inhalt.match(/# fortgesetzt/g)?.length, 1, 'aber eine Naht');
     assert.ok(inhalt.includes('10\t:AA;'));
     assert.ok(inhalt.includes('20\t:BB;'));
   });

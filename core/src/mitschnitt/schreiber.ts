@@ -147,7 +147,15 @@ export class MitschnittSchreiber {
       this.#bytes = 0;
     }
 
-    if (this.#bytes === 0) {
+    if (this.#bytes > 0) {
+      // Naht: Hier wurde eine vorhandene Aufzeichnung fortgesetzt. Ohne diese
+      // Marke sähe die Pause dazwischen aus wie ein Funkausfall — und genau
+      // so ist es beim ersten Probelauf passiert: 23 Sekunden zwischen dem
+      // Ende der einen und dem Start der nächsten Aufzeichnung wurden als
+      // Lücke gemeldet. Bei einer echten Grundlinie hätte man das der
+      // Firmware angelastet.
+      this.#schreibeDirekt(`# fortgesetzt ${new Date(this.#seit).toISOString()}\n`);
+    } else {
       const kopf = [
         `# asksin-mitschnitt ${MITSCHNITT_FORMAT}`,
         `# begonnen ${new Date(this.#seit).toISOString()}`,

@@ -337,10 +337,16 @@ function mitschnittStarten(): void {
   }
 }
 
+// Der letzte Stand einer beendeten Aufzeichnung. Ohne ihn meldete die API
+// nach dem Ausschalten "0 Zeilen" — was aussieht, als sei nichts
+// aufgezeichnet worden, obwohl die Datei danebenliegt.
+let mitschnittLetzte: ReturnType<MitschnittSchreiber['stats']> | null = null;
+
 function mitschnittStoppen(): void {
   if (mitschnitt === null) return;
   mitschnitt.stop();
   const m = mitschnitt.stats();
+  mitschnittLetzte = m;
   log(
     `Mitschnitt beendet: ${m.geschrieben} Zeilen` +
       (m.verworfen > 0 ? `, ${m.verworfen} im Puffer verworfen` : '') +
@@ -371,7 +377,7 @@ if (mitschnittGewuenscht) {
 
 const mitschnittHooks = {
   zustand: (): Record<string, unknown> => {
-    const s = mitschnitt?.stats() ?? null;
+    const s = mitschnitt?.stats() ?? mitschnittLetzte;
     return {
       aktiv: mitschnitt !== null,
       demo: demoAktiv,
@@ -379,7 +385,7 @@ const mitschnittHooks = {
       // Auch wenn gerade nichts läuft: Was schon aufgezeichnet wurde, soll
       // sichtbar bleiben — sonst wirkt die Datei nach dem Ausschalten weg.
       vorhanden: existsSync(mitschnittZiel),
-      bytes: s?.bytes ?? (existsSync(mitschnittZiel) ? statSync(mitschnittZiel).size : 0),
+      bytes: existsSync(mitschnittZiel) ? statSync(mitschnittZiel).size : (s?.bytes ?? 0),
       geschrieben: s?.geschrieben ?? 0,
       verworfen: s?.verworfen ?? 0,
       abgeschnitten: s?.abgeschnitten ?? 0,
