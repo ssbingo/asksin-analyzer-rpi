@@ -2727,6 +2727,31 @@ bewusst keinerlei Analyse-Logik: Er fragt nur die API des Analyzers ab und
 spiegelt die Werte.</p>
 
 <h2 id="k20-1">20.1 Installation und Einrichtung</h2>
+
+<p>Voraussetzungen — Stand 03.08.2026:</p>
+
+<div class="tabelle">
+<table>
+<tr><th>Bestandteil</th><th>nötig</th><th>aktuell</th></tr>
+<tr><td>ioBroker-Admin</td><td><strong>ab 8.0.0</strong></td><td>8.0.1</td></tr>
+<tr><td>js-controller</td><td>ab 6.0.11</td><td></td></tr>
+<tr><td>Node.js</td><td>ab 22</td><td>Admin 8 verlangt das ohnehin</td></tr>
+<tr><td>AskSin-Analyzer</td><td>ab 0.12.0</td><td>siehe Abschnitt 20.4</td></tr>
+</table>
+</div>
+
+<div class="box achtung">
+<span class="titel">Admin 8 ist Voraussetzung</span>
+<p>Ältere Admin-Fassungen werden nicht unterstützt. Wer noch auf Admin 7
+steht, aktualisiert zuerst den Admin — er bringt Node 22 als Anforderung
+ohnehin mit.</p>
+<p style="margin-bottom: 0">Admin 8.0.1 hat seine Oberfläche auf React 19
+umgestellt. Für diesen Adapter ändert das nichts: Er benutzt
+<em>jsonConfig</em>, also eine reine Beschreibung, die Admin selbst
+zeichnet. Betroffen wären nur Adapter mit einer <em>eigenen</em>
+React-Oberfläche.</p>
+</div>
+
 <ol class="schritte">
 <li>ioBroker-Admin → Adapter → „Installieren aus eigener URL" →
 <code>https://github.com/ssbingo/ioBroker.asksinanalyzer-rpi</code>
@@ -2737,7 +2762,7 @@ Fünf-Standorte-Verbund wird also zu fünf Instanzen.</li>
 Auth-Token des Analyzers, Abfrageintervall (Vorgabe 5 s).</li>
 </ol>
 
-<h2 id="k20-2">20.2 Die States</h2>
+<h2 class="umbruch" id="k20-2">20.2 Die States</h2>
 <table>
 <tr><th>Zweig</th><th>Inhalt</th></tr>
 <tr><td><code>info.*</code></td><td>connection (erreichbar <em>und</em> Sniffer verbunden), Standort, Version, Demo, Update verfügbar</td></tr>
