@@ -706,34 +706,28 @@ async function kommando(cmd: string, args: string[]): Promise<string> {
 }
 
 /**
- * Beispielhafte Netzangaben für den Demo-Modus — gleiche Begründung wie
- * DEMO_NETZ in der API: Wer den Demo-Modus herzeigt oder abfotografiert,
- * soll die interne Adressierung nicht mit veröffentlichen.
+ * Anzeigewerte, die im Demo-Modus die echte Netzidentität ersetzen.
+ *
+ * **Nur die Anzeige.** Ob und wie sich das Netzwerk ändern lässt, bleibt
+ * unberührt — der Demo-Modus läuft auf echter Hardware, und deren
+ * Netzwerkeinstellungen gehören zum Gerät, nicht zur Simulation.
+ *
+ * (Das stand hier zunächst anders: Der Demo-Modus lieferte einen komplett
+ * erfundenen Zustand mit `aenderbar: false`, wodurch sich das Netzwerk im
+ * Demobetrieb nicht mehr umstellen liess. Das war eine Annahme von mir und
+ * keine Vorgabe — behoben am 04.08.2026.)
  *
  * 192.0.2.0/24 ist der für Dokumentation reservierte Bereich (RFC 5737).
  */
-const DEMO_NETZANGABEN: Record<string, unknown> = {
+const DEMO_ANZEIGE = {
   hostname: 'asksin-analyzer-demo',
-  iface: 'eth0',
-  verbindung: 'Demo',
-  methode: 'dhcp',
-  // Im Demo-Modus wird nichts umgestellt — es gibt ja kein echtes Netz
-  // dahinter. Die Oberflaeche zeigt den Grund an, statt einen toten Knopf.
-  aenderbar: false,
-  grund: 'Demo-Modus — die Angaben sind Beispielwerte (RFC 5737).',
-  // Form wie beim echten Zustand: Objekte mit address/prefix, und ntp.aktiv
-  // ist der GERADE benutzte Server (Zeichenkette), nicht ein Schalter.
   adressen: [{ address: '192.0.2.10', prefix: 24 }],
   gateway: '192.0.2.1',
   dns: ['192.0.2.1'],
-  ntp: { server: '192.0.2.1', aktiv: '192.0.2.1', sync: true },
-};
+  ntpServer: '192.0.2.1',
+} as const;
 
 async function netzZustand(): Promise<Record<string, unknown>> {
-  // Im Demo-Modus nichts Echtes herausgeben. Der Demo-Modus ist zum
-  // Herzeigen da, und Screenshots davon landen im Handbuch.
-  if (demoAktiv) return DEMO_NETZANGABEN;
-
   // Standardroute → Schnittstelle + Gateway
   let iface: string | null = null;
   let gateway: string | null = null;
@@ -833,6 +827,25 @@ async function netzZustand(): Promise<Record<string, unknown>> {
     } catch {
       /* Datei fehlt */
     }
+  }
+
+  // Im Demo-Modus die Identitaet durch Beispielwerte ersetzen — aber NUR
+  // die Anzeige. aenderbar, grund, iface, methode und verbindung bleiben,
+  // wie sie sind: Sie beschreiben das echte Geraet, und wer im Demobetrieb
+  // das Netzwerk umstellen will, muss das koennen.
+  if (demoAktiv) {
+    return {
+      hostname: DEMO_ANZEIGE.hostname,
+      iface,
+      verbindung,
+      methode,
+      aenderbar,
+      grund,
+      adressen: [...DEMO_ANZEIGE.adressen],
+      gateway: DEMO_ANZEIGE.gateway,
+      dns: [...DEMO_ANZEIGE.dns],
+      ntp: { server: DEMO_ANZEIGE.ntpServer, aktiv: DEMO_ANZEIGE.ntpServer, sync: ntpSync },
+    };
   }
 
   return {
