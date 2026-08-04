@@ -37,7 +37,8 @@ import type { PeerKonfig } from '../src/verbund/verbund.ts';
 import { demoDevListFetch, demoPortOpener } from '../src/demo/port.ts';
 import { DEFAULT_BAUD, DEFAULT_DEVICE, sttyPortOpener } from '../src/ingest/sttyPort.ts';
 import { openDatabase } from '../src/persist/db.ts';
-import { DevListService } from '../src/resolve/fetcher.ts';
+import { testeCcu } from '../src/resolve/ccuTest.ts';
+import { DevListService, httpFetchBytes } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
 import { MitschnittSchreiber } from '../src/mitschnitt/schreiber.ts';
 import { INFLUX_VORGABEN, InfluxSchreiber } from '../src/influx/schreiber.ts';
@@ -1708,6 +1709,9 @@ const api = new ApiServer({
   alarmziel: alarmzielHooks,
   protokoll: protokollHooks,
   mitschnitt: mitschnittHooks,
+  // Der Test läuft vom Analyzer aus, nicht aus dem Browser: Erreichen muss
+  // die CCU der Dienst, und nur sein Ergebnis zählt.
+  ccuTest: (host: string) => testeCcu(host, httpFetchBytes),
   onReboot: () => {
     log('Neustart über die API angefordert — beende (systemd startet neu)');
     void herunterfahren(0);

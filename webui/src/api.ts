@@ -701,3 +701,36 @@ export async function sendeAlarmziel(auftrag: Record<string, unknown>): Promise<
   }
   if (!res.ok) throw new Error(await res.text());
 }
+
+// --- CCU-Verbindungstest --------------------------------------------------
+
+export interface CcuTestErgebnis {
+  ok: boolean;
+  stufe: 'keine-adresse' | 'erreichbar' | 'antwort' | 'variable' | 'inhalt' | 'ok';
+  titel: string;
+  text: string;
+  /** Die nächste Handlung; leer, wenn nichts zu tun ist. */
+  tunSie: string;
+  /** Soll die ausführliche CCU-Anleitung eingeblendet werden? */
+  anleitungZeigen: boolean;
+  geraete: number | null;
+  alterStunden: number | null;
+  beispiele: string[];
+  technisch: string;
+}
+
+/**
+ * Prüft die CCU-Verbindung — vom Analyzer aus, nicht aus dem Browser.
+ *
+ * Erreichen muss die CCU der Dienst; ein Test aus dem Browser beantwortete
+ * die falsche Frage (der Browser steht oft in einem anderen Netz).
+ */
+export async function testeCcu(host: string): Promise<CcuTestErgebnis> {
+  const res = await fetch('/api/ccu/test', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify({ host }),
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return (await res.json()) as CcuTestErgebnis;
+}

@@ -1736,6 +1736,112 @@ Verbund-Peers, Demo, Statusanzeige, Langzeitdaten), landet in
 <code>/var/lib/asksin-analyzer/</code> und überlebt Updates wie Neustarts.</p>
 
 <!-- ==================================================== KAPITEL 13 -->
+<h2 class="umbruch" id="k12-3">12.3 Die CCU einrichten — Schritt für Schritt</h2>
+
+<p>Ohne Zentrale zeigt der Analyzer Geräte mit ihrer Funkadresse an:
+<code>1A2B3C</code> statt <em>Wohnzimmer Fenster</em>. Er funktioniert so
+vollständig — nur eben unleserlich.</p>
+
+<p>Damit Namen erscheinen, braucht er die Geräteliste Ihrer CCU. Und die gibt
+die CCU <strong>nicht von sich aus heraus</strong>. Sie muss einmal dazu
+aufgefordert werden, und genau das ist der Schritt, den fast alle übersehen.</p>
+
+<div class="box hinweis">
+<span class="titel">Woran man es merkt</span>
+<p style="margin-bottom: 0">Die Adresse der CCU ist eingetragen, alles sieht
+richtig aus — und trotzdem stehen überall nur Hexzahlen. Dann fehlt die
+Systemvariable auf der CCU. Der Verbindungstest sagt Ihnen das im Klartext,
+statt Sie raten zu lassen.</p>
+</div>
+
+<h3>Zuerst: den Test benutzen</h3>
+
+<p>In der Weboberfläche unter <em>Einstellungen → Standort &amp; Zentrale</em>
+steht neben <em>Speichern</em> der Knopf <strong>CCU-Verbindung
+testen</strong>. Er prüft der Reihe nach:</p>
+
+<div class="tabelle">
+<table>
+<tr><th>Meldung</th><th>Was sie bedeutet</th></tr>
+<tr><td><strong>17 Geräte von der CCU gelesen</strong></td><td>Alles in Ordnung. Zur Bestätigung nennt der Test ein paar Ihrer Gerätenamen — dann wissen Sie, dass es die richtige Anlage ist.</td></tr>
+<tr><td>Keine CCU eingetragen</td><td>Kein Fehler. Der Analyzer läuft mit Funkadressen weiter.</td></tr>
+<tr><td>CCU nicht erreichbar</td><td>Netzwerkfrage: Name falsch, CCU aus, oder eine Firewall dazwischen. Der Test unterscheidet die Fälle und nennt den passenden Schritt.</td></tr>
+<tr><td>Antwort kommt nicht von einer CCU</td><td>Unter der Adresse antwortet etwas anderes. Adresse prüfen.</td></tr>
+<tr><td><strong>Die CCU antwortet — die Systemvariable fehlt</strong></td><td>Der häufigste Fall. Die Verbindung steht; auf der CCU fehlt nur das Skript. Weiter unten.</td></tr>
+<tr><td>Die Liste ist … Tage alt</td><td>Das Skript lief einmal und seither nicht mehr. Neu angelernte Geräte fehlen.</td></tr>
+</table>
+</div>
+
+<p>Bei den beiden letzten Fällen klappt die Anleitung direkt in der
+Weboberfläche auf — Sie müssen dieses Handbuch dafür nicht aufschlagen.</p>
+
+<h3>Das Skript auf der CCU ausführen</h3>
+
+<div class="box hinweis">
+<span class="titel">Es ändert nichts an Ihrer Anlage</span>
+<p style="margin-bottom: 0">Keine Geräte, keine Programme, keine Kanäle. Das
+Skript liest die Geräteliste und legt eine einzige Systemvariable an. Wer
+unsicher ist: Es lässt sich beliebig oft wiederholen, ohne Schaden.</p>
+</div>
+
+<div class="schritte">
+<ol>
+<li><strong>Die CCU-Oberfläche öffnen</strong> — im Browser die Adresse der
+    CCU eingeben und anmelden.</li>
+<li>Oben rechts auf <strong>Einstellungen</strong>, dann im Menü auf
+    <strong>Systemsteuerung</strong>.</li>
+<li>Dort <strong>Zentralenwartung</strong> anklicken. Ganz unten auf der
+    Seite steht der Knopf <strong>Skript testen</strong> — anklicken. Es
+    öffnet sich ein großes leeres Textfeld.</li>
+<li><strong>Das Skript holen:</strong> die Datei
+    <code>ccu/geraeteliste-erzeugen.txt</code> aus dem Projekt öffnen.
+    Den <strong>gesamten</strong> Inhalt markieren
+    (<code>Strg</code>+<code>A</code>), kopieren
+    (<code>Strg</code>+<code>C</code>).</li>
+<li>In das leere Textfeld der CCU klicken und einfügen
+    (<code>Strg</code>+<code>V</code>). Es müssen rund 115 Zeilen sein.</li>
+<li>Auf <strong>Ausführen</strong> klicken.</li>
+<li>Unter dem Feld erscheint nach kurzer Zeit eine sehr lange Zeile, die mit
+    <code>{"created_at":</code> beginnt. <strong>Das ist Ihre
+    Geräteliste.</strong> Sie sieht unleserlich aus — das ist richtig so, sie
+    ist für den Analyzer bestimmt, nicht für Menschen.</li>
+<li>Zurück in den Analyzer, noch einmal <strong>CCU-Verbindung
+    testen</strong>. Jetzt muss die Anzahl Ihrer Geräte erscheinen.</li>
+</ol>
+</div>
+
+<h3>Einmal genügt nicht</h3>
+
+<p>Die Liste ist eine <strong>Momentaufnahme</strong>. Lernen Sie später ein
+Gerät an, taucht es im Analyzer nicht mit Namen auf — bis das Skript erneut
+läuft.</p>
+
+<p>Legen Sie deshalb auf der CCU ein Programm an, das es täglich ausführt:</p>
+
+<div class="schritte">
+<ol>
+<li><em>Programme und Verknüpfungen → Programme &amp; Zentralenverknüpfung → Neu</em></li>
+<li>Als Bedingung <strong>Zeitsteuerung</strong>, täglich, zu einer ruhigen
+    Uhrzeit (etwa 3 Uhr).</li>
+<li>Als Aktivität <strong>Skript</strong> wählen und denselben Inhalt
+    einfügen.</li>
+<li>Speichern.</li>
+</ol>
+</div>
+
+<p class="klein">Fehlt dieses Programm, meldet der Verbindungstest im
+Analyzer nach einem Tag „Die Liste ist … Tage alt". Das ist der Hinweis, dass
+genau dieser Schritt noch aussteht.</p>
+
+<h3>Herkunft des Skripts</h3>
+
+<p class="klein">Das Skript stammt aus dem Ursprungsprojekt
+<em>AskSinAnalyzer</em> (© jp112sdl) und steht unter CC BY-NC-SA 3.0 — also
+nicht unter der MIT-Lizenz der Weboberfläche. Es liegt unverändert bei;
+Einzelheiten in <code>ccu/README.md</code>. Für gewerbliche und behördliche
+Nutzung ist es nicht frei.</p>
+
+
 <h1 class="kapitel" id="k13"><span class="knr">13</span>Die Weboberfläche im Detail</h1>
 <div class="kapitelband"></div>
 
@@ -2922,7 +3028,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>Funkmodul wird heiß</td><td>Es hat irgendwann 5 V gesehen</td><td>Sofort stromlos machen. Modul ist vermutlich defekt — auslöten, neues Modul, künftig Jumper-Regel aus Kapitel 7 beachten</td></tr>
 <tr><td>Weboberfläche nicht erreichbar</td><td>Dienst gestoppt oder nur an 127.0.0.1 gebunden</td><td><code>asksin-analyzer status</code>; in <code>config.json</code> muss <code>"host": "0.0.0.0"</code> stehen (LAN-Frage des Installers)</td></tr>
 <tr><td>Kopfzeile dauerhaft „Sniffer getrennt"</td><td>HAT steckt nicht / UART nicht eingerichtet / Baudrate</td><td>Ohne Platine normal. Sonst: <code>asksin-analyzer logs</code> — steht dort ein Gerätefehler, Kapitel 9 (UART-Frage des Installers) wiederholen</td></tr>
-<tr><td>Geräte heißen nur „1A2B3C" statt Klarnamen</td><td>CCU nicht erreichbar oder CCU-Script fehlt</td><td>CCU-Adresse in <em>Einstellungen → Standort &amp; Zentrale</em> prüfen; auf der CCU muss die Systemvariable <code>AskSinAnalyzerDevList</code> befüllt werden (Kapitel 12/CCU-Script im Repo)</td></tr>
+<tr><td>Geräte heißen nur „1A2B3C" statt Klarnamen</td><td>CCU nicht erreichbar oder CCU-Script fehlt</td><td>CCU-Adresse in <em>Einstellungen → Standort &amp; Zentrale</em> prüfen; in der Weboberfläche <strong>CCU-Verbindung testen</strong> anklicken — der Test nennt die Ursache und blendet die Anleitung ein (Kapitel 12.3)</td></tr>
 <tr><td>„Nicht erlaubt" beim Speichern in der Weboberfläche</td><td>Auth-Token fehlt in diesem Browser</td><td>Token unter <em>Einstellungen → Zugriff</em> eintragen (Kapitel 21; vergessen? <code>asksin-analyzer token</code>)</td></tr>
 <tr><td>🔔-Glocke erscheint nie</td><td>Pi ohne Internetzugang zu GitHub</td><td><code>asksin-analyzer logs</code> zeigt „Aktualitätsprüfung fehlgeschlagen"; Update dann von Hand: <code>sudo asksin-analyzer update</code></td></tr>
 <tr><td>Verbund-Kachel warnt „Uhr weicht ab"</td><td>NTP auf einem Analyzer nicht synchron</td><td>Auf dem betroffenen Gerät <em>Einstellungen → Netzwerk</em>: Zeile „NTP aktuell" muss „synchron" zeigen — sonst NTP-Server setzen (Vorgabe de.pool.ntp.org)</td></tr>

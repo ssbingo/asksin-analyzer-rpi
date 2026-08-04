@@ -42,6 +42,7 @@ laufenden Gerät.
 | Verbund: 5 Analyzer als Gesamtsystem | ✅ komplett: Dashboard, Matrix+Dedup, Flotten-Update, Langzeitdaten nach InfluxDB (M9.1–M9.5, [`docs/verbund.md`](docs/verbund.md)) |
 | Langzeitdaten vor Ort (InfluxDB + Grafana) | ✅ optional auf dem Master: Ein-Klick-Einrichtung, acht fertige Grafana-Ansichten, vier Alarme (M14) |
 | Bootmedium | SSD ab Pi 4; **der Pi 3 läuft von SD-Karte** (Netzwerk am USB-Bus, nur USB 2.0) |
+| CCU-Verbindungstest mit Diagnose | ✅ nennt die Geräteanzahl, unterscheidet sechs Fehlerursachen und blendet bei fehlender Systemvariable die Einrichtung ein ([`ccu/`](ccu/README.md)) |
 | Alarmziele: ioBroker, E-Mail, Telegram | ✅ in der WebUI einstellbar, mit Testversand und deutlichen Fehlermeldungen (M14.2) |
 | Versionsabhängigkeit Analyzer ↔ Adapter | ✅ beide Seiten weisen sie aus **und prüfen sie** (M15) |
 | Protokoll und Absturzsuche (Tab „Wartung“) | ✅ fertig (M13): Stufen, Tagesrotation, Download, Systemjournal ([`docs/protokoll.md`](docs/protokoll.md)) |

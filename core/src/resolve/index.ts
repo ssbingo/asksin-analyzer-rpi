@@ -27,3 +27,5 @@ export type {
   DevListStats,
   FetchBytes,
 } from './fetcher.ts';
+export { SYSTEMVARIABLE, testeCcu } from './ccuTest.ts';
+export type { CcuTestErgebnis, Teststufe } from './ccuTest.ts';

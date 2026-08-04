@@ -141,6 +141,14 @@ export interface ApiServerOptions {
    * Firmware-Änderungen. Ein- und ausschaltbar im laufenden Betrieb, damit
    * dafür niemand an die Konfigurationsdatei muss.
    */
+  /**
+   * Verbindungstest zur CCU mit Diagnose.
+   *
+   * Liegt hier und nicht in der Oberfläche, weil der Analyzer die CCU
+   * erreichen können muss — nicht der Browser des Anwenders. Ein Test aus dem
+   * Browser heraus beantwortete die falsche Frage.
+   */
+  ccuTest?: (host: string) => Promise<unknown>;
   mitschnitt?: {
     zustand(): unknown;
     einstellen(auftrag: Record<string, unknown>): void;
@@ -556,6 +564,22 @@ export class ApiServer {
             return this.#text(res, 400, err instanceof Error ? err.message : String(err));
           }
           return this.#text(res, 200, 'OK — sofort wirksam');
+        }
+        case '/api/ccu/test': {
+          // Ohne Token: Der Test verändert nichts, er liest nur. Wer ihn
+          // sperrte, zwänge zum Blindflug bei der Einrichtung — und genau
+          // dort wird er gebraucht.
+          const pruefen = this.#opts.ccuTest;
+          if (pruefen === undefined) return this.#text(res, 501, 'Kein CCU-Test');
+          let auftrag: Record<string, unknown> = {};
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            /* leerer Body ist erlaubt — dann gilt die gespeicherte Adresse */
+          }
+          const host =
+            typeof auftrag['host'] === 'string' ? auftrag['host'] : (this.#config.ccuip ?? '');
+          return this.#json(res, 200, await pruefen(host));
         }
         case '/api/mitschnitt': {
           if (!this.#autorisiert(req, res)) return;

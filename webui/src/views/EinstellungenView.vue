@@ -24,6 +24,7 @@ import {
   sendeNetzwerk,
   sendeStatusAnzeige,
   setzeAuthToken,
+  testeCcu,
 } from '../api.ts';
 import type {
   Alarmkanal,
@@ -33,10 +34,47 @@ import type {
   NetzwerkStatus,
   NetzwerkZustand,
   VerbundPeerEintrag,
+  CcuTestErgebnis,
 } from '../api.ts';
 
 const standort = ref('');
 const ccuip = ref('');
+
+// --- CCU-Verbindungstest ---------------------------------------------------
+// Der haeufigste Einrichtungsfehler ist nicht das Netzwerk, sondern die
+// fehlende Systemvariable auf der CCU. Von aussen sieht das aus wie "CCU
+// kaputt". Deshalb sagt der Test, WAS zu tun ist — und blendet bei Bedarf die
+// Anleitung ein, statt auf ein Handbuch zu verweisen, das gerade niemand
+// aufschlaegt.
+const ccuTest = ref<CcuTestErgebnis | null>(null);
+const ccuTestLaeuft = ref(false);
+const ccuAnleitung = ref(false);
+
+async function ccuPruefen(): Promise<void> {
+  ccuTestLaeuft.value = true;
+  ccuTest.value = null;
+  try {
+    ccuTest.value = await testeCcu(ccuip.value);
+    // Bei einem Halt, den der Anwender selbst beheben kann, geht die
+    // Anleitung von allein auf. Wer sie nicht braucht, klappt sie zu.
+    ccuAnleitung.value = ccuTest.value.anleitungZeigen;
+  } catch (err) {
+    ccuTest.value = {
+      ok: false,
+      stufe: 'erreichbar',
+      titel: 'Der Test selbst ist fehlgeschlagen',
+      text: 'Der Analyzer konnte den Test nicht ausführen.',
+      tunSie: 'Läuft der Dienst? Ist diese Seite noch mit ihm verbunden?',
+      anleitungZeigen: false,
+      geraete: null,
+      alterStunden: null,
+      beispiele: [],
+      technisch: err instanceof Error ? err.message : String(err),
+    };
+  } finally {
+    ccuTestLaeuft.value = false;
+  }
+}
 const token = ref(authToken());
 const demoAktiv = ref(false);
 const meldung = ref<{ art: 'ok' | 'fehler'; text: string } | null>(null);
@@ -499,7 +537,91 @@ const demoUmschalten = (): Promise<void> | undefined => {
       <span class="name">CCU / RaspberryMatic (IP oder Hostname) — Quelle der Gerätenamen</span>
       <input type="text" v-model="ccuip" placeholder="z. B. 192.168.1.50" />
     </label>
-    <button class="primaer" :disabled="beschaeftigt" @click="speichern">Speichern</button>
+
+    <div class="zeile">
+      <button class="primaer" :disabled="beschaeftigt" @click="speichern">Speichern</button>
+      <button :disabled="ccuTestLaeuft" @click="ccuPruefen">
+        {{ ccuTestLaeuft ? 'Teste …' : 'CCU-Verbindung testen' }}
+      </button>
+    </div>
+
+    <div v-if="ccuTest !== null" class="meldung" :class="ccuTest.ok ? 'ok' : 'fehler'">
+      <strong>{{ ccuTest.titel }}</strong><br />
+      {{ ccuTest.text }}
+      <template v-if="ccuTest.tunSie">
+        <br /><br /><strong>Zu tun:</strong> {{ ccuTest.tunSie }}
+      </template>
+      <div class="fussnote" v-if="ccuTest.technisch" style="margin-top: 0.5rem">
+        Technisch: {{ ccuTest.technisch }}
+      </div>
+    </div>
+
+    <div class="panel" v-if="ccuAnleitung" style="margin-top: 0.8rem">
+      <h3 style="margin-top: 0">So richten Sie die CCU ein</h3>
+      <p class="gedimmt">
+        Die CCU gibt ihre Geräteliste nicht von sich aus heraus — sie muss
+        einmal dazu aufgefordert werden. Das erledigt ein Skript, das Sie
+        einmal einfügen und ausführen. Es dauert etwa fünf Minuten.
+      </p>
+
+      <div class="meldung ok">
+        <strong>Es ändert nichts an Ihrer Anlage.</strong> Keine Geräte, keine
+        Programme, keine Kanäle. Das Skript liest die Geräteliste und legt eine
+        einzige Systemvariable an.
+      </div>
+
+      <div class="schritte">
+        <ol>
+          <li>
+            Die CCU-Oberfläche im Browser öffnen und anmelden.
+          </li>
+          <li>
+            Oben rechts auf <strong>Einstellungen</strong>, dann
+            <strong>Systemsteuerung</strong>.
+          </li>
+          <li>
+            Dort <strong>Zentralenwartung</strong> wählen und ganz unten den
+            Knopf <strong>Skript testen</strong> anklicken. Es öffnet sich ein
+            großes leeres Textfeld.
+          </li>
+          <li>
+            Die Datei <code>ccu/geraeteliste-erzeugen.txt</code> aus dem
+            Projekt öffnen, <strong>den gesamten Inhalt</strong> markieren
+            (Strg&nbsp;+&nbsp;A) und in das Textfeld einfügen
+            (Strg&nbsp;+&nbsp;V).
+          </li>
+          <li>
+            Auf <strong>Ausführen</strong> klicken. Unter dem Feld erscheint
+            nach kurzer Zeit eine lange Zeile, die mit
+            <code>{"created_at":</code> beginnt. Das ist Ihre Geräteliste —
+            sie sieht unleserlich aus, das ist richtig so.
+          </li>
+          <li>
+            Zurück auf diese Seite und noch einmal auf
+            <strong>CCU-Verbindung testen</strong>. Jetzt muss die Anzahl
+            Ihrer Geräte erscheinen.
+          </li>
+        </ol>
+      </div>
+
+      <h3>Damit es so bleibt</h3>
+      <p class="gedimmt">
+        Die Liste ist eine Momentaufnahme. Lernen Sie später ein Gerät an,
+        fehlt es hier, bis das Skript erneut läuft. Legen Sie deshalb auf der
+        CCU ein Programm an, das es täglich ausführt:
+        <em>Programme und Verknüpfungen → Neu</em>, als Auslöser
+        <em>Zeitsteuerung, täglich</em>, als Aktivität <em>Skript</em> mit
+        demselben Inhalt.
+      </p>
+      <p class="fussnote">
+        Der Test oben warnt, sobald die Liste älter als einen Tag ist — dann
+        fehlt genau dieses Programm.
+      </p>
+
+      <p>
+        <button @click="ccuAnleitung = false">Anleitung schließen</button>
+      </p>
+    </div>
     <div class="fussnote">
       Netzwerk und Hostname des Raspberry Pi werden bewusst nicht über die
       Weboberfläche verändert — dafür ist das Betriebssystem zuständig.

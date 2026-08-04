@@ -1,0 +1,115 @@
+string svDevList = "AskSinAnalyzerDevList";
+string svAlarm   = "AskSinAnalyzerAlarm";
+
+string HmIPBroadcastName           = "HmIP Multicast All Devices";
+string HmIPRoutersName             = "HmIP Multicast All Routers";
+string HmIPAccessControllersName   = "HmIP Multicast All AccessControllers";
+string HmIPThermostatsName         = "HmIP Multicast All Thermostats";
+string HmIPSmokeSensorsName        = "HmIP Multicast All Smoke Sensors";
+string HmIPPermanentListenerName   = "HmIP Multicast All Permanent Listener";
+string HmIPBurstListenerName       = "HmIP Multicast All Burst Listener";
+string HmIPTripleBurstListenerName = "HmIP Multicast All Triple Burst Listener";
+string HmRFBroadcastName           = "HMRF Broadcast";
+
+object svObjects = dom.GetObject(ID_SYSTEM_VARIABLES);
+
+!Alarmvariable anlegen
+object alarmObj = dom.GetObject(ID_SYSTEM_VARIABLES).Get(svAlarm);
+
+if(!alarmObj) {      
+  alarmObj = dom.CreateObject(OT_ALARMDP);
+                                                                                                                               
+  alarmObj.Name(svAlarm);                                                                     
+  alarmObj.ValueType(ivtBinary);                                                               
+  alarmObj.ValueSubType(istAlarm);                                                             
+  alarmObj.ValueName0("nicht ausgelöst");                                   
+  alarmObj.ValueName1("ausgelöst");                                      
+  alarmObj.ValueUnit("");                                                                    
+  alarmObj.AlType(atSystem);                                                                   
+  alarmObj.AlArm(true);                                                                        
+  alarmObj.AlSetBinaryCondition();                                                             
+  alarmObj.State(false);                                                                       
+
+  svObjects.Add(alarmObj.ID());
+
+  dom.RTUpdate(0);                                                                          
+  
+  WriteLine("Alarm-Variable "#svAlarm#" angelegt.\n");                                                                                        
+}  else {
+  WriteLine("Alarm-Variable "#svAlarm#" existiert.\n");
+}
+
+!Systemvariable anlegen, falls sie nicht bereits existiert
+object svObj = dom.GetObject(ID_SYSTEM_VARIABLES).Get(svDevList);
+
+if (!svObj){
+  svObj = dom.CreateObject(OT_VARDP);
+
+  svObj.Name(svDevList);
+  svObj.ValueType(ivtString);
+  svObj.ValueSubType(istChar8859);
+
+  svObj.DPInfo("used by AskSinAnalyzer");
+  svObj.ValueUnit("");
+  svObj.State("");
+  svObj.Internal(false);
+  svObj.Visible(false);
+
+  svObjects.Add(svObj.ID());
+
+  dom.RTUpdate(0);
+  WriteLine("Variable "#svDevList#" angelegt.\n");
+} else {
+  WriteLine("Variable "#svDevList#" existiert.\n");
+}
+
+!phys. Zentralen-Adresse HmIP auslesen
+string stdout;
+string stderr;
+system.Exec("echo $((0x`grep Adapter.1.Address /etc/config/hmip_address.conf|awk -F'\=' {'print $2'}`))", &stdout, &stderr);
+WriteLine(stdout);
+
+integer HmIPCentral = stdout.ToInteger();
+
+!alle Geräteadressen, Seriennummer und Namen erfassen
+integer tstamp = system.Date("%F %X").ToTime().ToInteger();
+string sDevId;
+string data;
+string metaData;
+string result = "{\"created_at\":"#tstamp#",\"devices\":["#
+     "{\"address\":15728641,\"serial\":\"00000000000000\",\"name\":\""#HmIPBroadcastName#"\"},"#
+     "{\"address\":15728642,\"serial\":\"00000000000000\",\"name\":\""#HmIPRoutersName#"\"},"#
+     "{\"address\":15728643,\"serial\":\"00000000000000\",\"name\":\""#HmIPAccessControllersName#"\"},"#
+     "{\"address\":15728644,\"serial\":\"00000000000000\",\"name\":\""#HmIPThermostatsName#"\"},"#
+     "{\"address\":15728645,\"serial\":\"00000000000000\",\"name\":\""#HmIPSmokeSensorsName#"\"},"#
+     "{\"address\":15728769,\"serial\":\"00000000000000\",\"name\":\""#HmIPPermanentListenerName#"\"},"#
+     "{\"address\":15728770,\"serial\":\"00000000000000\",\"name\":\""#HmIPBurstListenerName#"\"},"#
+     "{\"address\":15728771,\"serial\":\"00000000000000\",\"name\":\""#HmRFBroadcastName#"\"},"#
+     "{\"address\":0,\"serial\":\"0000000000\",\"name\":\""#HmRFBroadcastName#"\"},";
+
+foreach(sDevId, root.Devices().EnumUsedIDs())
+{
+  var dev= dom.GetObject(sDevId);
+  if ( true == dev.ReadyConfig() )
+  {
+    metaData = dev.MetaData("DEVDESC");
+    foreach (data, metaData.Split(",")) {
+      if (data.Substr(0,10) == "RF_ADDRESS") {
+        data = data.Replace("RF_ADDRESS:","");
+        if (data != "0") {
+	  string ser = dev.Address();
+	  if ((HmIPCentral > 0) && (data == HmIPCentral)) { ser = "HmIP-RF"; }
+          result = result # "{\"address\":" #data#",\"serial\":\""#ser#"\",\"name\":\""#dev.Name()#"\"},";
+        }
+      }
+    }
+  }
+}
+result = result # "]}";
+result = result.Replace("},]","}]");
+
+
+dom.GetObject(ID_SYSTEM_VARIABLES).Get(svDevList).State(result);
+Write(result);
+
+!Abfrage im Browser mit http://ccu2:8181/ret.exe?ret=dom.GetObject(ID_SYSTEM_VARIABLES).Get("AskSinAnalyzerDevList").Value()
