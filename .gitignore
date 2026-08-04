@@ -22,3 +22,7 @@ docs/handbuch/.venv/
 # Screenshots — sie verdoppelten jeden Fehler darin, auch einen versehentlich
 # mitfotografierten Hostnamen. Von nichts referenziert.
 docs/handbuch/AskSin-Analyzer-Handbuch-*_*.png
+
+# Persoenliche Berechtigungen dieser Arbeitskopie — nichts fuer ein
+# oeffentliches Repo.
+.claude/settings.local.json
