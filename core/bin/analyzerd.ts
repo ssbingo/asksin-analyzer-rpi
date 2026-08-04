@@ -539,9 +539,14 @@ const updateHooks: UpdateHooks = {
   },
   updateStatus: () => leseUpdateStatus(),
   flashFirmware: async (hex) => {
-    if (demoAktiv) {
-      return { ok: false, log: 'Im Demo-Modus gibt es keine Hardware zum Flashen.' };
-    }
+    // Kein Riegel wegen des Demo-Modus. Der simuliert die FUNKANLAGE, nicht
+    // das Geraet: Er laeuft auch dann, wenn die Platine steckt — etwa um
+    // Funktionen ohne echtes Homematic-Netz auszuprobieren. Wer dabei die
+    // Firmware aufspielen will, soll das koennen.
+    //
+    // Fehlt die Platine tatsaechlich, scheitert avrdude von selbst und sagt
+    // auch warum. Eine vorweggenommene Absage haette stattdessen einen
+    // erfundenen Grund genannt — und wer danach sucht, sucht am falschen Ende.
     if (!siehtNachIntelHexAus(hex)) {
       return { ok: false, log: 'Upload ist keine gültige Intel-HEX-Datei.' };
     }
@@ -705,28 +710,6 @@ async function kommando(cmd: string, args: string[]): Promise<string> {
   return stdout;
 }
 
-/**
- * Anzeigewerte, die im Demo-Modus die echte Netzidentität ersetzen.
- *
- * **Nur die Anzeige.** Ob und wie sich das Netzwerk ändern lässt, bleibt
- * unberührt — der Demo-Modus läuft auf echter Hardware, und deren
- * Netzwerkeinstellungen gehören zum Gerät, nicht zur Simulation.
- *
- * (Das stand hier zunächst anders: Der Demo-Modus lieferte einen komplett
- * erfundenen Zustand mit `aenderbar: false`, wodurch sich das Netzwerk im
- * Demobetrieb nicht mehr umstellen liess. Das war eine Annahme von mir und
- * keine Vorgabe — behoben am 04.08.2026.)
- *
- * 192.0.2.0/24 ist der für Dokumentation reservierte Bereich (RFC 5737).
- */
-const DEMO_ANZEIGE = {
-  hostname: 'asksin-analyzer-demo',
-  adressen: [{ address: '192.0.2.10', prefix: 24 }],
-  gateway: '192.0.2.1',
-  dns: ['192.0.2.1'],
-  ntpServer: '192.0.2.1',
-} as const;
-
 async function netzZustand(): Promise<Record<string, unknown>> {
   // Standardroute → Schnittstelle + Gateway
   let iface: string | null = null;
@@ -827,25 +810,6 @@ async function netzZustand(): Promise<Record<string, unknown>> {
     } catch {
       /* Datei fehlt */
     }
-  }
-
-  // Im Demo-Modus die Identitaet durch Beispielwerte ersetzen — aber NUR
-  // die Anzeige. aenderbar, grund, iface, methode und verbindung bleiben,
-  // wie sie sind: Sie beschreiben das echte Geraet, und wer im Demobetrieb
-  // das Netzwerk umstellen will, muss das koennen.
-  if (demoAktiv) {
-    return {
-      hostname: DEMO_ANZEIGE.hostname,
-      iface,
-      verbindung,
-      methode,
-      aenderbar,
-      grund,
-      adressen: [...DEMO_ANZEIGE.adressen],
-      gateway: DEMO_ANZEIGE.gateway,
-      dns: [...DEMO_ANZEIGE.dns],
-      ntp: { server: DEMO_ANZEIGE.ntpServer, aktiv: DEMO_ANZEIGE.ntpServer, sync: ntpSync },
-    };
   }
 
   return {

@@ -846,32 +846,25 @@ test('Mitschnitt: nichts aufgezeichnet ergibt 404, keinen leeren Download', asyn
   assert.equal(res.status, 404);
 });
 
-test('Demo-Modus gibt keine echte Netzidentitaet preis', async (t) => {
-  // Der Demo-Modus ist zum Herzeigen da — Screenshots davon landen im
-  // Handbuch. In alten Handbuch-Bildern standen dadurch die interne
-  // Adressierung, der Hostname und eine MAC-Adresse. Beim Anfertigen faellt
-  // das niemandem auf; herauszubekommen ist es dann nur noch durch
-  // Umschreiben der Git-Historie.
-  const { base } = await aufbau(t, { demo: true });
-  const cfg = (await (await fetch(`${base}/getConfig`)).json()) as Record<
+test('Demo-Modus veraendert NICHTS ausser den Funktelegrammen', async (t) => {
+  // Grundsatz vom 04.08.2026: Der Demo-Modus simuliert die Funkanlage — und
+  // sonst nichts. Er ist dafuer da, wenn keine Platine steckt oder wenn man
+  // Funktionen ohne echtes Homematic-Netz ausprobieren will. Alles uebrige
+  // muss ganz normal bedien- und administrierbar bleiben.
+  //
+  // Ich hatte das verletzt: Im Demo-Modus lieferte die Auskunft einen
+  // erfundenen Hostnamen samt IP und MAC, und die Netzwerkeinstellungen
+  // liessen sich nicht mehr aendern. Dieser Test haelt fest, dass die
+  // Auskunft echt bleibt.
+  const mitDemo = await aufbau(t, { demo: true });
+  const cfg = (await (await fetch(`${mitDemo.base}/getConfig`)).json()) as Record<
     string,
     string
   >;
 
-  assert.equal(cfg['hostname'], 'asksin-analyzer-demo');
-  assert.equal(cfg['macaddress'], '00:00:5e:00:53:10');
-  // 192.0.2.0/24 ist der fuer Dokumentation reservierte Bereich (RFC 5737).
-  assert.match(cfg['ip'] ?? '', /^192\.0\.2\./);
-  assert.notEqual(cfg['hostname'], hostname());
-});
-
-test('ohne Demo bleibt die echte Auskunft erhalten', async (t) => {
-  // Sonst waere die Info-Ansicht im Normalbetrieb wertlos — dort will man
-  // ja gerade wissen, unter welcher Adresse das Geraet erreichbar ist.
-  const { base } = await aufbau(t);
-  const cfg = (await (await fetch(`${base}/getConfig`)).json()) as Record<
-    string,
-    string
-  >;
-  assert.equal(cfg['hostname'], hostname());
+  assert.equal(cfg['hostname'], hostname(), 'echter Hostname, auch im Demo-Modus');
+  assert.notEqual(cfg['hostname'], 'asksin-analyzer-demo');
+  // Das Demo-Kennzeichen selbst darf und soll gesetzt sein — es sagt dem
+  // Anwender, dass die TELEGRAMME simuliert sind.
+  assert.equal(cfg['demo'], 1);
 });

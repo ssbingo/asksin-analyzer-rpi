@@ -80,15 +80,15 @@ if command -v tesseract >/dev/null; then
     done < <(git ls-files '*.png' '*.jpg' '*.jpeg')
     echo "  geprüft: $(git ls-files '*.png' '*.jpg' '*.jpeg' | wc -l) Bild(er)"
 else
-    echo "  Kein tesseract — Bildinhalte werden hier nicht gelesen."
+    echo "  ÜBERSPRUNGEN — kein tesseract. Bilder sind NICHT geprüft."
     echo
-    echo "  Das ist vertretbar, weil die Sicherheit woanders herkommt: Alle"
-    echo "  Oberflächen-Screenshots entstehen im Demo-Modus, und der gibt"
-    echo "  keine echte Netzidentität mehr heraus. Festgehalten wird das"
-    echo "  vom Test 'Demo-Modus gibt keine echte Netzidentitaet preis'"
-    echo "  (core/test/api.test.ts) — an der Quelle statt am Ergebnis."
+    echo "  Das ist die Lücke, aus der der Anlass entstand: Der Fund steckte"
+    echo "  in einem Bildschirmfoto, nicht im Text. Der Demo-Modus hilft dabei"
+    echo "  NICHT — er simuliert die Funktelegramme und sonst nichts, zeigt"
+    echo "  also weiterhin den echten Hostnamen und die echte Adresse."
     echo
-    echo "  Wer trotzdem die Bilder selbst lesen lassen will:"
+    echo "  Vor dem Aufnehmen von Screenshots fürs Handbuch also selbst"
+    echo "  hinsehen, oder OCR nachrüsten:"
     echo "    sudo apt install tesseract-ocr tesseract-ocr-deu"
 fi
 

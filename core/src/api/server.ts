@@ -211,34 +211,6 @@ const MIME: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
 };
 
-/**
- * Beispielhafte Netzidentität für den Demo-Modus.
- *
- * Der Demo-Modus ist dafür da, das Gerät herzuzeigen — in Screenshots, im
- * Handbuch, auf einem Bildschirm neben jemandem. Genau dann darf die
- * Oberfläche nicht Hostname, IP und **MAC-Adresse** des echten Rechners
- * nennen.
- *
- * Anlass: In alten Handbuch-Screenshots standen die interne Adressierung
- * (zwei Subnetze), der Hostname und eine MAC-Adresse — alles aus einem
- * Lauf im Demo-Modus. Beim Anfertigen fällt so etwas niemandem auf; im
- * Nachhinein ist es aus der Git-Historie nur mit Umschreiben wieder
- * herauszubekommen.
- *
- * Deshalb wird hier ersetzt statt geschwärzt: Wer im Demo-Modus einen
- * Screenshot macht, kann gar nichts Echtes erwischen.
- *
- * Die Werte sind bewusst als Beispiel erkennbar: 192.0.2.0/24 ist der von
- * der IANA für Dokumentation reservierte Bereich (RFC 5737), die MAC liegt
- * im ebenfalls für Dokumentation reservierten Block (RFC 7042).
- */
-const DEMO_NETZ = {
-  hostname: 'asksin-analyzer-demo',
-  ip: '192.0.2.10',
-  netmask: '255.255.255.0',
-  mac: '00:00:5e:00:53:10',
-} as const;
-
 /** Erste externe IPv4-Schnittstelle — für die Info-Ansicht der App. */
 function ersteSchnittstelle(): { ip: string; netmask: string; mac: string } {
   for (const eintraege of Object.values(networkInterfaces())) {
@@ -888,8 +860,7 @@ export class ApiServer {
   /** Alle Felder, die die App auswertet (§2.3) — SD/SPIFFS sinnvoll umgedeutet. */
   #configAntwort(): Record<string, unknown> {
     const { upper, lower } = toVersionParts(this.#opts.version ?? '0.0.1');
-    const demo = this.#config.demo === true;
-    const netz = demo ? DEMO_NETZ : ersteSchnittstelle();
+    const netz = ersteSchnittstelle();
     const seite = this.#opts.db.prepare('PRAGMA page_size').get() as {
       page_size: number;
     };
@@ -902,7 +873,7 @@ export class ApiServer {
       version_lower: lower,
       display: 0,
       ccuip: this.#config.ccuip ?? '',
-      hostname: demo ? DEMO_NETZ.hostname : hostname(),
+      hostname: hostname(),
       ntp: this.#config.ntp ?? '',
       ip: netz.ip,
       netmask: netz.netmask,
