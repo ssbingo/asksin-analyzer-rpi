@@ -88,6 +88,19 @@ export type Firmwareantwort =
        */
       cc1101: number | null;
     }
+  | {
+      /**
+       * Selbstauskunft des Funkmoduls beim Start — ungefragt.
+       *
+       * Die erweiterte Firmware sagt beim Hochlaufen, ob der CC1101
+       * antwortet. Das ist beim Aufbau die erste Frage überhaupt: Ohne diese
+       * Zeile ist „es kommen keine Telegramme" nicht von „es ist gerade
+       * nichts los" zu unterscheiden.
+       */
+      art: 'funkmodul';
+      /** Versionsregister, oder null wenn das Modul nicht antwortet. */
+      cc1101: number | null;
+    }
   | { art: 'erweitert'; an: boolean }
   | { art: 'unbekannter-befehl' };
 

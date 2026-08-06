@@ -109,6 +109,13 @@ export function parseAntwort(raw: string): Firmwareantwort | null {
       cc1101: /^[0-9A-Fa-f]{2}$/.test(chip) ? Number.parseInt(chip, 16) : null,
     };
   }
+  if (felder[0] === 'CC' && felder.length >= 2) {
+    const chip = felder[1] ?? '';
+    return {
+      art: 'funkmodul',
+      cc1101: /^[0-9A-Fa-f]{2}$/.test(chip) ? Number.parseInt(chip, 16) : null,
+    };
+  }
   if (felder[0] === 'E' && felder.length >= 2) {
     return { art: 'erweitert', an: felder[1] === '1' };
   }

@@ -389,3 +389,31 @@ describe('Versionsabhaengigkeit Firmware <-> Analyzer', () => {
     assert.match(b.text, /nichts verloren/);
   });
 });
+
+describe('Startmeldung des Funkmoduls', () => {
+  it('liest die ungefragte Selbstauskunft beim Hochlaufen', () => {
+    // Die erweiterte Firmware sagt beim Start, ob der CC1101 antwortet —
+    // ohne dass jemand fragt. Beim Aufbau ist das die erste Frage ueberhaupt.
+    assert.deepEqual(parseAntwort(':!CC,14;'), { art: 'funkmodul', cc1101: 0x14 });
+    assert.deepEqual(parseAntwort(':!CC,--;'), { art: 'funkmodul', cc1101: null });
+  });
+
+  it('die Startmeldung zaehlt NICHT als verworfene Zeile', () => {
+    // Sonst stiege der Fehlerzaehler bei jedem Neustart der Firmware — und
+    // ausgerechnet bei einer fehlenden Platine saehe es nach zwei Fehlern
+    // statt nach einem Befund aus.
+    const r = parseLine(':!CC,--;', () => 1000);
+    assert.equal(r.kind, 'antwort');
+    if (r.kind !== 'antwort') return;
+    assert.equal(r.antwort.art, 'funkmodul');
+  });
+
+  it('unterscheidet fehlendes Modul von Version 0x00', () => {
+    // "--" heisst "keine Antwort". 0x00 waere ein gelesener Wert. Der
+    // Unterschied entscheidet, wo gesucht wird.
+    const ohne = parseAntwort(':!CC,--;');
+    const null0 = parseAntwort(':!CC,00;');
+    assert.equal(ohne?.art === 'funkmodul' ? ohne.cc1101 : 'x', null);
+    assert.equal(null0?.art === 'funkmodul' ? null0.cc1101 : 'x', 0);
+  });
+});
