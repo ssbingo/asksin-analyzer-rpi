@@ -21,43 +21,126 @@ function runner(drehbuch: Array<KommandoErgebnis>) {
   };
 }
 
-test('HAT-Flash: GPIO4-Reset (v2-Syntax), dann avrdude mit 58824 Baud', async () => {
-  const r = runner([
-    { code: 124, output: '' },              // timeout beendet gpioset → Erfolg
-    { code: 0, output: 'avrdude done' },
-  ]);
-  const erg = await flashFirmware('/tmp/fw.hex', {
-    device: '/dev/asksin-hat',
-    runCommand: r.run,
-  });
-  assert.equal(erg.ok, true);
-  assert.equal(r.aufrufe.length, 2);
-  assert.deepEqual(r.aufrufe[0], {
-    cmd: 'timeout',
-    args: ['0.3', 'gpioset', '-c', 'gpiochip0', '4=0'],
-  });
-  const avr = r.aufrufe[1]!;
-  assert.equal(avr.cmd, 'avrdude');
-  assert.ok(avr.args.includes('-b') && avr.args.includes('58824'), 'krumme Baudrate');
-  assert.ok(avr.args.includes('/dev/asksin-hat'));
-  assert.ok(avr.args.includes('flash:w:/tmp/fw.hex:i'));
+/**
+ * Bildet die Reset-Strecke nach, statt nur Argumente zu vergleichen.
+ *
+ * Massgeblich ist die Verdrahtung: GPIO4 → C8 (100 n) → RESET, dahinter R2
+ * (10 k) nach +3V3. Der 328P wird also von der **fallenden Flanke** an GPIO4
+ * zurueckgesetzt, nicht vom Pegel. Daraus folgen die beiden Regeln, die dieses
+ * Modell durchsetzt:
+ *
+ *  1. libgpiod laesst die Leitung stehen, wo das Kommando sie hingesetzt hat.
+ *     Ein LOW ohne nachfolgendes HIGH bleibt LOW — ueber den Aufruf hinaus.
+ *  2. avrdude erreicht den Bootloader nur, wenn seit dem letzten Flash eine
+ *     fallende Flanke kam. Liegt die Leitung schon auf LOW, passiert beim
+ *     naechsten `gpioset 4=0` gar nichts.
+ *
+ * Deshalb faellt der alte Stand erst beim **zweiten** Flash durch — genau so,
+ * wie er es in der Wirklichkeit getan haette.
+ *
+ * `syntax: 'v1'` laesst die v2-Aufrufe scheitern, wie es aeltere libgpiod tut.
+ */
+function gpioModell(syntax: 'v1' | 'v2' = 'v2') {
+  const leitung = { pegel: 1 };          // Ruhezustand: R2 zieht RESET hoch
+  let flankeSeitFlash = false;
+  const aufrufe: Aufruf[] = [];
+  const run = (cmd: string, args: string[]): Promise<KommandoErgebnis> => {
+    aufrufe.push({ cmd, args });
+    const alle = [cmd, ...args];
+
+    if (alle.includes('gpioset')) {
+      const v2 = alle.includes('-c');
+      if (v2 && syntax === 'v1') {
+        return Promise.resolve({ code: 1, output: "unrecognized option '-c'" });
+      }
+      if (!v2 && syntax === 'v2') {
+        return Promise.resolve({ code: 1, output: "unrecognized option '--mode=time'" });
+      }
+      const neu = Number(alle.at(-1)!.split('=')[1]);
+      if (leitung.pegel === 1 && neu === 0) flankeSeitFlash = true;
+      leitung.pegel = neu;
+      // timeout beendet das haltende gpioset — Code 124 ist der Erfolgsfall.
+      return Promise.resolve({ code: cmd === 'timeout' ? 124 : 0, output: '' });
+    }
+
+    if (cmd === 'avrdude') {
+      const erreichbar = flankeSeitFlash;
+      flankeSeitFlash = false;
+      return Promise.resolve(
+        erreichbar
+          ? { code: 0, output: 'avrdude done' }
+          : { code: 1, output: 'stk500_getsync(): not in sync: resp=0x00' },
+      );
+    }
+    return Promise.resolve({ code: 0, output: '' });
+  };
+  return { leitung, aufrufe, run };
+}
+
+test('HAT-Flash: zweimal hintereinander — jeder Reset braucht eine eigene Flanke', async () => {
+  const g = gpioModell();
+  const opts = { device: '/dev/asksin-hat', runCommand: g.run };
+
+  const erste = await flashFirmware('/tmp/fw.hex', opts);
+  assert.equal(erste.ok, true, erste.log);
+
+  // Hier faellt der alte Stand: Er liess GPIO4 auf LOW liegen, also gab es
+  // beim zweiten Aufruf keinen Pegelwechsel mehr — kein Reset, kein
+  // Bootloader, "not in sync". Beim ersten Ausprobieren faellt das nie auf.
+  const zweite = await flashFirmware('/tmp/fw.hex', opts);
+  assert.equal(zweite.ok, true, zweite.log);
+  assert.equal(g.leitung.pegel, 1, 'GPIO4 muss am Ende wieder HIGH sein');
+
+  const namen = g.aufrufe.map((a) => `${a.cmd} ${a.args.join(' ')}`);
+  const tief = namen.findIndex((z) => z.includes('4=0'));
+  const hoch = namen.findIndex((z) => z.includes('4=1'));
+  const avr = namen.findIndex((z) => z.startsWith('avrdude'));
+  assert.ok(tief >= 0 && hoch > tief, 'erst LOW, dann HIGH');
+  assert.ok(avr > hoch, 'avrdude erst nach dem vollständigen Impuls');
+
+  const avrArgs = g.aufrufe[avr]!.args;
+  assert.ok(avrArgs.includes('-b') && avrArgs.includes('58824'), 'krumme Baudrate');
+  assert.ok(avrArgs.includes('/dev/asksin-hat'));
+  assert.ok(avrArgs.includes('flash:w:/tmp/fw.hex:i'));
 });
 
-test('HAT-Flash: fällt auf gpioset-v1-Syntax zurück', async () => {
-  const r = runner([
-    { code: 1, output: 'unbekannte Option -c' },   // v2 scheitert
-    { code: 0, output: '' },                        // v1 klappt
-    { code: 0, output: 'avrdude done' },
-  ]);
+test('HAT-Flash: fällt auf gpioset-v1-Syntax zurück, auch beim Freigeben', async () => {
+  const g = gpioModell('v1');
+  const opts = { device: '/dev/asksin-hat', runCommand: g.run };
+  assert.equal((await flashFirmware('/tmp/fw.hex', opts)).ok, true);
+  assert.equal((await flashFirmware('/tmp/fw.hex', opts)).ok, true, 'auch v1 gibt frei');
+  assert.equal(g.leitung.pegel, 1);
+  assert.ok(
+    g.aufrufe.some(
+      (a) => a.cmd === 'gpioset' && a.args.join(' ') === '--mode=time --usec=300000 gpiochip0 4=0',
+    ),
+    'v1-Impuls mit 300 ms',
+  );
+});
+
+test('HAT-Flash: scheitert die Freigabe, sagt das Log wie man von Hand löst', async () => {
+  const g = gpioModell();
+  let n = 0;
+  const run = (cmd: string, args: string[]): Promise<KommandoErgebnis> => {
+    // Der Impuls klappt, das Zurückziehen auf HIGH nicht (beide Syntaxen).
+    if ([cmd, ...args].includes('gpioset') && args.join(' ').includes('4=1')) {
+      n += 1;
+      return Promise.resolve({ code: 2, output: 'gpioset: permission denied' });
+    }
+    return g.run(cmd, args);
+  };
   const erg = await flashFirmware('/tmp/fw.hex', {
     device: '/dev/asksin-hat',
-    runCommand: r.run,
+    runCommand: run,
   });
-  assert.equal(erg.ok, true);
-  assert.deepEqual(r.aufrufe[1], {
-    cmd: 'gpioset',
-    args: ['--mode=time', '--usec=300000', 'gpiochip0', '4=0'],
-  });
+  assert.equal(erg.ok, false);
+  assert.equal(n, 2, 'v2 und v1 versucht');
+  assert.match(erg.log, /pinctrl set 4 ip pu/, 'Ausweg steht im Log');
+  assert.match(erg.log, /keine fallende Flanke/, 'nennt die Folge, nicht einen Dauerreset');
+  assert.ok(
+    !g.aufrufe.some((a) => a.cmd === 'avrdude'),
+    'kein avrdude, wenn die Leitung nicht in einen sauberen Zustand kam',
+  );
 });
 
 test('USB-Flash: kein GPIO — avrdude übernimmt den Reset über DTR', async () => {
@@ -73,7 +156,8 @@ test('USB-Flash: kein GPIO — avrdude übernimmt den Reset über DTR', async ()
 
 test('avrdude-Fehler wird als ok:false mit Log gemeldet, wirft nie', async () => {
   const r = runner([
-    { code: 124, output: '' },
+    { code: 124, output: '' },   // Reset-Impuls LOW
+    { code: 124, output: '' },   // Leitung wieder HIGH
     { code: 1, output: 'stk500_getsync(): not in sync' },
   ]);
   const erg = await flashFirmware('/tmp/fw.hex', {
