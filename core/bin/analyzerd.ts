@@ -421,7 +421,7 @@ const mitschnittHooks = {
 const analyzer = new Analyzer({
   openPort: demoAktiv
     ? demoPortOpener()
-    : sttyPortOpener(konfig.device, konfig.baud),
+    : sttyPortOpener(konfig.device, konfig.baud, (t) => log(`Serielle Schnittstelle: ${t}`)),
   // Immer gesetzt, auch wenn gerade nicht aufgezeichnet wird: Nur so lässt
   // sich der Mitschnitt im laufenden Betrieb einschalten. Ist er aus, kostet
   // der Aufruf einen null-Vergleich je Zeile.
