@@ -1193,8 +1193,15 @@ PoE-HAT stecken (Kapitel 10 zeigt die Mechanik im Detail), Antenne über das
 IPEX-Kabel anschließen.</li>
 <li>Strom an, per SSH anmelden, dann:</li>
 </ol>
-<pre>stty -F /dev/ttyAMA0 <strong>58824</strong> raw -echo
+<pre>stty -F /dev/ttyAMA0 57600 raw -echo
+sudo python3 /opt/asksin-analyzer/deploy/baudrate.py /dev/ttyAMA0 <strong>58824</strong>
 cat -v /dev/ttyAMA0</pre>
+<p>Warum zwei Schritte? <code>stty</code> beherrscht nur die genormten Baudraten
+und weist <code>58824</code> mit <code>ungültiges Argument</code> ab. Der
+Linux-Kern kann die krumme Rate sehr wohl — <code>stty</code> reicht diese
+Möglichkeit nur nicht durch. Das kleine Hilfsskript <code>baudrate.py</code>
+schließt genau diese Lücke. Warum es überhaupt 58824 sein muss, erklärt
+Kapitel 2.</p>
 <p>Jetzt sollte etwa alle Dreiviertelsekunde eine Rauschzeile erscheinen und —
 sobald ein Homematic-Gerät sendet — eine lange Telegrammzeile:</p>
 <pre><span class="p">:5B;
@@ -3077,7 +3084,7 @@ lesen als auch durchsuchen lässt:</p>
 <table>
 <tr><th>Symptom</th><th>Wahrscheinliche Ursache</th><th>So prüfst/behebst du es</th></tr>
 <tr><td>Keine Ausgabe an <code>/dev/ttyAMA0</code></td><td>UART nicht eingerichtet oder Konsole aktiv</td><td><code>sudo hardware/setup-uart.sh --check</code> ausführen; nach Änderungen neu starten. Existiert <code>/dev/ttyAMA0</code> überhaupt? (<code>ls -l /dev/ttyAMA*</code>)</td></tr>
-<tr><td>Nur wirre Zeichen statt <code>:…;</code>-Zeilen</td><td>Baudrate 57600 statt <strong>58824</strong></td><td><code>stty -F /dev/ttyAMA0 58824 raw -echo</code> — Kapitel 2 erklärt, warum</td></tr>
+<tr><td>Nur wirre Zeichen statt <code>:…;</code>-Zeilen</td><td>Baudrate 57600 statt <strong>58824</strong></td><td>Erst <code>stty -F /dev/ttyAMA0 57600 raw -echo</code>, dann <code>sudo python3 /opt/asksin-analyzer/deploy/baudrate.py /dev/ttyAMA0 58824</code> — <code>stty</code> allein kann die krumme Rate nicht, Kapitel 2 erklärt, warum</td></tr>
 <tr><td>Rauschzeilen kommen, aber nie Telegramme</td><td>Antenne fehlt/lose, oder kein BidCoS-Verkehr</td><td>IPEX-Stecker eingerastet? Ein Homematic-Gerät bewusst auslösen (Fensterkontakt). Prüfen, ob Geräte klassisches Homematic (nicht nur HmIP) sind</td></tr>
 <tr><td>Gar keine Rauschzeilen (auch nach 2 s nichts)</td><td>Firmware fehlt oder Chip startet nicht</td><td>Blitzt D1 beim Einschalten kurz? Kapitel 7/8 wiederholen; an TP2 3,3 V gegen TP4 messen</td></tr>
 <tr><td><code>avrdude: target doesn't answer</code></td><td>Programmiertakt zu hoch / Verkabelung</td><td><code>-B 8</code> ergänzen; MISO↔MOSI prüfen (Kapitel 7.6)</td></tr>

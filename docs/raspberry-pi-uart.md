@@ -108,7 +108,11 @@ ls -l /dev/serial* /dev/ttyAMA*
 # erwartet: /dev/ttyAMA0 vorhanden
 
 # Rohdaten sehen — 58824, nicht 57600. Begründung siehe unten.
-stty -F /dev/ttyAMA0 58824 raw -echo && cat -v /dev/ttyAMA0
+# stty beherrscht nur genormte Raten und lehnt 58824 ab.
+# Deshalb zwei Schritte: erst der Rahmen, dann die exakte Rate.
+stty -F /dev/ttyAMA0 57600 raw -echo
+sudo python3 /opt/asksin-analyzer/deploy/baudrate.py /dev/ttyAMA0 58824
+cat -v /dev/ttyAMA0
 ```
 
 Erwartete Ausgabe sind Zeilen wie `:5A0A0100103F4B2A1234AB…;` und alle 750 ms

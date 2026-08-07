@@ -114,7 +114,9 @@ Abschnitt 4).
   `fab/jlcpcb_bom.csv` + `fab/jlcpcb_cpl.csv`
 - **Bauteile kaufen:** [`hardware/bestellliste-reichelt.md`](hardware/bestellliste-reichelt.md)
 - **Pi einrichten:** `sudo hardware/setup-uart.sh` → Neustart →
-  `stty -F /dev/ttyAMA0 58824 raw -echo && cat -v /dev/ttyAMA0`
+  `stty -F /dev/ttyAMA0 57600 raw -echo` — dann die exakte Rate:
+  `sudo python3 deploy/baudrate.py /dev/ttyAMA0 58824 && cat -v /dev/ttyAMA0`
+  (`stty` kennt nur genormte Raten und lehnt 58824 ab)
 - **Core-Tests:** `cd core && npm install && npm run check`
 
 ## Versionierung

@@ -221,7 +221,7 @@ Konsequenzen, die konsistent gehalten werden müssen:
 | Optiboot-Bootloader | 57600 (rechnet dasselbe UBRR = 16) |
 | Core-Dienst, serieller Port (USB **und** GPIO) | **58824** |
 | `avrdude` beim Firmware-Update | `-b 58824` |
-| `stty` zum Mitschneiden | `58824` |
+| Mitschneiden auf dem Pi | `57600` per `stty`, danach `58824` per `deploy/baudrate.py` — `stty` kennt die krumme Rate nicht |
 
 Der 8-MHz-Resonator (Y1) bleibt trotzdem Pflicht. Er behebt die *andere* Hälfte
 des Problems: die Temperatur- und Spannungsdrift des internen RC-Oszillators,

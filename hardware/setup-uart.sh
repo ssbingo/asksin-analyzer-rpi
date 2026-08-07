@@ -180,7 +180,12 @@ if (( CHECK_ONLY )); then
 elif (( CHANGED )); then
   printf '\n\e[33mNeustart erforderlich:\e[0m sudo reboot\n'
   printf 'Danach prüfen:  ls -l /dev/ttyAMA*\n'
-  printf 'Rohdaten sehen: stty -F /dev/ttyAMA0 58824 raw -echo && cat -v /dev/ttyAMA0\n'
+  # stty kennt 58824 nicht — es beherrscht nur genormte Raten. Die exakte
+  # Rate setzt baudrate.py ueber termios2/BOTHER. Erst stty, dann der Helfer.
+  printf 'Rohdaten sehen:\n'
+  printf '  stty -F /dev/ttyAMA0 57600 raw -echo\n'
+  printf '  sudo python3 /opt/asksin-analyzer/deploy/baudrate.py /dev/ttyAMA0 58824\n'
+  printf '  cat -v /dev/ttyAMA0\n'
 else
   printf '\nAlles bereits korrekt konfiguriert.\n'
 fi
