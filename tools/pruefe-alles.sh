@@ -52,6 +52,9 @@ lauf "systemd-Units und Grafana-Vorlagen werden ausgerollt" \
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 
+lauf "Erzeugnisse jünger als ihre Quellen" \
+    python3 tools/pruefe-erzeugnisse.py
+
 lauf "Firmware: FQBN in der Dokumentation" \
     python3 firmware/pruefe-fqbn.py
 

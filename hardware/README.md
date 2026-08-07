@@ -539,7 +539,11 @@ beheben, ohne fremde Footprints umzuzeichnen.
 ## 6. Stückliste
 
 Erzeugt aus dem Schaltplan, nicht von Hand gepflegt:
-[`kicad/bom.csv`](kicad/bom.csv).
+[`kicad/fab/bom.csv`](kicad/fab/bom.csv) — dieselbe Datei, die im
+Fertigungsarchiv liegt. Es gibt bewusst nur diese eine Stückliste; eine
+zweite Fassung im Oberverzeichnis war bis 07.08.2026 vorhanden, stammte vom
+27.07. und beschrieb noch die abgeschaffte USB-C-Variante mit CP2102N. Wer
+sie las, baute ein anderes Gerät.
 
 | Ref | Wert / Typ | Bauform | Menge |
 | --- | --- | --- | --- |
