@@ -797,7 +797,16 @@ Firmware-Update und lassen sich nur über ISP ändern. Falsche Fuse-Werte könne
 den Chip „aussperren" (z. B. auf einen nicht vorhandenen Takt stellen) — mit
 unseren Werten passiert das nicht, sie passen exakt zur Platine.</div>
 
-<h2 id="k7-1">7.1 Den USBasp vorbereiten</h2>
+<div class="box hinweis">
+<span class="titel">Zwei Wege — suchen Sie sich einen aus</span>
+<p style="margin-bottom: 0"><strong>Arduino IDE</strong> (Windows, macOS,
+Linux): Abschnitt 7.1, dann 7.2 falls Windows, dann direkt
+<a href="#k7-5">7.5</a>. Fuses und Bootloader gehen dort in einem Schritt,
+avrdude brauchen Sie nicht getrennt.<br />
+<strong>Kommandozeile</strong> (Linux, auch auf dem Pi): 7.1, 7.3, 7.4, 7.5.</p>
+</div>
+
+<h2 class="umbruch" id="k7-1">7.1 Den USBasp vorbereiten</h2>
 <div class="gefahr box"><span class="titel">✋ Zuerst der Spannungs-Jumper!</span>
 Fast jeder USBasp hat einen Jumper (oft „JP21" oder „VCC"), der wählt, ob er
 das Zielgerät mit <strong>5 V oder 3,3 V</strong> versorgt. Er MUSS auf
@@ -820,7 +829,56 @@ Finden).</li>
 Versorgung — sie läuft über den Programmer.</li>
 </ol>
 
-<h2 class="umbruch" id="k7-2">7.2 avrdude installieren</h2>
+<h2 id="k7-2">7.2 Windows: erst der Treiber</h2>
+
+<p>Unter Windows meldet sich der USBasp als unbekanntes Gerät. Ohne Treiber
+findet ihn kein Programm — die Arduino IDE meldet dann
+<code>cannot find USB device</code>, und man sucht den Fehler bei der
+Verkabelung, wo keiner ist.</p>
+
+<p>Der Treiber wird mit <strong>Zadig</strong> installiert, einem kleinen
+Programm, das man weder einrichten noch dauerhaft behalten muss.</p>
+
+<div class="schritte">
+<ol>
+<li>Den USBasp in einen <strong>USB-Anschluss</strong> stecken. Windows meldet
+    ein unbekanntes Gerät — das ist der erwartete Zustand.</li>
+<li><strong>Zadig</strong> von <code>zadig.akeo.ie</code> herunterladen. Es ist
+    eine einzelne <code>.exe</code>, die ohne Installation läuft. Mit
+    <em>Rechtsklick → Als Administrator ausführen</em> starten.</li>
+<li>Im Menü <em>Options</em> den Punkt <strong>List All Devices</strong>
+    anhaken. Ohne diesen Haken erscheint der USBasp nicht in der Liste.</li>
+<li>Oben in der Auswahlliste <strong>USBasp</strong> wählen.
+    <strong>Nichts anderes.</strong> Zadig ersetzt den Treiber des Geräts, das
+    dort steht — bei der falschen Auswahl trifft es zum Beispiel Tastatur
+    oder Maus.</li>
+<li>Rechts als Zieltreiber <strong>libusbK</strong> einstellen (mit den
+    Pfeilen durchblättern).</li>
+<li>Auf <strong>Install Driver</strong> klicken und warten. Das dauert bis zu
+    einer halben Minute.</li>
+</ol>
+</div>
+
+<div class="box achtung">
+<span class="titel">Der eine Punkt, an dem man aufpassen muss</span>
+<p style="margin-bottom: 0">Zadig zeigt <em>alle</em> USB-Geräte an, sobald
+<em>List All Devices</em> aktiv ist. Es ersetzt den Treiber genau des Geräts,
+das oben ausgewählt ist. Vor dem Klick auf <em>Install Driver</em> also
+nachlesen, ob dort wirklich <strong>USBasp</strong> steht — nicht die Maus,
+nicht die Tastatur, nicht der USB-Stick.</p>
+</div>
+
+<p class="klein">Der Treiber bleibt dauerhaft installiert; Zadig wird nur
+dieses eine Mal gebraucht und kann danach gelöscht werden. Erkennt Windows
+den USBasp später wieder nicht, hilft ein anderer USB-Anschluss — manche
+Rechner geben an Front-Anschlüssen zu wenig Strom.</p>
+
+<p><strong>avrdude brauchen Sie unter Windows nicht getrennt zu
+installieren</strong> — die Arduino IDE bringt es mit. Der folgende
+Abschnitt 7.3 gilt für Linux und den Pi; wer mit der Arduino IDE arbeitet,
+springt direkt zu <a href="#k7-5">7.5</a>.</p>
+
+<h2 class="umbruch" id="k7-3">7.3 avrdude installieren</h2>
 <p><code>avrdude</code> ist das Standardwerkzeug zum Programmieren von
 AVR-Chips. Auf einem Linux-Rechner (auch dem Pi selbst):</p>
 <pre>sudo apt update
@@ -839,7 +897,7 @@ avrdude <code>target doesn't answer</code> — der häufigste Anfängerstolperer
 überhaupt. Nach dem Setzen der Fuses (8 MHz) ist <code>-B 8</code> nicht mehr
 nötig, schadet aber auch nie.</div>
 
-<h2 class="umbruch" id="k7-3">7.3 Die Fuses setzen</h2>
+<h2 class="umbruch" id="k7-4">7.4 Die Fuses setzen</h2>
 <p>Unsere Werte — sie stellen den Chip auf den externen 8-MHz-Resonator,
 aktivieren die Spannungsüberwachung und reservieren Platz für den Bootloader:</p>
 
@@ -862,14 +920,14 @@ Manche avrdude-Versionen zeigen die extended Fuse als <code>0x05</code> statt
 physisch, der Rest ist undefiniert und wird mal als 1, mal als 0 gelesen.
 0x05 und 0xFD sind derselbe Wert.</div>
 
-<h2 class="umbruch" id="k7-4">7.4 Den Bootloader brennen</h2>
+<h2 class="umbruch" id="k7-5">7.5 Den Bootloader brennen</h2>
 <p>Wir verwenden <strong>Optiboot</strong> aus dem MiniCore-Projekt — die Variante
 für ATmega328P, externe 8 MHz, serielle Schnittstelle UART0, 57 600 Baud.
 Zwei Wege führen zum Ziel; nimm den, der dir näher liegt.</p>
 
 <h3 id="weg-a-arduino-ide-mit-minicore-empfohlen">Weg A — Arduino IDE mit MiniCore (empfohlen für Einsteiger)</h3>
 <p>Die Arduino IDE setzt Fuses <em>und</em> Bootloader in einem Rutsch — wer Weg A
-geht, kann Abschnitt 7.3 sogar überspringen.</p>
+geht, kann Abschnitt 7.4 sogar überspringen.</p>
 <ol class="schritte">
 <li>Arduino IDE installieren (arduino.cc, Version 2.x).</li>
 <li><em>Datei → Einstellungen → Zusätzliche Boardverwalter-URLs</em> eintragen:<br>
@@ -898,7 +956,7 @@ IDE Erfolg — Fuses und Bootloader sind drauf.</li>
 Ordner <code>avr/bootloaders/optiboot_flash/bootloaders/atmega328p/</code>):
 die Datei für <strong>8000000L, UART0, 57600 Baud</strong> — Dateiname nach dem Muster
 <code>optiboot_flash_atmega328p_UART0_57600_8000000L.hex</code>.</li>
-<li>Fuses setzen wie in 7.3 (falls noch nicht geschehen).</li>
+<li>Fuses setzen wie in 7.4 (falls noch nicht geschehen).</li>
 <li>Bootloader schreiben:
 <pre>avrdude -c usbasp -p m328p \
         -U flash:w:optiboot_flash_atmega328p_UART0_57600_8000000L.hex:i</pre></li>
@@ -909,7 +967,7 @@ Nach Fuses + Bootloader startet der Chip mit dem Resonator. Ein schneller
 Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 <code>-B 8</code> — antwortet flott. Vorher (1-MHz-Takt) ging das nur gebremst.</div>
 
-<h2 id="k7-5">7.5 Wenn es klemmt</h2>
+<h2 id="k7-6">7.6 Wenn es klemmt</h2>
 <table>
 <tr><th>Meldung</th><th>Ursache</th><th>Abhilfe</th></tr>
 <tr><td><code>target doesn't answer</code></td><td>Programmiertakt zu schnell oder Verkabelung</td><td><code>-B 8</code> (oder <code>-B 32</code>) verwenden; alle 6 Leitungen gegen das Bild prüfen — MISO/MOSI vertauscht ist Klassiker</td></tr>
@@ -943,7 +1001,7 @@ herunterladen und entpacken. Der Sketch liegt im Ordner
 <h2 class="umbruch" id="k8-2">8.2 Kompilieren und flashen (Arduino IDE)</h2>
 <ol class="schritte">
 <li><code>AskSinSniffer328P.ino</code> in der IDE öffnen.</li>
-<li>Board-Einstellungen wie in Kapitel 7.4/Weg A (MiniCore, ATmega328,
+<li>Board-Einstellungen wie in Kapitel 7.5/Weg A (MiniCore, ATmega328,
 External 8 MHz, USBasp als Programmer).</li>
 <li><em>Sketch → Hochladen mit Programmer</em> wählen (nicht der normale
 Upload-Pfeil!). Die IDE kompiliert und überträgt über den USBasp.</li>
@@ -1275,7 +1333,7 @@ Bootloader-Brennvorgang braucht den USBasp.</div>
 <div class="hinweis box"><span class="titel">Der schnellste Weg: sie liegt bei</span>
 Seit dieser Ausgabe liefert das Projekt eine fertige HEX-Datei mit —
 <code>firmware/asksin-sniffer-20260803-8mhz.hex</code>, kompiliert aus dem
-unveränderten Sketch mit den Einstellungen aus Kapitel 7.4. Wer nichts ändern
+unveränderten Sketch mit den Einstellungen aus Kapitel 7.5. Wer nichts ändern
 will, nimmt einfach diese und überspringt den Rest dieses Abschnitts. Prüfsumme
 und Herkunft stehen in <code>firmware/README.md</code>; die Firmware bleibt
 dabei unter der Lizenz ihres Urhebers (CC&nbsp;BY-NC-SA&nbsp;3.0,
@@ -1316,7 +1374,7 @@ Gerät, das entweder schweigt oder Buchstabensalat sendet.</p>
     Kompilieren mit „No such file or directory" ab.</li>
 <li><strong>Die <code>.ino</code> öffnen</strong> (Doppelklick genügt).</li>
 <li><strong>Board-Einstellungen setzen</strong> — und zwar genau die aus
-    Kapitel 7.4: MiniCore, ATmega328, <em>External 8 MHz</em> — und
+    Kapitel 7.5: MiniCore, ATmega328, <em>External 8 MHz</em> — und
     <em>Compiler LTO: enabled</em>. Das ist der Schritt, an dem es schiefgeht,
     wenn man ihn überspringt.</li>
 <li><strong>Kompilieren und speichern:</strong>
@@ -1393,7 +1451,7 @@ diese Fassungen:</p>
 statt 5.0.3 — eine Nebenversion — ergibt 6 886 statt 6 922 Byte.</p>
 
 <p>Für den täglichen Gebrauch spielt das keine Rolle: Eine selbst kompilierte
-Datei mit den Einstellungen aus Kapitel 7.4 läuft einwandfrei, auch wenn ihre
+Datei mit den Einstellungen aus Kapitel 7.5 läuft einwandfrei, auch wenn ihre
 Größe abweicht. Wichtig wird die Übereinstimmung erst, wenn man zwei Fassungen
 <em>vergleichen</em> möchte — etwa um zu belegen, dass eine Änderung wirklich
 etwas bewirkt hat.</p>
@@ -2848,7 +2906,7 @@ spiegelt die Werte.</p>
 <tr><td>ioBroker-Admin</td><td><strong>ab 8.0.0</strong></td><td>8.0.1</td></tr>
 <tr><td>js-controller</td><td>ab 6.0.11</td><td></td></tr>
 <tr><td>Node.js</td><td>ab 22</td><td>Admin 8 verlangt das ohnehin</td></tr>
-<tr><td>AskSin-Analyzer</td><td>ab 0.12.0</td><td>siehe Abschnitt 20.4</td></tr>
+<tr><td>AskSin-Analyzer</td><td>ab 0.12.0</td><td>siehe <a href="#k19-9">Abschnitt 19.9</a></td></tr>
 </table>
 </div>
 
@@ -3022,7 +3080,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>Nur wirre Zeichen statt <code>:…;</code>-Zeilen</td><td>Baudrate 57600 statt <strong>58824</strong></td><td><code>stty -F /dev/ttyAMA0 58824 raw -echo</code> — Kapitel 2 erklärt, warum</td></tr>
 <tr><td>Rauschzeilen kommen, aber nie Telegramme</td><td>Antenne fehlt/lose, oder kein BidCoS-Verkehr</td><td>IPEX-Stecker eingerastet? Ein Homematic-Gerät bewusst auslösen (Fensterkontakt). Prüfen, ob Geräte klassisches Homematic (nicht nur HmIP) sind</td></tr>
 <tr><td>Gar keine Rauschzeilen (auch nach 2 s nichts)</td><td>Firmware fehlt oder Chip startet nicht</td><td>Blitzt D1 beim Einschalten kurz? Kapitel 7/8 wiederholen; an TP2 3,3 V gegen TP4 messen</td></tr>
-<tr><td><code>avrdude: target doesn't answer</code></td><td>Programmiertakt zu hoch / Verkabelung</td><td><code>-B 8</code> ergänzen; MISO↔MOSI prüfen (Kapitel 7.5)</td></tr>
+<tr><td><code>avrdude: target doesn't answer</code></td><td>Programmiertakt zu hoch / Verkabelung</td><td><code>-B 8</code> ergänzen; MISO↔MOSI prüfen (Kapitel 7.6)</td></tr>
 <tr><td>Bootloader-Update schlägt fehl (<code>not in sync</code>)</td><td>Reset-Impuls kam zu früh/spät oder Dienst belegt Port</td><td>Reihenfolge aus Kapitel 11 exakt einhalten; <code>sudo fuser /dev/ttyAMA0</code> zeigt Belegungen</td></tr>
 <tr><td>Empfang schlecht (RSSI ständig unter −95 dBm)</td><td>Antenne im Metallschrank oder Störer</td><td>Antenne nach außen verlegen; Grundrauschen beobachten: steigt es ohne Telegramme, stört eine Quelle in der Nähe (Netzteile!)</td></tr>
 <tr><td>Funkmodul wird heiß</td><td>Es hat irgendwann 5 V gesehen</td><td>Sofort stromlos machen. Modul ist vermutlich defekt — auslöten, neues Modul, künftig Jumper-Regel aus Kapitel 7 beachten</td></tr>

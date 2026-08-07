@@ -36,6 +36,9 @@ OHNE_NUMMER = re.compile(r'<h2[^>]*>(?!\s*\d+\.\d)([^<]+)')
 VERWEIS = re.compile(r'href="#([^"]+)"')
 
 
+OHNE_TAGS = re.compile(r"<[^>]*>")
+
+
 def main() -> int:
     text = HTML.read_text(encoding="utf8")
     fehler: list[str] = []
@@ -106,6 +109,33 @@ def main() -> int:
     for ziel in sorted(set(VERWEIS.findall(text))):
         if ziel not in vorhanden:
             fehler.append(f"Verweis auf „#{ziel}“ — diese Marke gibt es nicht")
+
+    # Regel 6: Verweise im FLIESSTEXT müssen es auch geben.
+    #
+    # Anlass (04.08.2026): Beim Einschieben von Abschnitt 7.2 wurden die
+    # folgenden hochgezählt. Die Sprungmarken zog ein Skript sauber nach —
+    # der Satz „springt direkt zu 7.4" blieb aber stehen und zeigte danach
+    # auf den falschen Abschnitt. Regel 5 bemerkt das nicht: Dort steht keine
+    # Marke, nur eine Zahl im Text.
+    #
+    # Genau diese Verweise sind die, denen ein Anfänger folgt.
+    nummern = set()
+    for ueber in re.finditer(
+            r'<h[123][^>]*>(?:<span class="knr">(\d+)</span>)?\s*([\d.]+)?',
+            text):
+        if ueber.group(1):
+            nummern.add(ueber.group(1))
+        if ueber.group(2):
+            nummern.add(ueber.group(2).rstrip("."))
+
+    for treffer in re.finditer(
+            r"(?:Kapitel|Abschnitt|siehe|springt direkt zu)\s+(\d{1,2}\.\d{1,2})",
+            OHNE_TAGS.sub(" ", text)):
+        ziel = treffer.group(1)
+        if ziel not in nummern:
+            fehler.append(
+                f"Verweis auf Abschnitt {ziel} im Fließtext — den gibt es "
+                f"nicht (Umnummerierung vergessen?)")
 
     if fehler:
         print(f"{len(fehler)} Problem(e) in der Nummerierung:", file=sys.stderr)
