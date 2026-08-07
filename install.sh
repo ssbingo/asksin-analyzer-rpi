@@ -158,11 +158,18 @@ if [ -d "$INSTALL_DIR/.git" ]; then
        || ! git -C "$INSTALL_DIR" reset --hard --quiet "origin/$BRANCH" 2>/dev/null; then
         c_warn "Die Git-Ablage in $INSTALL_DIR ist beschaedigt — sie wird neu geholt."
         c_warn "Konfiguration und Aufzeichnungen bleiben unberuehrt."
+        # cd / VOR dem Loeschen: Wer das Skript aus /opt/asksin-analyzer heraus
+        # aufruft, zieht sich sonst das eigene Arbeitsverzeichnis unter den
+        # Fuessen weg. git bricht danach ab mit "Unable to read current working
+        # directory" — eine Meldung, die nach Netzwerk- oder Kartenfehler
+        # klingt und keiner von beidem ist. (Genau so passiert am 04.08.2026.)
+        cd /
         rm -rf "$INSTALL_DIR"
         if ! git clone --quiet --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"; then
             c_err "Auch das Neuklonen ist fehlgeschlagen."
-            c_err "Besteht eine Internetverbindung? Ist die SD-Karte noch beschreibbar?"
-            c_err "  dmesg | grep -i 'mmc\\|i/o error'   zeigt Kartenfehler"
+            c_err "Besteht eine Internetverbindung?"
+            c_err "Wiederholt sich das, die Karte pruefen:"
+            c_err "  dmesg | grep -iE 'mmc0: error|i/o error|read-only'"
             exit 1
         fi
         c_ok "Neu geklont."
@@ -174,6 +181,8 @@ elif [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/core/bin/analyzerd.ts" ] && [ -d 
     git -C "$INSTALL_DIR" remote set-url origin "$REPO_URL"
 else
     c_info "Klone Repository nach $INSTALL_DIR..."
+    # Auch hier erst weg aus dem Verzeichnis, das gleich geloescht wird.
+    cd /
     rm -rf "$INSTALL_DIR"
     if ! git clone --quiet --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"; then
         c_err "Klonen fehlgeschlagen. Ist das Repo noch privat?"
