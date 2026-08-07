@@ -204,7 +204,23 @@ schreibe_status true "hole" null
 c_info "Hole neuen Stand..."
 # --tags ist noetig: Ohne sie bleiben die Versions-Tags auf dem Pi
 # stehen, und die Versionsanzeige zeigt jahrelang eine alte Nummer.
-git -C "$INSTALL_DIR" fetch --quiet --tags --force origin "$BRANCH"
+# Eine beschaedigte Git-Ablage bekommt hier eine eigene Meldung. Der Rollback
+# unten koennte sie nicht reparieren — er benutzt dasselbe kaputte Repo.
+#
+# Anlass (04.08.2026, Pi 3 auf SD-Karte): leere Objektdateien nach einem
+# harten Ausschalten. Ohne diese Meldung sieht der Anwender nur eine Wand aus
+# "error: object file ... is empty" und weiss nicht, dass die Reparatur ein
+# Einzeiler ist.
+if ! git -C "$INSTALL_DIR" fetch --quiet --tags --force origin "$BRANCH" 2>/dev/null; then
+    c_err "Die Git-Ablage in $INSTALL_DIR laesst sich nicht aktualisieren."
+    c_err "Meist ist sie beschaedigt — typisch nach hartem Ausschalten auf SD-Karte."
+    c_err ""
+    c_err "Reparatur (holt den Quelltext neu, Konfiguration und Daten bleiben):"
+    c_err "  curl -fsSL $REPO_URL/raw/$BRANCH/install.sh | sudo bash"
+    c_err ""
+    c_err "Wiederholt sich das, die Karte pruefen:  dmesg | grep -i 'mmc\\|i/o error'"
+    exit 1
+fi
 git -C "$INSTALL_DIR" reset --hard --quiet "origin/$BRANCH"
 NACHHER="$(git -C "$INSTALL_DIR" rev-parse --short HEAD)"
 

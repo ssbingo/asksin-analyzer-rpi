@@ -142,8 +142,31 @@ if [ -d "$INSTALL_DIR/.git" ]; then
     c_info "Aktualisiere vorhandene Installation in $INSTALL_DIR..."
     # --tags ist noetig: Ohne sie bleiben die Versions-Tags auf dem Pi
     # stehen, und die Versionsanzeige zeigt jahrelang eine alte Nummer.
-    git -C "$INSTALL_DIR" fetch --quiet --tags --force origin "$BRANCH"
-    git -C "$INSTALL_DIR" reset --hard --quiet "origin/$BRANCH"
+    #
+    # Scheitert das Aktualisieren, wird neu geklont statt abgebrochen.
+    #
+    # Anlass (04.08.2026, Analyzer 05 auf einem Pi 3): Die Git-Ablage unter
+    # /opt war beschaedigt — leere Objektdateien, "fatal: cannot read
+    # existing object info". Auf einem Geraet, das von SD-Karte laeuft und
+    # gelegentlich hart ausgeht, ist das ein zu erwartender Zustand.
+    #
+    # Der Abbruch war dabei das eigentliche Aergernis: In /opt liegt nur
+    # ausgecheckter Quelltext. Konfiguration (/etc/asksin-analyzer) und
+    # Daten (/var/lib/asksin-analyzer) sind davon nicht beruehrt, ein
+    # Neuklonen kostet also nichts als Bandbreite.
+    if ! git -C "$INSTALL_DIR" fetch --quiet --tags --force origin "$BRANCH" 2>/dev/null \
+       || ! git -C "$INSTALL_DIR" reset --hard --quiet "origin/$BRANCH" 2>/dev/null; then
+        c_warn "Die Git-Ablage in $INSTALL_DIR ist beschaedigt — sie wird neu geholt."
+        c_warn "Konfiguration und Aufzeichnungen bleiben unberuehrt."
+        rm -rf "$INSTALL_DIR"
+        if ! git clone --quiet --branch "$BRANCH" "$REPO_URL" "$INSTALL_DIR"; then
+            c_err "Auch das Neuklonen ist fehlgeschlagen."
+            c_err "Besteht eine Internetverbindung? Ist die SD-Karte noch beschreibbar?"
+            c_err "  dmesg | grep -i 'mmc\\|i/o error'   zeigt Kartenfehler"
+            exit 1
+        fi
+        c_ok "Neu geklont."
+    fi
 elif [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/core/bin/analyzerd.ts" ] && [ -d "$SCRIPT_DIR/.git" ]; then
     # install.sh wurde aus einem lokalen Checkout gestartet -> von dort klonen
     c_info "Uebernehme lokalen Checkout $SCRIPT_DIR nach $INSTALL_DIR..."
