@@ -3097,6 +3097,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>OLED bleibt dunkel</td><td>I²C nicht aktiv oder Kabelbelegung</td><td><code>sudo raspi-config</code> → I²C aktivieren; <code>i2cdetect -y 1</code> muss <code>3c</code> zeigen; J5-Belegung gegen Kapitel 10.3 prüfen</td></tr>
 <tr><td>1-Wire-Sensoren funktionieren nicht mehr</td><td><code>w1-gpio</code> kollidiert mit GPIO4 (Reset)</td><td>In <code>config.txt</code>: <code>dtoverlay=w1-gpio,gpiopin=17</code> o. ä. — nicht GPIO4</td></tr>
 <tr><td>Der Pi fällt hart aus und startet neu — im Journal steht nichts</td><td>Lässt sich aus dem Gerät heraus nicht klären: Was die Ursache erklären würde, wird nicht mehr geschrieben</td><td>Abschnitt 23.1 — Kernel-Meldungen auf einen zweiten Rechner mitschneiden</td></tr>
+<tr><td>Update bricht ab mit <code>object file … is empty</code></td><td>Beschädigte Git-Ablage nach hartem Ausschalten</td><td><a href="#k23-3">Abschnitt 23.3</a> — der Installer repariert das selbst; vorher mit <code>dmesg</code> klären, ob die Karte schuld ist</td></tr>
 <tr><td>Pi reagiert auf nichts mehr, <code>sudo</code> meldet <code>Input/output error</code></td><td>Die USB-SSD hat sich vom Bus abgemeldet und ist als neues Gerät wiedergekommen — das Wurzeldateisystem zeigt ins Leere</td><td>Abschnitt 23.2. Zuerst die Steckerkette prüfen: ein durchgehendes Kabel in den blauen USB-3-Anschluss, keine Koppler dazwischen</td></tr>
 </table>
 
@@ -3252,6 +3253,95 @@ dauerhaft betreiben will, ersetzt das Gehäuse durch eines mit bewährter Brück
 NVMe-Platine und umgeht USB als Speicherweg vollständig.</p>
 
 <!-- ==================================================== KAPITEL 14 -->
+<h2 id="k23-3">23.3 Hart ausgeschaltet oder Karte am Ende?</h2>
+
+<p>Beide Fälle äußern sich gleich: Dateien sind halb geschrieben, ein Update
+bricht ab, manchmal startet der Dienst nicht mehr. Die Behandlung ist aber
+grundverschieden — einmal genügt Aufräumen, einmal muss Hardware getauscht
+werden. <code>dmesg</code> beantwortet die Frage in Sekunden.</p>
+
+<pre>dmesg | grep -iE "mmc|i/o error|read-only"</pre>
+
+<h3>Der harmlose Fall: hart ausgeschaltet</h3>
+
+<pre>EXT4-fs (mmcblk0p2): orphan cleanup on readonly fs
+EXT4-fs (mmcblk0p2): mounted filesystem … ro with ordered data mode
+EXT4-fs (mmcblk0p2): re-mounted … r/w.</pre>
+
+<p><strong><code>orphan cleanup</code> ist der Beweis.</strong> „Orphan
+inodes" sind Dateien, die noch offen waren, als das System stehenblieb —
+angelegt, aber nie fertig geschrieben und nie geschlossen. Beim nächsten Start
+räumt das Dateisystem sie weg. Danach folgt der normale Ablauf: erst
+schreibgeschützt prüfen, dann <code>re-mounted r/w</code>.</p>
+
+<p>Solange <strong>keine</strong> Fehlerzeilen dabeistehen, ist die Karte in
+Ordnung. Jemand hat den Stecker gezogen, ohne herunterzufahren.</p>
+
+<div class="box hinweis">
+<span class="titel">Ebenfalls harmlos</span>
+<p style="margin-bottom: 0"><code>mmc0: host does not support reading
+read-only switch, assuming write-enable</code> steht auf <em>jedem</em>
+Raspberry Pi. Sein Kartenleser kann den mechanischen Schreibschutzschieber
+nicht auslesen und nimmt „beschreibbar" an. Das ist keine Störung.</p>
+</div>
+
+<h3>Der ernste Fall: die Karte gibt auf</h3>
+
+<div class="tabelle">
+<table>
+<tr><th>Zeile im Journal</th><th>Bedeutung</th></tr>
+<tr><td><code>mmc0: error -110</code> / <code>-84</code></td><td>Zeitüberschreitung oder Prüfsummenfehler beim Zugriff</td></tr>
+<tr><td><code>I/O error, dev mmcblk0</code></td><td>Ein Sektor lässt sich nicht mehr lesen oder schreiben</td></tr>
+<tr><td><code>Remounting filesystem read-only</code></td><td>Das Dateisystem hat sich selbst schreibgeschützt — der letzte Rettungsanker</td></tr>
+<tr><td><code>mmc0: tried to reset card</code></td><td>Die Karte hat sich vom Bus abgemeldet</td></tr>
+</table>
+</div>
+
+<p>Eine dieser Zeilen genügt: <strong>Karte tauschen.</strong> Alles andere
+ist Aufschub — die nächste Störung kommt, und meist zu einem ungünstigeren
+Zeitpunkt.</p>
+
+<h3>Was typischerweise kaputtgeht</h3>
+
+<p>Am empfindlichsten ist die Git-Ablage unter
+<code>/opt/asksin-analyzer</code>. Ein <code>git fetch</code> schreibt viele
+kleine Dateien; geht dabei der Strom weg, bleiben leere Objektdateien liegen.
+Das fällt erst beim nächsten Update auf:</p>
+
+<pre>error: object file .git/objects/a6/4350… is empty
+fatal: cannot read existing object info 05c92f2…
+fatal: fetch-pack: invalid index-pack output</pre>
+
+<p><strong>Das ist folgenlos und in einem Befehl behoben.</strong> Unter
+<code>/opt</code> liegt nur ausgecheckter Quelltext; Konfiguration
+(<code>/etc/asksin-analyzer</code>) und Aufzeichnungen
+(<code>/var/lib/asksin-analyzer</code>) sind davon nicht berührt:</p>
+
+<pre>curl -fsSL https://raw.githubusercontent.com/ssbingo/asksin-analyzer-rpi/main/install.sh | sudo bash</pre>
+
+<p>Der Installer erkennt die beschädigte Ablage und holt sie neu.</p>
+
+<p class="klein">Die Messdatenbank übersteht das übrigens: SQLite läuft im
+WAL-Modus und ist gegen genau diesen Fall ausgelegt. Verloren gehen
+höchstens die letzten Sekunden.</p>
+
+<h3>Vorbeugen</h3>
+
+<div class="schritte">
+<ol>
+<li><strong>Nie den Stecker ziehen.</strong> Erst
+    <code>sudo shutdown -h now</code>, dann die Spannung trennen. Der
+    Analyzer schreibt rund um die Uhr — die Wahrscheinlichkeit, mitten in
+    einem Schreibvorgang zu treffen, ist entsprechend hoch.</li>
+<li><strong>Markenkarte nehmen.</strong> Ab 32 GB; die Größe hilft, weil die
+    Karte Schreibzugriffe über mehr Zellen verteilen kann.</li>
+<li><strong>Ab Pi 4 von SSD starten.</strong> Der Pi 3 kann das nicht sinnvoll
+    (Kapitel 4) — er bleibt bei der Karte, schreibt als Client aber deutlich
+    weniger als ein Master.</li>
+</ol>
+</div>
+
+
 <h1 class="kapitel" id="k24"><span class="knr">24</span>Anhang</h1>
 <div class="kapitelband"></div>
 
