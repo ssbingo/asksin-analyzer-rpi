@@ -186,6 +186,11 @@ ergänzt.
   Firmware-Befund erheben
 - Demo-Modus gibt keine echte Netzidentität mehr preis; Screenshots neu
 
+### v0.12.2 — 01.08.2026
+
+- Handbuchsatz auf WeasyPrint umgestellt; der Fußsteg verdeckte auf mehreren
+  Seiten Text
+
 ### v0.12.1 — 01.08.2026
 
 - Der Versionsbefund zum Adapter wird auch im guten Fall ausgesprochen —

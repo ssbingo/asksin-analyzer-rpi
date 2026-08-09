@@ -197,6 +197,36 @@ def pruefe_verweise() -> list[str]:
     return fehler
 
 
+def pruefe_changelog() -> list[str]:
+    """Hat jede veroeffentlichte Fassung einen Changelog-Eintrag?
+
+    Der Changelog endete bei v0.9.0, waehrend die Tags bis v0.13.0 reichten und
+    die package.json auf 0.13.0 stand. Fuenf Fassungen waren veroeffentlicht
+    und nirgends beschrieben — beim Nachtragen habe ich v0.12.2 dann prompt
+    uebersehen. Genau dafuer ist das hier.
+    """
+    erg = subprocess.run(["git", "tag"], cwd=WURZEL, capture_output=True, text=True)
+    tags = {t for t in erg.stdout.split() if re.fullmatch(r"v\d+\.\d+\.\d+", t)}
+    if not tags:
+        return []
+    readme = (WURZEL / "README.md").read_text(encoding="utf8")
+    # Die Nachschau verhindert, dass "v0.12.2" auch in "v0.12.2-alt" trifft —
+    # sonst haelt die Pruefung eine umbenannte Ueberschrift fuer vorhanden.
+    eintraege = set(re.findall(r"^### (v\d+\.\d+\.\d+)(?![\w.-])", readme, re.M))
+
+    fehler = []
+    ohne_eintrag = sorted(tags - eintraege)
+    if ohne_eintrag:
+        fehler.append("Tags ohne Changelog-Eintrag: " + ", ".join(ohne_eintrag))
+    ohne_tag = sorted(eintraege - tags)
+    if ohne_tag:
+        fehler.append(
+            "Changelog-Eintraege ohne Tag: " + ", ".join(ohne_tag)
+            + " — entweder Tag nachholen oder Eintrag zurueckziehen"
+        )
+    return fehler
+
+
 def csv_zeilen(zeile: str):
     """Winziger CSV-Leser: Kommas in Anfuehrungszeichen trennen nicht."""
     import csv
@@ -206,7 +236,8 @@ def csv_zeilen(zeile: str):
 
 def main() -> int:
     fehler = (pruefe_alter() + pruefe_stueckliste()
-              + pruefe_keine_dubletten() + pruefe_verweise())
+              + pruefe_keine_dubletten() + pruefe_verweise()
+              + pruefe_changelog())
     if fehler:
         print("Erzeugnisse passen nicht zu ihren Quellen:")
         for f in fehler:
@@ -215,7 +246,7 @@ def main() -> int:
     print(
         f"Erzeugnisse aktuell — {len(ERZEUGNISSE)} Dateien juenger als ihre Quellen, "
         "README-Stueckliste deckungsgleich mit der Fertigung, keine Dubletten, "
-        "alle Verweise gehen ins Ziel."
+        "alle Verweise gehen ins Ziel, jeder Tag hat einen Changelog-Eintrag."
     )
     return 0
 
