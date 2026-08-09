@@ -128,14 +128,26 @@ Bauteil *und* Firmware betrifft.
 
 ### 2.1 Warum ein Taktgeber gesetzt ist
 
-Die `platformio.ini` des Sketches baut gegen `board = pro8MHzatmega328`, also
-F_CPU = 8 000 000. Der Arduino-Pro-Mini-3,3 V hat dafür einen **externen**
+Die `platformio.ini` des **Ursprungsprojekts** (jp112sdl) baut gegen
+`board = pro8MHzatmega328`, also F_CPU = 8 000 000. Der Arduino-Pro-Mini-3,3 V hat dafür einen **externen**
 8-MHz-Resonator. V1.1 hat keinen — die Firmware läuft dort also auf dem
 internen RC-Oszillator, dessen Fuse-Konfiguration (`lfuse = 0xE2`) von der
 Pro-Mini-Standardkonfiguration (`lfuse = 0xFF`) abweicht. Der interne RC ist
 über Temperatur und Betriebsspannung mit ±10 % spezifiziert; ab Werk kalibriert
 liegt er typisch bei 1–2 %. Für 24/7-Betrieb ist das die falsche Seite der
 Toleranzgrenze.
+
+**Am 09.08.2026 an der ersten bestückten Platine nachgemessen**, und die
+Entscheidung war richtig: Derselbe Chip, dieselbe Firmware, nur die Taktquelle
+umgestellt.
+
+| Taktquelle | Rahmenfehler des Pi (`fe:`) |
+| --- | --- |
+| interner RC-Oszillator, 8 MHz | **31** bei rund 1 000 empfangenen Byte |
+| Resonator Y1, 8 MHz | **0** bei 1 002 Byte — das Feld fällt ganz weg |
+
+Die serielle Schnittstelle verträgt etwa ±2,5 %; der interne RC lag darüber.
+Mit dem Resonator ist die Übertragung fehlerfrei.
 
 ### 2.2 Der zweite, unabhängige Fehler: 57600 Baud passen nicht auf 8 MHz
 
@@ -208,16 +220,23 @@ unterstützt beliebige Baudraten über `TCSETS2`/`BOTHER`, `node-serialport`
 reicht das durch, und auf dem Pi 5 gilt dasselbe über den fraktionalen Teiler
 des RP1.
 
-Damit ist das Ergebnis besser als bei 38400 — und die Firmware bleibt
-**unverändert**. Das ist der eigentliche Gewinn: der offizielle
-`AskSinSniffer328P`-Sketch wird bit-identisch übernommen, es entsteht kein Fork,
-kein abgeleitetes Werk, und wer will, flasht die Original-HEX.
+Damit ist das Ergebnis besser als bei 38400 — und die Firmware muss dafür
+**nicht angefasst** werden: Der Fehler wird vollständig auf der Pi-Seite
+ausgeglichen.
+
+*Nachtrag 09.08.2026:* Das war ursprünglich auch als Lizenzargument gedacht —
+kein Fork, kein abgeleitetes Werk. Inzwischen gibt es beides. Die Firmware ist
+eine abgewandelte Fassung in
+[ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware),
+weil das Original ohne Funkmodul im `setup()` stehen bleibt und weil MiniCore
+über `-DNDEBUG` die gesamte Ausgabe entfernt. Die Lizenz bleibt CC BY-NC-SA 3.0
+mit ShareAlike; die Baudratenrechnung in diesem Abschnitt gilt unverändert.
 
 Konsequenzen, die konsistent gehalten werden müssen:
 
 | Stelle | Wert |
 | --- | --- |
-| Firmware (`DINIT`), `platformio.ini` | 57600 — unverändert |
+| Firmware (`DINIT` im Sketch) | 57600 — nominal, real 58 823,5 |
 | Optiboot-Bootloader | 57600 (rechnet dasselbe UBRR = 16) |
 | Core-Dienst, serieller Port (USB **und** GPIO) | **58824** |
 | `avrdude` beim Firmware-Update | `-b 58824` |

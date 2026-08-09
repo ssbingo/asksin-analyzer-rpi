@@ -2,3 +2,7 @@ __pycache__/
 *.kicad_sch-bak
 *-backups/
 fp-info-cache
+AskSin-Analyzer-V3.letzter-guter-stand.kicad_pcb
+AskSin-Analyzer-V3.pristine.kicad_pcb
+board.dsn
+board.ses

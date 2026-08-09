@@ -249,6 +249,12 @@ Der Bau wurde sofort ausprobiert, bevor irgendetwas geändert wird. Ergebnis:
 | **MiniCore** + AskSinPP aus `reference/` (Commit 21bab8b) | 7 734 Byte |
 | **Die mitgelieferte Datei** | **6 922 Byte** |
 
+> **Nachtrag 09.08.2026:** Diese 6 922-Byte-Datei ist inzwischen aus dem Repo
+> entfernt. Sie war stumm gebaut — die Untersuchung unten dreht sich also um
+> die Größe einer Datei, die ohnehin nicht funktioniert hat. Der Abschnitt
+> bleibt stehen, weil die Erkenntnis über LTO und Bibliotheksfassungen
+> weiterhin gilt; siehe Abschnitt 6b für den Rest.
+
 **Die mitgelieferte HEX-Datei lässt sich mit den dokumentierten Einstellungen
 nicht reproduzieren.** Sie ist 500 bis 800 Byte kleiner als jeder Bau, der
 nach Handbuch 7.4 entsteht.
@@ -325,34 +331,42 @@ Alle fünf maschinellen Prüfungen des Projekts laufen jetzt über einen Aufruf:
 bash tools/pruefe-alles.sh
 ```
 
-### 6b. Der Nachbau gelingt — bit-identisch
+### 6b. Der Nachbau gelang bit-identisch — und war trotzdem wertlos
 
-Mit den geklärten Fassungen ist der Befund vom Vortag erledigt.
-`firmware/nachbauen.sh` holt `arduino-cli` 1.5.1, MiniCore 3.1.2 und
-AskSinPP 5.0.3, übersetzt mit LTO und vergleicht:
+**Nachtrag vom 09.08.2026. Dieser Abschnitt beschrieb bis dahin einen Erfolg.
+Er war keiner, und die Begründung lohnt das Nachlesen.**
 
-| | |
-| --- | --- |
-| Gebaut (Linux, arduino-cli) | 6 922 Byte, `064de4ad…0848c8` |
-| Mitgeliefert (Windows, Arduino IDE) | 6 922 Byte, `064de4ad…0848c8` |
-| | **identisch** |
+`firmware/nachbauen.sh` band `arduino-cli` 1.5.1, MiniCore 3.1.2 und
+AskSinPP 5.0.3 fest, übersetzte mit LTO und erzeugte unter Linux dieselbe
+6 922-Byte-Datei wie die Arduino IDE unter Windows, Prüfsumme
+`064de4ad…0848c8`. Zwei Betriebssysteme, zwei Oberflächen, dieselbe Datei.
+Zwei Gegenproben zeigten sogar, dass die Prüfung anschlägt: verfälschte
+Prüfsumme erkannt, AskSinPP 5.0.2 an 6 886 Byte erkannt.
 
-Zwei Betriebssysteme, zwei Oberflächen, dieselbe Datei. Der Bau ist damit
-**reproduzierbar** — das war die Voraussetzung für alles Weitere, denn ohne
-sie ließe sich später nicht belegen, dass eine Änderung an der Firmware
-wirklich die Wirkung hatte, die wir ihr zuschreiben.
+Nur war die so erzeugte Firmware **stumm**.
 
-Zwei Gegenproben belegen, dass das Skript auch wirklich prüft und nicht nur
-zustimmt:
+MiniCore setzt `-DNDEBUG` (`platform.txt` Zeile 14). AskSinPP macht daraus
+leere Ausgabemakros, und der Sniffer schreibt alles über `DPRINT`. Die Datei
+war also bit-genau reproduzierbar und funktionierte nicht. An der ersten
+echten Platine kam kein einziges Byte an.
 
-* Erwartete Prüfsumme verfälscht → erkannt, Abbruch mit Erklärung.
-* AskSinPP auf 5.0.2 heruntergesetzt → 6 886 Byte, andere Prüfsumme, erkannt.
-  Danach stellt das Skript die festgelegte Fassung selbst wieder her.
+**Was daran lehrreich ist:** Reproduzierbarkeit belegt, dass zweimal dasselbe
+herauskommt. Sie belegt nicht, dass das Ergebnis taugt. Wir haben eine
+Eigenschaft gemessen, die leicht zu messen war, und sie für die Eigenschaft
+gehalten, auf die es ankommt. Dieselbe Verwechslung wie beim `stty`-Test, der
+unsere eigenen Argumente verglich statt ihrer Wirkung, und beim GPIO-Reset,
+dessen Test die Aufrufe prüfte statt des Pegels.
 
-Die zweite Probe ist der eigentliche Beleg: **eine Nebenversion einer
-Bibliothek genügt für eine andere Binärdatei.** Genau deshalb steht jede
-Fassung ausgeschrieben im Skript und nicht nur in einer Beschreibung, die beim
-Abschreiben schrumpft.
+Fehlen konnte der Beleg so lange, weil bis dahin **jeder Analyzer im
+Demo-Modus lief** — und der öffnet gar keine serielle Schnittstelle. Es gab
+schlicht keinen Anlass, an dem sich die Firmware hätte bewähren müssen.
+
+Konsequenz: `firmware/nachbauen.sh` und die mitgelieferte HEX-Datei sind
+entfernt. Die Firmware entsteht jetzt aus
+[ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware);
+der Sketch hebt `NDEBUG` selbst auf, `bauen.sh` prüft nach jedem Bau den
+**Inhalt** des Ergebnisses, und `firmware/pruefe-hex.py` weist jede stumme
+HEX-Datei zurück, egal woher sie kommt.
 
 ## 7. Projektplan (Weg A + ausgewählte Teile)
 
@@ -364,11 +378,11 @@ Stand 03.08.2026: **weitgehend erledigt**, siehe Abschnitte 6a und 6b.
 
 | | |
 | --- | --- |
-| ✅ | **Umgebung festgenagelt** — `firmware/nachbauen.sh` bindet `arduino-cli` 1.5.1, MiniCore 3.1.2, AskSinPP 5.0.3 und LTO. Nötig war das, weil drei plausible Umgebungen drei verschiedene Binärdateien ergaben |
-| ✅ | **Reproduzierbarer Bau** — die mitgelieferte HEX-Datei entsteht bit-identisch neu, unter Linux wie unter Windows. Zwei Gegenproben belegen, dass die Prüfung auch anschlägt |
-| ✅ | **Anleitung und Beilage stimmen überein** — Handbuch 7.4/11.3 und `firmware/README.md` nennen dieselben Fassungen, maschinell geprüft durch `firmware/pruefe-fqbn.py` |
-| ✅ | **Prüfstand für die Grundlinie** — `core/bin/mitschnitt.ts` zeichnet den rohen Zeilenstrom auf und wertet ihn aus; Handbuch 11.4 |
-| ⬜ | Eigenes Repository `asksin-sniffer-firmware` mit CI — steht noch aus. Der Nachbau ist als Skript im Hauptrepo vorhanden, das genügt bis zur ersten eigenen Änderung |
+| ❌ | **Reproduzierbarer Bau** — zurückgenommen am 09.08.2026. Er gelang bit-identisch und erzeugte eine stumme Datei; siehe 6b. `nachbauen.sh` und die HEX-Datei sind entfernt |
+| ✅ | **Board-Einstellungen maschinell geprüft** — `firmware/pruefe-fqbn.py` vergleicht jede FQBN in der Dokumentation gegen die Optionstabelle von MiniCore 3.1.2 |
+| ✅ | **Firmware wird auf Stummheit geprüft** — `firmware/pruefe-hex.py` verlangt die Startkennung im Programmabbild; `bauen.sh` im Firmware-Projekt tut dasselbe nach jedem Bau |
+| ✅ | **Prüfstand für den Zeilenstrom** — `core/bin/mitschnitt.ts` zeichnet auf und wertet aus; Handbuch 11.4. Die ursprünglich geplante Grundlinie *mit der Originalfirmware* ist hinfällig, weil die ausgelieferte Fassung selbst stumm war |
+| ✅ | Eigenes Repository `asksin-sniffer-firmware` mit CI — vorhanden |
 
 **Zum Bauweg:** Der Plan sah PlatformIO vor. Das hat sich als falsch erwiesen —
 PlatformIO bringt eine eigene Werkzeugkette mit und reicht die LTO-Schalter für
@@ -395,10 +409,19 @@ ab, was im Haus gerade funkt. Eine höhere Telegrammzahl wäre kein Verdienst
 der neuen Firmware, sondern womöglich nur ein Rollladen mehr.
 
 *Abnahme: Die selbst gebaute HEX-Datei verhält sich wie die mitgelieferte.*
-**Erfüllt** — sie ist bit-identisch, also verhält sie sich zwangsläufig gleich.
+**Hinfällig seit 09.08.2026.** Die Abnahme war erfüllt — bit-identisch, also
+zwangsläufig gleiches Verhalten. Beide schwiegen nämlich. Es gibt keine
+mitgelieferte Datei mehr, und die Abnahme lautet jetzt: *Die gebaute Datei
+enthält ihre Ausgabetexte*, maschinell geprüft durch `firmware/pruefe-hex.py`.
 
-**Die Grundlinie selbst steht noch aus — und kann es auch.** Der jetzige
-Analyzer läuft im Demo-Modus, weil es noch keine funktionierende Platine gibt.
+**Die Grundlinie mit der Originalfirmware ist entfallen.** Sie hätte den
+Zeilenstrom der ausgelieferten Fassung festhalten sollen — die war aber stumm
+gebaut (Abschnitt 6b), es gab also nie einen Strom zum Aufzeichnen. Seit dem
+09.08.2026 sendet die erste echte Platine; ab dort wird gemessen, und der
+Vergleichsmaßstab ist die heutige Fassung, nicht das Original.
+
+Warum es so lange keinen Anlass gab, es zu bemerken: Der bisherige
+Analyzer lief im Demo-Modus, weil es noch keine bestückte Platine gab.
 Eine Aufzeichnung daraus wäre als Grundlinie nicht bloß nutzlos, sondern
 irreführend: Die Simulation hält einen künstlich sauberen Takt, kennt keine
 Übertragungsfehler und keine Aussetzer. Gegen eine spätere Messung an echter
@@ -412,15 +435,18 @@ und der Vergleich zweier Mitschnitten unterschiedlicher Herkunft wird
 dieser Kennzeichnung —, gilt die Herkunft als *unbekannt* und nicht als
 *echt*; die vorsichtige Richtung.
 
-**Reihenfolge, sobald die Platine da ist:**
+**Reihenfolge — überarbeitet am 09.08.2026.** Der ursprüngliche Plan sah vor,
+zuerst eine Stunde *mit der mitgelieferten Originalfirmware* aufzuzeichnen und
+diese Aufnahme als unwiederbringliche Grundlinie zu behandeln. Das ist
+hinfällig: Die mitgelieferte Datei war stumm gebaut (Abschnitt 6b), es hätte
+nie eine Zeile zum Aufzeichnen gegeben. Was jetzt gilt:
 
 1. Platine anschließen, Demo-Modus aus, Analyzer läuft an echter Hardware
-2. Eine Stunde Grundlinie aufzeichnen — **mit der mitgelieferten Firmware**,
-   also dem unveränderten Original. Diese Datei ist unwiederbringlich: Sie
-   lässt sich nach dem Flashen nicht nachholen.
-3. Erst dann die neue Firmware aufspielen
-4. Eine Stunde unter möglichst ähnlichen Bedingungen erneut aufzeichnen
-5. `mitschnitt.ts vergleichen vorher.txt nachher.txt`
+2. Eine Stunde mit der **heutigen** Firmware aufzeichnen. Das ist die
+   Grundlinie; ein Vorher-Zustand existiert nicht
+3. Bei jeder späteren Änderung erneut eine Stunde unter möglichst ähnlichen
+   Bedingungen aufzeichnen
+4. `mitschnitt.ts vergleichen vorher.txt nachher.txt`
 
 Eine **Probeaufzeichnung im Demobetrieb** ist davon unbenommen sinnvoll: Sie
 belegt, dass der Weg trägt — Konfigurationsschalter, Neustart, Datei am

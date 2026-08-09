@@ -38,10 +38,16 @@ WURZEL = Path(__file__).resolve().parent.parent
 
 # Erzeugnis -> Quellen, aus denen es hervorgeht.
 ERZEUGNISSE: dict[str, list[str]] = {
-    "hardware/kicad/AskSin-Analyzer-V3.pdf": [
+    # Es gibt bewusst nur EINEN Satz Zeichnungen, naemlich den im
+    # Fertigungspaket. Bis 09.08.2026 lagen Dubletten davon im Oberverzeichnis
+    # (AskSin-Analyzer-V3.pdf, -layout.pdf); sie wurden von nichts erzeugt und
+    # von nichts gelesen, standen aber im selben Ordner wie die Quellen und
+    # luden zum Verwechseln ein. Genau so ist der Fehler entstanden, der dieses
+    # Skript ausgeloest hat.
+    "hardware/kicad/fab/schaltplan.pdf": [
         "hardware/kicad/AskSin-Analyzer-V3.kicad_sch",
     ],
-    "hardware/kicad/AskSin-Analyzer-V3-layout.pdf": [
+    "hardware/kicad/fab/layout.pdf": [
         "hardware/kicad/AskSin-Analyzer-V3.kicad_pcb",
     ],
     "hardware/kicad/netlist.md": [
@@ -145,6 +151,52 @@ def pruefe_stueckliste() -> list[str]:
     return fehler
 
 
+def pruefe_keine_dubletten() -> list[str]:
+    """In hardware/kicad gehoeren Zeichnungen ausschliesslich nach fab/.
+
+    Bis 09.08.2026 lagen dort Zweitfassungen von Schaltplan und Layout. Sie
+    wurden von nichts erzeugt und von nichts gelesen, standen aber neben den
+    Quellen — und altern lautlos. Genau daraus ist der Fehler entstanden, der
+    dieses Skript ausgeloest hat.
+    """
+    kicad = WURZEL / "hardware/kicad"
+    streuner = [p for p in kicad.glob("*.pdf")]
+    streuner += [p for p in kicad.glob("*.csv")]
+    if not streuner:
+        return []
+    return [
+        "Zeichnungen oder Stuecklisten liegen ausserhalb von fab/: "
+        + ", ".join(sorted(p.name for p in streuner))
+        + " — es gibt bewusst nur einen Satz, naemlich den im Fertigungspaket"
+    ]
+
+
+def pruefe_verweise() -> list[str]:
+    """Zeigt jeder Markdown-Verweis auf eine Datei, die es gibt?
+
+    Beim Aufraeumen am 09.08.2026 sind mehrere Dateien entfallen (die stumme
+    HEX-Datei, nachbauen.sh, zwei PDF-Dubletten, zwei alte Planungs-PDFs). Ein
+    Verweis, der ins Leere geht, ist schlimmer als gar keiner: Er behauptet,
+    es gebe dort etwas.
+    """
+    fehler: list[str] = []
+    muster = re.compile(r"\[[^\]]*\]\(([^)#][^)]*)\)")
+    for md in sorted(WURZEL.rglob("*.md")):
+        rel = md.relative_to(WURZEL).as_posix()
+        if rel.startswith(("reference/", "node_modules", "docs/handbuch/.venv")):
+            continue
+        if "node_modules" in rel:
+            continue
+        for ziel in muster.findall(md.read_text(encoding="utf8", errors="replace")):
+            ziel = ziel.split()[0].strip("<>")
+            if ziel.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            pfad = (md.parent / ziel.split("#")[0]).resolve()
+            if not pfad.exists():
+                fehler.append(f"{rel}: Verweis auf {ziel} geht ins Leere")
+    return fehler
+
+
 def csv_zeilen(zeile: str):
     """Winziger CSV-Leser: Kommas in Anfuehrungszeichen trennen nicht."""
     import csv
@@ -153,7 +205,8 @@ def csv_zeilen(zeile: str):
 
 
 def main() -> int:
-    fehler = pruefe_alter() + pruefe_stueckliste()
+    fehler = (pruefe_alter() + pruefe_stueckliste()
+              + pruefe_keine_dubletten() + pruefe_verweise())
     if fehler:
         print("Erzeugnisse passen nicht zu ihren Quellen:")
         for f in fehler:
@@ -161,7 +214,8 @@ def main() -> int:
         return 1
     print(
         f"Erzeugnisse aktuell — {len(ERZEUGNISSE)} Dateien juenger als ihre Quellen, "
-        "README-Stueckliste deckungsgleich mit der Fertigung."
+        "README-Stueckliste deckungsgleich mit der Fertigung, keine Dubletten, "
+        "alle Verweise gehen ins Ziel."
     )
     return 0
 

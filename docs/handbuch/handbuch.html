@@ -997,8 +997,10 @@ Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 <h2 id="k7-6">7.6 Wenn es klemmt</h2>
 <table>
 <tr><th>Meldung</th><th>Ursache</th><th>Abhilfe</th></tr>
-<tr><td><code>target doesn't answer</code></td><td>Programmiertakt zu schnell oder Verkabelung</td><td><code>-B 8</code> (oder <code>-B 32</code>) verwenden; alle 6 Leitungen gegen das Bild prüfen — MISO/MOSI vertauscht ist Klassiker</td></tr>
-<tr><td><code>cannot find USB device</code></td><td>USBasp nicht erkannt / Rechte</td><td>anderes Kabel/Port; unter Linux ggf. mit <code>sudo</code> testen, dauerhaft besser eine udev-Regel</td></tr>
+<tr><td><code>target doesn't answer</code><br><code>program enable: target does not answer (0x01)</code></td><td>Programmiertakt zu schnell, Platine gleichzeitig am Pi, oder Verkabelung</td><td><strong>Zuerst: Platine vom Pi abziehen.</strong> Steckt sie dort, speisen zwei Quellen dieselbe 3,3-V-Schiene und der Pi hält Pegel auf GPIO4 und GPIO14. Dann in der Arduino IDE den Programmer <strong>„USBasp slow"</strong> wählen (entspricht <code>-B 32</code>); ein fabrikneuer Chip läuft noch auf 1 MHz und ist bei voller Geschwindigkeit nicht ansprechbar. Zuletzt alle 6 Leitungen prüfen — MISO/MOSI vertauscht ist der Klassiker</td></tr>
+<tr><td><code>cannot find USB device with vid=0x16c0 pid=0x5dc</code></td><td>libusbK fehlt an <em>dieser</em> USB-Buchse</td><td>Windows bindet den Treiber pro Anschluss. Dieselbe Buchse wie beim ersten Zadig-Lauf nehmen, sonst Zadig erneut — die vollständige Reihenfolge steht in Kapitel 7.2. Unter Linux ggf. mit <code>sudo</code> testen, dauerhaft besser eine udev-Regel. <strong>An der Platine passiert dabei nichts</strong>; der Vorgang scheitert, bevor der ATmega angesprochen wird</td></tr>
+<tr><td><code>protokoll.h: No such file or directory</code></td><td>Sketch-Ordner unvollständig</td><td>Der Ordner braucht alle <strong>drei</strong> Dateien und muss heißen wie die <code>.ino</code> — Kapitel 8.1. Nicht in einem <code>build\</code>-Verzeichnis arbeiten</td></tr>
+<tr><td>Alles gelingt, die Platine bleibt trotzdem stumm</td><td>Firmware ohne Ausgabe übersetzt</td><td>Größenmeldung prüfen: rund 8 000 Byte sind richtig, 6 922 wären das unveränderte Original. Bleibt es dabei, die Datei mit <code>python3 firmware/pruefe-hex.py</code> prüfen — Hintergrund in Kapitel 8.3</td></tr>
 <tr><td><code>invalid device signature 0x000000</code></td><td>Chip bekommt keinen Strom oder RESET klemmt</td><td>Jumper 3,3 V? Steckt Pin 2? Taster S1 versehentlich gedrückt/verklemmt?</td></tr>
 <tr><td>Signatur ≠ 0x1e950f</td><td>Kontaktproblem</td><td>Leitungen kürzen (&lt; 20 cm), erneut versuchen</td></tr>
 </table>
@@ -1007,15 +1009,34 @@ Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 <h1 class="kapitel" id="k8"><span class="knr">8</span>Die Firmware aufspielen</h1>
 <div class="kapitelband"></div>
 
-<p>Die Firmware ist der unveränderte <strong>AskSinSniffer328P</strong>-Sketch von
-jp112sdl — bewährt, tausendfach im Einsatz, und genau deshalb übernehmen wir
-ihn Byte für Byte statt einen eigenen zu pflegen.</p>
+<p>Die Firmware ist eine <strong>abgewandelte Fassung</strong> des
+AskSinSniffer328P von jp112sdl. Sie liegt in einem eigenen Projekt:
+<code>github.com/ssbingo/asksin-sniffer-firmware</code>. Was gegenüber dem
+Original anders ist, steht in Kapitel 11.5; die Lizenz bleibt unverändert
+CC BY-NC-SA 3.0.</p>
+
+<div class="hinweis box"><span class="titel">ℹ Warum nicht das Original?</span>
+Das Original wartet beim Start ohne Ausweg auf das Funkmodul
+(<code>while (digitalRead(PIN_SPI_MISO));</code>). Steckt keines, bleibt der
+Sketch im <code>setup()</code> stehen, noch bevor er ein Zeichen ausgegeben
+hat — die Platine wirkt tot. Genau dieser Fall tritt beim Aufbau regelmäßig
+ein. Unsere Fassung läuft weiter und meldet stattdessen
+<code>:!CC,--;</code>. Kapitel 11.6 nutzt das, um eine Platine ohne Funkmodul
+in Betrieb zu nehmen.</div>
 
 <h2 id="k8-1">8.1 Quellen besorgen</h2>
 <ol class="schritte">
-<li>Das Repository <code>github.com/jp112sdl/AskSinAnalyzer</code> als ZIP
-herunterladen und entpacken. Der Sketch liegt im Ordner
-<code>AskSinSniffer328P/</code>.</li>
+<li>Auf <code>github.com/ssbingo/asksin-sniffer-firmware</code> über
+<em>Code → Download ZIP</em> herunterladen und entpacken.</li>
+<li>Den Ordner <code>asksin-sniffer</code> <strong>vollständig</strong>
+irgendwohin kopieren — nicht nur die <code>.ino</code>. Er enthält
+<strong>drei</strong> Dateien, und alle drei werden gebraucht:
+<table>
+<tr><th>Datei</th><th>Inhalt</th></tr>
+<tr><td><code>asksin-sniffer.ino</code></td><td>der Sketch</td></tr>
+<tr><td><code>protokoll.h</code></td><td>Zeilenbauer, Befehlsleser, Prüfsumme</td></tr>
+<tr><td><code>protokoll.cpp</code></td><td>deren Umsetzung</td></tr>
+</table></li>
 <li>Drei Bibliotheken werden gebraucht:
 <table>
 <tr><th>Bibliothek</th><th>Woher</th></tr>
@@ -1025,40 +1046,87 @@ herunterladen und entpacken. Der Sketch liegt im Ordner
 </table></li>
 </ol>
 
+<div class="achtung box"><span class="titel">⚠ Der Ordner muss heißen wie die Datei</span>
+Die Arduino IDE sucht Begleitdateien ausschließlich im Sketch-Ordner, und der
+muss genauso heißen wie die <code>.ino</code>. Liegt die Datei woanders — etwa
+in einem <code>build\</code>-Verzeichnis —, bricht die Übersetzung ab mit:
+<pre>fatal error: protokoll.h: No such file or directory</pre>
+Nach dem Öffnen zeigt die IDE <strong>drei Reiter</strong> nebeneinander. Sieht
+man nur einen, fehlen die anderen beiden.</div>
+
 <h2 class="umbruch" id="k8-2">8.2 Kompilieren und flashen (Arduino IDE)</h2>
 <ol class="schritte">
-<li><code>AskSinSniffer328P.ino</code> in der IDE öffnen.</li>
-<li>Board-Einstellungen wie in Kapitel 7.5/Weg A (MiniCore, ATmega328,
-External 8 MHz, USBasp als Programmer).</li>
-<li><em>Sketch → Hochladen mit Programmer</em> wählen (nicht der normale
-Upload-Pfeil!). Die IDE kompiliert und überträgt über den USBasp.</li>
-<li>Nach ~30 Sekunden: <em>„Hochladen abgeschlossen"</em>.</li>
+<li>Die Platine <strong>vom Raspberry Pi abziehen</strong>. Sie wird über den
+USBasp versorgt; steckt sie gleichzeitig auf dem Pi, speisen zwei Quellen
+dieselbe 3,3-V-Schiene und der Pi hält zusätzlich Pegel auf den
+GPIO-Leitungen.</li>
+<li><code>asksin-sniffer.ino</code> in der IDE öffnen.</li>
+<li>Board-Einstellungen wie in Kapitel 7.5 (MiniCore, ATmega328,
+<strong>External 8 MHz</strong>, Variant 328P, USBasp als Programmer).</li>
+<li><em>Sketch → Hochladen mit Programmer</em> wählen — nicht der normale
+Upload-Pfeil.</li>
+<li><strong>Die Größenmeldung lesen.</strong> Sie ist die einzige Rückmeldung
+darüber, ob wirklich unsere Fassung übersetzt wurde:
+<table>
+<tr><th>Meldung</th><th>Bedeutung</th></tr>
+<tr><td>rund <strong>8 000 Byte</strong> oder mehr</td><td>richtig — unsere Fassung mit allen Ausgabetexten</td></tr>
+<tr><td><strong>6 922 Byte</strong></td><td>das unveränderte Original; dann wurde der falsche Ordner geöffnet</td></tr>
+</table></li>
 </ol>
 
 <div class="hinweis box"><span class="titel">ℹ „Hochladen" vs. „Hochladen mit Programmer"</span>
 Der normale Upload-Knopf nutzt den Bootloader über die serielle Schnittstelle —
 die hängt bei uns aber am Pi, nicht am PC. Solange die Platine am USBasp
-steckt, ist <em>Hochladen mit Programmer</em> der richtige Weg. (Er lässt den
-Bootloader übrigens unversehrt — MiniCore-Uploads über ISP erhalten ihn.)
-Später, wenn die Platine auf dem Pi sitzt, laufen Updates über den Bootloader —
-Kapitel 11.</div>
+steckt, ist <em>Hochladen mit Programmer</em> der richtige Weg. Er lässt den
+Bootloader unversehrt: MiniCores Aufruf für den Programmer-Upload enthält
+kein <code>-e</code>, löscht den Chip also nicht, sondern beschreibt nur die
+Seiten des Programms. Später, wenn die Platine auf dem Pi sitzt, laufen
+Updates über den Bootloader — Kapitel 11.</div>
 
-<h2 id="k8-3">8.3 Alternative: PlatformIO</h2>
-<p>Wer lieber auf der Kommandozeile arbeitet: Dem Sketch liegt eine
-<code>platformio.ini</code> bei.</p>
-<pre><span class="c"># einmalig: PlatformIO-CLI installieren (python3 vorausgesetzt)</span>
-pip install platformio
-cd AskSinAnalyzer/AskSinSniffer328P
-<span class="c"># kompilieren und über USBasp brennen</span>
-pio run
-pio run -t program</pre>
+<h2 id="k8-3">8.3 Warum hier keine fertige HEX-Datei liegt</h2>
+<p>Bis zum 09.08.2026 lieferte dieses Projekt eine fertig übersetzte
+HEX-Datei mit — byte-genau reproduzierbar, mit Prüfsumme im Handbuch. Sie war
+<strong>stumm</strong>.</p>
+
+<p>AskSinPP macht aus seinen Ausgabemakros <code>DPRINT</code>,
+<code>DPRINTLN</code> und <code>DINIT</code> leere Anweisungen, sobald
+<code>NDEBUG</code> gesetzt ist. Für eine Bibliothek ist das richtig. Beim
+Sniffer ist es das Gegenteil: Telegramme, Rauschzeilen und Versionsauskunft
+gehen <strong>alle</strong> über diese Makros. Und MiniCore setzt
+<code>NDEBUG</code> fest, bei jedem Übersetzungslauf:</p>
+
+<pre>MiniCore/hardware/avr/3.1.2/platform.txt, Zeile 14
+compiler.optimization_flags=-Os <strong>-DNDEBUG</strong></pre>
+
+<p>Die Firmware lief damit einwandfrei und sendete nie ein Zeichen. Nicht
+einmal <code>Serial.begin()</code> kam zustande, weil auch <code>DINIT</code>
+leer war; der Sendepin blieb hochohmig, und von außen war das von einer
+defekten Platine nicht zu unterscheiden.</p>
+
+<p>Unser Sketch hebt <code>NDEBUG</code> deshalb selbst auf, bevor er AskSinPP
+einbindet, und bricht die Übersetzung ab, falls es je wieder gesetzt wird.
+Wer eine HEX-Datei von irgendwoher bekommt, prüft sie vorher:</p>
+
+<pre>python3 firmware/pruefe-hex.py <span class="var">datei.hex</span></pre>
+
+<p>Das Skript verlangt die Startkennung <code>AskSin++ v</code> als Text im
+Programmabbild. Fehlt sie, waren die Ausgabemakros leer — Größe, Adressen und
+Prüfsumme hätten das nie verraten.</p>
 
 <h2 class="umbruch" id="k8-4">8.4 Der erste Lebenszeichen-Test</h2>
-<p>Noch am USBasp (der versorgt die Platine mit 3,3 V) muss jetzt die
-<strong>LED D1 beim Empfang blitzen</strong>, sobald ein Homematic-Gerät in der Nähe
-sendet — zum Provozieren reicht es, einen Fensterkontakt zu öffnen. Kein
-Blitzen ist noch kein Beinbruch: Ohne Antenne ist die Reichweite winzig.
-Der belastbare Test folgt in Kapitel 9 am Pi.</p>
+<p>Noch am USBasp, der die Platine mit 3,3 V versorgt: <strong>D1 blinkt beim
+Start dreimal</strong>. Das ist die Startanzeige von AskSinPP und beweist, dass
+der Chip Programmcode ausführt.</p>
+
+<p>Mehr sagt der Blink allerdings <em>nicht</em> — insbesondere nichts darüber,
+ob die serielle Ausgabe funktioniert. Genau diese Verwechslung hat einmal einen
+halben Tag gekostet: Die LED blinkte, und trotzdem kam kein Byte an. Der
+belastbare Test folgt in Kapitel 9 am Pi, wo die Zeilen tatsächlich ankommen
+müssen.</p>
+
+<p>Blitzt D1 beim Empfang eines Homematic-Telegramms — zum Provozieren reicht
+ein Fensterkontakt —, ist auch das Funkmodul in Ordnung. Kein Blitzen ist
+noch kein Beinbruch: Ohne Antenne ist die Reichweite winzig.</p>
 
 <!-- ==================================================== KAPITEL 9 -->
 <h1 class="kapitel" id="k9"><span class="knr">9</span>Den Raspberry Pi einrichten — Installation mit einem Befehl</h1>
@@ -1338,7 +1406,7 @@ sudo systemctl stop asksin-analyzer
 
 <span class="c"># 2. avrdude starten — es wartet auf den Bootloader …</span>
 avrdude -c arduino -p m328p -P /dev/asksin-hat -b 58824 -D \
-        -U flash:w:AskSinSniffer328P.hex:i &
+        -U flash:w:asksin-sniffer.ino.hex:i &
 
 <span class="c"># 3. … und sofort den Reset-Impuls geben:</span>
 sleep 0.2
@@ -1364,21 +1432,20 @@ Bootloader-Brennvorgang braucht den USBasp.</div>
 
 <h2 class="umbruch" id="k11-3">11.3 Woher die HEX-Datei kommt</h2>
 
-<div class="hinweis box"><span class="titel">Der schnellste Weg: sie liegt bei</span>
-Seit dieser Ausgabe liefert das Projekt eine fertige HEX-Datei mit —
-<code>firmware/asksin-sniffer-20260803-8mhz.hex</code>, kompiliert aus dem
-unveränderten Sketch mit den Einstellungen aus Kapitel 7.5. Wer nichts ändern
-will, nimmt einfach diese und überspringt den Rest dieses Abschnitts. Prüfsumme
-und Herkunft stehen in <code>firmware/README.md</code>; die Firmware bleibt
-dabei unter der Lizenz ihres Urhebers (CC&nbsp;BY-NC-SA&nbsp;3.0,
-© jp112sdl) und ist für gewerbliche Nutzung nicht frei.</div>
+<div class="achtung box"><span class="titel">⚠ Es liegt bewusst keine fertige HEX-Datei bei</span>
+Bis zum 09.08.2026 lieferte das Projekt eine mit — byte-genau reproduzierbar,
+mit Prüfsumme in diesem Handbuch. Sie war <strong>stumm</strong>: MiniCore setzt
+<code>-DNDEBUG</code>, und AskSinPP macht daraus leere Ausgabemakros, über die
+der Sniffer sein gesamtes Erzeugnis schickt. Die Datei lief einwandfrei und
+sendete nie ein Zeichen. Größe, Adressen und Prüfsumme stimmten alle — sie
+sagten nur nichts darüber, ob sie funktioniert. Warum das so lange unbemerkt
+blieb und was jetzt dagegen geprüft wird, steht in Kapitel 8.3.</div>
 
-<p>Wer selbst kompilieren möchte, liest weiter. Beide Wege oben verlangen eine
-<strong>HEX-Datei</strong>. Im Repo der Firmware liegt aber nur der Quelltext
-— eine <code>.ino</code>-Datei. Das ist
-kein Versehen: Eine HEX-Datei ist maschinenlesbar und gilt immer nur für eine
-bestimmte Einstellung von Takt und Baudrate. Wer sie mitliefert, liefert
-zwangsläufig die falsche für irgendjemanden.</p>
+<p>Beide Wege oben verlangen eine <strong>HEX-Datei</strong>, im Firmware-Repo
+liegt aber nur der Quelltext. Das ist kein Versehen: Eine HEX-Datei gilt immer
+nur für eine bestimmte Einstellung von Takt und Baudrate. Wer sie mitliefert,
+liefert zwangsläufig die falsche für irgendjemanden — und im schlimmsten Fall
+eine, die überhaupt nicht spricht.</p>
 
 <p>Man erzeugt sie also selbst. Das klingt nach mehr, als es ist: Es sind
 dieselben Schritte wie beim ersten Aufspielen (Kapitel 8) — nur dass am Ende
@@ -1400,9 +1467,12 @@ Gerät, das entweder schweigt oder Buchstabensalat sendet.</p>
 <h3>Schritt für Schritt mit der Arduino IDE</h3>
 
 <ol>
-<li><strong>Quelltext holen.</strong> Auf der Projektseite der Firmware
-    <em>Code → Download ZIP</em>, dann entpacken. Darin liegt
-    <code>AskSinSniffer328P.ino</code>.</li>
+<li><strong>Quelltext holen.</strong> Auf
+    <code>github.com/ssbingo/asksin-sniffer-firmware</code>
+    <em>Code → Download ZIP</em>, dann entpacken. Gebraucht wird der Ordner
+    <code>asksin-sniffer</code> <strong>vollständig</strong> — er enthält
+    neben der <code>.ino</code> auch <code>protokoll.h</code> und
+    <code>protokoll.cpp</code> (Kapitel 8.1).</li>
 <li><strong>Bibliotheken einrichten</strong> — AskSinPP, EnableInterrupt und
     Low-Power, wie in Kapitel 8.1 beschrieben. Ohne sie bricht das
     Kompilieren mit „No such file or directory" ab.</li>
@@ -1426,7 +1496,7 @@ Viertelstunde Suchen:</p>
 <li><strong>Arduino IDE 2.x</strong> (die aktuelle): Die Dateien landen in
     einem <strong>Unterordner <code>build</code></strong> neben der
     <code>.ino</code>, also etwa
-    <code>AskSinSniffer328P/build/MiniCore.avr.328/AskSinSniffer328P.ino.hex</code>.</li>
+    <code>asksin-sniffer/build/MiniCore.avr.328/asksin-sniffer.ino.hex</code>.</li>
 <li><strong>Arduino IDE 1.8</strong> (die ältere): direkt im Sketch-Ordner
     neben der <code>.ino</code>.</li>
 </ul>
@@ -1439,77 +1509,45 @@ Es entstehen immer <strong>zwei</strong> HEX-Dateien:
 </p>
 <table style="margin-bottom: 0">
 <tr><th>Datei</th><th>nehmen?</th><th>warum</th></tr>
-<tr><td><code>AskSinSniffer328P.ino.hex</code></td><td><strong>ja</strong></td><td>nur das Programm</td></tr>
+<tr><td><code>asksin-sniffer.ino.hex</code></td><td><strong>ja</strong></td><td>nur das Programm</td></tr>
 <tr><td><code>…ino.with_bootloader.hex</code></td><td><strong>nein</strong></td><td>enthält zusätzlich den Bootloader — und genau der darf beim Update nicht überschrieben werden. Er ist es, der das Update überhaupt entgegennimmt.</td></tr>
 </table>
 </div>
 
-<h3>Wenn die eigene Datei anders aussieht als die mitgelieferte</h3>
+<h3>Warum die Größe schwankt — und warum sie nichts beweist</h3>
 
-<p>Das ist normal und kein Fehler. Zwei Fassungen desselben Quelltextes können
-sich um mehrere hundert Byte unterscheiden, ohne dass eine davon falsch wäre —
-es genügt eine andere Fassung einer Bibliothek oder eine einzige andere
-Einstellung im Menü <em>Werkzeuge</em>.</p>
+<p>Zwei Fassungen desselben Quelltextes können sich um mehrere hundert Byte
+unterscheiden, ohne dass eine davon falsch wäre. Es genügt eine andere Fassung
+einer Bibliothek oder eine einzige andere Einstellung im Menü
+<em>Werkzeuge</em>.</p>
 
-<p>Wir haben das ausprobiert: Drei Bauversuche, alle mit denselben
-Board-Einstellungen, ergaben 7 416, 7 490 und 7 734 Byte — die mitgelieferte
-Datei hat 6 922. Der Unterschied war am Ende <strong>eine einzige
-Menüzeile</strong>, nämlich <em>Compiler LTO</em>. Steht sie auf
-<em>enabled</em>, fasst der Übersetzer beim letzten Arbeitsschritt das ganze
-Programm zusammen und wirft heraus, was nie erreicht wird:</p>
+<p>Wir haben das ausprobiert: Drei Bauversuche mit denselben
+Board-Einstellungen ergaben 7 416, 7 490 und 7 734 Byte. Der Unterschied war
+am Ende <strong>eine einzige Menüzeile</strong>, nämlich <em>Compiler LTO</em>.
+Steht sie auf <em>enabled</em>, fasst der Übersetzer beim letzten
+Arbeitsschritt das ganze Programm zusammen und wirft heraus, was nie erreicht
+wird — beim unveränderten Original waren das 828 Byte.</p>
 
-<div class="tabelle">
-<table>
-<tr><th>Einstellung</th><th>Programmgröße</th></tr>
-<tr><td>LTO enabled</td><td><strong>6 922 Byte</strong> — die mitgelieferte Datei</td></tr>
-<tr><td>LTO disabled</td><td>7 750 Byte</td></tr>
-</table>
-</div>
+<p>Wie eng es zugeht, zeigt eine Gegenprobe: Schon <em>AskSinPP 5.0.2</em>
+statt 5.0.3 — eine Nebenversion — ändert die Größe.</p>
 
-<p>828 Byte Unterschied bei Zeichen für Zeichen demselben Quelltext.</p>
+<div class="achtung box"><span class="titel">⚠ Eine passende Größe beweist gar nichts</span>
+<p>Wir haben aus dieser Beobachtung einmal den falschen Schluss gezogen und
+den Bau festgenagelt, bis er byte-genau reproduzierbar war. Er war es — und
+das Ergebnis war trotzdem unbrauchbar, weil MiniCore <code>-DNDEBUG</code>
+setzt und damit sämtliche Ausgabe der Firmware entfernt (Kapitel 8.3).</p>
+<p style="margin-bottom: 0">Reproduzierbarkeit belegt, dass zweimal dasselbe
+herauskommt. Sie belegt nicht, dass das Ergebnis taugt. Deshalb prüft
+<code>firmware/pruefe-hex.py</code> heute den <strong>Inhalt</strong>: Die
+Startkennung <code>AskSin++ v</code> muss als Text im Programmabbild stehen.
+Das ist die Prüfung, auf die es ankommt — nicht die Größe.</p></div>
 
-<p>Wer die mitgelieferte Datei <em>genau</em> nachbauen will, braucht deshalb
-diese Fassungen:</p>
-
-<div class="tabelle">
-<table>
-<tr><th>Bestandteil</th><th>Fassung</th></tr>
-<tr><td>Arduino IDE</td><td>2.3.10 (<code>arduino-cli</code> 1.5.1)</td></tr>
-<tr><td>MiniCore</td><td>3.1.2</td></tr>
-<tr><td>AskSinPP</td><td>5.0.3</td></tr>
-<tr><td>Compiler LTO</td><td><strong>enabled</strong></td></tr>
-</table>
-</div>
-
-<p>Wie eng das zugeht, zeigt eine Gegenprobe: Schon <em>AskSinPP 5.0.2</em>
-statt 5.0.3 — eine Nebenversion — ergibt 6 886 statt 6 922 Byte.</p>
-
-<p>Für den täglichen Gebrauch spielt das keine Rolle: Eine selbst kompilierte
-Datei mit den Einstellungen aus Kapitel 7.5 läuft einwandfrei, auch wenn ihre
-Größe abweicht. Wichtig wird die Übereinstimmung erst, wenn man zwei Fassungen
-<em>vergleichen</em> möchte — etwa um zu belegen, dass eine Änderung wirklich
-etwas bewirkt hat.</p>
-
-<h3>Nachprüfen, statt zu glauben</h3>
-
-<p>Die mitgelieferte Datei ist Maschinencode — ansehen kann man ihr nichts.
-Wer nicht darauf vertrauen möchte, dass sie aus genau dem angegebenen
-Quelltext entstanden ist, baut sie nach:</p>
-
-<pre>bash firmware/nachbauen.sh</pre>
-
-<p>Das Skript holt <code>arduino-cli</code>, Board-Paket und Bibliotheken in
-den Fassungen aus der Tabelle oben, übersetzt und vergleicht die Prüfsumme mit
-der mitgelieferten Datei. Beim ersten Mal lädt es rund 200 MB herunter, danach
-dauert ein Durchlauf Sekunden. Stimmt am Ende alles überein, meldet es
-<em>Nachgebaut und identisch</em> — und dann ist bewiesen, was in der Datei
-steckt.</p>
-
-<p>Das ist keine graue Theorie: Am 03.08.2026 haben wir es gegengeprüft. Die
-Datei, die unter Windows mit der Arduino IDE 2.3.10 entstanden ist, und die,
-die unter Linux mit <code>arduino-cli</code> gebaut wurde, sind Byte für Byte
-dieselbe. Der Bau hängt also nicht am Betriebssystem, sondern nur an den
-Fassungen und Schaltern.</p>
+<p>Für den täglichen Gebrauch spielt die Größe ohnehin keine Rolle. Eine
+selbst kompilierte Datei mit den Einstellungen aus Kapitel 7.5 läuft
+einwandfrei, auch wenn sie ein paar hundert Byte abweicht. Entscheidend ist,
+dass sie die Ausgabetexte enthält — und dass sie deutlich über 6 922 Byte
+liegt, denn das ist die Größe des unveränderten Originals ohne unsere
+Erweiterungen.</p>
 
 <h3>Alternative: die Kommandozeile</h3>
 
@@ -1520,9 +1558,9 @@ weiß sofort, wo sie liegt:</p>
   --fqbn MiniCore:avr:328:variant=modelP,bootloader=uart0,\
 clock=8MHz_external,BOD=2v7,eeprom=keep,LTO=Os_flto \
   --output-dir ./hex \
-  AskSinSniffer328P</pre>
+  asksin-sniffer</pre>
 
-<p>Danach liegt sie unter <code>./hex/AskSinSniffer328P.ino.hex</code>.</p>
+<p>Danach liegt sie unter <code>./hex/asksin-sniffer.ino.hex</code>.</p>
 
 <p>Der Anhang <code>LTO=Os_flto</code> ist genau die Menüzeile aus dem
 vorigen Abschnitt. Wer ihn weglässt, bekommt die Voreinstellung — und damit
@@ -1543,7 +1581,7 @@ oder halb heruntergeladene Datei wird also abgewiesen, bevor irgendetwas
 geschrieben wird.</p>
 
 <p class="klein">Für den Handweg (11.2) muss sie erst auf den Pi, etwa mit
-<code>scp AskSinSniffer328P.ino.hex benutzer@asksin-analyzer-01:~</code>.</p>
+<code>scp asksin-sniffer.ino.hex benutzer@asksin-analyzer-01:~</code>.</p>
 
 <h2 id="k11-4">11.4 Vorher messen: der Mitschnitt</h2>
 
@@ -1781,6 +1819,66 @@ etwa ein Prozent, lohnt ein Blick auf die Leitung: zu lange Strippen zum HAT,
 schlechte Masseverbindung, oder eine Baudrate, die nicht zum Quarz passt
 (Kapitel 23).</p>
 
+
+<h2 class="umbruch" id="k11-6">11.6 Eine Platine ohne Funkmodul in Betrieb nehmen</h2>
+
+<p>Beim Aufbau ist die Platine oft fertig bestückt, während das Funkmodul noch
+fehlt — es kommt aus China und braucht Wochen. Elektrisch ist das
+unbedenklich: Die Baugruppe läuft durchgängig auf 3,3 V, und der freie
+Steckplatz stört niemanden.</p>
+
+<p>Sinnvoll ist es außerdem, denn <strong>alles außer dem Funkempfang lässt
+sich damit bereits prüfen</strong>: Spannungsregler, Resonator, Fuses,
+Bootloader, die serielle Strecke zum Pi, der Dienst, die Weboberfläche. Wer
+das vor dem Löten des Moduls erledigt, sucht später nicht zwei Fehler
+gleichzeitig.</p>
+
+<h3>Was die Firmware dann meldet</h3>
+
+<p>Unsere Fassung erkennt das fehlende Modul selbst und sagt es beim Start:</p>
+
+<pre>:!CC,--;</pre>
+
+<p>Statt einer Chip-Version stehen dort zwei Striche. Der Analyzer deutet das
+und schreibt in der Übersicht hin, dass kein Funkmodul antwortet — statt eine
+leere Telegrammliste zu zeigen, bei der man rätselt, ob gerade nichts funkt
+oder etwas kaputt ist.</p>
+
+<div class="hinweis box"><span class="titel">ℹ Warum das Original hier stehen bleibt</span>
+Der ursprüngliche Sketch wartet an dieser Stelle ohne Ausweg:
+<code>while (digitalRead(PIN_SPI_MISO));</code>. Steckt kein Modul, treibt
+niemand diese Leitung; sie flottiert, liest sich je nach Einstreuung hoch, und
+der Sketch bleibt im <code>setup()</code> stehen — noch bevor er ein einziges
+Zeichen ausgegeben hat. Von außen ist das von einer defekten Platine nicht zu
+unterscheiden. Unsere Fassung wartet höchstens fünf Millisekunden, merkt sich
+das Ergebnis und läuft weiter.</div>
+
+<h3>Die Prüfschritte der Reihe nach</h3>
+
+<ol class="schritte">
+<li><strong>Spannungen messen</strong>, Platine aufgesteckt, gegen TP4 (GND):
+TP3 etwa 5 V, TP2 etwa 3,3 V, TP1 (RESET) etwa 3,3 V. Liegt TP1 auf 0 V, hängt
+der Chip im Reset und nichts weiter funktioniert.</li>
+<li><strong>Reset auslösen und mithören</strong> — der Befehl steht in
+Kapitel 23.1. Erwartet werden die AskSin++-Kennung und
+<code>:!CC,--;</code>.</li>
+<li><strong>Rauschzeilen abwarten.</strong> Ohne Funkmodul kommen keine —
+das ist richtig so, es gibt nichts zu messen.</li>
+<li><strong>Dienst starten</strong>, Demo-Modus aus. Die Weboberfläche muss
+das fehlende Funkmodul melden.</li>
+</ol>
+
+<div class="achtung box"><span class="titel">⚠ Der LED-Blink beweist wenig</span>
+D1 blinkt beim Start dreimal, sobald der Chip Programmcode ausführt. Das sagt
+<em>nichts</em> darüber, ob die serielle Ausgabe funktioniert — die beiden
+hängen nicht zusammen. Am ersten Aufbau hat genau diese Verwechslung einen
+halben Tag gekostet: Die LED blinkte zuverlässig, und trotzdem kam kein
+einziges Byte am Pi an. Verlassen Sie sich auf die Zeilen, nicht auf die
+Lampe.</div>
+
+<p>Ist das Funkmodul später eingelötet, meldet die Firmware beim nächsten Start
+statt der Striche die Chip-Version, üblicherweise <code>:!CC,14;</code>. Damit
+ist der Steckverbinder in einem Schritt mitgeprüft.</p>
 
 <!-- ==================================================== KAPITEL 12 -->
 <h1 class="kapitel" id="k12"><span class="knr">12</span>Die Software: Überblick und Architektur</h1>

@@ -27,7 +27,7 @@ laufenden Gerät.
 | **Hardware v0.2.0** (L-Platine neben dem Pi) | ✅ **in Produktion** (31.07.2026) — DRC/ERC 0/0, 26 Fertigungsprüfungen bestanden |
 | Fertigungsdaten (Gerber, BOM, CPL, JLCPCB) | ✅ [`hardware/kicad/fab/`](hardware/kicad/fab/) + Archiv |
 | J1-Rettungsadapter für die Chargen v0.0.1 | ✅ [`hardware/kicad/adapter/`](hardware/kicad/adapter/README.md) |
-| Firmware | ✅ unveränderter `AskSinSniffer328P` (jp112sdl), nachbaubar bis aufs Byte ([`firmware/`](firmware/README.md)) |
+| Firmware | ✅ abgewandelte Fassung des `AskSinSniffer328P` (jp112sdl) — läuft auch ohne Funkmodul und meldet dessen Fehlen, [eigenes Repo](https://github.com/ssbingo/asksin-sniffer-firmware); Prüfwerkzeuge in [`firmware/`](firmware/README.md) |
 | Firmware, erweiterte Fassung | 🔨 gebaut, wartet auf die Platine — eigenes Repo [`asksin-sniffer-firmware`](https://github.com/ssbingo/asksin-sniffer-firmware): Versionsauskunft, Folgenummer, Prüfsumme, CC1101-Selbsttest. Im Auslieferungszustand Zeichen für Zeichen wie das Original |
 | Mitschnitt der Funkstrecke | ✅ Grundlinie vor Firmware-Änderungen, Schalter unter *Wartung* (F1) |
 | Core: Parser + Duty-Cycle | ✅ fertig ([`core/`](core/)) |
@@ -129,12 +129,13 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.9.0** |
 | `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.9.0** |
 
-Die **Firmware wird bewusst nicht eigenständig versioniert**: Sie ist
-byte-identisch der `AskSinSniffer328P` von jp112sdl (Stand des
-AskSinAnalyzer-Repos, Sketch unverändert übernommen). Eine eigene Nummer auf
-fremden, unveränderten Code wäre irreführend — sollte je eine Änderung nötig
-werden, beginnt ab dann `firmware-v0.0.1`. Der ioBroker-Adapter bekommt ein
-eigenes Repository mit eigenständiger Versionierung.
+Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
+[ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
+Sie war ursprünglich die unveränderte `AskSinSniffer328P` von jp112sdl; seit
+den Erweiterungen um Folgenummer, Prüfsumme, Versionsauskunft und
+Funkmodul-Selbsttest ist sie eine abgewandelte Fassung und wird als solche
+gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
+ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
@@ -590,10 +591,10 @@ cd .. && git clone https://github.com/der-pw/AskSinAnalyzerXS-RPi.git AskSinAnal
 | Komponente | Lizenz | Urheber |
 | --- | --- | --- |
 | Hardware, Doku, Core (dieses Repo) | **CC BY-NC-SA 4.0** | © 2026 S. Sternitzke |
-| Sniffer-Firmware (`firmware/*.hex`) | **CC BY-NC-SA 3.0** | © jp112sdl — unverändert kompiliert, [Quelle](https://github.com/jp112sdl/AskSinAnalyzer) |
+| Sniffer-Firmware ([eigenes Repo](https://github.com/ssbingo/asksin-sniffer-firmware)) | **CC BY-NC-SA 3.0** | © jp112sdl — abgewandelt, ShareAlike, [Quelle](https://github.com/jp112sdl/AskSinAnalyzer) |
 | Web-UI (`webui/`, eigener Nachbau ohne Fremdcode) | **MIT** | © 2026 S. Sternitzke |
 | Apache ECharts (Diagramme der Web-UI) | Apache-2.0 | Apache Software Foundation |
-| Firmware `AskSinSniffer328P` (unverändert übernommen) | CC BY-NC-SA 3.0 | jp112sdl |
+| Firmware `AskSinSniffer328P` (Vorlage unserer Fassung) | CC BY-NC-SA 3.0 | jp112sdl |
 | AskSinPP (Bibliothek der Firmware) | CC BY-NC-SA 3.0 | pa-pa |
 | AskSinAnalyzerXS (Referenz für Parser/Formeln) | CC BY-NC-SA 4.0 | psi-4ward |
 | AskSinAnalyzerXS-RPi (Platinen-Vorlage V1.1) | CC BY-NC-SA 4.0 | der-pw |

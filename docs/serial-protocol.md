@@ -12,7 +12,7 @@ Beide Implementierungen stimmen exakt überein. Damit ist das Zeilenformat belas
 
 | Parameter | Wert | Quelle |
 | --- | --- | --- |
-| Baudrate | nominal **57600**, real **58823,5** | `DINIT(57600, ...)` im Sketch, `monitor_speed` in `platformio.ini` |
+| Baudrate | nominal **57600**, real **58823,5** | `DINIT(57600, ...)` im Sketch; bei 8 MHz ergibt UBRR = 16 mit U2X genau 58 823,5 |
 | Datenformat | 8N1 | Arduino-Default |
 | Zeilenende | `\n` (ggf. `\r\n`) | XS nutzt `Readline({delimiter: '\n'})` + `trim()` |
 | Flusskontrolle | keine | – |

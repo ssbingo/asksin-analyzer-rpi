@@ -12,6 +12,26 @@ die beiden Fallen zu erkennen, die hier wirklich weh tun:
     und einem halb beschriebenen Chip.
   * Eine unvollständig heruntergeladene Datei. Sie ist syntaktisch tadellos,
     nur eben zu kurz — und der Sniffer schweigt danach.
+  * Eine **stumm gebaute** Datei. Die tückischste von allen: richtige Größe,
+    richtige Adressen, läuft auf dem Chip einwandfrei — und sendet trotzdem
+    nie ein Zeichen.
+
+Zur dritten Falle, weil sie uns tatsächlich getroffen hat: AskSinPP macht aus
+`DPRINT`, `DPRINTLN` und `DINIT` leere Makros, sobald `NDEBUG` gesetzt ist. Der
+Sniffer schreibt aber **alles** über diese Makros — Telegramme, Rauschzeilen,
+Versionsauskunft. Und MiniCore setzt `NDEBUG` fest (`platform.txt` Zeile 14:
+`compiler.optimization_flags=-Os -DNDEBUG`). Eine so gebaute Firmware ist
+stumm, ohne Fehler und ohne Warnung.
+
+Am 09.08.2026 an Analyzer 05 aufgefallen, der ersten echten Platine. Vorher
+lief jeder Analyzer im Demo-Modus, und der öffnet gar keine serielle
+Schnittstelle — die ausgelieferte HEX-Datei war neun Tage lang stumm, ohne
+dass es jemand merken konnte.
+
+Deshalb prüft dieses Skript jetzt den **Inhalt**: Die Startkennung, die
+AskSinPP beim Hochfahren ausgibt, muss als Text im Programmabbild stehen.
+Fehlt sie, sind die Ausgabemakros leer gewesen. Größe und Adressen hätten das
+nie verraten.
 
 Aufruf:
     python3 pruefe-hex.py AskSinSniffer328P.ino.hex
@@ -26,6 +46,10 @@ from pathlib import Path
 # 512 Byte; alles darunter gehört dem Programm.
 FLASH = 32 * 1024
 BOOTLOADER_AB = FLASH - 512
+
+# Die Kennung, die AskSinPP in DINIT ausgibt. Steht sie nicht im Abbild, hat
+# der Übersetzer die Ausgabemakros wegoptimiert.
+KENNUNG = b"AskSin++ v"
 
 
 def lies_hex(pfad: Path) -> tuple[dict[int, int], list[str]]:
@@ -123,6 +147,16 @@ def main() -> int:
         fehler.append(
             f"Nur {groesse} Byte Programm — das ist auffällig wenig. "
             f"Download vollständig?")
+
+    # Stumm gebaut? Siehe Kopf der Datei.
+    abbild = bytes(speicher.get(a, 0xFF) for a in range(hoechste + 1))
+    if KENNUNG not in abbild:
+        fehler.append(
+            f"Die Startkennung {KENNUNG.decode()!r} steht nicht im Abbild. "
+            f"Damit sind die Ausgabemakros von AskSinPP leer gewesen — die "
+            f"Firmware läuft, sendet aber nie ein Zeichen. Ursache ist fast "
+            f"immer NDEBUG (MiniCore setzt es fest). Der Sketch muss NDEBUG "
+            f"vor dem Einbinden von AskSinPP aufheben.")
 
     if fehler:
         print()
