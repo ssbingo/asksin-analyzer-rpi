@@ -480,7 +480,11 @@ kommt nichts mehr an", bei tadelloser Funkstrecke.
 * 273 Prüfungen im Analyzer, darunter Überlauf, Neustart, Rücksprung,
   verfälschte Prüfsumme und das Ausbleiben einer Antwort.
 * Der Sketch übersetzt mit der festgenagelten Werkzeugkette: 7 588 Byte,
-  23 % des Flash (Original: 6 922).
+  23 % des Flash (Original: 6 922). *Nachtrag 09.08.2026: Diese Zahl stammt
+  von vor der NDEBUG-Reparatur — beide Fassungen waren stumm gebaut. Seit der
+  Sketch `NDEBUG` selbst aufhebt, kommen die Ausgabetexte hinzu und die Datei
+  ist entsprechend größer. Ein Zahlenwert steht hier bewusst nicht: Er ließe
+  sich hier nicht nachmessen, und geprüft wird ohnehin der Inhalt.*
 
 Zwei Fehler hat das schon gefunden, bevor Hardware im Spiel war:
 

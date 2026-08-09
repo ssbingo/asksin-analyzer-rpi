@@ -1000,7 +1000,7 @@ Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 <tr><td><code>target doesn't answer</code><br><code>program enable: target does not answer (0x01)</code></td><td>Programmiertakt zu schnell, Platine gleichzeitig am Pi, oder Verkabelung</td><td><strong>Zuerst: Platine vom Pi abziehen.</strong> Steckt sie dort, speisen zwei Quellen dieselbe 3,3-V-Schiene und der Pi hält Pegel auf GPIO4 und GPIO14. Dann in der Arduino IDE den Programmer <strong>„USBasp slow"</strong> wählen (entspricht <code>-B 32</code>); ein fabrikneuer Chip läuft noch auf 1 MHz und ist bei voller Geschwindigkeit nicht ansprechbar. Zuletzt alle 6 Leitungen prüfen — MISO/MOSI vertauscht ist der Klassiker</td></tr>
 <tr><td><code>cannot find USB device with vid=0x16c0 pid=0x5dc</code></td><td>libusbK fehlt an <em>dieser</em> USB-Buchse</td><td>Windows bindet den Treiber pro Anschluss. Dieselbe Buchse wie beim ersten Zadig-Lauf nehmen, sonst Zadig erneut — die vollständige Reihenfolge steht in Kapitel 7.2. Unter Linux ggf. mit <code>sudo</code> testen, dauerhaft besser eine udev-Regel. <strong>An der Platine passiert dabei nichts</strong>; der Vorgang scheitert, bevor der ATmega angesprochen wird</td></tr>
 <tr><td><code>protokoll.h: No such file or directory</code></td><td>Sketch-Ordner unvollständig</td><td>Der Ordner braucht alle <strong>drei</strong> Dateien und muss heißen wie die <code>.ino</code> — Kapitel 8.1. Nicht in einem <code>build\</code>-Verzeichnis arbeiten</td></tr>
-<tr><td>Alles gelingt, die Platine bleibt trotzdem stumm</td><td>Firmware ohne Ausgabe übersetzt</td><td>Größenmeldung prüfen: rund 8 000 Byte sind richtig, 6 922 wären das unveränderte Original. Bleibt es dabei, die Datei mit <code>python3 firmware/pruefe-hex.py</code> prüfen — Hintergrund in Kapitel 8.3</td></tr>
+<tr><td>Alles gelingt, die Platine bleibt trotzdem stumm</td><td>Firmware ohne Ausgabe übersetzt</td><td>Die Datei mit <code>python3 firmware/pruefe-hex.py</code> prüfen — das ist die einzige verlässliche Auskunft. Die Größenmeldung hilft nur beim gröbsten Fall: genau 6 922 Byte wären das unveränderte Original. Hintergrund in Kapitel 8.3</td></tr>
 <tr><td><code>invalid device signature 0x000000</code></td><td>Chip bekommt keinen Strom oder RESET klemmt</td><td>Jumper 3,3 V? Steckt Pin 2? Taster S1 versehentlich gedrückt/verklemmt?</td></tr>
 <tr><td>Signatur ≠ 0x1e950f</td><td>Kontaktproblem</td><td>Leitungen kürzen (&lt; 20 cm), erneut versuchen</td></tr>
 </table>
@@ -1069,8 +1069,8 @@ Upload-Pfeil.</li>
 darüber, ob wirklich unsere Fassung übersetzt wurde:
 <table>
 <tr><th>Meldung</th><th>Bedeutung</th></tr>
-<tr><td>rund <strong>8 000 Byte</strong> oder mehr</td><td>richtig — unsere Fassung mit allen Ausgabetexten</td></tr>
-<tr><td><strong>6 922 Byte</strong></td><td>das unveränderte Original; dann wurde der falsche Ordner geöffnet</td></tr>
+<tr><td><strong>deutlich mehr</strong> als 6 922 Byte</td><td>richtig — unsere Fassung bringt Erweiterungen und Ausgabetexte mit. Die genaue Zahl haengt von den Fassungen der Bibliotheken ab; entscheidend ist der Abstand nach oben</td></tr>
+<tr><td>genau <strong>6 922 Byte</strong></td><td>das unveränderte Original ohne Ausgabe; dann wurde der falsche Ordner geöffnet</td></tr>
 </table></li>
 </ol>
 
@@ -1859,9 +1859,10 @@ das Ergebnis und läuft weiter.</div>
 <li><strong>Spannungen messen</strong>, Platine aufgesteckt, gegen TP4 (GND):
 TP3 etwa 5 V, TP2 etwa 3,3 V, TP1 (RESET) etwa 3,3 V. Liegt TP1 auf 0 V, hängt
 der Chip im Reset und nichts weiter funktioniert.</li>
-<li><strong>Reset auslösen und mithören</strong> — der Befehl steht in
-Kapitel 23.1. Erwartet werden die AskSin++-Kennung und
-<code>:!CC,--;</code>.</li>
+<li><strong>Mithören</strong> — der Befehl steht in Kapitel 9.3. Erwartet
+werden beim Start die AskSin++-Kennung und <code>:!CC,--;</code>. Damit die
+beiden Startzeilen nicht längst verpufft sind, während des Mithörens einmal
+S1 drücken.</li>
 <li><strong>Rauschzeilen abwarten.</strong> Ohne Funkmodul kommen keine —
 das ist richtig so, es gibt nichts zu messen.</li>
 <li><strong>Dienst starten</strong>, Demo-Modus aus. Die Weboberfläche muss
