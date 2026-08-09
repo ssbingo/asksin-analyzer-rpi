@@ -869,9 +869,36 @@ nicht die Tastatur, nicht der USB-Stick.</p>
 </div>
 
 <p class="klein">Der Treiber bleibt dauerhaft installiert; Zadig wird nur
-dieses eine Mal gebraucht und kann danach gelöscht werden. Erkennt Windows
-den USBasp später wieder nicht, hilft ein anderer USB-Anschluss — manche
-Rechner geben an Front-Anschlüssen zu wenig Strom.</p>
+dieses eine Mal gebraucht und kann danach gelöscht werden.</p>
+
+<div class="hinweis">
+<p><strong>Merken Sie sich die USB-Buchse.</strong> Windows bindet den Treiber
+<em>pro Anschluss</em>. Stecken Sie den USBasp später in eine andere Buchse,
+legt Windows dort eine neue Geräteinstanz an — ohne libusbK. Die Arduino IDE
+meldet dann erneut:</p>
+<pre>Error: cannot find USB device with vid=0x16c0 pid=0x5dc
+Error: unable to open port usb for programmer usbasp</pre>
+<p>Das sieht aus wie ein defektes Programmiergerät, ist aber nur die falsche
+Buchse. Der Reihe nach:</p>
+<ol class="schritte">
+<li>Zuerst dieselbe Buchse wie beim ersten Mal. Das löst es meistens.</li>
+<li>Sonst im Geräte-Manager (<em>Ansicht → Ausgeblendete Geräte anzeigen</em>)
+nachsehen: Steht <code>USBasp</code> unter <strong>libusbK USB Devices</strong>,
+ist der Treiber da. Steht er unter <em>Andere Geräte</em> mit gelbem
+Ausrufezeichen, fehlt er an dieser Buchse.</li>
+<li>Dann Zadig noch einmal laufen lassen, mit dem USBasp in genau der Buchse,
+die Sie künftig benutzen wollen — <em>Reinstall Driver</em> genügt.</li>
+<li>Direkt am Rechner anstecken, nicht über einen Hub. Manche Rechner geben an
+Front-Anschlüssen außerdem zu wenig Strom.</li>
+</ol>
+<p>Stehen vor der Meldung zwei Zeilen <code>Warning: cannot query
+manufacturer/product for device: Broken pipe</code>, meldet sich das Gerät zwar
+an, bricht die Abfrage aber ab. Das kommt auch von einem wackeligen Kabel —
+falls vorhanden, ein anderes probieren.</p>
+<p>Wichtig: Bei diesem Fehler ist an der Platine <em>nichts</em> passiert. Der
+Vorgang scheitert, bevor der ATmega überhaupt angesprochen wird — Firmware und
+Fuses bleiben, wie sie waren.</p>
+</div>
 
 <p><strong>avrdude brauchen Sie unter Windows nicht getrennt zu
 installieren</strong> — die Arduino IDE bringt es mit. Der folgende
