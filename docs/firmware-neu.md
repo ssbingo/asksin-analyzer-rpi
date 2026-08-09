@@ -479,12 +479,22 @@ kommt nichts mehr an", bei tadelloser Funkstrecke.
   keine Arduino-Abhängigkeit und laufen mit `g++`.
 * 273 Prüfungen im Analyzer, darunter Überlauf, Neustart, Rücksprung,
   verfälschte Prüfsumme und das Ausbleiben einer Antwort.
-* Der Sketch übersetzt mit der festgenagelten Werkzeugkette: 7 588 Byte,
-  23 % des Flash (Original: 6 922). *Nachtrag 09.08.2026: Diese Zahl stammt
-  von vor der NDEBUG-Reparatur — beide Fassungen waren stumm gebaut. Seit der
-  Sketch `NDEBUG` selbst aufhebt, kommen die Ausgabetexte hinzu und die Datei
-  ist entsprechend größer. Ein Zahlenwert steht hier bewusst nicht: Er ließe
-  sich hier nicht nachmessen, und geprüft wird ohnehin der Inhalt.*
+* Der Sketch übersetzt mit der festgenagelten Werkzeugkette:
+  **8 540 Byte**, 26 % des Flash.
+
+  *Nachtrag 09.08.2026:* Hier stand vorher 7 588 Byte. Diese Zahl galt vor der
+  NDEBUG-Reparatur — und beschrieb damit eine stumme Firmware. Nachgemessen
+  mit AskSinPP 5.0.3, EnableInterrupt 1.1.0 und Low-Power 1.81:
+
+  | Bau | Größe | Startkennung im Abbild |
+  | --- | --- | --- |
+  | mit Aufhebung von `NDEBUG` | **8 540 Byte** | vorhanden |
+  | ohne Aufhebung | 7 630 Byte | **fehlt** — stumm |
+  | unverändertes Original | 6 922 Byte | fehlt — stumm |
+
+  910 Byte Unterschied bei Zeichen für Zeichen demselben Quelltext: die
+  Ausgabetexte und der Code, der sie verschickt. Die 7 630 Byte sind exakt die
+  Größe, die am 09.08.2026 an Analyzer 05 aufgespielt wurde und schwieg.
 
 Zwei Fehler hat das schon gefunden, bevor Hardware im Spiel war:
 

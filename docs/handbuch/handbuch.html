@@ -1069,8 +1069,9 @@ Upload-Pfeil.</li>
 darüber, ob wirklich unsere Fassung übersetzt wurde:
 <table>
 <tr><th>Meldung</th><th>Bedeutung</th></tr>
-<tr><td><strong>deutlich mehr</strong> als 6 922 Byte</td><td>richtig — unsere Fassung bringt Erweiterungen und Ausgabetexte mit. Die genaue Zahl haengt von den Fassungen der Bibliotheken ab; entscheidend ist der Abstand nach oben</td></tr>
-<tr><td>genau <strong>6 922 Byte</strong></td><td>das unveränderte Original ohne Ausgabe; dann wurde der falsche Ordner geöffnet</td></tr>
+<tr><td><strong>8 540 Byte</strong></td><td>richtig — unsere Fassung mit AskSinPP 5.0.3, EnableInterrupt 1.1.0 und Low-Power 1.81. Andere Bibliotheksfassungen ergeben ein paar Byte Unterschied; entscheidend ist der Abstand nach oben</td></tr>
+<tr><td><strong>7 630 Byte</strong></td><td>unsere Fassung, aber <em>stumm</em> übersetzt — dann fehlt die Aufhebung von <code>NDEBUG</code> (Kapitel 8.3)</td></tr>
+<tr><td>genau <strong>6 922 Byte</strong></td><td>das unveränderte Original; dann wurde der falsche Ordner geöffnet</td></tr>
 </table></li>
 </ol>
 
@@ -1112,6 +1113,22 @@ Wer eine HEX-Datei von irgendwoher bekommt, prüft sie vorher:</p>
 <p>Das Skript verlangt die Startkennung <code>AskSin++ v</code> als Text im
 Programmabbild. Fehlt sie, waren die Ausgabemakros leer — Größe, Adressen und
 Prüfsumme hätten das nie verraten.</p>
+
+<p>Wie deutlich der Unterschied ist, zeigt eine Gegenprobe mit derselben
+Werkzeugkette und demselben Quelltext, einmal mit und einmal ohne die
+Aufhebung von <code>NDEBUG</code>:</p>
+
+<div class="tabelle">
+<table>
+<tr><th>Bau</th><th>Größe</th><th>Startkennung im Abbild</th></tr>
+<tr><td>mit Aufhebung (so wie ausgeliefert)</td><td><strong>8 540 Byte</strong></td><td>vorhanden</td></tr>
+<tr><td>ohne Aufhebung</td><td>7 630 Byte</td><td><strong>fehlt</strong> — stumm</td></tr>
+</table>
+</div>
+
+<p>910 Byte Unterschied bei Zeichen für Zeichen demselben Quelltext — das sind
+die Ausgabetexte und der Code, der sie verschickt. Wer eine Firmware mit
+7 630 Byte vor sich hat, hält eine stumme in der Hand.</p>
 
 <h2 class="umbruch" id="k8-4">8.4 Der erste Lebenszeichen-Test</h2>
 <p>Noch am USBasp, der die Platine mit 3,3 V versorgt: <strong>D1 blinkt beim
