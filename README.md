@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.9.0** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.9.0** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.0** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,84 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.14.0 — 09.08.2026
+
+**Die erste Platine läuft.** Analyzer 05 empfängt seit heute echte Zeilen —
+davor lief jedes Gerät im Demo-Modus. Dabei kamen vier Fehler ans Licht, die
+alle nur an echter Hardware sichtbar werden konnten.
+
+- **Die Firmware war stumm gebaut.** MiniCore setzt `-DNDEBUG`, AskSinPP leert
+  daraufhin `DPRINT`, `DPRINTLN` und `DINIT` — und der Sniffer schreibt alles
+  darüber. Nicht einmal `Serial.begin()` kam zustande. Behoben in der
+  [Firmware](https://github.com/ssbingo/asksin-sniffer-firmware) (v1.0.0);
+  gemessen: 8 540 Byte mit Ausgabe, 7 630 ohne.
+- **`stty` kann 58824 nicht.** Der Befehl stand an sechs Stellen in der
+  Dokumentation, unter anderem im Fehlersuche-Kapitel als *Lösung*. Ersetzt
+  durch `deploy/baudrate.py` (`termios2`/`BOTHER`).
+- **Der Reset-Impuls auf GPIO4 hatte kein Ende.** `flashFirmware()` ließ die
+  Leitung auf LOW liegen; ab dem zweiten Aufruf fand der Reset keine fallende
+  Flanke mehr, und `avrdude` lief in `not in sync`.
+- **`install.sh` löschte das eigene Arbeitsverzeichnis**, bevor es hinausging.
+
+**Aufgeräumt.** Entfernt wurden die stumme HEX-Datei samt Nachbau-Skript, zwei
+PDF-Dubletten, eine byte-gleiche Platinen-Sicherungskopie und zwei
+Planungs-PDFs vom 26.07., die noch Arduino Pro Mini, MQTT und microSD
+beschrieben. Bei der Platine liegt jetzt ausschließlich der Fertigungsstand
+vom 31.07. im Repo.
+
+**Neue harte Prüfungen**, jede mit Gegenprobe: `firmware/pruefe-hex.py` weist
+stumm gebaute Firmware zurück, `tools/pruefe-erzeugnisse.py` verbietet
+Erzeugnisse, die älter sind als ihre Quelle, Zeichnungen außerhalb von `fab/`
+und tote Verweise in der Dokumentation.
+
+**Handbuch** auf 121 Seiten: Kapitel 8 neu (eigene Firmware, drei
+Sketch-Dateien, `NDEBUG`), 11.6 *Platine ohne Funkmodul* erstmals
+tatsächlich geschrieben, 7.2 und 7.6 um die USBasp-Fallen unter Windows
+ergänzt.
+
+### v0.13.0 — 03.08.2026
+
+- Ablage für die Sniffer-Firmware mit maschineller Prüfung; die mitgelieferte
+  HEX-Datei ließ sich zunächst nicht reproduzieren — Ursache war die Menüzeile
+  *Compiler LTO*, und der FQBN im Handbuch war falsch geschrieben
+- **Mitschnitt** des rohen Zeilenstroms: über die Weboberfläche schaltbar,
+  herunterladbar, mit Herkunftsvermerk in der Datei, damit Demo-Aufzeichnungen
+  nicht mit echten verwechselt werden
+- Analyzer-Seite der erweiterten Firmware: Anhang lesen, Lücken rechnen,
+  Firmware-Befund erheben
+- Demo-Modus gibt keine echte Netzidentität mehr preis; Screenshots neu
+
+### v0.12.1 — 01.08.2026
+
+- Der Versionsbefund zum Adapter wird auch im guten Fall ausgesprochen —
+  Schweigen war nicht von „nicht geprüft" zu unterscheiden
+
+### v0.12.0 — 01.08.2026
+
+- Versionsabhängigkeit zwischen Core und ioBroker-Adapter
+- Rahmen um die Übersichtsblöcke
+
+### v0.11.0 — 01.08.2026
+
+- **Langzeitdaten vor Ort**: InfluxDB und Grafana auf dem Analyzer, Rolle
+  Master/Client mit Hardware-Schranke, acht Vorlagen und vier Alarme aus einem
+  Generator statt von Hand gepflegt
+- **Alarmziele** ioBroker, E-Mail und Telegram als prüfbares Modul, mit
+  Testknopf für alle drei Wege
+- **Absturzursache gefunden**: Der Pi 5 deckelt USB auf 600 mA, die SSD meldet
+  sich daraufhin vom Bus ab. Die zunächst verdächtigte Stromversorgung wurde
+  durch Messung entlastet und die Doku berichtigt
+- `asksin-analyzer token` zeigt den Auth-Token
+
+### v0.10.0 — 31.07.2026
+
+- **Netz-Mitschnitt für die Absturzsuche**: Kernel-Meldungen übers Netz
+  mitschneiden, mit Pulsschlag — damit Stille etwas bedeutet
+- Absturzbericht um Datenträger-Anbindung, SMART und ausgehandelte
+  USB-Geschwindigkeit erweitert
+- Handbuch: feste Grundregel für Seitenumbrüche, Fußzeile mit Weg zum Inhalt,
+  Inhaltsverzeichnis springt direkt zum Kapitel
 
 ### v0.9.0 — 31.07.2026
 
