@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.5** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.5** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.6** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.6** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,23 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.14.6 — 10.08.2026
+
+**Der Reset kam zu früh — Optiboot lauscht nur eine Sekunde.** Die alte Folge
+setzte erst zurück und startete dann `avrdude`. Bis der den Port geöffnet und
+die krumme Baudrate über `termios2` gesetzt hatte, war das Fenster zu:
+`not in sync: resp=0x00`, niemand antwortet mehr.
+
+Jetzt läuft `avrdude` **zuerst** und der Reset fällt hinein. Damit gibt es
+keinen Wettlauf mehr: `avrdude` wiederholt den Sync zehnmal über mehrere
+Sekunden, und einer dieser Versuche trifft das Fenster. Das ist der übliche
+Weg für Platinen ohne DTR-Leitung.
+
+Nebenwirkung, die richtiggestellt wurde: Der Ausgang hängt jetzt an `avrdude`,
+nicht am Zustand der GPIO-Leitung. Lässt sich die Leitung nach dem Impuls
+nicht zurückziehen, ist das ein **Hinweis** — die Firmware kann längst
+geschrieben sein, und „fehlgeschlagen" wäre schlicht falsch.
 
 ### v0.14.5 — 10.08.2026
 

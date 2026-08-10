@@ -64,13 +64,27 @@ function gpioModell(syntax: 'v1' | 'v2' = 'v2') {
     }
 
     if (cmd === 'avrdude') {
-      const erreichbar = flankeSeitFlash;
-      flankeSeitFlash = false;
-      return Promise.resolve(
-        erreichbar
-          ? { code: 0, output: 'avrdude done' }
-          : { code: 1, output: 'stk500_getsync(): not in sync: resp=0x00' },
-      );
+      // avrdude laeuft und wiederholt den Sync. Kommt WAEHRENDDESSEN eine
+      // fallende Flanke, startet Optiboot und der Sync gelingt; bleibt sie
+      // aus, laeuft avrdude in "not in sync".
+      //
+      // Genau das bildet die Reihenfolge ab, die am 10.08.2026 noetig wurde:
+      // Optiboot lauscht nur eine Sekunde, und wer vorher zuruecksetzt,
+      // verliert den Wettlauf gegen den Start von avrdude.
+      const bis = Date.now() + 300;
+      return new Promise((auf) => {
+        const pruefe = (): void => {
+          if (flankeSeitFlash) {
+            flankeSeitFlash = false;
+            auf({ code: 0, output: 'avrdude done' });
+          } else if (Date.now() > bis) {
+            auf({ code: 1, output: 'stk500_getsync(): not in sync: resp=0x00' });
+          } else {
+            setTimeout(pruefe, 2);
+          }
+        };
+        pruefe();
+      });
     }
     return Promise.resolve({ code: 0, output: '' });
   };
@@ -79,7 +93,7 @@ function gpioModell(syntax: 'v1' | 'v2' = 'v2') {
 
 test('HAT-Flash: zweimal hintereinander — jeder Reset braucht eine eigene Flanke', async () => {
   const g = gpioModell();
-  const opts = { device: '/dev/asksin-hat', runCommand: g.run };
+  const opts = { device: '/dev/asksin-hat', runCommand: g.run, anlaufMs: 5 };
 
   const erste = await flashFirmware('/tmp/fw.hex', opts);
   assert.equal(erste.ok, true, erste.log);
@@ -96,7 +110,10 @@ test('HAT-Flash: zweimal hintereinander — jeder Reset braucht eine eigene Flan
   const hoch = namen.findIndex((z) => z.includes('4=1'));
   const avr = namen.findIndex((z) => z.startsWith('avrdude'));
   assert.ok(tief >= 0 && hoch > tief, 'erst LOW, dann HIGH');
-  assert.ok(avr > hoch, 'avrdude erst nach dem vollständigen Impuls');
+  // Umgekehrt zu frueher: avrdude muss SCHON LAUFEN, wenn der Reset kommt.
+  // Optiboot lauscht nur eine Sekunde; wer vorher zuruecksetzt, verliert den
+  // Wettlauf gegen den Start von avrdude.
+  assert.ok(avr < tief, 'avrdude startet VOR dem Reset-Impuls');
 
   const avrArgs = g.aufrufe[avr]!.args;
   assert.ok(avrArgs.includes('-b') && avrArgs.includes('58824'), 'krumme Baudrate');
@@ -106,7 +123,7 @@ test('HAT-Flash: zweimal hintereinander — jeder Reset braucht eine eigene Flan
 
 test('HAT-Flash: fällt auf gpioset-v1-Syntax zurück, auch beim Freigeben', async () => {
   const g = gpioModell('v1');
-  const opts = { device: '/dev/asksin-hat', runCommand: g.run };
+  const opts = { device: '/dev/asksin-hat', runCommand: g.run, anlaufMs: 5 };
   assert.equal((await flashFirmware('/tmp/fw.hex', opts)).ok, true);
   assert.equal((await flashFirmware('/tmp/fw.hex', opts)).ok, true, 'auch v1 gibt frei');
   assert.equal(g.leitung.pegel, 1);
@@ -132,15 +149,26 @@ test('HAT-Flash: scheitert die Freigabe, sagt das Log wie man von Hand löst', a
   const erg = await flashFirmware('/tmp/fw.hex', {
     device: '/dev/asksin-hat',
     runCommand: run,
+    anlaufMs: 5,
   });
-  assert.equal(erg.ok, false);
+  // Der Flash selbst ist gelungen — der Reset-Impuls kam ja, nur das
+  // Zurueckziehen der Leitung scheiterte. "Fehlgeschlagen" waere hier falsch:
+  // Die Firmware ist geschrieben.
+  assert.equal(erg.ok, true, 'avrdude war erfolgreich');
   assert.equal(n, 2, 'v2 und v1 versucht');
   assert.match(erg.log, /pinctrl set 4 ip pu/, 'Ausweg steht im Log');
-  assert.match(erg.log, /keine fallende Flanke/, 'nennt die Folge, nicht einen Dauerreset');
+  assert.match(erg.log, /naechste Flash keine fallende Flanke/,
+    'warnt vor der Folge fuers naechste Mal');
+  // Frueher stand hier "kein avrdude, wenn die Leitung nicht sauber wurde".
+  // Das gilt seit dem 10.08.2026 nicht mehr und darf auch nicht mehr gelten:
+  // avrdude MUSS vor dem Reset laufen, sonst ist Optiboots Sekunde vorbei,
+  // bevor es den Port offen hat. Es laeuft also — und meldet folgerichtig,
+  // dass niemand geantwortet hat.
   assert.ok(
-    !g.aufrufe.some((a) => a.cmd === 'avrdude'),
-    'kein avrdude, wenn die Leitung nicht in einen sauberen Zustand kam',
+    g.aufrufe.some((a) => a.cmd === 'avrdude'),
+    'avrdude laeuft zuerst, das ist der Sinn der Reihenfolge',
   );
+
 });
 
 test('USB-Flash: kein GPIO — avrdude übernimmt den Reset über DTR', async () => {
@@ -155,14 +183,16 @@ test('USB-Flash: kein GPIO — avrdude übernimmt den Reset über DTR', async ()
 });
 
 test('avrdude-Fehler wird als ok:false mit Log gemeldet, wirft nie', async () => {
+  // Reihenfolge seit 10.08.2026: avrdude zuerst, danach der Reset-Impuls.
   const r = runner([
-    { code: 124, output: '' },   // Reset-Impuls LOW
-    { code: 124, output: '' },   // Leitung wieder HIGH
-    { code: 1, output: 'stk500_getsync(): not in sync' },
+    { code: 1, output: 'stk500_getsync(): not in sync' },   // avrdude
+    { code: 124, output: '' },                              // Impuls LOW
+    { code: 124, output: '' },                              // Leitung HIGH
   ]);
   const erg = await flashFirmware('/tmp/fw.hex', {
     device: '/dev/asksin-hat',
     runCommand: r.run,
+    anlaufMs: 5,
   });
   assert.equal(erg.ok, false);
   assert.match(erg.log, /not in sync/);

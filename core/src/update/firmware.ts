@@ -117,6 +117,8 @@ export interface FlashOptions {
   runCommand?: KommandoRunner;
   /** Wird bei jedem Schritt gerufen — fuer die Anzeige waehrend des Laufs. */
   onFortschritt?: (text: string) => void;
+  /** Vorlauf fuer avrdude vor dem Reset; nur fuer Tests zu verkuerzen. */
+  anlaufMs?: number;
 }
 
 export interface FlashErgebnis {
@@ -130,6 +132,14 @@ export interface FlashErgebnis {
  * Kurz genug, dass avrdude noch in Optiboots ~1-s-Fenster kommt.
  */
 const FREIGABE_MS = 100;
+
+/**
+ * Vorlauf fuer avrdude, bevor zurueckgesetzt wird.
+ *
+ * Lang genug, dass der Port offen ist und der erste Sync hinausgeht; kurz
+ * genug, dass noch reichlich Wiederholungen folgen.
+ */
+const ANLAUF_MS = 400;
 
 /**
  * Setzt eine GPIO-Leitung auf `wert` und haelt sie `ms` lang. Danach bleibt
@@ -186,39 +196,72 @@ export async function flashFirmware(
   const log: string[] = [];
   const melde = (text: string): void => options.onFortschritt?.(`${text}\n`);
 
-  if (reset === 'gpio') {
-    const tief = await gpioHalten(run, chip, line, 0, resetMs, log, melde);
-    if (!tief) {
-      return { ok: false, log: log.join('\n') + '\nGPIO-Reset fehlgeschlagen' };
-    }
-    // Ohne diesen zweiten Schritt endet der Impuls nie — siehe Kopf der Datei.
-    const hoch = await gpioHalten(run, chip, line, 1, FREIGABE_MS, log, melde);
-    if (!hoch) {
-      return {
-        ok: false,
-        log:
-          log.join('\n') +
-          `\nGPIO${line} liess sich nicht auf HIGH zuruecksetzen. Der 328P ` +
-          `laeuft (der Reset kam an der Flanke), aber der naechste Flash ` +
-          `findet keine fallende Flanke mehr und wuerde scheitern. ` +
-          `Von Hand loesen: sudo pinctrl set ${line} ip pu`,
-      };
-    }
-  } else {
-    melde('Reset über DTR (übernimmt avrdude am USB-Port)');
-    log.push('Reset über DTR (übernimmt avrdude am USB-Port)');
-  }
-
-  melde(`avrdude auf ${options.device} mit ${baud} Baud`);
-  log.push(`avrdude auf ${options.device} mit ${baud} Baud`);
-  const avr = await run('avrdude', [
+  const avrdudeArgs = [
     '-c', 'arduino',
     '-p', 'm328p',
     '-P', options.device,
     '-b', String(baud),
     '-D',
     '-U', `flash:w:${hexPfad}:i`,
-  ]);
+  ];
+
+  if (reset !== 'gpio') {
+    melde('Reset über DTR (übernimmt avrdude am USB-Port)');
+    log.push('Reset über DTR (übernimmt avrdude am USB-Port)');
+    melde(`avrdude auf ${options.device} mit ${baud} Baud`);
+    log.push(`avrdude auf ${options.device} mit ${baud} Baud`);
+    const nurAvr = await run('avrdude', avrdudeArgs);
+    log.push(nurAvr.output.trim());
+    const d = deuteAvrdude(nurAvr.output);
+    if (d !== null) log.push(`\n${d}`);
+    return { ok: nurAvr.code === 0, log: log.join('\n') };
+  }
+
+  /*
+   * Erst avrdude, DANN der Reset.
+   *
+   * Optiboot lauscht nach dem Reset genau eine Sekunde und springt dann ins
+   * Programm. Wer vorher zuruecksetzt, muss avrdude innerhalb dieser Sekunde
+   * fertig gestartet, den Port geoeffnet und die krumme Baudrate ueber
+   * termios2 gesetzt haben — das ist ein Wettlauf, den man verliert.
+   *
+   * Am 10.08.2026 beide Male verloren: erst "resp=0x3a" (das laufende
+   * Programm antwortete statt des Bootloaders), nach dem Brennen des
+   * Bootloaders "resp=0x00" (niemand antwortete mehr, das Fenster war zu).
+   *
+   * Andersherum gibt es keinen Wettlauf: avrdude wiederholt den Sync zehnmal
+   * ueber mehrere Sekunden. Faellt der Reset irgendwo dazwischen, trifft einer
+   * dieser Versuche das Fenster. Das ist der uebliche Weg fuer Platinen ohne
+   * DTR-Leitung.
+   */
+  melde(`avrdude auf ${options.device} mit ${baud} Baud`);
+  log.push(`avrdude auf ${options.device} mit ${baud} Baud`);
+  const avrLaeuft = run('avrdude', avrdudeArgs);
+
+  // Kurz warten, damit avrdude den Port offen hat und schon Sync sendet.
+  await new Promise<void>((r) => setTimeout(r, options.anlaufMs ?? ANLAUF_MS));
+
+  const tief = await gpioHalten(run, chip, line, 0, resetMs, log, melde);
+  const hoch = tief
+    ? await gpioHalten(run, chip, line, 1, FREIGABE_MS, log, melde)
+    : false;
+
+  const avr = await avrLaeuft;
+
+  // Der Ausgang haengt an avrdude, nicht an der Leitung.
+  //
+  // Frueher brach die Funktion vor avrdude ab, wenn sich GPIO nicht schalten
+  // liess — das ging, solange der Reset vorher kam. Jetzt laeuft avrdude
+  // zuerst, und dann waere "fehlgeschlagen" schlicht falsch: Die Firmware
+  // kann laengst geschrieben sein. Ein Hinweis gehoert trotzdem dazu, denn
+  // eine liegengebliebene LOW-Leitung nimmt dem naechsten Flash die Flanke.
+  if (!tief || !hoch) {
+    log.push(
+      `\nHinweis: GPIO${line} liess sich nicht vollstaendig schalten. ` +
+        `Bleibt die Leitung auf LOW, findet der naechste Flash keine fallende ` +
+        `Flanke. Von Hand loesen: sudo pinctrl set ${line} ip pu`,
+    );
+  }
   log.push(avr.output.trim());
   const deutung = deuteAvrdude(avr.output);
   if (deutung !== null) log.push(`\n${deutung}`);
