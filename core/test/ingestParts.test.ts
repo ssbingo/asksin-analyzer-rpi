@@ -9,7 +9,9 @@ import {
   buildSttyArgs,
   DEFAULT_BAUD,
   naechsteGenormteRate,
+  schliesseStrom,
 } from '../src/ingest/sttyPort.ts';
+import type { Schliessbar } from '../src/ingest/sttyPort.ts';
 
 const b = (s: string) => Buffer.from(s, 'latin1');
 
@@ -191,4 +193,56 @@ test('der Baudraten-Helfer setzt die krumme Rate wirklich', async () => {
     String(DEFAULT_BAUD),
   ]);
   assert.equal(Number(stdout.trim()), DEFAULT_BAUD, 'zurueckgelesene Rate');
+});
+// --- schliesseStrom: der Flash-Aufhänger vom 10.08.2026 -------------------
+
+/**
+ * Ein Strom, der auf `destroy()` NICHT mit `close` antwortet.
+ *
+ * Genau so verhält sich ein Lesestrom auf einer seriellen Schnittstelle, an
+ * der gerade nichts gesendet wird: Der blockierende `read()` hängt im
+ * Thread-Pool, und `destroy()` weckt ihn nicht.
+ */
+function stummerStrom(): Schliessbar & { zerstoert: boolean } {
+  return {
+    zerstoert: false,
+    once(_e: 'close', _h: () => void) { return this; },
+    destroy() { this.zerstoert = true; return this; },
+  };
+}
+
+/** Ein Strom, der sich normal verhält. */
+function braverStrom(): Schliessbar {
+  let hoerer: (() => void) | null = null;
+  return {
+    once(_e: 'close', h: () => void) { hoerer = h; return this; },
+    destroy() { queueMicrotask(() => hoerer?.()); return this; },
+  };
+}
+
+test('schliesseStrom: gibt auf, wenn close nie kommt', async () => {
+  const s = stummerStrom();
+  const start = Date.now();
+  await schliesseStrom(s, null, 40);
+  const gedauert = Date.now() - start;
+
+  // Der eigentliche Prüfpunkt: Es kehrt überhaupt zurück. Ohne die Zeitgrenze
+  // wartet dieses Versprechen für immer — und genau daran hing am 10.08.2026
+  // der Firmware-Flash beider Analyzer, mitsamt dem HTTP-Aufruf dahinter.
+  assert.ok(gedauert >= 35, `zu früh aufgegeben (${gedauert} ms)`);
+  assert.ok(gedauert < 2000, `viel zu spät (${gedauert} ms)`);
+  assert.equal(s.zerstoert, true, 'destroy() wird trotzdem versucht');
+});
+
+test('schliesseStrom: wartet nicht die volle Zeit, wenn close kommt', async () => {
+  const start = Date.now();
+  await schliesseStrom(braverStrom(), null, 5000);
+  const gedauert = Date.now() - start;
+  assert.ok(gedauert < 200, `hat auf die Zeitgrenze gewartet (${gedauert} ms)`);
+});
+
+test('schliesseStrom: schliesst auch den Schreibstrom', async () => {
+  const schreib = stummerStrom();
+  await schliesseStrom(braverStrom(), schreib, 5000);
+  assert.equal(schreib.zerstoert, true);
 });

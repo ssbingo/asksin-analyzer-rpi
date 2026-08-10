@@ -84,6 +84,60 @@ export function buildSttyArgs(device: string, baud: number): string[] {
   ];
 }
 
+/**
+ * Wie lange auf das `close`-Ereignis gewartet wird, bevor aufgegeben wird.
+ *
+ * Zwei Sekunden sind gegenüber einem regulären Schließen (Millisekunden) um
+ * Größenordnungen großzügig und kurz genug, dass kein Firmware-Flash daran
+ * hängenbleibt.
+ */
+export const SCHLIESS_GRENZE_MS = 2000;
+
+/** Das Nötigste eines Streams, das hier gebraucht wird — hält den Test klein. */
+export interface Schliessbar {
+  once(ereignis: 'close', hoerer: () => void): unknown;
+  destroy(): unknown;
+}
+
+/**
+ * Schließt Lese- und Schreibstrom und **gibt spätestens nach `grenzeMs` auf**.
+ *
+ * Die Zeitgrenze ist der eigentliche Inhalt dieser Funktion.
+ *
+ * `destroy()` beendet einen Lesestrom nicht, solange im Thread-Pool noch ein
+ * blockierendes `read()` auf dem Gerät hängt — und das ist an einer seriellen
+ * Schnittstelle der Normalfall, sobald gerade nichts gesendet wird. Das
+ * `close`-Ereignis kommt dann nie. Wer darauf wartet, wartet für immer.
+ *
+ * Am 10.08.2026 an zwei Analyzern beobachtet: Der Firmware-Flash legte den
+ * Dienst lahm. Im Journal stand „Ingest wird angehalten", danach nichts mehr —
+ * weder Erfolg noch Fehlschlag. Die Oberfläche zeigte stundenlang „Flashe …",
+ * weil der HTTP-Aufruf nie zurückkam. Zum Flashen selbst kam es nie.
+ *
+ * Der Dateideskriptor wird vom Betriebssystem freigegeben, sobald der hängende
+ * `read()` zurückkehrt; das Aufgeben hier hinterlässt also nichts Offenes.
+ */
+export function schliesseStrom(
+  lesend: Schliessbar,
+  schreibend: Schliessbar | null,
+  grenzeMs: number = SCHLIESS_GRENZE_MS,
+): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let fertig = false;
+    const einmal = (): void => {
+      if (fertig) return;
+      fertig = true;
+      clearTimeout(uhr);
+      resolve();
+    };
+    const uhr = setTimeout(einmal, grenzeMs);
+    uhr.unref?.();
+    schreibend?.destroy();
+    lesend.once('close', einmal);
+    lesend.destroy();
+  });
+}
+
 /** Öffnet den seriellen Port lesend; als `openPort` in den Ingest stecken. */
 export function sttyPortOpener(
   device: string = DEFAULT_DEVICE,
@@ -131,12 +185,7 @@ export function sttyPortOpener(
 
     const strom: IngestStream = {
       readable: stream,
-      close: () =>
-        new Promise<void>((resolve) => {
-          schreiber?.destroy();
-          stream.once('close', () => resolve());
-          stream.destroy();
-        }),
+      close: () => schliesseStrom(stream, schreiber),
     };
     if (schreiber !== null) {
       const s = schreiber;
