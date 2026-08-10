@@ -232,6 +232,32 @@ describe('Freischaltung beim Verbindungsaufbau', () => {
     await ingest.stop();
   }
 
+  it('fragt AUCH DANN, wenn keine einzige Zeile deutbar ist', async () => {
+    // Der Fehler vom 10.08.2026, und der wichtigste dieser Reihe.
+    //
+    // Die Versionsfrage hing an der ersten GUELTIGEN Zeile. Fehlt das
+    // Funkmodul, liest der SPI-Bus 0x00 oder 0xFF, der Pegel jeder
+    // Rauschzeile wird unplausibel, und der Parser verwirft sie zu Recht —
+    // restlos alle. Also wurde nie gefragt, und ausgerechnet die Auskunft,
+    // die das fehlende Funkmodul benennt, kam nie zustande.
+    //
+    // An zwei Geraeten gesehen: 212 Zeilen, alle verworfen, "Versionsfrage
+    // wurde noch nicht gestellt". Das Schwestergeraet hatte genau EINE
+    // Rauschzeile, die durchkam, und meldete prompt die richtige Fassung.
+    const geschrieben: string[] = [];
+    const ingest = new SerialIngest({
+      // ':FF;' und ':00;' liegen ausserhalb des plausiblen Pegelbereichs —
+      // genau das sendet die Firmware ohne antwortendes Funkmodul.
+      openPort: async () => strom([':FF;', ':00;', ':FF;'], geschrieben),
+      silenceTimeoutMs: 50,
+    });
+    await laufen(ingest);
+    assert.deepEqual(geschrieben, [':?;', ':E1;'],
+      'ohne Frage kann die Firmware nicht sagen, dass ihr Funkmodul fehlt');
+    assert.notEqual(ingest.stats.firmwareGefragtAm, null,
+      'der Zeitpunkt der Frage muss gesetzt sein');
+  });
+
   it('fragt die Firmware und schaltet die Erweiterung frei', async () => {
     const geschrieben: string[] = [];
     const ingest = new SerialIngest({

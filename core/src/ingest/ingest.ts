@@ -164,6 +164,8 @@ export class SerialIngest {
    * die falsche Auskunft da, nach einem Kaltstart die richtige.
    */
   #firmwareGefragtAm: number | null = null;
+  /** Wurde in DIESER Sitzung schon gefragt? Bei jedem Neuaufbau von vorn. */
+  #gefragt = false;
   /** Der offene Port der laufenden Sitzung — für Befehle an die Firmware. */
   #strom: IngestStream | null = null;
 
@@ -264,6 +266,7 @@ export class SerialIngest {
     // Zahlenraums.
     this.#folge.zuruecksetzen();
     this.#erweitert = false;
+    this.#gefragt = false;
     const splitter = new LineSplitter(this.#opts.maxLineLength ?? 1024);
     const queue = new BoundedQueue<string>(this.#opts.queueCapacity ?? 10_000);
     const sessionEnde = new AbortController();
@@ -370,16 +373,36 @@ export class SerialIngest {
       this.#folge.melde(parsed.folge);
     }
 
+    // Die Versionsfrage haengt an der ERSTEN ZEILE ueberhaupt — nicht an der
+    // ersten gueltigen.
+    //
+    // Der Gedanke dahinter bleibt richtig: Ein /dev/ttyAMA0 laesst sich auch
+    // dann oeffnen, wenn am anderen Ende nichts lebt; erst eine eingehende
+    // Zeile belegt, dass dort jemand sendet und also auch zuhoeren kann.
+    // Falsch war nur die zusaetzliche Bedingung, dass die Zeile sich deuten
+    // laesst.
+    //
+    // Denn fehlt das Funkmodul, liest der SPI-Bus 0x00 oder 0xFF, der Pegel
+    // jeder Rauschzeile wird unplausibel, und der Parser verwirft sie zu
+    // Recht — restlos alle. Damit wurde nie gefragt, und ausgerechnet die
+    // Auskunft ":!CC,--;", die das fehlende Funkmodul benennt, kam nie
+    // zustande. Der Analyzer konnte genau dann nicht fragen, wenn die
+    // Antwort am wichtigsten gewesen waere.
+    //
+    // Am 10.08.2026 an zwei Geraeten gesehen: 212 Zeilen, alle verworfen,
+    // "Versionsfrage wurde noch nicht gestellt". Das Schwestergeraet hatte
+    // genau EINE Rauschzeile, die durchkam — und meldete prompt die richtige
+    // Fassung. An diesem einen Zufall hing die ganze Anzeige.
+    if (!this.#gefragt) {
+      this.#gefragt = true;
+      void this.#freischalten();
+    }
+
     if (parsed.kind !== 'ignored' && !this.#connected) {
       this.#connected = true;
       this.#connectedSince = this.#time.now();
       this.#backoff.reset();
       this.#opts.onStateChange?.({ connected: true });
-      // Erst jetzt fragen, nicht schon beim Öffnen des Ports: Ein
-      // /dev/ttyAMA0 lässt sich auch dann öffnen, wenn am anderen Ende
-      // nichts lebt. Die erste gültige Zeile ist der Beleg, dass jemand da
-      // ist und zuhören kann.
-      void this.#freischalten();
     }
 
     try {
