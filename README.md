@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.5** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.5** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.6** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.6** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,25 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.6 — 10.08.2026
+
+**Der Taster war nach jedem Neustart tot — bauartbedingt.** Er wird nur
+abonniert, wenn der Anzeigedienst wirklich zeichnet; das ist richtig, denn
+GPIO17 hat ohne angeschlossenen Taster keinen Ruhepegel und liefert aus
+Einstreuung fortlaufend Flanken.
+
+Falsch war, diese Bedingung **einmalig beim Start** zu prüfen. Die Bilddatei
+liegt in `/run/asksin-analyzer` — einem tmpfs, das nach jedem Systemstart leer
+ist — und der Anzeigedienst startet laut seiner Unit `After=asksin-analyzer`.
+Beim Start des Analyzers *kann* die Datei also gar nicht da sein. Geholfen hat
+nur ein Neustart des Analyzers von Hand, nachdem der Anzeigedienst gezeichnet
+hatte.
+
+Der OLED-Takt zieht die Prüfung jetzt alle 500 ms nach: Sobald das Bild da
+ist, kommt der Taster; verstummt der Dienst, wird das Abonnement wieder
+gelöst. Der Grund steht weiterhin im Journal, aber nur einmal statt zweimal
+pro Sekunde.
 
 ### v0.15.5 — 10.08.2026
 

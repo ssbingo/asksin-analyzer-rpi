@@ -115,6 +115,8 @@ export class StatusAnzeige {
   #stop: AbortController | null = null;
   #takte: Promise<void>[] = [];
   #tasterStop: (() => void) | null = null;
+  /** Damit der Grund einmal im Journal steht und nicht alle 500 ms. */
+  #tasterGemeldet = false;
   #seite = 0;
   /** Hat der Anzeigedienst zuletzt eine Seitenzahl gemeldet? */
   #seitenGemeldet = true;
@@ -164,13 +166,9 @@ export class StatusAnzeige {
       // Eingang: GPIO17 hat weder auf der Platine noch im System einen
       // Ruhepegel, schwebt also und erzeugt aus Einstreuung fortlaufend
       // Flanken. Wer nichts angeschlossen hat, soll davon nichts abbekommen.
-      if (this.#anzeigedienstLaeuft()) this.#tasterAbonnieren();
-      else {
-        this.#fehler(
-          'oled',
-          'Anzeigedienst meldet kein Bild — Taster bleibt inaktiv',
-        );
-      }
+      // Nicht einmalig pruefen — der Takt holt es nach, sobald das Bild da
+      // ist. Begruendung in #tasterNachziehen().
+      this.#tasterNachziehen();
     }
   }
 
@@ -347,6 +345,7 @@ export class StatusAnzeige {
         this.#seite = 0;
         this.#letzteSeitenaenderung = this.#time.now();
       }
+      this.#tasterNachziehen();
       const zustand = this.#zustandFuerAnzeige();
       const text = JSON.stringify(zustand);
       if (text !== letzter) {
@@ -358,6 +357,59 @@ export class StatusAnzeige {
       } catch {
         return;
       }
+    }
+  }
+
+  /**
+   * Abonniert den Taster, sobald der Anzeigedienst zeichnet — und laesst ihn
+   * wieder los, wenn der Dienst verstummt.
+   *
+   * Die Bedingung selbst ist richtig: GPIO17 hat ohne angeschlossenen Taster
+   * weder auf der Platine noch im System einen Ruhepegel. Ein Abonnement auf
+   * einem schwebenden Eingang liefert aus Einstreuung fortlaufend Flanken.
+   *
+   * Falsch war, sie **einmalig beim Start** zu pruefen. Die Bilddatei liegt in
+   * /run/asksin-analyzer — einem tmpfs, das nach jedem Systemstart leer ist —
+   * und der Anzeigedienst startet laut seiner Unit `After=asksin-analyzer`.
+   * Beim Start des Analyzers kann die Datei also gar nicht da sein. Ergebnis:
+   * Der Taster blieb nach **jedem Neustart** tot, bauartbedingt, und half
+   * nur ein Neustart des Analyzers von Hand — nachdem der Anzeigedienst
+   * gezeichnet hatte.
+   *
+   * Am 10.08.2026 an Analyzer 01 aufgefallen: LED dunkel, Taster ohne
+   * Funktion, beide Haken in den Einstellungen gesetzt.
+   *
+   * Der OLED-Takt laeuft ohnehin alle 500 ms; das Nachziehen kostet einen
+   * Dateisystemzugriff und behebt den Fall vollstaendig.
+   */
+  #tasterNachziehen(): void {
+    const zeichnet = this.#anzeigedienstLaeuft();
+    if (zeichnet && this.#tasterStop === null) {
+      this.#tasterAbonnieren();
+      this.#tasterGemeldet = false;   // beim naechsten Ausfall wieder melden
+      return;
+    }
+    if (!zeichnet && this.#tasterStop === null && !this.#tasterGemeldet) {
+      // Einmal sagen, nicht alle 500 ms. Ohne diese Meldung sucht man den
+      // Taster bei der Hardware, obwohl nur der Anzeigedienst fehlt.
+      this.#tasterGemeldet = true;
+      this.#fehler(
+        'oled',
+        'Anzeigedienst meldet kein Bild — Taster bleibt inaktiv, ' +
+          'bis er zeichnet',
+      );
+      return;
+    }
+    if (!zeichnet && this.#tasterStop !== null) {
+      // Der Dienst ist weg — nicht auf einem schwebenden Eingang lauschen
+      // bleiben.
+      this.#tasterStop();
+      this.#tasterStop = null;
+      this.#tasterGemeldet = true;
+      this.#fehler(
+        'oled',
+        'Anzeigedienst meldet kein Bild mehr — Taster wieder inaktiv',
+      );
     }
   }
 

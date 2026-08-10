@@ -491,3 +491,40 @@ test('Seitenzahl wird auch gefunden, wenn der Anzeigedienst im anderen Verzeichn
   assert.ok(gelesen.some((p) => p.startsWith('/var/lib/')),
     'der zweite Ort muss geprueft werden');
 });
+
+test('Taster wird nachgezogen, wenn der Anzeigedienst erst spaeter zeichnet', async () => {
+  // Der Fehler vom 10.08.2026 an Analyzer 01.
+  //
+  // Die Bilddatei liegt in /run/asksin-analyzer — einem tmpfs, das nach jedem
+  // Systemstart leer ist. Der Anzeigedienst startet laut seiner Unit
+  // `After=asksin-analyzer`. Beim Start des Analyzers kann die Datei also gar
+  // nicht da sein. Wurde nur dort geprueft, blieb der Taster nach JEDEM
+  // Neustart tot — und half nur ein Neustart des Analyzers von Hand.
+  const time = new FakeTime();
+  let abonniert = 0;
+  let zeichnet = false;                       // wie nach einem frischen Boot
+
+  const anzeige = new StatusAnzeige({
+    led: 'aus',
+    oled: true,
+    daten: () => ({ ...DATEN }),
+    time,
+    runner: () => Promise.resolve({ code: 0, output: '' }),
+    schreibeGeraet: () => Promise.resolve(),
+    bildVorhanden: () => zeichnet,
+    taster: (_cb) => { abonniert++; return () => {}; },
+  });
+
+  await anzeige.start();
+  await time.advance(2000);
+  assert.equal(abonniert, 0, 'solange kein Bild da ist, kein Lauscher');
+
+  zeichnet = true;                            // Anzeigedienst laeuft an
+  await time.advance(2000);
+  assert.equal(abonniert, 1, 'sobald gezeichnet wird, muss der Taster kommen');
+
+  await time.advance(2000);
+  assert.equal(abonniert, 1, 'und danach nicht doppelt abonnieren');
+
+  await anzeige.stop();
+});
