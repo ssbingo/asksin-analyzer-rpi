@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.3** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.3** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.4** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.4** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,24 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.14.4 — 10.08.2026
+
+**Berichtigung:** Das Handbuch behauptete, *Hochladen mit Programmer* lasse
+den Bootloader unversehrt. Das ist falsch. Die Arduino IDE ruft `avrdude`
+ohne `-D` auf — und `-D` schaltet das automatische Löschen *ab*, ist also die
+Voreinstellung. Der Chip wird vollständig gelöscht, Bootloader eingeschlossen.
+Ein ausgeschriebenes `-e` steht nirgends; wer danach sucht, findet nichts und
+schließt das Falsche. Genau das war passiert.
+
+Folge: Nach einem Programmer-Upload lässt sich die Firmware **nicht mehr über
+die Weboberfläche** aufspielen. Das Fehlerbild ist `not in sync: resp=0x3a` —
+und `0x3a` ist das Zeichen `:`, also die laufende Ausgabe des Sniffers statt
+einer Antwort des Bootloaders.
+
+Der Analyzer deutet diese Meldung jetzt selbst und nennt Ursache und Ausweg,
+statt die rohe avrdude-Ausgabe stehenzulassen. Handbuch 8.2 ist berichtigt und
+nennt die richtige Reihenfolge; 7.6 kennt das Fehlerbild.
 
 ### v0.14.3 — 10.08.2026
 

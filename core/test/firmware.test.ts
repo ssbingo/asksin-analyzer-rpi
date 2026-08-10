@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { flashFirmware, siehtNachIntelHexAus } from '../src/update/firmware.ts';
+import { deuteAvrdude, flashFirmware, siehtNachIntelHexAus } from '../src/update/firmware.ts';
 import type { KommandoErgebnis } from '../src/update/firmware.ts';
 
 interface Aufruf {
@@ -178,4 +178,31 @@ test('siehtNachIntelHexAus: echte Struktur ja, Müll nein', () => {
     false,
     'ohne EOF-Record',
   );
+});
+
+// --- Deutung der avrdude-Meldungen ---------------------------------------
+
+test('deuteAvrdude: 0x3a heisst "kein Bootloader", nicht "Uebertragungsfehler"', () => {
+  // Die echte Ausgabe vom 10.08.2026, zehnmal wiederholt.
+  const echt = Array.from({ length: 10 }, (_, i) =>
+    `avrdude warning: attempt ${i + 1} of 10: not in sync: resp=0x3a`,
+  ).join('\n');
+
+  const d = deuteAvrdude(echt);
+  assert.ok(d !== null, 'diese Meldung darf nicht unkommentiert bleiben');
+  assert.match(d, /kein Bootloader/);
+  assert.match(d, /Hochladen mit Programmer/, 'nennt die Ursache');
+  assert.match(d, /Bootloader brennen/, 'nennt den Ausweg');
+});
+
+test('deuteAvrdude: anderes "not in sync" bekommt den allgemeinen Befund', () => {
+  const d = deuteAvrdude('avrdude warning: not in sync: resp=0x00');
+  assert.ok(d !== null);
+  assert.match(d, /antwortet nicht/);
+  assert.doesNotMatch(d, /kein Bootloader/,
+    'ohne 0x3a laesst sich der fehlende Bootloader nicht behaupten');
+});
+
+test('deuteAvrdude: schweigt, wenn es nichts zu deuten gibt', () => {
+  assert.equal(deuteAvrdude('avrdude done.  Thank you.'), null);
 });

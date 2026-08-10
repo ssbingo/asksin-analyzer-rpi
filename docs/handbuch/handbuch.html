@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.14.3</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.14.4</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.14.3 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.14.4 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -1000,6 +1000,7 @@ Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 <tr><td><code>target doesn't answer</code><br><code>program enable: target does not answer (0x01)</code></td><td>Programmiertakt zu schnell, Platine gleichzeitig am Pi, oder Verkabelung</td><td><strong>Zuerst: Platine vom Pi abziehen.</strong> Steckt sie dort, speisen zwei Quellen dieselbe 3,3-V-Schiene und der Pi hält Pegel auf GPIO4 und GPIO14. Dann in der Arduino IDE den Programmer <strong>„USBasp slow"</strong> wählen (entspricht <code>-B 32</code>); ein fabrikneuer Chip läuft noch auf 1 MHz und ist bei voller Geschwindigkeit nicht ansprechbar. Zuletzt alle 6 Leitungen prüfen — MISO/MOSI vertauscht ist der Klassiker</td></tr>
 <tr><td><code>cannot find USB device with vid=0x16c0 pid=0x5dc</code></td><td>libusbK fehlt an <em>dieser</em> USB-Buchse</td><td>Windows bindet den Treiber pro Anschluss. Dieselbe Buchse wie beim ersten Zadig-Lauf nehmen, sonst Zadig erneut — die vollständige Reihenfolge steht in Kapitel 7.2. Unter Linux ggf. mit <code>sudo</code> testen, dauerhaft besser eine udev-Regel. <strong>An der Platine passiert dabei nichts</strong>; der Vorgang scheitert, bevor der ATmega angesprochen wird</td></tr>
 <tr><td><code>protokoll.h: No such file or directory</code></td><td>Sketch-Ordner unvollständig</td><td>Der Ordner braucht alle <strong>drei</strong> Dateien und muss heißen wie die <code>.ino</code> — Kapitel 8.1. Nicht in einem <code>build\</code>-Verzeichnis arbeiten</td></tr>
+<tr><td><code>not in sync: resp=0x3a</code> beim Flashen über die Weboberfläche</td><td>kein Bootloader auf dem Chip</td><td><code>0x3a</code> ist das Zeichen <code>:</code> — das ist die laufende Ausgabe des Sketches, nicht der Bootloader. Er wurde von <em>Hochladen mit Programmer</em> gelöscht. Abhilfe: <em>Werkzeuge → Bootloader brennen</em>, danach den Sketch über die Weboberfläche aufspielen statt über den Programmer</td></tr>
 <tr><td>Alles gelingt, die Platine bleibt trotzdem stumm</td><td>Firmware ohne Ausgabe übersetzt</td><td>Die Datei mit <code>python3 firmware/pruefe-hex.py</code> prüfen — das ist die einzige verlässliche Auskunft. Die Größenmeldung hilft nur beim gröbsten Fall: genau 6 922 Byte wären das unveränderte Original. Hintergrund in Kapitel 8.3</td></tr>
 <tr><td><code>invalid device signature 0x000000</code></td><td>Chip bekommt keinen Strom oder RESET klemmt</td><td>Jumper 3,3 V? Steckt Pin 2? Taster S1 versehentlich gedrückt/verklemmt?</td></tr>
 <tr><td>Signatur ≠ 0x1e950f</td><td>Kontaktproblem</td><td>Leitungen kürzen (&lt; 20 cm), erneut versuchen</td></tr>
@@ -1075,14 +1076,34 @@ darüber, ob wirklich unsere Fassung übersetzt wurde:
 </table></li>
 </ol>
 
-<div class="hinweis box"><span class="titel">ℹ „Hochladen" vs. „Hochladen mit Programmer"</span>
-Der normale Upload-Knopf nutzt den Bootloader über die serielle Schnittstelle —
-die hängt bei uns aber am Pi, nicht am PC. Solange die Platine am USBasp
-steckt, ist <em>Hochladen mit Programmer</em> der richtige Weg. Er lässt den
-Bootloader unversehrt: MiniCores Aufruf für den Programmer-Upload enthält
-kein <code>-e</code>, löscht den Chip also nicht, sondern beschreibt nur die
-Seiten des Programms. Später, wenn die Platine auf dem Pi sitzt, laufen
-Updates über den Bootloader — Kapitel 11.</div>
+<div class="achtung box"><span class="titel">⚠ „Hochladen mit Programmer" löscht den Bootloader</span>
+<p>Das ist die wichtigste Fußangel dieses Kapitels, und sie sieht harmlos aus.</p>
+<p><em>Hochladen mit Programmer</em> ruft <code>avrdude</code> ohne den
+Schalter <code>-D</code> auf. <code>-D</code> schaltet das automatische Löschen
+<em>ab</em> — es ist also die Voreinstellung, und der Chip wird vor dem
+Schreiben <strong>vollständig gelöscht</strong>, Bootloader eingeschlossen.
+Im Aufruf steht kein sichtbares <code>-e</code>; wer danach sucht, findet
+nichts und schließt das Falsche.</p>
+<p>Danach lässt sich die Firmware <strong>nicht mehr über die Weboberfläche</strong>
+aufspielen: Es gibt niemanden mehr, der das Update entgegennimmt. Das
+Fehlerbild ist eindeutig, wenn man es kennt —
+<code>not in sync: resp=0x3a</code>, und <code>0x3a</code> ist das Zeichen
+<code>:</code>, also die laufende Ausgabe des Sketches statt einer Antwort des
+Bootloaders.</p>
+<p><strong>Die richtige Reihenfolge</strong>, wenn beides gebraucht wird:</p>
+<ol class="schritte" style="margin-bottom: 0">
+<li><em>Werkzeuge → Bootloader brennen</em> über den USBasp. Das setzt die
+Fuses und schreibt den Bootloader.</li>
+<li>Den Sketch <strong>nicht</strong> mit dem Programmer aufspielen, sondern
+über die Weboberfläche des Analyzers (Kapitel 11). Der Weg läuft über den
+Bootloader und lässt ihn stehen.</li>
+</ol>
+</div>
+
+<div class="hinweis box"><span class="titel">ℹ Wann trotzdem der Programmer?</span>
+Beim allerersten Aufbau, bevor der Pi überhaupt eingerichtet ist, und immer
+dann, wenn der Chip nicht mehr antwortet. Man verliert dabei den Bootloader
+und holt ihn mit <em>Bootloader brennen</em> zurück.</div>
 
 <h2 id="k8-3">8.3 Warum hier keine fertige HEX-Datei liegt</h2>
 <p>Bis zum 09.08.2026 lieferte dieses Projekt eine fertig übersetzte
@@ -3554,7 +3575,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.14.3 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.14.4 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

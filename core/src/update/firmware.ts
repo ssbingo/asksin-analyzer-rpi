@@ -220,7 +220,53 @@ export async function flashFirmware(
     '-U', `flash:w:${hexPfad}:i`,
   ]);
   log.push(avr.output.trim());
+  const deutung = deuteAvrdude(avr.output);
+  if (deutung !== null) log.push(`\n${deutung}`);
   return { ok: avr.code === 0, log: log.join('\n') };
+}
+
+/**
+ * Uebersetzt die haeufigsten avrdude-Meldungen in einen Befund.
+ *
+ * `not in sync: resp=0x3a` ist die luecklichste davon, weil sie aussieht wie
+ * ein Uebertragungsproblem und keines ist: 0x3a ist das Zeichen `:`, also der
+ * Anfang einer ganz normalen Ausgabezeile des Sniffers. avrdude hoert das
+ * laufende Programm statt des Bootloaders — es gibt schlicht keinen.
+ *
+ * Wie er abhanden kommt, ist die eigentliche Falle: "Hochladen mit
+ * Programmer" in der Arduino IDE ruft avrdude ohne `-D` auf, und `-D` schaltet
+ * das automatische Loeschen *ab*. Es ist also die Voreinstellung — der Chip
+ * wird vollstaendig geloescht, Bootloader eingeschlossen. Ein ausgeschriebenes
+ * `-e` steht nirgends; wer danach sucht, findet nichts und schliesst das
+ * Falsche. (Genau das ist mir am 09.08.2026 passiert, und die Falschaussage
+ * stand einen Tag lang im Handbuch.)
+ */
+export function deuteAvrdude(ausgabe: string): string | null {
+  if (/not in sync: resp=0x3a/.test(ausgabe)) {
+    return (
+      'Befund: Auf dem 328P ist kein Bootloader. 0x3a ist das Zeichen ":" — ' +
+      'avrdude hört die laufende Ausgabe des Sniffers statt einer Antwort des ' +
+      'Bootloaders.\n' +
+      'Ursache ist fast immer "Hochladen mit Programmer" in der Arduino IDE: ' +
+      'Das löscht den Chip vollständig, Bootloader eingeschlossen.\n' +
+      'Abhilfe: In der Arduino IDE einmal "Werkzeuge → Bootloader brennen", ' +
+      'danach die Firmware wieder von hier aus aufspielen — dieser Weg lässt ' +
+      'den Bootloader stehen. Handbuch 8.2.'
+    );
+  }
+  if (/not in sync/.test(ausgabe)) {
+    return (
+      'Befund: Der Bootloader antwortet nicht. Entweder greift der Reset ' +
+      'nicht, oder die Platine sitzt nicht richtig. Handbuch 7.6.'
+    );
+  }
+  if (/can't open device|Permission denied/i.test(ausgabe)) {
+    return (
+      'Befund: Die serielle Schnittstelle liess sich nicht öffnen. Läuft ein ' +
+      'zweiter Zugriff darauf? Handbuch 23.'
+    );
+  }
+  return null;
 }
 
 /** Grobe Plausibilität: sieht der Upload nach Intel-HEX aus? */
