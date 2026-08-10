@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.1** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.1** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.2** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.2** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,23 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.14.2 — 10.08.2026
+
+**Der Analyzer behauptete „Originalfassung", bevor er es wissen konnte.**
+Nach einem Dienst-Neustart stand sofort da, es laufe die Originalfirmware;
+nach einem Kaltstart stimmte die Anzeige wieder. An der Firmware hatte sich
+nichts geändert — nur die vergangene Zeit war eine andere.
+
+`baueFirmwarebefund(null, …)` lieferte unbesehen `original`. Damit war „noch
+keine Antwort da" nicht von „es kommt keine" zu unterscheiden. Der Ingest
+merkt sich jetzt, wann die Versionsfrage hinausging; der Befund kennt eine
+dritte Lage `unbekannt` und wird erst nach drei Sekunden ohne Antwort zur
+Auskunft. Die Firmware antwortet in Millisekunden — die Frist ist um
+Größenordnungen großzügig.
+
+Damit lässt sich erstmals unterscheiden, ob die Firmware wirklich schweigt
+oder die Anzeige nur zu früh urteilt.
 
 ### v0.14.1 — 10.08.2026
 
