@@ -6,19 +6,27 @@
 #
 # Warum ein eigener Dienst: PWM/DMA braucht /dev/mem, also Root. Der
 # Analyzer-Dienst selbst läuft bewusst unprivilegiert und schreibt nur die
-# gewünschte Farbe nach /var/lib/asksin-analyzer/led-farbe.
+# gewünschte Farbe — bevorzugt nach /run/asksin-analyzer/led-farbe, sonst
+# nach /var/lib/asksin-analyzer/led-farbe. led-pwm.py sucht beide Orte ab.
 [Unit]
 Description=AskSin-Analyzer Status-LED (WS2812 über PWM)
 After=asksin-analyzer.service
 Wants=asksin-analyzer.service
 
 [Service]
-# Legt /run/asksin-analyzer an (tmpfs). Dort liegen die kurzlebigen
-# Austauschdateien zwischen den Diensten — Farbe, Anzeigezustand, Framebuffer.
-# Preserve, damit das Verzeichnis einen Neustart eines einzelnen Dienstes
-# ueberlebt und die anderen nicht ins Leere greifen.
-RuntimeDirectory=asksin-analyzer
-RuntimeDirectoryPreserve=yes
+# KEIN RuntimeDirectory= hier — bewusst.
+#
+# /run/asksin-analyzer ist das gemeinsame Austauschverzeichnis der drei
+# Dienste. asksin-analyzer und -oled laufen als Benutzer asksin, dieser
+# Dienst als root (DMA braucht /dev/mem). systemd setzt Eigentuemer und
+# Rechte eines RuntimeDirectory bei JEDEM Start des Dienstes neu — dieser
+# hier machte das Verzeichnis also bei jedem Start zu root:root, und der
+# unprivilegierte Core kam nicht mehr hinein:
+#
+#   EACCES: permission denied, open '/run/asksin-analyzer/oled-state.json'
+#
+# Angelegt wird es von asksin-analyzer.service, und auf den warten wir
+# ohnehin (After=). Gelesen werden darf es von jedem.
 Type=simple
 ExecStart=/opt/asksin-analyzer/led-venv/bin/python /opt/asksin-analyzer/deploy/led-pwm.py
 Restart=always

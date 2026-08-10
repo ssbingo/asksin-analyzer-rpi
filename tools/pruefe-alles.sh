@@ -49,6 +49,9 @@ optional() {  # optional <Beschreibung> <Bedingung> <Befehl...>
 lauf "systemd-Units und Grafana-Vorlagen werden ausgerollt" \
     bash tools/pruefe-units.sh
 
+lauf "Austauschdateien: Core und Helfer meinen denselben Ort" \
+    python3 tools/pruefe-austauschdateien.py
+
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 

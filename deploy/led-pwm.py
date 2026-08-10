@@ -32,8 +32,31 @@ import sys
 import time
 
 TAKT_S = 0.05          # Datei-Abtastung; 20 Hz reicht für das Blinken
-VORGABE_DATEI = "/var/lib/asksin-analyzer/led-farbe"
 VORGABE_GPIO = 18
+
+# Wo die Farbe liegen kann — in dieser Reihenfolge gesucht.
+#
+# Der Core wählt sein Laufzeitverzeichnis beim Start: bevorzugt
+# /run/asksin-analyzer (tmpfs, schont die SSD), und nur wenn er dort nicht
+# schreiben darf, das Datenverzeichnis. Hier stand früher allein
+# /var/lib/asksin-analyzer/led-farbe — also genau der Ausweichpfad. Lief
+# alles normal, schrieb der Core nach /run, und dieser Dienst sah eine Datei,
+# die es nie gab: LED dunkel, keine Fehlermeldung, beide Seiten fehlerfrei.
+#
+# Am 10.08.2026 auf dem Pi 3 aufgetreten, nachdem dieselbe LED am Pi 5 über
+# SPI einwandfrei lief.
+FARBDATEIEN = (
+    "/run/asksin-analyzer/led-farbe",
+    "/var/lib/asksin-analyzer/led-farbe",
+)
+
+
+def finde_farbdatei() -> str | None:
+    """Die erste vorhandene Farbdatei — oder None, solange keine da ist."""
+    for pfad in FARBDATEIEN:
+        if os.path.exists(pfad):
+            return pfad
+    return None
 
 
 def lies_farbe(pfad: str) -> tuple[int, int, int] | None:
@@ -91,7 +114,11 @@ class Treiber:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--datei", default=VORGABE_DATEI)
+    ap.add_argument(
+        "--datei", default=None,
+        help="Farbdatei fest vorgeben; ohne Angabe werden "
+             + " und ".join(FARBDATEIEN) + " durchsucht",
+    )
     ap.add_argument("--gpio", type=int, default=VORGABE_GPIO)
     ap.add_argument("--einmal", help="Farbe R,G,B einmalig setzen und beenden")
     args = ap.parse_args()
@@ -142,20 +169,49 @@ def main() -> int:
     signal.signal(signal.SIGTERM, beenden)
     signal.signal(signal.SIGINT, beenden)
 
-    print(f"led-pwm: GPIO{args.gpio}, Farbdatei {args.datei}", flush=True)
+    ziel = args.datei if args.datei else " oder ".join(FARBDATEIEN)
+    print(f"led-pwm: GPIO{args.gpio}, Farbdatei {ziel}", flush=True)
     letzte: tuple[int, int, int] | None = None
     letzte_mtime = -1.0
+    letzte_datei: str | None = None
+    vermisst_gemeldet = False
     treiber.setze(0, 0, 0)
 
     while laeuft:
+        # Bei jedem Takt neu suchen: /run wird beim Booten geleert, und der
+        # Core legt die Datei erst an, wenn er die Betriebsart PWM sieht.
+        # Ein einmaliger Blick beim Start ginge deshalb regelmaessig daneben.
+        datei = args.datei if args.datei else finde_farbdatei()
+
+        if datei is None:
+            # Einmal sagen, nicht dauernd — aber sagen. Wortlos dazusitzen
+            # ist genau das Verhalten, das die Suche so lange gekostet hat.
+            if not vermisst_gemeldet:
+                vermisst_gemeldet = True
+                print(
+                    "led-pwm: keine Farbdatei gefunden (gesucht: "
+                    + ", ".join(FARBDATEIEN)
+                    + "). Laeuft asksin-analyzer, und steht die Betriebsart "
+                      "auf PWM?",
+                    file=sys.stderr, flush=True,
+                )
+            time.sleep(TAKT_S)
+            continue
+
+        if datei != letzte_datei:
+            letzte_datei = datei
+            letzte_mtime = -1.0
+            vermisst_gemeldet = False
+            print(f"led-pwm: lese {datei}", flush=True)
+
         try:
-            mtime = os.stat(args.datei).st_mtime
+            mtime = os.stat(datei).st_mtime
         except OSError:
             mtime = -1.0
         # Nur lesen, wenn sich die Datei geändert hat — spart Aufwecken.
         if mtime != letzte_mtime:
             letzte_mtime = mtime
-            farbe = lies_farbe(args.datei)
+            farbe = lies_farbe(datei)
             if farbe is not None and farbe != letzte:
                 letzte = farbe
                 try:
