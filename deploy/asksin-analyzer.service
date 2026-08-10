@@ -21,6 +21,17 @@ ExecStart=/usr/bin/node /opt/asksin-analyzer/core/bin/analyzerd.ts /etc/asksin-a
 Restart=always
 RestartSec=3
 
+# Ohne diese Zeile gilt die Voreinstellung von 90 Sekunden. So lange wartet
+# systemd nach SIGTERM, bevor es SIGKILL nachschiebt — und genau so lange
+# stand am 10.08.2026 ein "systemctl restart" scheinbar ohne Reaktion.
+#
+# Der Anlass war ein blockierender read() auf der seriellen Schnittstelle, den
+# nichts unterbrechen konnte (behoben in 0.15.0 durch den Leser als
+# Kindprozess). Die Zeile bleibt trotzdem: Ein Dienst, der sich verhakt, darf
+# niemanden anderthalb Minuten warten lassen. Zwanzig Sekunden sind fuer ein
+# geordnetes Herunterfahren um Groessenordnungen mehr als noetig.
+TimeoutStopSec=20
+
 # Ports unter 1024 sind privilegiert. Ohne diese Fähigkeit scheitert der
 # Dienst beim Binden auf Port 80 mit „listen EACCES" — und zwar erst nach
 # dem vollständigen Hochlauf, was die Fehlersuche unnötig schwer macht.

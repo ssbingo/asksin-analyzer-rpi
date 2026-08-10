@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.0** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.0** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.1** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.1** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,37 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.1 — 10.08.2026
+
+Zwei Sperren, aus denen nur der Erfolgsfall herausführte.
+
+**Eine hängengebliebene Update-Sperre ließ sich nur von Hand lösen.**
+`update.sh` schreibt `running: true` in die Statusdatei. Wird das Update hart
+abgebrochen — abgeschossener Dienst, Stromausfall, Neustart mitten im Lauf —
+bleibt der Eintrag stehen, und die Weboberfläche antwortet von da an dauerhaft
+mit `HTTP 409`. Herausgeholfen hat nur das Löschen der Datei über die Konsole.
+
+Ein Update, das seit einer halben Stunde keinen Schritt gemeldet hat, gilt
+jetzt als steckengeblieben; die Sperre wird dann aufgehoben und der Vorgang
+protokolliert. `update.sh` frischt seine Zeitmarke bei jedem Schritt auf, die
+Grenze ist also großzügig.
+
+**`systemctl restart` sah aus, als reagiere nichts.** Die Unit hatte kein
+`TimeoutStopSec`, also galt die Voreinstellung von **90 Sekunden**: So lange
+wartet systemd nach `SIGTERM`, bevor es `SIGKILL` nachschiebt.
+
+Der Anlass war der blockierende `read()` aus v0.15.0. Die Grenze bleibt
+trotzdem: Ein Dienst, der sich verhakt, darf niemanden anderthalb Minuten
+warten lassen. Zwanzig Sekunden sind für ein geordnetes Herunterfahren um
+Größenordnungen mehr als nötig.
+
+Wer noch auf einer älteren Fassung festhängt, kommt so heraus:
+
+```bash
+sudo systemctl kill -s KILL asksin-analyzer
+sudo systemctl start asksin-analyzer
+```
 
 ### v0.15.0 — 10.08.2026
 

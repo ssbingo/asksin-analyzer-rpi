@@ -464,6 +464,14 @@ const datenDir = dirname(konfig.db);
 const updateTrigger = join(datenDir, 'update-anstoss');
 const updateStatusDatei = join(datenDir, 'update-status.json');
 
+/**
+ * Ab wann ein als laufend vermerktes Update als steckengeblieben gilt.
+ *
+ * update.sh frischt `updatedAt` bei jedem Schritt auf; eine halbe Stunde ohne
+ * Lebenszeichen bedeutet, dass niemand mehr daran arbeitet.
+ */
+const STECKENGEBLIEBEN_MS = 30 * 60 * 1000;
+
 function leseUpdateStatus(): Record<string, unknown> | null {
   try {
     return JSON.parse(readFileSync(updateStatusDatei, 'utf8')) as Record<
@@ -544,7 +552,28 @@ const updateHooks: UpdateHooks = {
   },
   startCoreUpdate: () => {
     const status = leseUpdateStatus();
-    if (status !== null && status['running'] === true) return false;
+    if (status !== null && status['running'] === true) {
+      // Eine Sperre, aus der nur der Erfolgsfall herausfuehrt, ist keine
+      // Sperre, sondern eine Falle.
+      //
+      // update.sh schreibt bei jedem Schritt `updatedAt` neu. Wird das Update
+      // hart abgebrochen — abgeschossener Dienst, Stromausfall, Neustart
+      // mitten im Lauf — bleibt "running": true stehen, und die Weboberflaeche
+      // antwortete von da an dauerhaft mit 409. Am 10.08.2026 genau so
+      // erlebt; herausgeholfen hat nur das Loeschen der Datei von Hand.
+      //
+      // Ein Update, das seit einer halben Stunde keinen Schritt gemeldet hat,
+      // laeuft nicht mehr. Die Grenze ist grosszuegig: Der langsamste
+      // beobachtete Durchlauf auf einem Pi 3 blieb weit darunter, und jeder
+      // Schritt frischt die Marke auf.
+      const zuletzt = Number(status['updatedAt'] ?? 0);
+      const alterMs = Date.now() - zuletzt;
+      if (Number.isFinite(alterMs) && alterMs < STECKENGEBLIEBEN_MS) return false;
+      log(
+        `Vorheriges Update gilt als steckengeblieben (letzte Meldung vor ` +
+          `${Math.round(alterMs / 60_000)} min) — Sperre wird aufgehoben.`,
+      );
+    }
     writeFileSync(updateTrigger, `${new Date().toISOString()}\n`);
     log('Core-Update angestoßen (Trigger-Datei für die systemd-Path-Unit)');
     return true;
