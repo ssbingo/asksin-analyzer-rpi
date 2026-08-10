@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.1** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.1** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.2** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.2** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,28 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.2 — 10.08.2026
+
+**MiniCore schreibt seit Fassung 3 kein Optiboot mehr, sondern urboot** — und
+das spricht `urclock` statt STK500v1. In `boards.txt` steht es ausdrücklich:
+
+```text
+328.menu.bootloader.uart0.upload.protocol=urclock
+...bootloader.file=urboot/…/autobaud/…/urboot_atmega328p_pr_ee_ce.hex
+```
+
+Unser `avrdude` lief mit `-c arduino`. Die beiden redeten aneinander vorbei,
+und zwar völlig gleichmäßig: An **beiden** Analyzern zehnmal hintereinander
+`not in sync: resp=0xa0`. Ein Übertragungsproblem sieht anders aus — dort
+wären die Antworten unterschiedlich. Genau diese Gleichmäßigkeit war der
+Hinweis.
+
+Der Flash versucht jetzt `urclock` zuerst und `arduino` danach, damit auch
+ältere Platinen mit Optiboot bedient werden. Der Analyzer deutet `resp=0xa0`
+außerdem selbst und nennt Ursache und Ausweg.
+
+Handbuch 7.5 berichtigt: Dort stand Optiboot; 7.6 kennt das Fehlerbild.
 
 ### v0.15.1 — 10.08.2026
 

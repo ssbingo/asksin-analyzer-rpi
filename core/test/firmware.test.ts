@@ -184,10 +184,14 @@ test('USB-Flash: kein GPIO — avrdude übernimmt den Reset über DTR', async ()
 
 test('avrdude-Fehler wird als ok:false mit Log gemeldet, wirft nie', async () => {
   // Reihenfolge seit 10.08.2026: avrdude zuerst, danach der Reset-Impuls.
+  // Und zwei Anlaeufe, weil urclock (urboot) vor arduino (Optiboot) kommt.
   const r = runner([
-    { code: 1, output: 'stk500_getsync(): not in sync' },   // avrdude
+    { code: 1, output: 'stk500_getsync(): not in sync' },   // avrdude urclock
     { code: 124, output: '' },                              // Impuls LOW
     { code: 124, output: '' },                              // Leitung HIGH
+    { code: 1, output: 'stk500_getsync(): not in sync' },   // avrdude arduino
+    { code: 124, output: '' },
+    { code: 124, output: '' },
   ]);
   const erg = await flashFirmware('/tmp/fw.hex', {
     device: '/dev/asksin-hat',
@@ -235,4 +239,18 @@ test('deuteAvrdude: anderes "not in sync" bekommt den allgemeinen Befund', () =>
 
 test('deuteAvrdude: schweigt, wenn es nichts zu deuten gibt', () => {
   assert.equal(deuteAvrdude('avrdude done.  Thank you.'), null);
+});
+
+test('deuteAvrdude: 0xa0 heisst "falsches Protokoll", nicht "Uebertragungsfehler"', () => {
+  // Die echte Ausgabe vom 10.08.2026, an beiden Analyzern identisch.
+  const echt = Array.from({ length: 10 }, (_, i) =>
+    `avrdude warning: attempt ${i + 1} of 10: not in sync: resp=0xa0`,
+  ).join('\n');
+
+  const d = deuteAvrdude(echt);
+  assert.ok(d !== null);
+  assert.match(d, /urboot/, 'nennt den tatsaechlichen Bootloader');
+  assert.match(d, /urclock/, 'nennt das Protokoll');
+  assert.doesNotMatch(d, /kein Bootloader/,
+    '0xa0 ist etwas anderes als 0x3a — hier ist einer da, er spricht nur anders');
 });

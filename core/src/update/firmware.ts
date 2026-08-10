@@ -142,6 +142,26 @@ const FREIGABE_MS = 100;
 const ANLAUF_MS = 400;
 
 /**
+ * Programmer, in dieser Reihenfolge versucht.
+ *
+ * MiniCore schreibt seit 3.x **nicht mehr Optiboot**, sondern **urboot** —
+ * und das spricht das urclock-Protokoll, nicht STK500v1:
+ *
+ *     328.menu.bootloader.uart0.upload.protocol=urclock
+ *     ...bootloader.file=urboot/.../autobaud/.../urboot_atmega328p_pr_ee_ce.hex
+ *
+ * Mit `-c arduino` reden die beiden aneinander vorbei, und zwar voellig
+ * gleichmaessig: An beiden Analyzern kam zehnmal hintereinander
+ * `not in sync: resp=0xa0`. Ein Uebertragungsproblem sieht anders aus — bei
+ * einem waeren die Antworten unterschiedlich.
+ *
+ * `arduino` bleibt als zweiter Versuch, weil aeltere Platinen noch Optiboot
+ * tragen koennen. Der erste Versuch kostet dann ein paar Sekunden; das ist
+ * der Preis dafuer, dass beide Fassungen bedient werden.
+ */
+const PROGRAMMER = ['urclock', 'arduino'] as const;
+
+/**
  * Setzt eine GPIO-Leitung auf `wert` und haelt sie `ms` lang. Danach bleibt
  * sie auf diesem Pegel stehen — das ist das Verhalten von libgpiod, und genau
  * darauf bauen beide Aufrufe im Reset auf.
@@ -196,8 +216,8 @@ export async function flashFirmware(
   const log: string[] = [];
   const melde = (text: string): void => options.onFortschritt?.(`${text}\n`);
 
-  const avrdudeArgs = [
-    '-c', 'arduino',
+  const bauArgs = (programmer: string): string[] => [
+    '-c', programmer,
     '-p', 'm328p',
     '-P', options.device,
     '-b', String(baud),
@@ -208,13 +228,16 @@ export async function flashFirmware(
   if (reset !== 'gpio') {
     melde('Reset über DTR (übernimmt avrdude am USB-Port)');
     log.push('Reset über DTR (übernimmt avrdude am USB-Port)');
-    melde(`avrdude auf ${options.device} mit ${baud} Baud`);
-    log.push(`avrdude auf ${options.device} mit ${baud} Baud`);
-    const nurAvr = await run('avrdude', avrdudeArgs);
-    log.push(nurAvr.output.trim());
-    const d = deuteAvrdude(nurAvr.output);
-    if (d !== null) log.push(`\n${d}`);
-    return { ok: nurAvr.code === 0, log: log.join('\n') };
+    for (const programmer of PROGRAMMER) {
+      melde(`avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud`);
+      log.push(`avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud`);
+      const nurAvr = await run('avrdude', bauArgs(programmer));
+      log.push(nurAvr.output.trim());
+      if (nurAvr.code === 0) return { ok: true, log: log.join('\n') };
+      const d = deuteAvrdude(nurAvr.output);
+      if (d !== null) log.push(`\n${d}`);
+    }
+    return { ok: false, log: log.join('\n') };
   }
 
   /*
@@ -234,19 +257,29 @@ export async function flashFirmware(
    * dieser Versuche das Fenster. Das ist der uebliche Weg fuer Platinen ohne
    * DTR-Leitung.
    */
-  melde(`avrdude auf ${options.device} mit ${baud} Baud`);
-  log.push(`avrdude auf ${options.device} mit ${baud} Baud`);
-  const avrLaeuft = run('avrdude', avrdudeArgs);
+  let avr: KommandoErgebnis = { code: 1, output: '' };
+  let tief = false;
+  let hoch = false;
 
-  // Kurz warten, damit avrdude den Port offen hat und schon Sync sendet.
-  await new Promise<void>((r) => setTimeout(r, options.anlaufMs ?? ANLAUF_MS));
+  for (const programmer of PROGRAMMER) {
+    melde(`avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud`);
+    log.push(`avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud`);
+    const avrLaeuft = run('avrdude', bauArgs(programmer));
 
-  const tief = await gpioHalten(run, chip, line, 0, resetMs, log, melde);
-  const hoch = tief
-    ? await gpioHalten(run, chip, line, 1, FREIGABE_MS, log, melde)
-    : false;
+    // Kurz warten, damit avrdude den Port offen hat und schon anklopft.
+    await new Promise<void>((r) => setTimeout(r, options.anlaufMs ?? ANLAUF_MS));
 
-  const avr = await avrLaeuft;
+    tief = await gpioHalten(run, chip, line, 0, resetMs, log, melde);
+    hoch = tief
+      ? await gpioHalten(run, chip, line, 1, FREIGABE_MS, log, melde)
+      : false;
+
+    avr = await avrLaeuft;
+    if (avr.code === 0) break;
+    log.push(avr.output.trim());
+    const zwischen = deuteAvrdude(avr.output);
+    if (zwischen !== null) log.push(`\n${zwischen}`);
+  }
 
   // Der Ausgang haengt an avrdude, nicht an der Leitung.
   //
@@ -285,6 +318,18 @@ export async function flashFirmware(
  * stand einen Tag lang im Handbuch.)
  */
 export function deuteAvrdude(ausgabe: string): string | null {
+  if (/not in sync: resp=0xa0/.test(ausgabe)) {
+    return (
+      'Befund: Der Bootloader spricht ein anderes Protokoll. MiniCore schreibt '
+      + 'seit Fassung 3 nicht mehr Optiboot, sondern **urboot** — und das '
+      + 'spricht urclock, nicht STK500v1.\n'
+      + 'Gleichbleibendes 0xa0 ueber alle zehn Versuche ist genau das Bild: '
+      + 'Bei einem Uebertragungsproblem waeren die Antworten unterschiedlich.\n'
+      + 'Der Analyzer versucht urclock von sich aus zuerst; kommt diese Meldung '
+      + 'trotzdem, ist das avrdude auf diesem Geraet zu alt dafuer '
+      + '(urclock gibt es ab avrdude 7.1).'
+    );
+  }
   if (/not in sync: resp=0x3a/.test(ausgabe)) {
     return (
       'Befund: Auf dem 328P ist kein Bootloader. 0x3a ist das Zeichen ":" — ' +

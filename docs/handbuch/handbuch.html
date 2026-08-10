@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.15.1</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.15.2</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.15.1 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.15.2 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -948,9 +948,26 @@ physisch, der Rest ist undefiniert und wird mal als 1, mal als 0 gelesen.
 0x05 und 0xFD sind derselbe Wert.</div>
 
 <h2 class="umbruch" id="k7-5">7.5 Den Bootloader brennen</h2>
-<p>Wir verwenden <strong>Optiboot</strong> aus dem MiniCore-Projekt — die Variante
-für ATmega328P, externe 8 MHz, serielle Schnittstelle UART0, 57 600 Baud.
+<p>Wir verwenden den Bootloader aus dem MiniCore-Projekt — die Variante für
+ATmega328P, serielle Schnittstelle UART0, mit Watchdog von einer Sekunde.
 Zwei Wege führen zum Ziel; nimm den, der dir näher liegt.</p>
+
+<div class="hinweis box"><span class="titel">ℹ MiniCore schreibt kein Optiboot mehr</span>
+<p>Seit Fassung 3 schreibt MiniCore <strong>urboot</strong> statt Optiboot, und
+das spricht ein anderes Protokoll: <code>urclock</code> statt STK500v1. In
+<code>boards.txt</code> steht das ausdrücklich:</p>
+<pre>328.menu.bootloader.uart0.upload.protocol=<strong>urclock</strong>
+...bootloader.file=<strong>urboot</strong>/…/autobaud/…/urboot_atmega328p_pr_ee_ce.hex</pre>
+<p>Für Sie ändert das nichts — die Arduino IDE wählt das Richtige selbst, und
+der Analyzer versucht beim Aufspielen ohnehin zuerst <code>urclock</code> und
+danach <code>arduino</code>. Wichtig ist es nur, wenn Sie <code>avrdude</code>
+von Hand aufrufen: Mit <code>-c arduino</code> reden die beiden aneinander
+vorbei, und zwar völlig gleichmäßig — zehnmal
+<code>not in sync: resp=0xa0</code>. Bei einem echten Übertragungsproblem wären
+die Antworten unterschiedlich.</p>
+<p style="margin-bottom: 0">Der Bootloader arbeitet außerdem mit
+<em>Autobaud</em>: Er misst die Rate der Gegenstelle selbst. Die krumme
+58 824 stört ihn also nicht.</p></div>
 
 <h3 id="weg-a-arduino-ide-mit-minicore-empfohlen">Weg A — Arduino IDE mit MiniCore (empfohlen für Einsteiger)</h3>
 <p>Die Arduino IDE setzt Fuses <em>und</em> Bootloader in einem Rutsch — wer Weg A
@@ -1000,6 +1017,7 @@ Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 <tr><td><code>target doesn't answer</code><br><code>program enable: target does not answer (0x01)</code></td><td>Programmiertakt zu schnell, Platine gleichzeitig am Pi, oder Verkabelung</td><td><strong>Zuerst: Platine vom Pi abziehen.</strong> Steckt sie dort, speisen zwei Quellen dieselbe 3,3-V-Schiene und der Pi hält Pegel auf GPIO4 und GPIO14. Dann in der Arduino IDE den Programmer <strong>„USBasp slow"</strong> wählen (entspricht <code>-B 32</code>); ein fabrikneuer Chip läuft noch auf 1 MHz und ist bei voller Geschwindigkeit nicht ansprechbar. Zuletzt alle 6 Leitungen prüfen — MISO/MOSI vertauscht ist der Klassiker</td></tr>
 <tr><td><code>cannot find USB device with vid=0x16c0 pid=0x5dc</code></td><td>libusbK fehlt an <em>dieser</em> USB-Buchse</td><td>Windows bindet den Treiber pro Anschluss. Dieselbe Buchse wie beim ersten Zadig-Lauf nehmen, sonst Zadig erneut — die vollständige Reihenfolge steht in Kapitel 7.2. Unter Linux ggf. mit <code>sudo</code> testen, dauerhaft besser eine udev-Regel. <strong>An der Platine passiert dabei nichts</strong>; der Vorgang scheitert, bevor der ATmega angesprochen wird</td></tr>
 <tr><td><code>protokoll.h: No such file or directory</code></td><td>Sketch-Ordner unvollständig</td><td>Der Ordner braucht alle <strong>drei</strong> Dateien und muss heißen wie die <code>.ino</code> — Kapitel 8.1. Nicht in einem <code>build\</code>-Verzeichnis arbeiten</td></tr>
+<tr><td><code>not in sync: resp=0xa0</code>, zehnmal gleich</td><td>Bootloader spricht ein anderes Protokoll</td><td>MiniCore schreibt seit Fassung 3 <strong>urboot</strong>, nicht Optiboot — das spricht <code>urclock</code>. Der Analyzer versucht das seit 0.15.2 von selbst zuerst. Von Hand: <code>avrdude -c urclock</code> statt <code>-c arduino</code></td></tr>
 <tr><td><code>not in sync: resp=0x3a</code> beim Flashen über die Weboberfläche</td><td>kein Bootloader auf dem Chip</td><td><code>0x3a</code> ist das Zeichen <code>:</code> — das ist die laufende Ausgabe des Sketches, nicht der Bootloader. Er wurde von <em>Hochladen mit Programmer</em> gelöscht. Abhilfe: <em>Werkzeuge → Bootloader brennen</em>, danach den Sketch über die Weboberfläche aufspielen statt über den Programmer</td></tr>
 <tr><td>Alles gelingt, die Platine bleibt trotzdem stumm</td><td>Firmware ohne Ausgabe übersetzt</td><td>Die Datei mit <code>python3 firmware/pruefe-hex.py</code> prüfen — das ist die einzige verlässliche Auskunft. Die Größenmeldung hilft nur beim gröbsten Fall: genau 6 922 Byte wären das unveränderte Original. Hintergrund in Kapitel 8.3</td></tr>
 <tr><td><code>invalid device signature 0x000000</code></td><td>Chip bekommt keinen Strom oder RESET klemmt</td><td>Jumper 3,3 V? Steckt Pin 2? Taster S1 versehentlich gedrückt/verklemmt?</td></tr>
@@ -3575,7 +3593,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.15.1 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.15.2 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>
