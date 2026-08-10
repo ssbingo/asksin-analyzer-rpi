@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.0** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.0** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.1** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.1** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,27 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.14.1 — 10.08.2026
+
+Zwei Fehler, die erst der erste Firmware-Flash über die Weboberfläche
+sichtbar gemacht hat — an zwei Geräten gleichzeitig.
+
+- **Der Flash legte den Dienst lahm.** Im Journal stand „Ingest wird
+  angehalten", danach über Stunden nichts. `close()` wartete auf das
+  `close`-Ereignis des Lesestroms; `destroy()` beendet den aber nicht, solange
+  im Thread-Pool ein blockierendes `read()` auf der seriellen Schnittstelle
+  hängt — ohne eingehende Zeichen der Normalfall. Zum Flashen kam es nie.
+  `schliesseStrom()` gibt jetzt nach zwei Sekunden auf.
+- **Der Flash zeigte keinen Fortschritt.** Er lief in einem einzigen
+  HTTP-Aufruf; die Oberfläche schrieb „Flashe …" und wartete bis zum Schluss.
+  Jetzt startet `POST /api/update/firmware` nur noch und kehrt sofort zurück,
+  `GET /api/update/firmware/stand` liefert den Verlauf — mit dem
+  Fortschrittsbalken von `avrdude`.
+
+Nebenbei berichtigt: Die Oberfläche nannte als Beispieldatei noch
+`AskSinSniffer328P.hex` und behauptete, im Demo-Modus sei der Flash nicht
+verfügbar. Der Code sagt ausdrücklich das Gegenteil.
 
 ### v0.14.0 — 09.08.2026
 
