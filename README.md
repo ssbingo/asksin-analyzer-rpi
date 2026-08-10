@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.7** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.7** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.8** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.8** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,35 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.8 — 10.08.2026
+
+**Die Status-LED lief mit 125 MHz statt 2,4 MHz — und blieb deshalb dunkel.**
+Der SPI-Takt gehört im Linux-Kern nicht dem Gerät, sondern dem geöffneten
+Dateideskriptor: Beim Schließen des letzten Benutzers setzt der Treiber
+`speed_hz` auf den Höchstwert des Reglers zurück. Der Core rief `spi-config`
+als eigenen Prozess auf — der setzte den Takt und nahm ihn beim Beenden wieder
+mit. Geschrieben wurde anschließend mit 125 MHz, also 52-fach zu schnell. Der
+komplette Rahmen war nach 0,6 µs durch, die WS2812 sah davon nur einen
+Störimpuls.
+
+Von außen war das nicht zu erkennen: Auf der Datenleitung lag ein Signal, die
+Verdrahtung war fehlerfrei, `spi-config` meldete keinen Fehler. Gefunden wurde
+es erst durch `spi-config -q` bei laufendem Dienst — dort stand
+`speed=125000000`.
+
+- **`deploy/ws2812-spi.py`** setzt Takt, Modus und Bitreihenfolge und
+  **bleibt offen**, solange die Anzeige läuft. Er liest die Rahmen als Hex je
+  Zeile und liest den Takt zurück, statt ihn zu glauben: Weicht er um mehr als
+  10 % ab, bricht er mit einer Meldung ab, statt still Falsches zu schreiben.
+- **Latch von 213 µs auf 427 µs.** Die alten 64 Nullbytes beriefen sich auf
+  die „> 50 µs" der ursprünglichen WS2812B. Die Revision V5 — alles seit etwa
+  2020 — verlangt über 280 µs. Der Test rechnet jetzt die Dauer nach, statt
+  eine Zahl zu vergleichen.
+- **Der Pi 5 kann nicht mehr auf PWM stehen bleiben.** Die Betriebsart kommt
+  aus `statusanzeige.json` (Weboberfläche) und **überstimmt** die
+  `config.json` — der Installer korrigierte bisher nur letztere. Jetzt fasst
+  er beide an, und der Dienst korrigiert es zusätzlich beim Start selbst.
 
 ### v0.15.7 — 10.08.2026
 

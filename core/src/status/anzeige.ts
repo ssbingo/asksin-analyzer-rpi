@@ -3,9 +3,9 @@
  *
  * Bezieht seine Daten aus einem injizierten Snapshot-Lieferanten und
  * spricht die Hardware ausschließlich über injizierbare Kommandos an
- * (`i2ctransfer`, `spi-config`, Datei-Schreiben, `gpiomon`) — dadurch ist
- * der komplette Ablauf ohne Hardware testbar, und auf dem Pi genügen die
- * Bordmittel i2c-tools/spi-tools/gpiod.
+ * (`i2ctransfer`, `gpiomon`, Datei-Schreiben) sowie über einen injizierbaren
+ * SPI-Schreiber — dadurch ist der komplette Ablauf ohne Hardware testbar,
+ * und auf dem Pi genügen die Bordmittel i2c-tools/gpiod plus python3.
  *
  * Fehlertoleranz: Fehlt ein Gerät (kein OLED gesteckt, SPI nicht
  * aktiviert), wird der jeweilige Teil nach wenigen Fehlversuchen
@@ -15,6 +15,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
 
 import { systemTime } from '../ingest/time.ts';
 import type { TimeSource } from '../ingest/time.ts';
@@ -67,7 +68,14 @@ export interface StatusAnzeigeOptions {
   daten: () => StatusDaten;
   time?: TimeSource;
   runner?: KommandoRunner;
+  /** Für Tests: überschreibt die Modellerkennung. */
+  istPi5?: () => boolean;
   schreibeGeraet?: (pfad: string, daten: Uint8Array) => Promise<void>;
+  /**
+   * Öffnet den SPI-Schreiber. Vorgabe: der Python-Helfer als Kindprozess.
+   * Für Tests überschreibbar — sonst bräuchte jeder Test ein spidev-Gerät.
+   */
+  spiOeffnen?: (geraet: string, hz: number) => Promise<SpiSchreiber>;
   /** Tastendrücke abonnieren; Rückgabe stoppt das Lauschen. Vorgabe: gpiomon. */
   taster?: (cb: () => void) => () => void;
   onError?: (kontext: string, fehler: unknown) => void;
@@ -80,6 +88,82 @@ export interface StatusAnzeigeOptions {
    * direkt vor dem Abriss, ist der Zusammenhang belegt — oder widerlegt.
    */
   onAktion?: (was: string, daten?: unknown) => void;
+}
+
+/**
+ * Ein offener Schreibweg auf das SPI-Gerät.
+ *
+ * Muss offen bleiben: Der Takt hängt am Dateideskriptor, nicht am Gerät —
+ * beim Schließen setzt der Kern ihn auf den Höchstwert des Reglers zurück.
+ * Begründung und Messung in `deploy/ws2812-spi.py`.
+ */
+export interface SpiSchreiber {
+  schreibe(daten: Uint8Array): Promise<void>;
+  schliesse(): Promise<void>;
+}
+
+/** Pfad des Helfers — liegt neben dem Core: core/src/status → ../../../deploy */
+export const WS2812_HELFER = fileURLToPath(
+  new URL('../../../deploy/ws2812-spi.py', import.meta.url),
+);
+
+/**
+ * Vorgabe-Schreiber: der Python-Helfer als **dauerhaft offener** Kindprozess.
+ *
+ * Er meldet den zurückgelesenen Takt auf der Fehlerausgabe und beendet sich,
+ * wenn er ihn nicht stellen kann. Genau das braucht es hier: Ein stiller
+ * Fehlschlag sähe von außen aus wie eine kaputte LED.
+ */
+export function spiHelferOeffnen(geraet: string, hz: number): Promise<SpiSchreiber> {
+  return new Promise<SpiSchreiber>((auf, ab) => {
+    const kind = spawn('python3', [WS2812_HELFER, geraet, String(hz)], {
+      stdio: ['pipe', 'ignore', 'pipe'],
+    });
+    let meldung = '';
+    let entschieden = false;
+
+    kind.stderr.setEncoding('utf8');
+    kind.stderr.on('data', (stueck: string) => {
+      meldung += stueck;
+      // Die Bereitschaftszeile ist die Quittung: Erst danach steht fest,
+      // dass der Takt wirklich anliegt.
+      if (!entschieden && meldung.includes('SPI bereit:')) {
+        entschieden = true;
+        auf(schreiber);
+      }
+    });
+    const fehlschlag = (grund: string): void => {
+      if (entschieden) return;
+      entschieden = true;
+      ab(new Error(`${grund}${meldung.trim() === '' ? '' : `: ${meldung.trim()}`}`));
+    };
+    kind.on('error', (err) => fehlschlag(`ws2812-spi.py: ${String(err)}`));
+    kind.on('exit', (code) => fehlschlag(`ws2812-spi.py endete mit Code ${String(code)}`));
+
+    const schreiber: SpiSchreiber = {
+      schreibe: (daten) =>
+        new Promise<void>((fertig, schief) => {
+          if (kind.exitCode !== null || kind.signalCode !== null) {
+            schief(new Error(`ws2812-spi.py läuft nicht mehr${meldung.trim() === '' ? '' : `: ${meldung.trim()}`}`));
+            return;
+          }
+          // Hex je Zeile: robust gegen jede Pufferung, und im Protokoll
+          // lesbar. Ein Rahmen sind rund 140 Byte, das faellt nicht ins Gewicht.
+          kind.stdin.write(`${Buffer.from(daten).toString('hex')}\n`, (err) =>
+            err ? schief(err) : fertig(),
+          );
+        }),
+      schliesse: () =>
+        new Promise<void>((fertig) => {
+          if (kind.exitCode !== null || kind.signalCode !== null) {
+            fertig();
+            return;
+          }
+          kind.once('close', () => fertig());
+          kind.stdin.end();      // EOF genuegt — der Helfer laeuft dann aus
+        }),
+    };
+  });
 }
 
 const MAX_FEHLER = 3;
@@ -109,6 +193,18 @@ const HALTE_TAKT_MS = 200;
  */
 const RUECKSPRUNG_MS = 60_000;
 
+/**
+ * Erkennt einen Pi 5 am Modellstring aus dem Gerätebaum.
+ *
+ * Trifft auf „Raspberry Pi 5 Model B Rev 1.1" und auf „Raspberry Pi Compute
+ * Module 5" zu. Eigene Funktion, weil zwei Stellen sie brauchen: die Anzeige
+ * für ihre Meldung und der Dienst, um die Betriebsart zu korrigieren, bevor
+ * PWM überhaupt anläuft.
+ */
+export function istPi5Modell(modell: string): boolean {
+  return modell.includes('Raspberry Pi 5') || modell.includes('Compute Module 5');
+}
+
 export class StatusAnzeige {
   readonly #o: StatusAnzeigeOptions;
   readonly #time: TimeSource;
@@ -129,6 +225,8 @@ export class StatusAnzeige {
   #letzterTastendruck = 0;
   #letzteSeitenaenderung = 0;
   #ledFehler = 0;
+  /** Offener Schreibweg auf das SPI-Gerät; null bei PWM oder abgeschalteter LED. */
+  #spi: SpiSchreiber | null = null;
   #oledFehler = 0;
   #letzterLedSchluessel = '';
   #tasteLaeuft = false;
@@ -150,12 +248,16 @@ export class StatusAnzeige {
     const signal = this.#stop.signal;
 
     if (this.#o.led === 'ws2812-spi') {
-      // SPI-Takt einmalig setzen; die Einstellung bleibt am Gerät bestehen.
+      // Der Takt gehoert zum Deskriptor, nicht zum Geraet: Beim Schliessen
+      // setzt der Kern ihn auf den Hoechstwert des Reglers zurueck. Hier lief
+      // deshalb frueher `spi-config` als eigener Prozess — und hinterliess
+      // nichts. Der Helfer bleibt offen, solange die Anzeige laeuft.
       const geraet = this.#o.spiGeraet ?? '/dev/spidev0.0';
-      this.#o.onAktion?.('SPI wird eingestellt', { geraet, hz: SPI_HZ });
-      const conf = await this.#runner('spi-config', ['-d', geraet, '-s', String(SPI_HZ)]);
-      if (conf.code !== 0) {
-        this.#fehler('led', `spi-config: ${conf.output.trim() || 'nicht verfügbar'}`);
+      this.#o.onAktion?.('SPI wird geoeffnet', { geraet, hz: SPI_HZ });
+      try {
+        this.#spi = await (this.#o.spiOeffnen ?? spiHelferOeffnen)(geraet, SPI_HZ);
+      } catch (err) {
+        this.#fehler('led', err);
         this.#ledFehler = MAX_FEHLER;
       }
       this.#takte.push(this.#ledTakt(signal, geraet));
@@ -189,7 +291,12 @@ export class StatusAnzeige {
     // Hardware dunkel hinterlassen:
     if (this.#ledFehler < MAX_FEHLER && this.#o.led !== 'aus') {
       const [ziel, daten] = this.#ledNutzlast([0, 0, 0], 0);
-      await this.#schreibe(ziel, daten).catch(() => {});
+      await this.#ledSchreiben(ziel, daten).catch(() => {});
+    }
+    // Erst danach schliessen — sonst geht der letzte Rahmen ins Leere.
+    if (this.#spi !== null) {
+      await this.#spi.schliesse().catch(() => {});
+      this.#spi = null;
     }
     if (this.#o.oled) {
       // Ein leerer Zustand lässt den Anzeigedienst das Display räumen.
@@ -299,6 +406,33 @@ export class StatusAnzeige {
     const jetzt = this.#time.now();
     if (jetzt - this.#letztePwmPruefung < PWM_PRUEFUNG_MS) return;
     this.#letztePwmPruefung = jetzt;
+
+    // Zuerst das Modell: Auf dem Pi 5 kann PWM gar nicht arbeiten, und dann
+    // waere "der Hilfsdienst laeuft nicht" zwar wahr, aber irrefuehrend — er
+    // beendet sich dort mit Absicht.
+    //
+    // Grund: Auf dem Pi 5 sitzt die Peripherie hinter dem RP1-Chip, waehrend
+    // rpi_ws281x weiterhin auf die alte Speicherlage zielt. Im guenstigen
+    // Fall verweigert die Bibliothek den Start, im unguenstigen richtet ein
+    // DMA-Kanal Schreibzugriffe auf fremden Speicher — das haengt den Rechner
+    // hart auf, ohne eine Zeile im Journal.
+    //
+    // Am 10.08.2026 an Analyzer 01 aufgetreten: Das Geraet wurde fuer einen
+    // Pi 4 gehalten, PWM eingestellt, LED blieb dunkel. Die Erklaerung stand
+    // nur auf der Fehlerausgabe des Helfers, die niemand sieht — der Dienst
+    // laeuft ja unter systemd.
+    if (this.#istPi5()) {
+      if (this.#pwmGemeldet) return;
+      this.#pwmGemeldet = true;
+      this.#fehler(
+        'led',
+        'Dieses Gerät ist ein Raspberry Pi 5 — dort kann PWM die LED nicht ' +
+          'ansteuern. Einstellungen → Ansteuerung auf **SPI / GPIO10** ' +
+          'stellen und den Schiebeschalter SW1 auf der Platine ebenfalls auf ' +
+          'SPI schieben. Einen Hilfsdienst braucht es dann nicht.',
+      );
+      return;
+    }
     let laeuft = false;
     try {
       const erg = await this.#runner('systemctl', ['is-active', 'asksin-analyzer-led']);
@@ -319,6 +453,19 @@ export class StatusAnzeige {
         'Einrichten mit: sudo bash /opt/asksin-analyzer/deploy/' +
         'led-pwm-einrichten.sh (Handbuch 18)',
     );
+  }
+
+  /**
+   * Ein LED-Rahmen — bei SPI durch den offenen Helfer, bei PWM als Text in
+   * die Datei, die der Root-Hilfsdienst liest.
+   */
+  async #ledSchreiben(ziel: string, daten: Uint8Array): Promise<void> {
+    if (this.#o.led !== 'ws2812-spi') {
+      await this.#schreibe(ziel, daten);
+      return;
+    }
+    if (this.#spi === null) throw new Error('SPI ist nicht geöffnet');
+    await this.#spi.schreibe(daten);
   }
 
   async #ledTakt(signal: AbortSignal, geraet: string): Promise<void> {
@@ -343,7 +490,7 @@ export class StatusAnzeige {
           grund: muster.grund,
           bytes: daten.length,
         });
-        await this.#schreibe(geraet, daten);
+        await this.#ledSchreiben(geraet, daten);
         this.#o.onAktion?.('LED-Frame geschrieben');
       } catch (err) {
         this.#ledFehler++;
@@ -461,6 +608,19 @@ export class StatusAnzeige {
         'oled',
         'Anzeigedienst meldet kein Bild mehr — Taster wieder inaktiv',
       );
+    }
+  }
+
+  /**
+   * Modell aus dem Gerätebaum — die verlässlichste Quelle, die es gibt: Sie
+   * kommt vom Bootloader, nicht aus einer Vermutung über Kernel oder CPU.
+   */
+  #istPi5(): boolean {
+    if (this.#o.istPi5 !== undefined) return this.#o.istPi5();
+    try {
+      return istPi5Modell(readFileSync('/proc/device-tree/model', 'latin1'));
+    } catch {
+      return false;   // Unbekannt heißt nicht "Pi 5" — nichts behaupten
     }
   }
 

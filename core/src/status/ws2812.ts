@@ -14,8 +14,21 @@ export const SPI_HZ = 2_400_000;
 
 export type Farbe = [rot: number, gruen: number, blau: number];
 
-/** Latch: > 50 µs Leitung low vor/nach den Daten. 64 Nullbytes ≈ 213 µs. */
-const LATCH_BYTES = 64;
+/**
+ * Latch: Leitung low vor und nach den Daten, damit die LED übernimmt.
+ *
+ * 128 Nullbytes ≈ 427 µs bei 2,4 MHz. Vorher standen hier 64 Bytes ≈ 213 µs,
+ * begründet mit den „> 50 µs" aus dem Datenblatt der **ursprünglichen**
+ * WS2812B. Die Revision **V5** — alles, was seit etwa 2020 verkauft wird —
+ * verlangt für dieselbe Bauform **über 280 µs**. Die alte Zahl lag darunter;
+ * ein solches Bauteil übernimmt die Farbe dann nie, obwohl auf der
+ * Datenleitung alles richtig aussieht. Mit 427 µs sind beide Fassungen
+ * bedient, und teuer ist es nicht: Der Rahmen wächst um 128 Byte.
+ */
+export const LATCH_BYTES = 128;
+
+/** Was die Revision V5 mindestens verlangt — die Prüfung rechnet dagegen. */
+export const LATCH_MINDEST_US = 280;
 
 /**
  * Kodiert eine Farbe (GRB-Reihenfolge der WS2812) als SPI-Bytestrom,

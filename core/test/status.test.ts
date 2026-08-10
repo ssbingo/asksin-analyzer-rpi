@@ -1,10 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { StatusAnzeige } from '../src/status/anzeige.ts';
+import { istPi5Modell, spiHelferOeffnen, StatusAnzeige } from '../src/status/anzeige.ts';
 import { glyphe } from '../src/status/font.ts';
 import { OledBild, i2cTransferArgs, initKommandos } from '../src/status/ssd1306.ts';
-import { kodiereWs2812 } from '../src/status/ws2812.ts';
+import {
+  LATCH_BYTES, LATCH_MINDEST_US, SPI_HZ, kodiereWs2812,
+} from '../src/status/ws2812.ts';
 import {
   SEITEN_ANZAHL,
   blinkPhase,
@@ -41,11 +43,23 @@ test('Framebuffer: Glyphe A landet spaltengenau im Puffer', () => {
 });
 
 test('WS2812-SPI-Kodierung: 1→110, 0→100, GRB-Reihenfolge, Latch', () => {
+  const L = LATCH_BYTES;
   const puffer = kodiereWs2812([255, 0, 0], 100);   // rot → GRB 00,FF,00
-  assert.equal(puffer.length, 64 + 9 + 64);
-  assert.ok(puffer.slice(0, 64).every((b) => b === 0), 'Latch davor');
-  assert.ok(puffer.slice(73).every((b) => b === 0), 'Latch danach');
-  const daten = [...puffer.slice(64, 73)];
+  assert.equal(puffer.length, L + 9 + L);
+  assert.ok(puffer.slice(0, L).every((b) => b === 0), 'Latch davor');
+  assert.ok(puffer.slice(L + 9).every((b) => b === 0), 'Latch danach');
+
+  // Nicht die Zahl pruefen, sondern die Bedingung: Die Revision V5 der
+  // WS2812B verlangt ueber 280 us Ruhe, die alte Fassung nur 50. Wer den
+  // Latch spaeter kuerzt, faellt hier auf — und nicht erst an einer dunklen
+  // LED, an der alles andere richtig aussieht.
+  const latchUs = (L * 8) / (SPI_HZ / 1e6);
+  assert.ok(
+    latchUs > LATCH_MINDEST_US,
+    `Latch ${latchUs.toFixed(0)} us, verlangt sind > ${LATCH_MINDEST_US} us`,
+  );
+
+  const daten = [...puffer.slice(L, L + 9)];
   assert.deepEqual(daten, [
     0x92, 0x49, 0x24,     // G = 0x00 → acht mal 100
     0xdb, 0x6d, 0xb6,     // R = 0xFF → acht mal 110
@@ -54,7 +68,7 @@ test('WS2812-SPI-Kodierung: 1→110, 0→100, GRB-Reihenfolge, Latch', () => {
   // Halbe Helligkeit skaliert die Farbwerte, nicht das Timing:
   const halb = kodiereWs2812([255, 0, 0], 50);
   assert.equal(halb.length, puffer.length);
-  assert.notDeepEqual([...halb.slice(64, 73)], daten);
+  assert.notDeepEqual([...halb.slice(L, L + 9)], daten);
 });
 
 test('LED-Muster: Prioritätsleiter Alarm > getrennt > Fehler > Demo > Update > ok', () => {
@@ -136,6 +150,11 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
   const geschrieben: Array<[string, Uint8Array]> = [];
   let taste: (() => void) | null = null;
   let daten = { ...DATEN };
+  // Der SPI-Schreiber bleibt offen — genau das ist der Punkt. Wird er je
+  // Rahmen neu geoeffnet, faellt der Takt auf den Geraetehoechstwert zurueck.
+  const spiFrames: Uint8Array[] = [];
+  const spiOeffnungen: Array<[string, number]> = [];
+  let spiOffen = 0;
 
   const anzeige = new StatusAnzeige({
     led: 'ws2812-spi',
@@ -151,6 +170,20 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
       geschrieben.push([pfad, bytes]);
       return Promise.resolve();
     },
+    spiOeffnen: (geraet, hz) => {
+      spiOeffnungen.push([geraet, hz]);
+      spiOffen++;
+      return Promise.resolve({
+        schreibe: (bytes) => {
+          spiFrames.push(bytes);
+          return Promise.resolve();
+        },
+        schliesse: () => {
+          spiOffen--;
+          return Promise.resolve();
+        },
+      });
+    },
     bildVorhanden: () => true,
     // Beim Loslassen abgefragt: kurzer Druck, also blättern.
     tasteGedrueckt: () => Promise.resolve(false),
@@ -163,7 +196,14 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
   });
 
   await anzeige.start();
-  assert.deepEqual(kommandos[0]![0], 'spi-config');
+  // Genau einmal geoeffnet, mit dem Takt aus der Kodierung — und NICHT ueber
+  // spi-config: Dessen Einstellung stirbt mit seinem Prozess (10.08.2026,
+  // Analyzer 01: gemessen 125 MHz statt 2,4 MHz, LED dunkel).
+  assert.deepEqual(spiOeffnungen, [['/dev/spidev0.0', SPI_HZ]]);
+  assert.equal(
+    kommandos.filter(([cmd]) => cmd === 'spi-config').length, 0,
+    'spi-config darf nicht mehr vorkommen',
+  );
   // Das OLED zeichnet der eigene Anzeigedienst; der Core schreibt nur Werte.
   const zustand = (): Record<string, unknown> => {
     const eintrag = geschrieben.filter(([p]) => p.endsWith('oled-state.json')).at(-1);
@@ -172,8 +212,7 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
   assert.equal(zustand()['status'], 'BEREIT', 'Zustand geschrieben');
 
   await time.advance(500);                          // LED-Takt + OLED-Takt
-  const ledFrames = (): Uint8Array[] =>
-    geschrieben.filter(([pfad]) => pfad === '/dev/spidev0.0').map(([, b]) => b);
+  const ledFrames = (): Uint8Array[] => spiFrames;
   assert.ok(ledFrames().length >= 1, 'LED-Frame geschrieben');
   const gruen = kodiereWs2812([0, 255, 40], 100);
   assert.deepEqual([...ledFrames()[0]!], [...gruen], 'grün = alles ok');
@@ -198,6 +237,8 @@ test('StatusAnzeige: LED-Takt schreibt kodierte Frames, OLED initialisiert und b
   await anzeige.stop();
   const schwarz = kodiereWs2812([0, 0, 0], 100);
   assert.deepEqual([...ledFrames().at(-1)!], [...schwarz], 'LED dunkel beim Stopp');
+  assert.equal(spiOffen, 0, 'SPI wird beim Stopp geschlossen');
+  assert.equal(spiOeffnungen.length, 1, 'einmal geoeffnet, nicht je Rahmen');
   // Beim Stopp bekommt der Anzeigedienst „aus" — er räumt das Display selbst.
   assert.equal(zustand()['aus'], true, 'Anzeigedienst wird abgeräumt');
 });
@@ -212,6 +253,7 @@ test('StatusAnzeige: fehlende Hardware legt nur den Teil still, wirft nie', asyn
     time,
     runner: () => Promise.resolve({ code: 1, output: 'No such device' }),
     schreibeGeraet: () => Promise.reject(new Error('ENOENT')),
+    spiOeffnen: () => Promise.reject(new Error('No such device')),
     taster: () => () => {},
     onError: (kontext) => {
       fehler.push(kontext);
@@ -584,4 +626,74 @@ test('Laeuft der PWM-Hilfsdienst, wird nichts gemeldet', async () => {
     `keine Meldung im guten Fall, war: ${JSON.stringify(fehler)}`,
   );
   await anzeige.stop();
+});
+
+test('Pi 5 mit PWM: der Analyzer nennt das Modell, nicht den Hilfsdienst', async () => {
+  // Analyzer 01 am 10.08.2026: Das Geraet wurde fuer einen Pi 4 gehalten und
+  // auf PWM gestellt. Der Hilfsdienst beendet sich dort mit Absicht — auf dem
+  // Pi 5 sitzt die Peripherie hinter dem RP1, waehrend rpi_ws281x auf die
+  // alte Speicherlage zielt. "Hilfsdienst laeuft nicht" waere zwar wahr, aber
+  // irrefuehrend: Er SOLL dort nicht laufen.
+  const time = new FakeTime();
+  const fehler: string[] = [];
+  let systemctlGefragt = 0;
+
+  const anzeige = new StatusAnzeige({
+    led: 'ws2812-pwm',
+    oled: false,
+    daten: () => ({ ...DATEN }),
+    time,
+    istPi5: () => true,
+    runner: (cmd) => {
+      if (cmd === 'systemctl') systemctlGefragt++;
+      return Promise.resolve({ code: 3, output: 'inactive' });
+    },
+    schreibeGeraet: () => Promise.resolve(),
+    onError: (kontext, err) => fehler.push(`${kontext}: ${String(err)}`),
+  });
+
+  await anzeige.start();
+  await time.advance(70_000);
+
+  const treffer = fehler.filter((f) => /Raspberry Pi 5/.test(f));
+  assert.equal(treffer.length, 1, `genau einmal melden, war: ${treffer.length}`);
+  assert.match(treffer[0]!, /SPI/, 'nennt die richtige Betriebsart');
+  assert.match(treffer[0]!, /SW1/, 'und den Schalter auf der Platine');
+  assert.equal(
+    fehler.filter((f) => /Hilfsdienst asksin-analyzer-led läuft nicht/.test(f)).length, 0,
+    'nicht zusaetzlich sein Fehlen beklagen — er soll dort gar nicht laufen',
+  );
+  assert.equal(systemctlGefragt, 0, 'auf dem Pi 5 gar nicht erst nachfragen');
+
+  await anzeige.stop();
+});
+
+test('ws2812-spi.py meldet einen Fehlschlag, statt still nichts zu tun', async () => {
+  // Der Helfer ist die einzige Stelle, die den SPI-Takt setzen kann (Node
+  // kennt kein ioctl). Scheitert er, MUSS er das sagen: Ein stiller
+  // Fehlschlag sieht von aussen aus wie eine kaputte LED — genau daran ist
+  // am 10.08.2026 ein halber Tag draufgegangen.
+  await assert.rejects(
+    () => spiHelferOeffnen('/dev/gibtesnicht-spidev', SPI_HZ),
+    (err: Error) => /gibtesnicht-spidev|ws2812-spi\.py/.test(err.message),
+    'Fehlschlag muss das Geraet oder den Helfer benennen',
+  );
+});
+
+test('istPi5Modell trifft die RP1-Generation und sonst nichts', () => {
+  // Der Modellstring kommt aus dem Geraetebaum und endet auf ein Nullbyte —
+  // so, wie er dasteht, wird er geprueft.
+  assert.equal(istPi5Modell('Raspberry Pi 5 Model B Rev 1.1\0'), true, 'Analyzer 01');
+  assert.equal(istPi5Modell('Raspberry Pi Compute Module 5 Rev 1.0\0'), true, 'CM5');
+  // Der Pi 500 steckt denselben Chip in eine Tastatur — RP1 inklusive.
+  // Dass "Raspberry Pi 500" die Pruefung besteht, ist Absicht, kein Zufall.
+  assert.equal(istPi5Modell('Raspberry Pi 500 Rev 1.0\0'), true, 'Pi 500');
+
+  assert.equal(istPi5Modell('Raspberry Pi 4 Model B Rev 1.5\0'), false, 'Pi 4');
+  assert.equal(istPi5Modell('Raspberry Pi 400 Rev 1.0\0'), false, 'Pi 400');
+  assert.equal(istPi5Modell('Raspberry Pi 3 Model B Plus Rev 1.3\0'), false, 'Pi 3');
+  assert.equal(istPi5Modell('Raspberry Pi Compute Module 4 Rev 1.0\0'), false, 'CM4');
+  // Unbekannt heisst nicht "Pi 5": Auf einem fremden Rechner darf die
+  // Erkennung nichts behaupten, sonst stellt sie stillschweigend um.
+  assert.equal(istPi5Modell(''), false, 'kein Geraetebaum');
 });

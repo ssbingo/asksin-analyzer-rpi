@@ -382,6 +382,16 @@ if [ "$PI_GEN" = "5" ] && [ "$LED_METHODE" = "ws2812-pwm" ]; then
         sed -i 's/"led"[[:space:]]*:[[:space:]]*"ws2812-pwm"/"led": "ws2812-spi"/' \
             "$CONFIG_FILE"
     fi
+    # Und hier die Datei, auf die es wirklich ankommt: Die Weboberfläche
+    # schreibt die Betriebsart nach statusanzeige.json, und die ÜBERSTIMMT die
+    # config.json (core/bin/analyzerd.ts, statusKonfigLesen). Sie liegt in den
+    # Daten und überlebt jede Neuinstallation. Genau das ist am 10.08.2026 an
+    # Analyzer 01 passiert: config.json korrekt auf SPI, statusanzeige.json
+    # weiter auf PWM — und die LED blieb dunkel, obwohl alles richtig aussah.
+    if [ -f "$DATA_DIR/statusanzeige.json" ]; then
+        sed -i 's/"led"[[:space:]]*:[[:space:]]*"ws2812-pwm"/"led": "ws2812-spi"/' \
+            "$DATA_DIR/statusanzeige.json"
+    fi
     systemctl disable --now asksin-analyzer-led.service 2>/dev/null || true
 fi
 

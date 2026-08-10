@@ -72,7 +72,7 @@ import { Protokoll, istStufe } from '../src/log/protokoll.ts';
 import type { Stufe } from '../src/log/protokoll.ts';
 import { auffaelligkeiten, erhebeSystemwerte, leseLuefterUpm } from '../src/log/diagnose.ts';
 import { Systemlog } from '../src/log/systemlog.ts';
-import { StatusAnzeige } from '../src/status/anzeige.ts';
+import { istPi5Modell, StatusAnzeige } from '../src/status/anzeige.ts';
 import { OLED_HOEHE_VORGABE, OledBild } from '../src/status/ssd1306.ts';
 import type { OledHoehe } from '../src/status/ssd1306.ts';
 import {
@@ -1044,6 +1044,12 @@ interface StatusKonfig {
   oledHoehe: OledHoehe;
 }
 
+/**
+ * Damit die Meldung unten einmal erscheint und nicht bei jedem Abruf der
+ * Weboberfläche — `statusKonfigLesen()` läuft auch für die Live-Vorschau.
+ */
+let pwmAufPi5Gemeldet = false;
+
 function statusKonfigLesen(): StatusKonfig {
   let basis = {
     led: konfig.statusanzeige?.led ?? 'aus',
@@ -1064,6 +1070,27 @@ function statusKonfigLesen(): StatusKonfig {
     };
   } catch {
     /* keine UI-Datei — config.json/Vorgaben gelten */
+  }
+  // Auf dem Pi 5 kann PWM die LED nicht ansteuern: Die Peripherie sitzt hinter
+  // dem RP1-Chip, rpi_ws281x zielt weiterhin auf die alte Speicherlage.
+  //
+  // Das gehört hierher und nicht nur in den Installer. Am 10.08.2026 hat
+  // Analyzer 01 (ein Pi 5) genau das vorgeführt: Der Installer stellte die
+  // config.json korrekt auf SPI um — die Betriebsart kommt aber aus
+  // statusanzeige.json, und die fasst er nicht an. Also blieb dort „ws2812-pwm"
+  // stehen, überstimmte die richtige Einstellung, und die LED blieb dunkel,
+  // während beide Dateien einander widersprachen. Wer nur in die config.json
+  // sieht, sucht danach an der falschen Stelle — ich auch.
+  if (basis.led === 'ws2812-pwm' && istPi5Modell(leseModell())) {
+    if (!pwmAufPi5Gemeldet) {
+      pwmAufPi5Gemeldet = true;
+      log(
+        'PWM ist auf dem Raspberry Pi 5 nicht möglich (RP1) — die Status-LED ' +
+          'läuft hier über SPI/GPIO10. Der Schiebeschalter SW1 auf der Platine ' +
+          'muss dazu auf SPI stehen.',
+      );
+    }
+    basis.led = 'ws2812-spi';
   }
   return basis;
 }
