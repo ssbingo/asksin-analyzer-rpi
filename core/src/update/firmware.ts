@@ -131,7 +131,18 @@ export interface FlashErgebnis {
  * endet `gpioset` und laesst sie auf diesem Pegel stehen — der 328P laeuft.
  * Kurz genug, dass avrdude noch in Optiboots ~1-s-Fenster kommt.
  */
-const FREIGABE_MS = 100;
+/**
+ * Laenge des Reset-Impulses.
+ *
+ * Der Reset entsteht an der FLANKE (GPIO4 haengt ueber C8 am RESET), die
+ * Haltezeit ist also fuer die Wirkung gleichgueltig. Sie geht aber vom
+ * Ein-Sekunden-Fenster ab, das urboot danach lauscht — deshalb so kurz wie
+ * praktikabel. Frueher standen hier 300 ms, ohne Not.
+ */
+const RESET_MS = 50;
+
+/** Ebenso kurz: Die Leitung muss nur wieder HIGH werden. */
+const FREIGABE_MS = 50;
 
 /**
  * Vorlauf fuer avrdude, bevor zurueckgesetzt wird.
@@ -139,7 +150,25 @@ const FREIGABE_MS = 100;
  * Lang genug, dass der Port offen ist und der erste Sync hinausgeht; kurz
  * genug, dass noch reichlich Wiederholungen folgen.
  */
-const ANLAUF_MS = 400;
+/**
+ * Baudrate zum Flashen — bewusst NICHT die krumme Betriebsrate 58 824.
+ *
+ * Am 10.08.2026 durchgemessen, Reset zuerst, dann avrdude:
+ *
+ *     115200  kein Sync
+ *      57600  ERFOLG
+ *      19200  ERFOLG
+ *
+ * urboot misst die Baudrate selbst (Autobaud), die Rate muss also nicht zur
+ * Firmware passen. Bei 8 MHz ist 115200 aber zu schnell fuer seine
+ * Zaehlschleife — sie kommt mit der Aufloesung nicht mit.
+ *
+ * 57600 passt zusaetzlich zu einem alten Optiboot: Der spricht bei 8 MHz real
+ * 58 823,5, das sind 2,1 % Abweichung und damit innerhalb der Toleranz. Und
+ * es ist eine genormte Rate, die jedes stty und jedes avrdude ohne Umweg
+ * setzen kann.
+ */
+const FLASH_BAUD = 57_600;
 
 /**
  * Programmer, in dieser Reihenfolge versucht.
@@ -202,10 +231,10 @@ export async function flashFirmware(
   options: FlashOptions,
 ): Promise<FlashErgebnis> {
   const run = options.runCommand ?? standardRunner;
-  const baud = options.baud ?? 58_824;
+  const baud = options.baud ?? FLASH_BAUD;
   const chip = options.gpioChip ?? 'gpiochip0';
   const line = options.gpioLine ?? 4;
-  const resetMs = options.resetMs ?? 300;
+  const resetMs = options.resetMs ?? RESET_MS;
   const reset =
     options.reset === undefined || options.reset === 'auto'
       ? options.device.includes('usb')
@@ -261,20 +290,37 @@ export async function flashFirmware(
   let tief = false;
   let hoch = false;
 
+  /*
+   * Erst der Reset, DANN avrdude — und moeglichst dicht hintereinander.
+   *
+   * urboot betritt seine Programmierschleife nur nach einem EXTERNEN Reset
+   * (`sbrs r2, 1` auf MCUSR, Bit 1 = EXTRF) und loescht MCUSR dabei. Danach
+   * lauscht er genau eine Sekunde; laeuft die ab, kommt er ohne neuen
+   * externen Reset nie wieder.
+   *
+   * In dieser Sekunde misst er die Baudrate an der ERSTEN LOW-Phase auf der
+   * Leitung. Deshalb muss sie beim Reset ruhig sein: Laeuft avrdude schon und
+   * sendet, faellt der Reset mitten in ein Byte, urboot misst eine
+   * angebrochene LOW-Phase und stellt eine falsche Rate ein.
+   *
+   * Genau das war der Fehler in v0.14.6. Dort habe ich die Reihenfolge
+   * umgedreht, weil ich Optiboot vor mir sah — das kennt kein Autobaud und
+   * ist gegen einen laufenden avrdude gleichgueltig. Gegen urboot ist es der
+   * Unterschied zwischen "geht" und "geht nie".
+   *
+   * Nachgemessen am 10.08.2026 an Analyzer 01, urboot verifiziert im Flash:
+   * mit dieser Reihenfolge und 57600 Baud meldet sich der Bootloader.
+   */
   for (const programmer of PROGRAMMER) {
-    melde(`avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud`);
-    log.push(`avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud`);
-    const avrLaeuft = run('avrdude', bauArgs(programmer));
-
-    // Kurz warten, damit avrdude den Port offen hat und schon anklopft.
-    await new Promise<void>((r) => setTimeout(r, options.anlaufMs ?? ANLAUF_MS));
-
     tief = await gpioHalten(run, chip, line, 0, resetMs, log, melde);
     hoch = tief
       ? await gpioHalten(run, chip, line, 1, FREIGABE_MS, log, melde)
       : false;
 
-    avr = await avrLaeuft;
+    melde(`avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud`);
+    log.push(`avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud`);
+    avr = await run('avrdude', bauArgs(programmer));
+
     if (avr.code === 0) break;
     log.push(avr.output.trim());
     const zwischen = deuteAvrdude(avr.output);

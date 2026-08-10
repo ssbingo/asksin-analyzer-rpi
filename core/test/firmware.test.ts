@@ -64,27 +64,21 @@ function gpioModell(syntax: 'v1' | 'v2' = 'v2') {
     }
 
     if (cmd === 'avrdude') {
-      // avrdude laeuft und wiederholt den Sync. Kommt WAEHRENDDESSEN eine
-      // fallende Flanke, startet Optiboot und der Sync gelingt; bleibt sie
-      // aus, laeuft avrdude in "not in sync".
+      // Der Bootloader antwortet nur, wenn VOR avrdude eine fallende Flanke
+      // kam — und die Leitung beim Reset ruhig war.
       //
-      // Genau das bildet die Reihenfolge ab, die am 10.08.2026 noetig wurde:
-      // Optiboot lauscht nur eine Sekunde, und wer vorher zuruecksetzt,
-      // verliert den Wettlauf gegen den Start von avrdude.
-      const bis = Date.now() + 300;
-      return new Promise((auf) => {
-        const pruefe = (): void => {
-          if (flankeSeitFlash) {
-            flankeSeitFlash = false;
-            auf({ code: 0, output: 'avrdude done' });
-          } else if (Date.now() > bis) {
-            auf({ code: 1, output: 'stk500_getsync(): not in sync: resp=0x00' });
-          } else {
-            setTimeout(pruefe, 2);
-          }
-        };
-        pruefe();
-      });
+      // urboot betritt seine Schleife ausschliesslich nach externem Reset und
+      // misst dann die Baudrate an der ersten LOW-Phase. Laeuft avrdude schon
+      // und sendet, faellt der Reset mitten in ein Byte und die Messung geht
+      // daneben. Am 10.08.2026 durchgemessen: Reset zuerst -> Sync, avrdude
+      // zuerst -> nie.
+      const erreichbar = flankeSeitFlash;
+      flankeSeitFlash = false;
+      return Promise.resolve(
+        erreichbar
+          ? { code: 0, output: 'avrdude done' }
+          : { code: 1, output: 'urclock_getsync(): not in sync' },
+      );
     }
     return Promise.resolve({ code: 0, output: '' });
   };
@@ -110,13 +104,14 @@ test('HAT-Flash: zweimal hintereinander — jeder Reset braucht eine eigene Flan
   const hoch = namen.findIndex((z) => z.includes('4=1'));
   const avr = namen.findIndex((z) => z.startsWith('avrdude'));
   assert.ok(tief >= 0 && hoch > tief, 'erst LOW, dann HIGH');
-  // Umgekehrt zu frueher: avrdude muss SCHON LAUFEN, wenn der Reset kommt.
-  // Optiboot lauscht nur eine Sekunde; wer vorher zuruecksetzt, verliert den
-  // Wettlauf gegen den Start von avrdude.
-  assert.ok(avr < tief, 'avrdude startet VOR dem Reset-Impuls');
+  // Nachgemessen am 10.08.2026: urboot braucht eine ruhige Leitung, wenn er
+  // nach dem Reset die Baudrate misst. Also erst der Impuls, dann avrdude.
+  assert.ok(avr > hoch, 'avrdude startet NACH dem Reset-Impuls');
 
   const avrArgs = g.aufrufe[avr]!.args;
-  assert.ok(avrArgs.includes('-b') && avrArgs.includes('58824'), 'krumme Baudrate');
+  // 57600 statt der krummen Betriebsrate: urboot misst selbst, und bei 8 MHz
+  // ist 115200 zu schnell fuer seine Zaehlschleife (durchgemessen).
+  assert.ok(avrArgs.includes('-b') && avrArgs.includes('57600'), 'genormte Flash-Rate');
   assert.ok(avrArgs.includes('/dev/asksin-hat'));
   assert.ok(avrArgs.includes('flash:w:/tmp/fw.hex:i'));
 });
@@ -129,9 +124,9 @@ test('HAT-Flash: fällt auf gpioset-v1-Syntax zurück, auch beim Freigeben', asy
   assert.equal(g.leitung.pegel, 1);
   assert.ok(
     g.aufrufe.some(
-      (a) => a.cmd === 'gpioset' && a.args.join(' ') === '--mode=time --usec=300000 gpiochip0 4=0',
+      (a) => a.cmd === 'gpioset' && a.args.join(' ') === '--mode=time --usec=50000 gpiochip0 4=0',
     ),
-    'v1-Impuls mit 300 ms',
+    'v1-Impuls mit 50 ms — kurz, weil die Haltezeit vom Ein-Sekunden-Fenster abgeht',
   );
 });
 
@@ -159,14 +154,12 @@ test('HAT-Flash: scheitert die Freigabe, sagt das Log wie man von Hand löst', a
   assert.match(erg.log, /pinctrl set 4 ip pu/, 'Ausweg steht im Log');
   assert.match(erg.log, /naechste Flash keine fallende Flanke/,
     'warnt vor der Folge fuers naechste Mal');
-  // Frueher stand hier "kein avrdude, wenn die Leitung nicht sauber wurde".
-  // Das gilt seit dem 10.08.2026 nicht mehr und darf auch nicht mehr gelten:
-  // avrdude MUSS vor dem Reset laufen, sonst ist Optiboots Sekunde vorbei,
-  // bevor es den Port offen hat. Es laeuft also — und meldet folgerichtig,
-  // dass niemand geantwortet hat.
+  // avrdude laeuft trotzdem — der Reset-Impuls selbst kam ja (nur das
+  // Zurueckziehen der Leitung scheiterte), und der Bootloader ist dadurch
+  // erreichbar. Der Hinweis betrifft den NAECHSTEN Flash.
   assert.ok(
     g.aufrufe.some((a) => a.cmd === 'avrdude'),
-    'avrdude laeuft zuerst, das ist der Sinn der Reihenfolge',
+    'der Impuls kam, also wird auch geflasht',
   );
 
 });
@@ -183,15 +176,16 @@ test('USB-Flash: kein GPIO — avrdude übernimmt den Reset über DTR', async ()
 });
 
 test('avrdude-Fehler wird als ok:false mit Log gemeldet, wirft nie', async () => {
-  // Reihenfolge seit 10.08.2026: avrdude zuerst, danach der Reset-Impuls.
-  // Und zwei Anlaeufe, weil urclock (urboot) vor arduino (Optiboot) kommt.
+  // Reihenfolge: erst der Reset-Impuls, dann avrdude — urboot braucht eine
+  // ruhige Leitung fuer seine Baudratenmessung. Zwei Anlaeufe, weil urclock
+  // (urboot) vor arduino (Optiboot) kommt.
   const r = runner([
-    { code: 1, output: 'stk500_getsync(): not in sync' },   // avrdude urclock
     { code: 124, output: '' },                              // Impuls LOW
     { code: 124, output: '' },                              // Leitung HIGH
-    { code: 1, output: 'stk500_getsync(): not in sync' },   // avrdude arduino
+    { code: 1, output: 'urclock_getsync(): not in sync' },  // avrdude urclock
     { code: 124, output: '' },
     { code: 124, output: '' },
+    { code: 1, output: 'urclock_getsync(): not in sync' },  // avrdude arduino
   ]);
   const erg = await flashFirmware('/tmp/fw.hex', {
     device: '/dev/asksin-hat',

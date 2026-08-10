@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.2** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.2** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.3** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.3** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,40 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.3 — 10.08.2026
+
+**Der Firmware-Flash über die Weboberfläche funktioniert.** Es brauchte zwei
+Bedingungen, nicht eine — und beide wurden an echter Hardware durchgemessen,
+mit verifiziertem urboot im Flash:
+
+| Baudrate | Reset zuerst, dann avrdude |
+| --- | --- |
+| 115200 | kein Sync |
+| **57600** | **Sync** |
+| **19200** | **Sync** |
+
+**Erstens: erst zurücksetzen, dann `avrdude` starten.** urboot betritt seine
+Programmierschleife ausschließlich nach einem **externen** Reset (`sbrs r2, 1`
+auf `MCUSR`, Bit 1 = `EXTRF`) und löscht `MCUSR` dabei — danach lauscht er
+genau eine Sekunde und ist ohne neuen Reset nie wieder erreichbar. In dieser
+Sekunde misst er die Baudrate an der **ersten LOW-Phase** auf der Leitung.
+Läuft `avrdude` schon und sendet, fällt der Reset mitten in ein Byte, die
+Messung geht daneben, und es bleibt bei „not in sync".
+
+Das war der Fehler in v0.14.6: Dort hatte ich die Reihenfolge umgedreht, weil
+ich Optiboot vor mir sah — das kennt kein Autobaud und ist gegen einen
+laufenden `avrdude` gleichgültig. Gegen urboot ist es der Unterschied zwischen
+„geht" und „geht nie".
+
+**Zweitens: 57600 Baud statt der krummen 58 824.** urboot misst selbst, die
+Rate muss also nicht zur Firmware passen — bei 8 MHz ist 115200 aber zu
+schnell für seine Zählschleife. 57600 ist genormt, passt zusätzlich zu einem
+alten Optiboot (2,1 % Abweichung, innerhalb der Toleranz) und braucht keinen
+Umweg über `termios2`.
+
+Der Reset-Impuls ist außerdem von 300 auf 50 ms verkürzt: Er entsteht an der
+Flanke, die Haltezeit geht nur vom Ein-Sekunden-Fenster ab.
 
 ### v0.15.2 — 10.08.2026
 
