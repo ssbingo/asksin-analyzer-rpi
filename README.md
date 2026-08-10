@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.6** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.6** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.0** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,37 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.0 — 10.08.2026
+
+**Der serielle Port wird jetzt über einen Kindprozess gelesen, nicht über
+einen Dateistrom.** Das ist die Wurzel von allem, was seit v0.14.1 geflickt
+wurde — und der Grund, warum jede Reparatur nur das nächste Symptom freilegte.
+
+`fs.createReadStream` auf einer seriellen Schnittstelle lässt sich **nicht
+unterbrechen**: Der `read()` hängt im Thread-Pool von libuv, `destroy()` weckt
+ihn nicht, kein Abbruchsignal erreicht ihn. An einer stillen Leitung — der
+Normalfall — bleibt er dort liegen. Daraus folgte alles auf einmal:
+
+| Symptom | Fassung |
+| --- | --- |
+| Flash blieb bei „Ingest wird angehalten" stehen | v0.14.1 gab `close()` eine Frist |
+| `stop()` hing trotzdem | v0.14.5 gab der Leseschleife ein Abbruchsignal |
+| Dienst ließ sich nicht neu starten | der verwaiste `read()` hielt den Prozess |
+| `not in sync: resp=0xa0` | der verwaiste Leser nahm avrdude die Antwort des Bootloaders weg |
+
+Die letzten beiden traten auf **beiden** Geräten identisch auf — ein Wettlauf
+sähe erratisch aus, gleiches Verhalten heißt gleiche Ursache.
+
+Ein Kindprozess löst es an der Wurzel: Seine Standardausgabe ist eine Pipe,
+und Pipes sind vollständig asynchron. Beim Beenden räumt das Betriebssystem
+den hängenden `read()` und den Dateideskriptor auf — es gibt nichts mehr,
+worauf man vergeblich warten könnte. Es kommt keine Abhängigkeit dazu; `cat`
+ist ein Bordwerkzeug, und genau so liefen alle erfolgreichen Handmessungen.
+
+Tests laufen gegen eine echte benannte Pipe und ein echtes `cat`. Die
+Gegenprobe zeigt den Unterschied: Der Dateistrom meldet nach `destroy()` kein
+`close`, der Kindprozess ist in rund 100 ms weg.
 
 ### v0.14.6 — 10.08.2026
 

@@ -1,5 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { closeSync, constants, mkdtempSync, openSync, rmSync, writeSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { LineSplitter } from '../src/ingest/lineSplitter.ts';
 import { BoundedQueue } from '../src/ingest/queue.ts';
@@ -8,10 +12,9 @@ import {
   BAUDRATE_HELFER,
   buildSttyArgs,
   DEFAULT_BAUD,
+  leserProzess,
   naechsteGenormteRate,
-  schliesseStrom,
 } from '../src/ingest/sttyPort.ts';
-import type { Schliessbar } from '../src/ingest/sttyPort.ts';
 
 const b = (s: string) => Buffer.from(s, 'latin1');
 
@@ -194,55 +197,81 @@ test('der Baudraten-Helfer setzt die krumme Rate wirklich', async () => {
   ]);
   assert.equal(Number(stdout.trim()), DEFAULT_BAUD, 'zurueckgelesene Rate');
 });
-// --- schliesseStrom: der Flash-Aufhänger vom 10.08.2026 -------------------
+// --- leserProzess: der Kern der Umstellung vom 10.08.2026 ----------------
 
 /**
- * Ein Strom, der auf `destroy()` NICHT mit `close` antwortet.
- *
- * Genau so verhält sich ein Lesestrom auf einer seriellen Schnittstelle, an
- * der gerade nichts gesendet wird: Der blockierende `read()` hängt im
- * Thread-Pool, und `destroy()` weckt ihn nicht.
+ * Diese Tests laufen gegen eine echte benannte Pipe (FIFO) und einen echten
+ * `cat`. Attrappen taugen hier nicht: Geprueft wird gerade, dass sich ein
+ * blockierender read() beenden laesst — und genau das war mit einem
+ * Dateistrom im eigenen Prozess unmoeglich.
  */
-function stummerStrom(): Schliessbar & { zerstoert: boolean } {
+function fifoAnlegen(): { pfad: string; offenhalten: number; aufraeumen: () => void } {
+  const verz = mkdtempSync(join(tmpdir(), 'asksin-fifo-'));
+  const pfad = join(verz, 'port');
+  execFileSync('mkfifo', [pfad]);
+  // O_RDWR blockiert bei FIFOs nicht und haelt die Pipe offen, damit `cat`
+  // sie oeffnen kann und danach auf Daten wartet — der zu pruefende Zustand.
+  const offenhalten = openSync(pfad, constants.O_RDWR);
   return {
-    zerstoert: false,
-    once(_e: 'close', _h: () => void) { return this; },
-    destroy() { this.zerstoert = true; return this; },
+    pfad,
+    offenhalten,
+    aufraeumen: () => {
+      try { closeSync(offenhalten); } catch { /* egal */ }
+      rmSync(verz, { recursive: true, force: true });
+    },
   };
 }
 
-/** Ein Strom, der sich normal verhält. */
-function braverStrom(): Schliessbar {
-  let hoerer: (() => void) | null = null;
-  return {
-    once(_e: 'close', h: () => void) { hoerer = h; return this; },
-    destroy() { queueMicrotask(() => hoerer?.()); return this; },
-  };
-}
+test('leserProzess: close() kehrt zurück, obwohl der Lesevorgang blockiert', async () => {
+  // Der Kern des Problems vom 10.08.2026. Mit fs.createReadStream haengt hier
+  // ein read() im Thread-Pool, den nichts unterbricht — close() wartete dann
+  // fuer immer, der Firmware-Flash blieb stehen, und der verwaiste Strom
+  // schnappte avrdude spaeter die Antwort des Bootloaders weg.
+  const f = fifoAnlegen();
+  try {
+    const leser = leserProzess(f.pfad);
+    await new Promise((r) => setTimeout(r, 100));   // cat oeffnet und blockiert
 
-test('schliesseStrom: gibt auf, wenn close nie kommt', async () => {
-  const s = stummerStrom();
-  const start = Date.now();
-  await schliesseStrom(s, null, 40);
-  const gedauert = Date.now() - start;
-
-  // Der eigentliche Prüfpunkt: Es kehrt überhaupt zurück. Ohne die Zeitgrenze
-  // wartet dieses Versprechen für immer — und genau daran hing am 10.08.2026
-  // der Firmware-Flash beider Analyzer, mitsamt dem HTTP-Aufruf dahinter.
-  assert.ok(gedauert >= 35, `zu früh aufgegeben (${gedauert} ms)`);
-  assert.ok(gedauert < 2000, `viel zu spät (${gedauert} ms)`);
-  assert.equal(s.zerstoert, true, 'destroy() wird trotzdem versucht');
+    const start = Date.now();
+    await leser.close();
+    const gedauert = Date.now() - start;
+    assert.ok(gedauert < 2000, `close() brauchte ${gedauert} ms`);
+  } finally {
+    f.aufraeumen();
+  }
 });
 
-test('schliesseStrom: wartet nicht die volle Zeit, wenn close kommt', async () => {
-  const start = Date.now();
-  await schliesseStrom(braverStrom(), null, 5000);
-  const gedauert = Date.now() - start;
-  assert.ok(gedauert < 200, `hat auf die Zeitgrenze gewartet (${gedauert} ms)`);
+test('leserProzess: liefert die Zeichen, die hereinkommen', async () => {
+  const f = fifoAnlegen();
+  try {
+    const leser = leserProzess(f.pfad);
+    const gelesen: number[] = [];
+    const fertig = (async () => {
+      for await (const stueck of leser.readable) {
+        gelesen.push(...stueck);
+        if (gelesen.length >= 5) break;
+      }
+    })();
+
+    await new Promise((r) => setTimeout(r, 100));
+    writeSync(f.offenhalten, ':5B;\n');
+    await Promise.race([fertig, new Promise((r) => setTimeout(r, 2000))]);
+
+    assert.equal(Buffer.from(gelesen).toString('latin1'), ':5B;\n');
+    await leser.close();
+  } finally {
+    f.aufraeumen();
+  }
 });
 
-test('schliesseStrom: schliesst auch den Schreibstrom', async () => {
-  const schreib = stummerStrom();
-  await schliesseStrom(braverStrom(), schreib, 5000);
-  assert.equal(schreib.zerstoert, true);
+test('leserProzess: zweites close() stoert nicht', async () => {
+  const f = fifoAnlegen();
+  try {
+    const leser = leserProzess(f.pfad);
+    await new Promise((r) => setTimeout(r, 100));
+    await leser.close();
+    await leser.close();          // darf weder haengen noch werfen
+  } finally {
+    f.aufraeumen();
+  }
 });

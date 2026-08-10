@@ -16,8 +16,8 @@
  * `99-asksin-analyzer.rules` mit `/dev/asksin-hat` fest auf den Port.
  */
 
-import { execFile } from 'node:child_process';
-import { createReadStream, createWriteStream } from 'node:fs';
+import { execFile, spawn } from 'node:child_process';
+import { createWriteStream } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
@@ -85,57 +85,79 @@ export function buildSttyArgs(device: string, baud: number): string[] {
 }
 
 /**
- * Wie lange auf das `close`-Ereignis gewartet wird, bevor aufgegeben wird.
- *
- * Zwei Sekunden sind gegenüber einem regulären Schließen (Millisekunden) um
- * Größenordnungen großzügig und kurz genug, dass kein Firmware-Flash daran
- * hängenbleibt.
+ * Wie lange nach SIGTERM auf das Ende des Lesers gewartet wird, bevor
+ * SIGKILL nachgeschoben wird.
  */
-export const SCHLIESS_GRENZE_MS = 2000;
+const HARTES_ENDE_MS = 500;
 
-/** Das Nötigste eines Streams, das hier gebraucht wird — hält den Test klein. */
+/** Das Noetigste eines Streams, das hier gebraucht wird — haelt den Test klein. */
 export interface Schliessbar {
   once(ereignis: 'close', hoerer: () => void): unknown;
   destroy(): unknown;
 }
 
 /**
- * Schließt Lese- und Schreibstrom und **gibt spätestens nach `grenzeMs` auf**.
+ * Liest das Geraet ueber einen **Kindprozess**, nicht ueber einen Dateistrom.
  *
- * Die Zeitgrenze ist der eigentliche Inhalt dieser Funktion.
+ * Das ist der Kern der Sache, und er hat drei Anlaeufe gebraucht.
  *
- * `destroy()` beendet einen Lesestrom nicht, solange im Thread-Pool noch ein
- * blockierendes `read()` auf dem Gerät hängt — und das ist an einer seriellen
- * Schnittstelle der Normalfall, sobald gerade nichts gesendet wird. Das
- * `close`-Ereignis kommt dann nie. Wer darauf wartet, wartet für immer.
+ * `fs.createReadStream` auf einer seriellen Schnittstelle laesst sich nicht
+ * unterbrechen: Der `read()` haengt im Thread-Pool von libuv, `destroy()`
+ * weckt ihn nicht, und kein Abbruchsignal erreicht ihn. Solange keine Zeichen
+ * kommen — an einer stillen Leitung der Normalfall — bleibt er dort liegen.
+ * Daraus folgte am 10.08.2026 alles auf einmal:
  *
- * Am 10.08.2026 an zwei Analyzern beobachtet: Der Firmware-Flash legte den
- * Dienst lahm. Im Journal stand „Ingest wird angehalten", danach nichts mehr —
- * weder Erfolg noch Fehlschlag. Die Oberfläche zeigte stundenlang „Flashe …",
- * weil der HTTP-Aufruf nie zurückkam. Zum Flashen selbst kam es nie.
+ *   - Der Firmware-Flash blieb nach "Ingest wird angehalten" stehen, weil
+ *     close() auf ein `close`-Ereignis wartete, das nie kam.
+ *   - Nach der Zeitgrenze dort lief die Leseschleife trotzdem weiter, weil
+ *     ein `for await` ueber den Strom erst mit dem Strom endet.
+ *   - Nach der Zeitgrenze auch dort blieb der Lesestrom als Leiche liegen und
+ *     hielt den Dateideskriptor. Der Dienst liess sich nicht mehr neu starten,
+ *     und avrdude bekam "resp=0xa0" — die Leiche schnappte ihm die Antwort
+ *     des Bootloaders weg.
  *
- * Der Dateideskriptor wird vom Betriebssystem freigegeben, sobald der hängende
- * `read()` zurückkehrt; das Aufgeben hier hinterlässt also nichts Offenes.
+ * Jedes Mal habe ich ein Symptom behoben und das naechste freigelegt. Der
+ * Fehler war, den blockierenden read() ueberhaupt in den eigenen Prozess zu
+ * holen.
+ *
+ * Ein Kindprozess loest das an der Wurzel: Seine Standardausgabe ist eine
+ * **Pipe**, und Pipes sind vollstaendig asynchron. Beendet man den Prozess,
+ * raeumt das Betriebssystem den haengenden read() und den Dateideskriptor auf
+ * — nicht wir. Es gibt nichts, worauf man vergeblich warten koennte.
+ *
+ * `cat` ist dafuer das richtige Werkzeug: kein Zwischenpuffer, es schreibt
+ * jeden gelesenen Block sofort weiter. Genau so sind an diesen Geraeten alle
+ * erfolgreichen Handmessungen gelaufen.
  */
-export function schliesseStrom(
-  lesend: Schliessbar,
-  schreibend: Schliessbar | null,
-  grenzeMs: number = SCHLIESS_GRENZE_MS,
-): Promise<void> {
-  return new Promise<void>((resolve) => {
-    let fertig = false;
-    const einmal = (): void => {
-      if (fertig) return;
-      fertig = true;
-      clearTimeout(uhr);
-      resolve();
-    };
-    const uhr = setTimeout(einmal, grenzeMs);
-    uhr.unref?.();
-    schreibend?.destroy();
-    lesend.once('close', einmal);
-    lesend.destroy();
-  });
+export function leserProzess(device: string): {
+  readable: AsyncIterable<Uint8Array>;
+  close: () => Promise<void>;
+} {
+  const kind = spawn('cat', [device], { stdio: ['ignore', 'pipe', 'ignore'] });
+  // Ohne Zuhoerer beendet ein Fehler auf dem Strom den ganzen Prozess.
+  kind.stdout.on('error', () => {});
+  kind.on('error', () => {});
+
+  return {
+    // stdout ohne Kodierung liefert Buffer, und Buffer IST ein Uint8Array.
+    // Die Zusicherung haelt den Vertrag des IngestStream eng: Bytes, keine
+    // Zeichenketten — sonst zerlegte der LineSplitter Mehrbytezeichen falsch.
+    readable: kind.stdout as AsyncIterable<Uint8Array>,
+    close: () =>
+      new Promise<void>((auf) => {
+        if (kind.exitCode !== null || kind.signalCode !== null) {
+          auf();
+          return;
+        }
+        const hart = setTimeout(() => kind.kill('SIGKILL'), HARTES_ENDE_MS);
+        hart.unref?.();
+        kind.once('close', () => {
+          clearTimeout(hart);
+          auf();
+        });
+        kind.kill('SIGTERM');
+      }),
+  };
 }
 
 /** Öffnet den seriellen Port lesend; als `openPort` in den Ingest stecken. */
@@ -169,7 +191,7 @@ export function sttyPortOpener(
       }
     }
 
-    const stream = createReadStream(device, { highWaterMark: 4096 });
+    const leser = leserProzess(device);
 
     // Getrennter Schreibstrom auf dasselbe Gerät. Scheitert das Öffnen —
     // etwa weil die Rechte nur zum Lesen reichen —, bleibt es beim Lesen:
@@ -184,8 +206,11 @@ export function sttyPortOpener(
     }
 
     const strom: IngestStream = {
-      readable: stream,
-      close: () => schliesseStrom(stream, schreiber),
+      readable: leser.readable,
+      close: async () => {
+        schreiber?.destroy();
+        await leser.close();
+      },
     };
     if (schreiber !== null) {
       const s = schreiber;
