@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.15.7</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.15.8</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.15.7 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.15.8 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2490,6 +2490,27 @@ auf der Platine muss auf <em>PWM</em> stehen — sonst ist die Datenleitung
 nicht durchgeschaltet. Seit Fassung 0.15.7 meldet der Analyzer den fehlenden
 Hilfsdienst von selbst.</p></div>
 
+<div class="hinweis box"><span class="titel">Vor Fassung 0.15.8: dunkle LED trotz fehlerfreier Verdrahtung</span>
+<p>Bis einschließlich 0.15.7 stellte der Analyzer den SPI-Takt mit
+<code>spi-config</code> ein — einem eigenen Programm, das sich danach beendet.
+Der Takt gehört im Linux-Kern aber nicht dem Gerät, sondern dem
+<strong>geöffneten Dateideskriptor</strong>: Sobald der letzte Benutzer die
+Datei schließt, setzt der Treiber ihn auf den Höchstwert des Reglers zurück.
+Auf einem Pi 5 sind das <strong>125 MHz</strong> statt der nötigen 2,4 MHz.</p>
+<p>Der komplette Rahmen ist dann nach 0,6 µs übertragen; die WS2812 erkennt
+darin keine Daten und bleibt dunkel. Das Tückische daran: Auf der
+Datenleitung <em>liegt</em> ein Signal. Wer mit dem Multimeter an J7 misst,
+findet alles in Ordnung und sucht anschließend an der Hardware — an SW1, am
+Kabel, an der LED. Dort ist nichts zu finden.</p>
+<p>Nachweisen ließ es sich nur bei laufendem Dienst:</p>
+<pre>sudo spi-config -d /dev/spidev0.0 -q</pre>
+<p style="margin-bottom: 0">Meldet die Ausgabe <code>speed=125000000</code>,
+ist es dieser Fehler. <strong>Ab 0.15.8 behoben:</strong> Der Helfer
+<code>deploy/ws2812-spi.py</code> setzt den Takt und bleibt geöffnet, solange
+die Anzeige läuft. Er liest den Wert außerdem zurück und bricht mit einer
+Meldung im Journal ab, wenn er um mehr als 10 % danebenliegt — statt still
+Falsches auf die Leitung zu schreiben.</p></div>
+
 <h2 class="umbruch" id="k18-2">18.2 Die LED-Farbsprache</h2>
 <table>
 <tr><th>Farbe/Muster</th><th>Bedeutung</th></tr>
@@ -3380,7 +3401,7 @@ lesen als auch durchsuchen lässt:</p>
 <tr><td>Flotten-Update meldet „Auth-Token fehlt"</td><td>Peer verlangt Token, keines hinterlegt</td><td>Peer entfernen und mit seinem Token neu verknüpfen (<em>Einstellungen → Verbund</em>)</td></tr>
 <tr><td>Dienst startet nicht, Journal zeigt <code>listen EACCES … :80</code></td><td>Port unter 1024 gewählt; der Dienst läuft ohne Rechte dafür</td><td>Seit dieser Fassung bringt die Unit <code>AmbientCapabilities=CAP_NET_BIND_SERVICE</code> mit — <code>sudo asksin-analyzer update</code> genügt. Alternativ in <code>/etc/asksin-analyzer/config.json</code> einen Port ab 1024 eintragen (8080) und <code>sudo asksin-analyzer restart</code></td></tr>
 <tr><td><code>Permission denied</code> auf <code>/dev/spidev0.0</code> oder <code>/dev/i2c-1</code></td><td>Dienstbenutzer nicht in den Gruppen <code>spi</code>/<code>i2c</code></td><td><code>sudo asksin-analyzer update</code> zieht die Gruppen nach; danach <code>sudo systemctl restart asksin-analyzer</code></td></tr>
-<tr><td>Status-LED bleibt dunkel</td><td>Schalter SW1 steht auf der anderen Betriebsart, oder SPI bzw. das Onboard-Audio ist nicht passend eingestellt</td><td>Kapitel 10.3 (SW1-Kasten): Schalterstellung mit <strong>Einstellungen → Status-LED &amp; OLED</strong> abgleichen. Auf Pi 3/4 muss zusätzlich das Onboard-Audio aus sein, auf Pi 5 der SPI-Bus an. Die Übersicht zeigt „LED gestört" mit Ursache</td></tr>
+<tr><td>Status-LED bleibt dunkel</td><td>Schalter SW1 steht auf der anderen Betriebsart, oder SPI bzw. das Onboard-Audio ist nicht passend eingestellt. Vor Fassung 0.15.8 außerdem: falscher SPI-Takt</td><td>Kapitel 10.3 (SW1-Kasten): Schalterstellung mit <strong>Einstellungen → Status-LED &amp; OLED</strong> abgleichen. Auf Pi 3/4 muss zusätzlich das Onboard-Audio aus sein, auf Pi 5 der SPI-Bus an. Die Übersicht zeigt „LED gestört" mit Ursache. Bei älterer Software zuerst Kapitel 18.1 (Kasten zum SPI-Takt)</td></tr>
 <tr><td>OLED bleibt dunkel</td><td>I²C nicht aktiv oder Kabelbelegung</td><td><code>sudo raspi-config</code> → I²C aktivieren; <code>i2cdetect -y 1</code> muss <code>3c</code> zeigen; J5-Belegung gegen Kapitel 10.3 prüfen</td></tr>
 <tr><td>1-Wire-Sensoren funktionieren nicht mehr</td><td><code>w1-gpio</code> kollidiert mit GPIO4 (Reset)</td><td>In <code>config.txt</code>: <code>dtoverlay=w1-gpio,gpiopin=17</code> o. ä. — nicht GPIO4</td></tr>
 <tr><td>Der Pi fällt hart aus und startet neu — im Journal steht nichts</td><td>Lässt sich aus dem Gerät heraus nicht klären: Was die Ursache erklären würde, wird nicht mehr geschrieben</td><td>Abschnitt 23.1 — Kernel-Meldungen auf einen zweiten Rechner mitschneiden</td></tr>
@@ -3691,7 +3712,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.15.7 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.15.8 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

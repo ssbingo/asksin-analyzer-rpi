@@ -204,6 +204,21 @@ Prioritätsleiter: Alarm > getrennt > Persistenzfehler > Demo > Update > ok.
 | Rechte | im Analyzer-Dienst, ohne Root | Root — Dienst `asksin-analyzer-led` |
 | Onboard-Audio | egal | muss aus (`dtparam=audio=off`) |
 | Bibliothek | keine, eigener Bitstrom (2,4 MHz, 1→110 / 0→100) | `rpi_ws281x` im venv `led-venv` |
+| Taktquelle | `deploy/ws2812-spi.py`, dauerhaft offen | Hilfsdienst setzt es selbst |
+
+**Der SPI-Takt gehört dem Dateideskriptor, nicht dem Gerät.** `spidev_release()`
+setzt `speed_hz` beim Schließen des letzten Benutzers auf `spi->max_speed_hz`
+zurück. Ein Werkzeug, das den Takt setzt und sich beendet — etwa `spi-config` —
+hinterlässt deshalb **nichts**. Bis 0.15.7 wurde genau so vorgegangen; auf
+Analyzer 01 (Pi 5) schrieb der Dienst danach mit 125 MHz statt 2,4 MHz, und die
+LED blieb dunkel, obwohl auf der Datenleitung ein Signal lag und die gesamte
+Verdrahtung fehlerfrei war. Seit 0.15.8 setzt `deploy/ws2812-spi.py` den Takt
+und **bleibt offen**, solange die Anzeige läuft; er liest den Wert zurück und
+bricht bei mehr als 10 % Abweichung mit einer Meldung ab.
+
+Gemessen wurde das Fenster, in dem die WS2812 unsere Kodierung annimmt: **2,0
+bis 3,2 MHz** SPI-Takt, also 667–1067 kHz Bitrate. Bei 1,0/1,2/1,6 und 4,0 MHz
+bleibt sie dunkel. Die 2,4 MHz liegen mittig darin.
 
 Auf **Pi 3 und Pi 4** leitet sich der SPI-Takt vom Kerntakt ab und wandert mit
 dessen Skalierung — das zerreißt das WS2812-Timing (Flackern, Farbsprünge).
