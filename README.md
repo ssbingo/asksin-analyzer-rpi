@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.3** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.3** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.4** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.4** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,25 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.4 — 10.08.2026
+
+Der Weg zum Bootloader ist jetzt dokumentiert und wiederholbar — er war die
+eigentliche Erkenntnis des Tages und stand bisher nirgends.
+
+- **Handbuch 7.7** *Die richtige Reihenfolge*: Bootloader **einmal** über den
+  USBasp, Firmware **danach immer** über die Weboberfläche. Mit der
+  Begründung, warum ein Programmer-Upload den Bootloader gleich zweifach
+  unbrauchbar macht — er löscht ihn (avrdude ohne `-D`) **und** lässt den
+  Reset-Vektor ungebogen, den nur `urclock` umbiegt.
+- **`deploy/bootloader-brennen.sh`**: brennt urboot vom Pi aus, ohne PC.
+  Prüft vorher, ob die Datei überhaupt in den Bootbereich gehört — eine
+  verwechselte Firmware würde den Chip sonst leeren und nichts Brauchbares
+  hinterlassen. Liest die Fuses mit und sagt am Ende, wie es weitergeht.
+
+urboot selbst wird **nicht** mitgeliefert: Es steht unter der GPL und gehört
+seinem Urheber (Stefan Rueger). Das Skript nimmt die Datei aus der
+Arduino-Installation als Argument entgegen.
 
 ### v0.15.3 — 10.08.2026
 

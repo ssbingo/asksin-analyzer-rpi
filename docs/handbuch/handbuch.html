@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.15.3</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.15.4</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.15.3 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.15.4 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -1024,6 +1024,91 @@ Gegentest: <code>avrdude -c usbasp -p m328p</code> — jetzt <em>ohne</em>
 <tr><td>Signatur ≠ 0x1e950f</td><td>Kontaktproblem</td><td>Leitungen kürzen (&lt; 20 cm), erneut versuchen</td></tr>
 </table>
 
+
+<h2 class="umbruch" id="k7-7">7.7 Die richtige Reihenfolge — sonst ist der Bootloader zweimal verloren</h2>
+
+<p>Dieser Abschnitt ist das Ergebnis eines verlorenen Tages. Er beschreibt
+eine Falle, die man nicht sieht, weil jeder Fehlversuch dasselbe Bild ergibt:
+Die Platine schweigt, und man sucht bei der Hardware.</p>
+
+<div class="achtung box"><span class="titel">⚠ Die Regel in einem Satz</span>
+<p style="margin-bottom: 0">Der Bootloader kommt <strong>einmal</strong> über
+den USBasp auf die Platine. Die Firmware kommt <strong>danach immer</strong>
+über die Weboberfläche — <strong>nie</strong> über <em>Hochladen mit
+Programmer</em>.</p></div>
+
+<h3>Warum der Programmer-Upload den Bootloader zweimal zerstört</h3>
+
+<p><strong>Erstens: Er löscht ihn.</strong> Die Arduino IDE ruft
+<code>avrdude</code> ohne <code>-D</code> auf. <code>-D</code> schaltet das
+automatische Löschen <em>ab</em> — es ist also die Voreinstellung, und der Chip
+wird vor dem Schreiben vollständig gelöscht. Ein ausgeschriebenes
+<code>-e</code> steht nirgends; wer danach sucht, findet nichts und schließt
+das Falsche.</p>
+
+<p><strong>Zweitens: Er macht ihn unerreichbar.</strong> MiniCore lässt
+<code>BOOTRST</code> unprogrammiert (<code>hfuse 0xd7</code>) — das ist
+Absicht. urboot ist ein <em>Vektor-Bootloader</em>: Er wird nicht über
+<code>BOOTRST</code> angesprungen, sondern der Reset-Vektor bei
+<code>0x0000</code> wird auf ihn umgebogen. Das erledigt
+<code>avrdude -c urclock</code> beim Aufspielen der Anwendung — also nur auf
+dem Weg über die serielle Schnittstelle. Ein ISP-Upload lässt den Vektor
+ungebogen zurück.</p>
+
+<h3>Der Ablauf, einmal je Platine</h3>
+
+<ol class="schritte">
+<li><strong>Bootloader brennen</strong> — Platine am USBasp, vom Pi abgezogen.
+Entweder in der Arduino IDE über <em>Werkzeuge → Bootloader brennen</em>
+(Bootloader: <em>Yes (UART0)</em>, Clock: <em>External 8 MHz</em>), oder ohne
+PC direkt vom Pi aus:
+<pre>sudo bash /opt/asksin-analyzer/deploy/bootloader-brennen.sh <span class="var">urboot_atmega328p_pr_ee_ce.hex</span></pre>
+Das Skript prüft vorher, ob die Datei überhaupt in den Bootbereich gehört —
+eine verwechselte Firmware würde den Chip sonst leeren und nichts
+Brauchbares hinterlassen.</li>
+
+<li><strong>Platine auf den Pi.</strong> Sie ist jetzt still: Es liegt nur der
+Bootloader im Flash, keine Anwendung. Das ist richtig so.</li>
+
+<li><strong>Firmware über die Weboberfläche aufspielen</strong> —
+<em>Info → Sniffer-Firmware</em>. Dieser eine Flash biegt den Reset-Vektor um.
+Erst danach ist der Bootloader dauerhaft erreichbar.</li>
+</ol>
+
+<p>Ab dann läuft jedes weitere Update ohne Programmiergerät. Der USBasp wird
+nur noch gebraucht, wenn ein Chip gar nicht mehr antwortet.</p>
+
+<h3>Was der Analyzer dabei beachtet</h3>
+
+<p>Zwei Bedingungen mussten erfüllt sein, damit der Flash über die serielle
+Schnittstelle gelingt. Beide wurden an echter Hardware durchgemessen:</p>
+
+<div class="tabelle">
+<table>
+<tr><th>Baudrate</th><th>Reset zuerst, dann avrdude</th></tr>
+<tr><td>115200</td><td>kein Sync</td></tr>
+<tr><td><strong>57600</strong></td><td><strong>Sync</strong></td></tr>
+<tr><td><strong>19200</strong></td><td><strong>Sync</strong></td></tr>
+</table>
+</div>
+
+<p><strong>Erst zurücksetzen, dann <code>avrdude</code> starten.</strong>
+urboot betritt seine Programmierschleife ausschließlich nach einem
+<em>externen</em> Reset und lauscht danach genau eine Sekunde. In dieser Zeit
+misst er die Baudrate an der <strong>ersten LOW-Phase</strong> auf der Leitung.
+Läuft <code>avrdude</code> schon und sendet, fällt der Reset mitten in ein Byte
+— die Messung geht daneben, und es bleibt bei <code>not in sync</code>.</p>
+
+<p><strong>57600 Baud statt der krummen 58 824.</strong> urboot misst die Rate
+selbst, sie muss also nicht zur Firmware passen. Bei 8 MHz ist 115200 zu
+schnell für seine Zählschleife. 57600 passt zusätzlich zu einem alten
+Optiboot: Der spricht bei 8 MHz real 58 823,5, das sind 2,1 % Abweichung und
+damit innerhalb der Toleranz.</p>
+
+<p>Beides steckt im Analyzer, Sie müssen dafür nichts einstellen. Der Verlauf
+in der Weboberfläche zeigt es mit: erst <code>GPIO4 → LOW</code>, dann
+<code>avrdude -c urclock … mit 57600 Baud</code>.</p>
+
 <!-- ==================================================== KAPITEL 8 -->
 <h1 class="kapitel" id="k8"><span class="knr">8</span>Die Firmware aufspielen</h1>
 <div class="kapitelband"></div>
@@ -1108,14 +1193,9 @@ Fehlerbild ist eindeutig, wenn man es kennt —
 <code>not in sync: resp=0x3a</code>, und <code>0x3a</code> ist das Zeichen
 <code>:</code>, also die laufende Ausgabe des Sketches statt einer Antwort des
 Bootloaders.</p>
-<p><strong>Die richtige Reihenfolge</strong>, wenn beides gebraucht wird:</p>
-<ol class="schritte" style="margin-bottom: 0">
-<li><em>Werkzeuge → Bootloader brennen</em> über den USBasp. Das setzt die
-Fuses und schreibt den Bootloader.</li>
-<li>Den Sketch <strong>nicht</strong> mit dem Programmer aufspielen, sondern
-über die Weboberfläche des Analyzers (Kapitel 11). Der Weg läuft über den
-Bootloader und lässt ihn stehen.</li>
-</ol>
+<p><strong>Die richtige Reihenfolge steht in Kapitel 7.7</strong> — dort mit
+der vollständigen Begründung, warum ein Programmer-Upload den Bootloader
+gleich zweifach unbrauchbar macht.</p>
 </div>
 
 <div class="hinweis box"><span class="titel">ℹ Wann trotzdem der Programmer?</span>
@@ -3593,7 +3673,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.15.3 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.15.4 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>
