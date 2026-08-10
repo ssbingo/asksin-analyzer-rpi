@@ -82,7 +82,18 @@ import {
   zeichneSeite,
 } from '../src/status/zustand.ts';
 import type { StatusDaten } from '../src/status/zustand.ts';
-import { flashFirmware, siehtNachIntelHexAus } from '../src/update/firmware.ts';
+import {
+  flashFirmware,
+  siehtNachIntelHexAus,
+  standardRunnerMitAusgabe,
+} from '../src/update/firmware.ts';
+
+/** Verlauf des letzten oder laufenden Firmware-Flashs. */
+let flashStand: { laeuft: boolean; log: string; ok: boolean | null } = {
+  laeuft: false,
+  log: '',
+  ok: null,
+};
 
 const execFileAsync = promisify(execFile);
 
@@ -539,7 +550,7 @@ const updateHooks: UpdateHooks = {
     return true;
   },
   updateStatus: () => leseUpdateStatus(),
-  flashFirmware: async (hex) => {
+  flashFirmware: (hex) => {
     // Kein Riegel wegen des Demo-Modus. Der simuliert die FUNKANLAGE, nicht
     // das Geraet: Er laeuft auch dann, wenn die Platine steckt — etwa um
     // Funktionen ohne echtes Homematic-Netz auszuprobieren. Wer dabei die
@@ -549,22 +560,55 @@ const updateHooks: UpdateHooks = {
     // auch warum. Eine vorweggenommene Absage haette stattdessen einen
     // erfundenen Grund genannt — und wer danach sucht, sucht am falschen Ende.
     if (!siehtNachIntelHexAus(hex)) {
-      return { ok: false, log: 'Upload ist keine gültige Intel-HEX-Datei.' };
+      return Promise.resolve({ ok: false, log: 'Upload ist keine gültige Intel-HEX-Datei.' });
     }
+    if (flashStand.laeuft) {
+      return Promise.resolve({ ok: false, log: 'Es läuft bereits ein Flash-Vorgang.' });
+    }
+
     const hexPfad = join(datenDir, 'firmware-upload.hex');
     writeFileSync(hexPfad, hex);
-    log('Firmware-Flash: Ingest wird angehalten, Port wird freigegeben');
-    await analyzer.stop();
-    try {
-      const ergebnis = await flashFirmware(hexPfad, { device: konfig.device });
-      log(`Firmware-Flash ${ergebnis.ok ? 'erfolgreich' : 'FEHLGESCHLAGEN'}`);
-      return ergebnis;
-    } finally {
-      rmSync(hexPfad, { force: true });
-      analyzer.start();
-      log('Ingest fortgesetzt');
-    }
+    flashStand = { laeuft: true, log: '', ok: null };
+    const anhaengen = (text: string): void => {
+      // Der Verlauf ist begrenzt: avrdudes Fortschrittsbalken kommt in vielen
+      // kleinen Stuecken, und ein unbegrenzter String waere im Dauerbetrieb
+      // ein Leck. Die letzten 64 KB reichen weit ueber jeden Flash hinaus.
+      flashStand.log = (flashStand.log + text).slice(-65_536);
+    };
+
+    // Bewusst NICHT erwartet: Der HTTP-Aufruf kehrt sofort zurueck, den
+    // Verlauf holt sich die Oberflaeche ueber /api/update/firmware/stand.
+    void (async () => {
+      try {
+        anhaengen('Ingest wird angehalten, Port wird freigegeben\n');
+        log('Firmware-Flash: Ingest wird angehalten, Port wird freigegeben');
+        await analyzer.stop();
+        const ergebnis = await flashFirmware(hexPfad, {
+          device: konfig.device,
+          runCommand: standardRunnerMitAusgabe(anhaengen),
+          onFortschritt: anhaengen,
+        });
+        flashStand.ok = ergebnis.ok;
+        log(`Firmware-Flash ${ergebnis.ok ? 'erfolgreich' : 'FEHLGESCHLAGEN'}`);
+      } catch (fehler) {
+        // flashFirmware wirft nicht — aber analyzer.stop() kann es. Ohne
+        // diesen Zweig bliebe `laeuft` fuer immer stehen, und die Oberflaeche
+        // zeigte ewig einen laufenden Vorgang.
+        anhaengen(`\nAbbruch: ${String(fehler)}\n`);
+        flashStand.ok = false;
+        log(`Firmware-Flash abgebrochen: ${String(fehler)}`);
+      } finally {
+        rmSync(hexPfad, { force: true });
+        analyzer.start();
+        anhaengen('Ingest fortgesetzt\n');
+        log('Ingest fortgesetzt');
+        flashStand.laeuft = false;
+      }
+    })();
+
+    return Promise.resolve({ ok: true, log: 'Flash gestartet.' });
   },
+  flashStand: () => ({ ...flashStand }),
 };
 
 /** Kerntemperatur in Grad Celsius; null ohne Sensor (Entwicklungsrechner). */

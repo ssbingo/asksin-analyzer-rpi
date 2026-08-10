@@ -4,6 +4,7 @@ import { onUnmounted, ref } from 'vue';
 import HandbuchFuss from '../components/HandbuchFuss.vue';
 import {
   flasheFirmware,
+  holeFlashStand,
   holeHealth,
   holeKonfiguration,
   holeSnapshot,
@@ -115,10 +116,25 @@ async function firmwareFlashen(): Promise<void> {
   if (datei === null) return;
   if (!window.confirm(`„${datei.name}" auf den 328P flashen? Die Aufzeichnung pausiert währenddessen.`)) return;
   flasht.value = true;
-  flashLog.value = 'Flashe …';
+  flashLog.value = 'Wird gestartet …';
   try {
-    const erg = await flasheFirmware(datei);
-    flashLog.value = (erg.ok ? '✔ Erfolgreich\n\n' : '✖ Fehlgeschlagen\n\n') + erg.log;
+    const start = await flasheFirmware(datei);
+    if (!start.ok) {
+      flashLog.value = `✖ ${start.log}`;
+      return;
+    }
+    // Ab hier läuft der Flash im Dienst weiter. Alle 500 ms den Verlauf holen,
+    // bis er fertig ist — so ist auch avrdudes Fortschrittsbalken zu sehen.
+    for (;;) {
+      await new Promise((r) => setTimeout(r, 500));
+      const stand = await holeFlashStand();
+      flashLog.value = stand.log;
+      if (!stand.laeuft) {
+        flashLog.value =
+          (stand.ok === true ? '✔ Erfolgreich\n\n' : '✖ Fehlgeschlagen\n\n') + stand.log;
+        break;
+      }
+    }
   } catch (err) {
     flashLog.value = `✖ ${err instanceof Error ? err.message : String(err)}`;
   } finally {
@@ -271,9 +287,13 @@ async function firmwareFlashen(): Promise<void> {
     </div>
     <pre v-if="flashLog !== ''" style="white-space: pre-wrap; font-size: 0.8rem; color: var(--muted); margin-bottom: 0">{{ flashLog }}</pre>
     <div class="fussnote">
-      Intel-HEX-Datei (z. B. AskSinSniffer328P.hex). Die Aufzeichnung pausiert
-      während des Flashens; der Reset läuft am HAT über GPIO4, am USB-Port
-      über DTR. Im Demo-Modus nicht verfügbar.
+      Intel-HEX-Datei (z. B. <code>asksin-sniffer.ino.hex</code>, die Fassung
+      <em>ohne</em> <code>with_bootloader</code> im Namen). Die Aufzeichnung
+      pausiert während des Flashens und läuft danach von selbst weiter; der
+      Reset erfolgt am HAT über GPIO4, am USB-Port über DTR. Der Verlauf
+      erscheint oben, sobald er anläuft — auch der Fortschrittsbalken von
+      avrdude. Im Demo-Modus möglich: Der simuliert die Funkanlage, nicht das
+      Gerät.
     </div>
   </div>
 

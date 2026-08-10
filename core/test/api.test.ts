@@ -374,8 +374,9 @@ test('/api/update/*: ohne Hooks 501, mit Hooks voller Ablauf', async (t) => {
       updateStatus: () => (starts === 0 ? null : { running: true, step: 'hole' }),
       flashFirmware: (hex) => {
         geflasht = hex;
-        return Promise.resolve({ ok: true, log: 'avrdude done' });
+        return Promise.resolve({ ok: true, log: 'Flash gestartet.' });
       },
+      flashStand: () => ({ laeuft: false, log: 'avrdude done', ok: true }),
     },
   });
 
@@ -400,9 +401,34 @@ test('/api/update/*: ohne Hooks 501, mit Hooks voller Ablauf', async (t) => {
     headers: { 'content-type': 'application/octet-stream' },
     body: hex,
   });
-  assert.equal(antwort.status, 200);
+  // 202 statt 200: Der Aufruf STARTET nur. Frueher lief der ganze Flash in
+  // dieser einen Anfrage — und als der Dienst am 10.08.2026 beim Anhalten des
+  // Ingest haengte, blieb sie stundenlang offen, ohne dass irgendwo sichtbar
+  // wurde, woran es lag.
+  assert.equal(antwort.status, 202);
   assert.equal(((await antwort.json()) as { ok: boolean }).ok, true);
   assert.equal(geflasht!.toString('latin1'), hex, 'Bytes kommen unverändert an');
+
+  // Der Verlauf kommt ueber den zweiten Endpunkt.
+  const stand = (await (
+    await fetch(`${mit.base}/api/update/firmware/stand`)
+  ).json()) as { laeuft: boolean; log: string; ok: boolean | null };
+  assert.equal(stand.laeuft, false);
+  assert.equal(stand.ok, true);
+  assert.match(stand.log, /avrdude/);
+});
+
+test('/api/update/firmware: ohne flashStand-Hook sagt der Stand-Endpunkt 501', async (t) => {
+  const a = await aufbau(t, {
+    update: {
+      versions: () => Promise.resolve({}),
+      startCoreUpdate: () => true,
+      updateStatus: () => null,
+      flashFirmware: () => Promise.resolve({ ok: true, log: '' }),
+      // flashStand fehlt absichtlich
+    },
+  });
+  assert.equal((await fetch(`${a.base}/api/update/firmware/stand`)).status, 501);
 });
 
 test('/api/update/*: mit gesetztem Token ist ALLES auth-pflichtig', async (t) => {

@@ -35,7 +35,7 @@
  * injizierbaren Runner, damit die Sequenz ohne Hardware testbar ist.
  */
 
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 
 export interface KommandoErgebnis {
   code: number;
@@ -56,6 +56,55 @@ export const standardRunner: KommandoRunner = (cmd, args) =>
     });
   });
 
+/**
+ * Wie `standardRunner`, meldet die Ausgabe aber **waehrend** des Laufs.
+ *
+ * Der Grund ist die Bedienbarkeit, nicht die Technik. Der Flash lief bisher in
+ * einem einzigen HTTP-Aufruf: Die Oberflaeche schrieb "Flashe ..." und wartete
+ * bis zum Schluss. Ob das Geraet arbeitete, haengte oder laengst fertig war,
+ * liess sich von aussen nicht unterscheiden — und als der Dienst am 10.08.2026
+ * tatsaechlich haengte, stand dort stundenlang dasselbe Wort.
+ *
+ * avrdude schreibt seinen Fortschrittsbalken fortlaufend auf die
+ * Fehlerausgabe. Mit `spawn` statt `execFile` kommt er dort an, wo er
+ * hingehoert: beim Anwender.
+ *
+ * Die Zeitgrenze bleibt dieselbe wie beim `standardRunner` — ein Flash, der
+ * nach zwei Minuten nicht fertig ist, wird es nicht mehr.
+ */
+export function standardRunnerMitAusgabe(
+  onAusgabe: (text: string) => void,
+): KommandoRunner {
+  return (cmd, args) =>
+    new Promise((resolve) => {
+      const kind = spawn(cmd, args);
+      let gesammelt = '';
+      const uhr = setTimeout(() => kind.kill('SIGKILL'), 120_000);
+
+      const nimm = (stueck: Buffer): void => {
+        const text = stueck.toString('utf8');
+        gesammelt += text;
+        onAusgabe(text);
+      };
+      kind.stdout.on('data', nimm);
+      kind.stderr.on('data', nimm);
+
+      const fertig = (code: number): void => {
+        clearTimeout(uhr);
+        resolve({ code, output: gesammelt });
+      };
+      // `error` feuert, wenn das Programm gar nicht erst startet (nicht
+      // installiert). Ohne diesen Zweig bliebe das Versprechen offen — und
+      // genau daran hing der Dienst schon einmal.
+      kind.on('error', (fehler) => {
+        gesammelt += `${String(fehler)}\n`;
+        onAusgabe(`${String(fehler)}\n`);
+        fertig(127);
+      });
+      kind.on('close', (code) => fertig(code ?? 1));
+    });
+}
+
 export interface FlashOptions {
   /** Serielles Gerät, z. B. /dev/asksin-hat. */
   device: string;
@@ -66,6 +115,8 @@ export interface FlashOptions {
   gpioLine?: number;
   resetMs?: number;
   runCommand?: KommandoRunner;
+  /** Wird bei jedem Schritt gerufen — fuer die Anzeige waehrend des Laufs. */
+  onFortschritt?: (text: string) => void;
 }
 
 export interface FlashErgebnis {
@@ -95,14 +146,17 @@ async function gpioHalten(
   wert: 0 | 1,
   ms: number,
   log: string[],
+  melde: (text: string) => void = () => {},
 ): Promise<boolean> {
   const sekunden = (ms / 1000).toFixed(1);
+  melde(`GPIO${line} → ${wert === 0 ? 'LOW' : 'HIGH'} (${ms} ms)`);
   log.push(`GPIO${line} → ${wert === 0 ? 'LOW' : 'HIGH'} (${ms} ms)`);
   const v2 = await run('timeout', [
     sekunden, 'gpioset', '-c', chip, `${line}=${wert}`,
   ]);
   if (v2.code === 0 || v2.code === 124) return true;
 
+  melde('gpioset v2 nicht verfügbar, versuche v1-Syntax');
   log.push('gpioset v2 nicht verfügbar, versuche v1-Syntax');
   const v1 = await run('gpioset', [
     '--mode=time', `--usec=${ms * 1000}`, chip, `${line}=${wert}`,
@@ -130,14 +184,15 @@ export async function flashFirmware(
       : options.reset;
 
   const log: string[] = [];
+  const melde = (text: string): void => options.onFortschritt?.(`${text}\n`);
 
   if (reset === 'gpio') {
-    const tief = await gpioHalten(run, chip, line, 0, resetMs, log);
+    const tief = await gpioHalten(run, chip, line, 0, resetMs, log, melde);
     if (!tief) {
       return { ok: false, log: log.join('\n') + '\nGPIO-Reset fehlgeschlagen' };
     }
     // Ohne diesen zweiten Schritt endet der Impuls nie — siehe Kopf der Datei.
-    const hoch = await gpioHalten(run, chip, line, 1, FREIGABE_MS, log);
+    const hoch = await gpioHalten(run, chip, line, 1, FREIGABE_MS, log, melde);
     if (!hoch) {
       return {
         ok: false,
@@ -150,9 +205,11 @@ export async function flashFirmware(
       };
     }
   } else {
+    melde('Reset über DTR (übernimmt avrdude am USB-Port)');
     log.push('Reset über DTR (übernimmt avrdude am USB-Port)');
   }
 
+  melde(`avrdude auf ${options.device} mit ${baud} Baud`);
   log.push(`avrdude auf ${options.device} mit ${baud} Baud`);
   const avr = await run('avrdude', [
     '-c', 'arduino',

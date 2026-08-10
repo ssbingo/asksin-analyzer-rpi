@@ -194,8 +194,21 @@ export interface UpdateHooks {
   startCoreUpdate(): boolean | Promise<boolean>;
   /** Letzter/laufender Update-Status (Statusdatei) oder null. */
   updateStatus(): unknown;
-  /** Flasht die hochgeladene Firmware; Ergebnis mit Log. */
+  /**
+   * Stoesst den Firmware-Flash an und kehrt **sofort** zurueck.
+   *
+   * Frueher lief der ganze Vorgang in diesem einen Aufruf. Das hatte zwei
+   * Nachteile: Die Oberflaeche konnte bis zum Schluss nichts anzeigen, und
+   * als der Dienst am 10.08.2026 beim Anhalten des Ingest haengte, blieb der
+   * HTTP-Aufruf stundenlang offen — ohne dass irgendwo sichtbar wurde, woran
+   * es lag. Der Verlauf kommt jetzt ueber `flashStand()`.
+   *
+   * `ok: false` heisst hier nur, dass gar nicht erst begonnen wurde (etwa
+   * weil die Datei kein Intel-HEX ist oder schon ein Flash laeuft).
+   */
   flashFirmware(hex: Buffer): Promise<{ ok: boolean; log: string }>;
+  /** Verlauf und Ausgang des letzten oder laufenden Flashs. */
+  flashStand?(): { laeuft: boolean; log: string; ok: boolean | null };
   /** Ergebnis des täglichen Selbstchecks — landet in /api/health und
    *  treibt das Hinweis-Badge der Weboberfläche. */
   updateVerfuegbar?(): boolean;
@@ -337,6 +350,14 @@ export class ApiServer {
           const hooks = this.#opts.update;
           if (hooks === undefined) return this.#text(res, 501, 'Kein Update-Mechanismus');
           return this.#json(res, 200, await hooks.versions());
+        }
+        case '/api/update/firmware/stand': {
+          if (!this.#autorisiert(req, res)) return;
+          const stand = this.#opts.update?.flashStand?.();
+          if (stand === undefined) {
+            return this.#text(res, 501, 'Kein Flash-Stand verfügbar');
+          }
+          return this.#json(res, 200, stand);
         }
         case '/api/update/status': {
           if (!this.#autorisiert(req, res)) return;
@@ -692,8 +713,9 @@ export class ApiServer {
           if (hooks === undefined) return this.#text(res, 501, 'Kein Update-Mechanismus');
           const hex = await this.#leseBodyRoh(req, MAX_FIRMWARE_BYTES);
           if (hex === null) return this.#text(res, 413, 'Firmware-Datei zu groß');
+          // Startet nur; der Verlauf kommt über /api/update/firmware/stand.
           const ergebnis = await hooks.flashFirmware(hex);
-          return this.#json(res, ergebnis.ok ? 200 : 500, ergebnis);
+          return this.#json(res, ergebnis.ok ? 202 : 400, ergebnis);
         }
         case '/setConfig':
           if (!this.#autorisiert(req, res)) return;

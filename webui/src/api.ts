@@ -518,8 +518,26 @@ export async function flasheFirmware(
   if (res.status === 401) {
     throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
   }
-  // 200 und 500 tragen beide das Ergebnis-JSON mit dem avrdude-Log:
+  // 202 = angenommen und gestartet, 400 = gar nicht erst begonnen.
+  // Der Verlauf kommt danach über holeFlashStand().
   return (await res.json()) as { ok: boolean; log: string };
+}
+
+/**
+ * Verlauf und Ausgang des laufenden Flashs.
+ *
+ * `ok` bleibt `null`, solange es läuft. Ohne diese Abfrage stand in der
+ * Oberfläche bis zum Schluss nur „Flashe …" — und als der Dienst am
+ * 10.08.2026 tatsächlich hängte, stand es dort stundenlang.
+ */
+export async function holeFlashStand(): Promise<{
+  laeuft: boolean;
+  log: string;
+  ok: boolean | null;
+}> {
+  const res = await fetch('/api/update/firmware/stand', { headers: authKopf() });
+  if (!res.ok) throw new Error(`Stand nicht abrufbar (${res.status})`);
+  return (await res.json()) as { laeuft: boolean; log: string; ok: boolean | null };
 }
 
 // ---- Protokoll (M13) ------------------------------------------------------
