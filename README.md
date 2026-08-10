@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.9** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.9** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.10** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.10** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,22 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.10 — 10.08.2026
+
+**„LED gestört" bei einwandfrei leuchtender LED.** Der Zustand für die
+Weboberfläche wurde als `led === 'ws2812-spi' && keine Fehler` berechnet — der
+SPI-Weg stand dort als einzige gültige Betriebsart. Jede PWM-Anlage (Pi 3 und
+Pi 4) meldete damit dauerhaft eine Störung, gleichgültig ob die LED leuchtet.
+
+Aufgefallen auf dem Pi 3 in dem Moment, in dem die LED dort zum ersten Mal
+lief — vorher gab es keine Gelegenheit, den Widerspruch zu sehen.
+
+- Die Bedingung lautet jetzt `led !== 'aus' && keine Fehler`.
+- Zwei Tests halten beide Richtungen fest: PWM und SPI gelten als aktiv,
+  `aus` nicht — und nach Fehlversuchen wird die Störung auch wirklich
+  gemeldet. Eine Anzeige, die nie anschlägt, ist so wertlos wie eine, die
+  immer anschlägt.
 
 ### v0.15.9 — 10.08.2026
 

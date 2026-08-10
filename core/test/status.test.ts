@@ -261,6 +261,9 @@ test('StatusAnzeige: fehlende Hardware legt nur den Teil still, wirft nie', asyn
   });
   await anzeige.start();
   await time.advance(1000);
+  // Nach Fehlversuchen muss die Weboberflaeche die Stoerung auch zeigen —
+  // sonst ist die Meldung in der Gegenrichtung genauso wertlos.
+  assert.equal(anzeige.zustandFuerApi().aktiv.led, false, 'Stoerung wird gemeldet');
   await anzeige.stop();
   assert.ok(fehler.includes('led') && fehler.includes('oled'));
 });
@@ -666,6 +669,19 @@ test('Pi 5 mit PWM: der Analyzer nennt das Modell, nicht den Hilfsdienst', async
   assert.equal(systemctlGefragt, 0, 'auf dem Pi 5 gar nicht erst nachfragen');
 
   await anzeige.stop();
+});
+
+test('Weboberflaeche: „LED gestört" nur, wenn sie es wirklich ist', () => {
+  // Hier stand `led === 'ws2812-spi'` als Bedingung — damit meldete jede
+  // PWM-Anlage dauerhaft eine Stoerung, auch bei einwandfrei leuchtender
+  // LED. Am 10.08.2026 auf dem Pi 3 aufgefallen, genau in dem Moment, in
+  // dem die LED dort zum ersten Mal lief.
+  const bau = (led: 'ws2812-spi' | 'ws2812-pwm' | 'aus'): StatusAnzeige =>
+    new StatusAnzeige({ led, oled: false, daten: () => DATEN, time: new FakeTime() });
+
+  assert.equal(bau('ws2812-pwm').zustandFuerApi().aktiv.led, true, 'PWM ist kein Fehler');
+  assert.equal(bau('ws2812-spi').zustandFuerApi().aktiv.led, true, 'SPI ebenso');
+  assert.equal(bau('aus').zustandFuerApi().aktiv.led, false, 'abgeschaltet ist nicht aktiv');
 });
 
 test('ws2812-spi.py meldet einen Fehlschlag, statt still nichts zu tun', async () => {

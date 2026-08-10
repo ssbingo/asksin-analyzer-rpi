@@ -822,7 +822,14 @@ export class StatusAnzeige {
   } {
     return {
       aktiv: {
-        led: this.#o.led === 'ws2812-spi' && this.#ledFehler < MAX_FEHLER,
+        // `!== 'aus'`, nicht `=== 'ws2812-spi'`: Hier stand der SPI-Weg als
+        // einzige gültige Betriebsart, und damit meldete jede PWM-Anlage
+        // dauerhaft „LED gestört" — auch bei einwandfrei leuchtender LED.
+        // Am 10.08.2026 auf dem Pi 3 aufgefallen, unmittelbar nachdem die
+        // LED dort zum ersten Mal lief. Die Weboberfläche zeigt das Abzeichen
+        // genau dann, wenn eine Betriebsart eingestellt ist und dieser Wert
+        // false ist (HomeView.vue).
+        led: this.#o.led !== 'aus' && this.#ledFehler < MAX_FEHLER,
         oled: this.#o.oled && this.#oledFehler < MAX_FEHLER,
       },
       seite: this.#seite,
