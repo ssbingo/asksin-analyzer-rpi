@@ -120,6 +120,8 @@ export interface IngestStats {
   erweitert: boolean;
   /** Letzte Auskunft der Firmware, oder null bei der Originalfassung. */
   firmware: Firmwareantwort | null;
+  /** Zeitpunkt der letzten Versionsfrage; null = noch nie gefragt. */
+  firmwareGefragtAm: number | null;
   overlongLines: number;
   partialLines: number;
   /** Ausnahmen aus dem onLine-Verbraucher (gefangen, gezählt, weiter) */
@@ -152,6 +154,16 @@ export class SerialIngest {
   readonly #folge = new Folgezaehler();
   #erweitert = false;
   #firmware: Firmwareantwort | null = null;
+  /**
+   * Wann die Versionsfrage zuletzt hinausging — oder null, wenn noch nie.
+   *
+   * Ohne diesen Zeitpunkt liesse sich "noch keine Antwort da" nicht von
+   * "es kommt keine" unterscheiden, und der Analyzer behauptete unmittelbar
+   * nach dem Start, es laufe die Originalfassung. Genau das ist am
+   * 10.08.2026 an zwei Geraeten passiert: Nach einem Dienst-Neustart stand
+   * die falsche Auskunft da, nach einem Kaltstart die richtige.
+   */
+  #firmwareGefragtAm: number | null = null;
   /** Der offene Port der laufenden Sitzung — für Befehle an die Firmware. */
   #strom: IngestStream | null = null;
 
@@ -174,6 +186,7 @@ export class SerialIngest {
       folge: this.#folge.stats(),
       erweitert: this.#erweitert,
       firmware: this.#firmware,
+      firmwareGefragtAm: this.#firmwareGefragtAm,
       overlongLines: this.#overlong,
       partialLines: this.#partial,
       consumerErrors: this.#consumerErrors,
@@ -397,6 +410,7 @@ export class SerialIngest {
     const strom = this.#strom;
     if (strom?.schreibe === undefined) return;
     try {
+      this.#firmwareGefragtAm = this.#time.now();
       await strom.schreibe(':?;');
       await strom.schreibe(':E1;');
     } catch {

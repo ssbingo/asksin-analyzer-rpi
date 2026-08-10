@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { baueFirmwarebefund } from '../src/decode/firmwarebefund.ts';
+import { ANTWORTFRIST_MS, baueFirmwarebefund } from '../src/decode/firmwarebefund.ts';
 import { parseAntwort, parseLine, pruefsumme } from '../src/decode/parseLine.ts';
 import { FOLGE_RAUM, Folgezaehler, NEUANFANG_AB } from '../src/ingest/folge.ts';
 import { SerialIngest } from '../src/ingest/ingest.ts';
@@ -355,6 +355,37 @@ describe('Versionsabhaengigkeit Firmware <-> Analyzer', () => {
     assert.equal(b.art, 'passt');
     assert.match(b.text, /passen/);
     assert.match(b.text, /0x14/);
+  });
+
+  it('behauptet nichts, solange die Antwort noch aussteht', () => {
+    // Der Fehler vom 10.08.2026: Nach einem Dienst-Neustart stand sofort
+    // "es laeuft die Originalfassung" da — die Frage war gerade erst
+    // hinausgegangen. Nach einem Kaltstart stimmte die Anzeige wieder, weil
+    // dann Zeit vergangen war. Aus dem Ausbleiben einer Antwort darf erst
+    // dann eine Feststellung werden, wenn sie haette da sein muessen.
+    const gerade = baueFirmwarebefund(null, '0.14.1', {
+      gefragtAm: 1_000,
+      jetzt: 1_200,
+    });
+    assert.equal(gerade.art, 'unbekannt');
+    assert.match(gerade.text, /läuft|steht noch aus/);
+    assert.doesNotMatch(gerade.text, /Originalfassung/,
+      'darf die Originalfassung nicht behaupten, bevor es sie wissen kann');
+  });
+
+  it('behauptet nichts, wenn noch gar nicht gefragt wurde', () => {
+    const b = baueFirmwarebefund(null, '0.14.1', { gefragtAm: null, jetzt: 5_000 });
+    assert.equal(b.art, 'unbekannt');
+    assert.match(b.text, /nicht gestellt|nicht verbunden/);
+  });
+
+  it('nach Ablauf der Frist wird aus dem Schweigen eine Auskunft', () => {
+    const b = baueFirmwarebefund(null, '0.14.1', {
+      gefragtAm: 1_000,
+      jetzt: 1_000 + ANTWORTFRIST_MS + 1,
+    });
+    assert.equal(b.art, 'original');
+    assert.match(b.text, /Originalfassung/);
   });
 
   it('nennt die Originalfirmware beim Namen, ohne sie zu tadeln', () => {

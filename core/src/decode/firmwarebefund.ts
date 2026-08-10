@@ -25,7 +25,25 @@ export const PROTOKOLL_MINDESTFASSUNG = 1;
 /** Höchste Protokollfassung, die dieser Analyzer versteht. */
 export const PROTOKOLL_HOECHSTFASSUNG = 1;
 
+/**
+ * Wie lange nach der Versionsfrage auf die Antwort gewartet wird, bevor
+ * daraus ein Befund wird.
+ *
+ * Die Firmware antwortet in Millisekunden. Drei Sekunden sind also um
+ * Groessenordnungen grosszuegig — sie decken auch den Fall ab, dass die
+ * Antwort hinter einer Reihe Rauschzeilen einsortiert ist.
+ *
+ * Ohne diese Frist behauptete der Analyzer unmittelbar nach dem Start, es
+ * laufe die Originalfassung, weil noch keine Antwort da war. Am 10.08.2026
+ * an zwei Geraeten aufgetreten: nach dem Dienst-Neustart die falsche
+ * Auskunft, nach einem Kaltstart die richtige. Aus dem Ausbleiben einer
+ * Antwort darf erst dann eine Feststellung werden, wenn sie haette da sein
+ * muessen.
+ */
+export const ANTWORTFRIST_MS = 3000;
+
 export type Firmwarebefund =
+  | { art: 'unbekannt'; text: string }
   | { art: 'passt'; text: string }
   | { art: 'original'; text: string }
   | { art: 'zuAlt'; text: string }
@@ -45,8 +63,26 @@ export type Firmwarebefund =
 export function baueFirmwarebefund(
   antwort: Firmwareantwort | null,
   analyzerVersion: string,
+  frage?: { gefragtAm: number | null; jetzt: number },
 ): Firmwarebefund {
   if (antwort === null || antwort.art !== 'version') {
+    // Noch gar nicht gefragt, oder die Frist laeuft noch: Dann ist nichts
+    // festgestellt, und es wird auch nichts behauptet.
+    if (
+      frage !== undefined &&
+      (frage.gefragtAm === null || frage.jetzt - frage.gefragtAm < ANTWORTFRIST_MS)
+    ) {
+      return {
+        art: 'unbekannt',
+        text:
+          frage.gefragtAm === null
+            ? 'Die Versionsfrage wurde noch nicht gestellt — der Sniffer ist ' +
+              'noch nicht verbunden. Sobald die Verbindung steht, meldet sich ' +
+              'die Firmware von selbst.'
+            : 'Die Versionsfrage läuft — die Antwort steht noch aus. Das ' +
+              'dauert normalerweise Millisekunden.',
+      };
+    }
     return {
       art: 'original',
       text:

@@ -997,6 +997,7 @@ export class ApiServer {
         befund: baueFirmwarebefund(
           s.ingest.firmware,
           this.#opts.version ?? '0.0.1',
+          { gefragtAm: s.ingest.firmwareGefragtAm, jetzt: now },
         ),
         folge: s.ingest.folge,
       },
