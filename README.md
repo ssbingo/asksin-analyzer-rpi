@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.8** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.8** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.9** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.9** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,32 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.9 — 10.08.2026
+
+**Derselbe Fehlertyp noch zweimal, diesmal auf dem PWM-Weg.** Der Core
+schreibt die Farbe nach `/run/asksin-analyzer/led-farbe` — er wählt sein
+Laufzeitverzeichnis beim Start und nimmt `/var/lib` nur, wenn er in `/run`
+nicht schreiben darf. `led-pwm.py` kannte allein diesen Ausweichpfad und
+wartete im Normalbetrieb auf eine Datei, die es nie gab. Beide Seiten für
+sich fehlerfrei, keine Meldung, dunkle LED.
+
+Dazu: `asksin-analyzer-led.service` deklarierte `RuntimeDirectory=`, läuft
+aber als **root** (DMA braucht `/dev/mem`), während die beiden anderen Dienste
+als `asksin` laufen. systemd setzt Eigentümer und Rechte eines
+`RuntimeDirectory` bei **jedem** Start neu — der Root-Dienst machte das
+gemeinsame Austauschverzeichnis damit zu `root:root` und sperrte den Core aus.
+Das war der `EACCES` auf `oled-state.json`.
+
+- `led-pwm.py` sucht beide Orte ab, bei jedem Takt neu — `/run` wird beim
+  Booten geleert, und die Datei entsteht erst mit der Betriebsart PWM. Findet
+  er keine, sagt er es einmal, mit beiden gesuchten Pfaden im Klartext.
+- `RuntimeDirectory=` aus dem Root-Dienst entfernt. Angelegt wird das
+  Verzeichnis von `asksin-analyzer.service`, auf den er ohnehin wartet.
+- **`tools/pruefe-austauschdateien.py`** findet beides künftig ohne Hardware:
+  Jeder Helfer, der eine Austauschdatei nutzt, muss `/run` kennen, und kein
+  Root-Dienst darf das gemeinsame Verzeichnis in Besitz nehmen. Läuft im
+  Prüflauf mit; beide Fälle sind gegengeprüft.
 
 ### v0.15.8 — 10.08.2026
 

@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.15.8</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.15.9</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.15.8 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.15.9 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2488,7 +2488,14 @@ es liest sie niemand. Von außen: dunkle LED, keine Fehlermeldung.</p>
 Onboard-Audio abgeschaltet hat. Und der <strong>Schiebeschalter SW1</strong>
 auf der Platine muss auf <em>PWM</em> stehen — sonst ist die Datenleitung
 nicht durchgeschaltet. Seit Fassung 0.15.7 meldet der Analyzer den fehlenden
-Hilfsdienst von selbst.</p></div>
+Hilfsdienst von selbst.</p>
+<p style="margin-bottom: 0">Bis einschließlich 0.15.8 gab es hier eine zweite
+Ursache mit demselben Erscheinungsbild: Der Analyzer schreibt die Farbe nach
+<code>/run/asksin-analyzer/led-farbe</code>, der Hilfsdienst las aber nur den
+Ausweichpfad <code>/var/lib/asksin-analyzer/led-farbe</code>. Er wartete damit
+auf eine Datei, die es im Normalbetrieb nie gab. <strong>Ab 0.15.9</strong>
+sucht er beide Orte ab und schreibt ins Journal, wenn er keinen davon
+findet.</p></div>
 
 <div class="hinweis box"><span class="titel">Vor Fassung 0.15.8: dunkle LED trotz fehlerfreier Verdrahtung</span>
 <p>Bis einschließlich 0.15.7 stellte der Analyzer den SPI-Takt mit
@@ -3712,7 +3719,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.15.8 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.15.9 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>
