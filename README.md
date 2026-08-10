@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.2** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.2** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.3** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.3** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,25 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.14.3 — 10.08.2026
+
+**Die Versionsfrage ging nie hinaus, wenn keine Zeile deutbar war.** Ein
+Henne-Ei-Fehler: Die Frage hing an der ersten *gültigen* Zeile. Fehlt das
+Funkmodul, liest der SPI-Bus 0x00 oder 0xFF, der Pegel jeder Rauschzeile wird
+unplausibel, und der Parser verwirft sie zu Recht — restlos alle. Also wurde
+nie gefragt, und ausgerechnet die Auskunft `:!CC,--;`, die das fehlende
+Funkmodul benennt, kam nie zustande.
+
+Der Analyzer konnte genau dann nicht fragen, wenn die Antwort am wichtigsten
+gewesen wäre.
+
+Das erklärt auch, warum zwei baugleiche Geräte Unterschiedliches meldeten: Das
+eine hatte genau **eine** Rauschzeile, die durchkam, und zeigte prompt die
+richtige Fassung; das andere hatte null. An diesem Zufall hing die ganze
+Anzeige — ein Unterschied in der Firmware bestand nie.
+
+Die Frage hängt jetzt an der ersten Zeile überhaupt, einmal je Sitzung.
 
 ### v0.14.2 — 10.08.2026
 
