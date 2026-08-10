@@ -264,7 +264,7 @@ export async function flashFirmware(
       log.push(nurAvr.output.trim());
       if (nurAvr.code === 0) return { ok: true, log: log.join('\n') };
       const d = deuteAvrdude(nurAvr.output);
-      if (d !== null) log.push(`\n${d}`);
+      if (d !== null) { melde(`\n${d}`); log.push(`\n${d}`); }
     }
     return { ok: false, log: log.join('\n') };
   }
@@ -324,7 +324,7 @@ export async function flashFirmware(
     if (avr.code === 0) break;
     log.push(avr.output.trim());
     const zwischen = deuteAvrdude(avr.output);
-    if (zwischen !== null) log.push(`\n${zwischen}`);
+    if (zwischen !== null) { melde(`\n${zwischen}`); log.push(`\n${zwischen}`); }
   }
 
   // Der Ausgang haengt an avrdude, nicht an der Leitung.
@@ -343,7 +343,7 @@ export async function flashFirmware(
   }
   log.push(avr.output.trim());
   const deutung = deuteAvrdude(avr.output);
-  if (deutung !== null) log.push(`\n${deutung}`);
+  if (deutung !== null) { melde(`\n${deutung}`); log.push(`\n${deutung}`); }
   return { ok: avr.code === 0, log: log.join('\n') };
 }
 
@@ -376,6 +376,16 @@ export function deuteAvrdude(ausgabe: string): string | null {
       + '(urclock gibt es ab avrdude 7.1).'
     );
   }
+  if (/uP_table does not know mcuid/.test(ausgabe)) {
+    return (
+      'Befund: Auf dem 328P ist kein Bootloader. avrdude hat die laufende '
+      + 'Ausgabe des Sniffers als Antwort gedeutet und daraus eine Kennung '
+      + 'errechnet, die es nicht gibt.\n'
+      + 'Abhilfe: Einmalig den Bootloader ueber den USBasp brennen — Handbuch '
+      + '7.7 beschreibt die Reihenfolge, deploy/bootloader-brennen.sh erledigt '
+      + 'es vom Pi aus.'
+    );
+  }
   if (/not in sync: resp=0x3a/.test(ausgabe)) {
     return (
       'Befund: Auf dem 328P ist kein Bootloader. 0x3a ist das Zeichen ":" — ' +
@@ -383,9 +393,10 @@ export function deuteAvrdude(ausgabe: string): string | null {
       'Bootloaders.\n' +
       'Ursache ist fast immer "Hochladen mit Programmer" in der Arduino IDE: ' +
       'Das löscht den Chip vollständig, Bootloader eingeschlossen.\n' +
-      'Abhilfe: In der Arduino IDE einmal "Werkzeuge → Bootloader brennen", ' +
-      'danach die Firmware wieder von hier aus aufspielen — dieser Weg lässt ' +
-      'den Bootloader stehen. Handbuch 8.2.'
+      'Abhilfe: Einmalig den Bootloader brennen, danach die Firmware wieder ' +
+      'von hier aus aufspielen — dieser Weg lässt ihn stehen. Handbuch 7.7 ' +
+      'beschreibt die Reihenfolge; deploy/bootloader-brennen.sh erledigt das ' +
+      'Brennen vom Pi aus, ohne PC.'
     );
   }
   if (/not in sync/.test(ausgabe)) {

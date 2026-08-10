@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.4** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.4** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.5** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.5** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,22 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.5 — 10.08.2026
+
+**Der Befund stand nur im Rückgabewert, nicht im angezeigten Verlauf.** Der
+Analyzer erkennt `not in sync: resp=0x3a` und weiß, dass das kein
+Übertragungsproblem ist, sondern ein fehlender Bootloader — die Erklärung
+erreichte den Anwender aber nicht. Die Oberfläche zeigt den mitlaufenden
+Verlauf, und dorthin wurde die Deutung nie geschrieben. Man sah die rohe
+avrdude-Meldung und musste selbst wissen, was `0x3a` bedeutet.
+
+Zusätzlich erkannt: `uP_table does not know mcuid …`. Auch das heißt „kein
+Bootloader" — avrdude deutet die laufende Ausgabe des Sniffers als Antwort und
+errechnet daraus eine Kennung, die es nicht gibt.
+
+Beide Befunde verweisen jetzt auf Handbuch 7.7 und auf
+`deploy/bootloader-brennen.sh`.
 
 ### v0.15.4 — 10.08.2026
 

@@ -248,3 +248,32 @@ test('deuteAvrdude: 0xa0 heisst "falsches Protokoll", nicht "Uebertragungsfehler
   assert.doesNotMatch(d, /kein Bootloader/,
     '0xa0 ist etwas anderes als 0x3a — hier ist einer da, er spricht nur anders');
 });
+
+test('der Befund landet im angezeigten Verlauf, nicht nur im Rueckgabewert', async () => {
+  // Am 10.08.2026 an Analyzer 05 gesehen: avrdude meldete resp=0x3a, der
+  // Analyzer kannte die Deutung — sie stand aber nur im Rueckgabewert. Die
+  // Oberflaeche zeigt den mitlaufenden Verlauf, und dort fehlte sie. Der
+  // Anwender sah die rohe Meldung und musste selbst wissen, was 0x3a heisst.
+  const verlauf: string[] = [];
+  await flashFirmware('/tmp/fw.hex', {
+    device: '/dev/asksin-hat',
+    anlaufMs: 5,
+    onFortschritt: (t) => verlauf.push(t),
+    runCommand: (cmd) =>
+      Promise.resolve(
+        cmd === 'avrdude'
+          ? { code: 1, output: 'avrdude warning: not in sync: resp=0x3a' }
+          : { code: 124, output: '' },
+      ),
+  });
+  const text = verlauf.join('');
+  assert.match(text, /kein Bootloader/, 'die Deutung muss im Verlauf stehen');
+  assert.match(text, /7\.7/, 'mit Verweis auf die Anleitung');
+});
+
+test('deuteAvrdude: unbekannte mcuid heisst ebenfalls "kein Bootloader"', () => {
+  const d = deuteAvrdude('avrdude warning: uP_table does not know mcuid 562');
+  assert.ok(d !== null);
+  assert.match(d, /kein Bootloader/);
+  assert.match(d, /bootloader-brennen\.sh/);
+});
