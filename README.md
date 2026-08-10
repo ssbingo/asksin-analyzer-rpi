@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.6** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.6** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.7** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.7** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,26 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.7 — 10.08.2026
+
+**Eine Einstellung, die aussah, als wirke sie, und nichts tat.** Die
+Betriebsart der Status-LED lässt sich in der Weboberfläche zwischen SPI und
+PWM umstellen. Geschrieben wurde dabei nur die Einstellung — die
+Voraussetzungen für PWM schafft bisher ausschließlich der Installer:
+`rpi_ws281x`, der Root-Hilfsdienst `asksin-analyzer-led` und abgeschaltetes
+Onboard-Audio.
+
+Wer nachträglich umstellte, bekam eine dunkle LED und keine Fehlermeldung: Der
+Core schrieb die Farbe korrekt nach `/run/asksin-analyzer/led-farbe`, und es
+las sie niemand.
+
+- Der Analyzer prüft jetzt einmal je Minute, ob der Hilfsdienst läuft, und
+  meldet ihn — einmal, nicht dauernd — mit dem Befehl zum Nachholen.
+- **`deploy/led-pwm-einrichten.sh`** holt die Einrichtung nach: Onboard-Audio
+  abschalten, `rpi_ws281x` installieren, Hilfsdienst aktivieren. Es sagt am
+  Ende, ob ein Neustart nötig ist und dass SW1 auf PWM stehen muss.
+- Handbuch 18 beschreibt den Fall.
 
 ### v0.15.6 — 10.08.2026
 

@@ -528,3 +528,60 @@ test('Taster wird nachgezogen, wenn der Anzeigedienst erst spaeter zeichnet', as
 
   await anzeige.stop();
 });
+
+test('PWM ohne laufenden Hilfsdienst wird gemeldet — einmal, nicht dauernd', async () => {
+  // Der Fall vom 10.08.2026 an Analyzer 01: Betriebsart in der Weboberflaeche
+  // auf PWM gestellt, aber die Voraussetzungen schafft bisher nur der
+  // Installer. Der Core schrieb die Farbe korrekt — es las sie nur niemand.
+  // Von aussen: dunkle LED, keine Fehlermeldung.
+  const time = new FakeTime();
+  const fehler: string[] = [];
+  let abfragen = 0;
+
+  const anzeige = new StatusAnzeige({
+    led: 'ws2812-pwm',
+    oled: false,
+    daten: () => ({ ...DATEN }),
+    time,
+    runner: (cmd, args) => {
+      if (cmd === 'systemctl' && args.includes('asksin-analyzer-led')) {
+        abfragen++;
+        return Promise.resolve({ code: 3, output: 'inactive' });
+      }
+      return Promise.resolve({ code: 0, output: '' });
+    },
+    schreibeGeraet: () => Promise.resolve(),
+    onError: (kontext, err) => fehler.push(`${kontext}: ${String(err)}`),
+  });
+
+  await anzeige.start();
+  await time.advance(70_000);
+
+  const treffer = fehler.filter((f) => /Hilfsdienst asksin-analyzer-led/.test(f));
+  assert.equal(treffer.length, 1, `genau einmal melden, war: ${treffer.length}`);
+  assert.match(treffer[0]!, /led-pwm-einrichten\.sh/, 'nennt den Ausweg');
+  assert.ok(abfragen >= 1, 'der Dienst wird ueberhaupt abgefragt');
+
+  await anzeige.stop();
+});
+
+test('Laeuft der PWM-Hilfsdienst, wird nichts gemeldet', async () => {
+  const time = new FakeTime();
+  const fehler: string[] = [];
+  const anzeige = new StatusAnzeige({
+    led: 'ws2812-pwm',
+    oled: false,
+    daten: () => ({ ...DATEN }),
+    time,
+    runner: () => Promise.resolve({ code: 0, output: 'active' }),
+    schreibeGeraet: () => Promise.resolve(),
+    onError: (kontext, err) => fehler.push(`${kontext}: ${String(err)}`),
+  });
+  await anzeige.start();
+  await time.advance(70_000);
+  assert.equal(
+    fehler.filter((f) => /Hilfsdienst/.test(f)).length, 0,
+    `keine Meldung im guten Fall, war: ${JSON.stringify(fehler)}`,
+  );
+  await anzeige.stop();
+});

@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.15.6</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.15.7</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.15.6 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.15.7 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2472,6 +2472,24 @@ der Init-Sequenz hängen daran. Mit den falschen Werten zeigt das Panel ein
 sei die Schrift zu klein oder das Display defekt.</p>
 </div>
 
+<div class="achtung box"><span class="titel">⚠ Betriebsart in der Weboberfläche umgestellt? Dann fehlt womöglich der Unterbau</span>
+<p>Auf <strong>Pi 3 und Pi 4</strong> läuft die LED über <strong>PWM</strong>, und
+das braucht dreierlei, was nur der Installer einrichtet: die Bibliothek
+<code>rpi_ws281x</code>, den Root-Hilfsdienst <code>asksin-analyzer-led</code>
+und <strong>abgeschaltetes Onboard-Audio</strong> (PWM braucht die Hardware
+exklusiv).</p>
+<p>Wer die Betriebsart nachträglich in den Einstellungen von SPI auf PWM
+umstellt, ändert nur die Einstellung — der Unterbau fehlt dann, der Analyzer
+schreibt die Farbe brav nach <code>/run/asksin-analyzer/led-farbe</code>, und
+es liest sie niemand. Von außen: dunkle LED, keine Fehlermeldung.</p>
+<p>Nachholen lässt sich das mit einem Befehl:</p>
+<pre>sudo bash /opt/asksin-analyzer/deploy/led-pwm-einrichten.sh</pre>
+<p style="margin-bottom: 0">Danach ist ein Neustart nötig, wenn das Skript das
+Onboard-Audio abgeschaltet hat. Und der <strong>Schiebeschalter SW1</strong>
+auf der Platine muss auf <em>PWM</em> stehen — sonst ist die Datenleitung
+nicht durchgeschaltet. Seit Fassung 0.15.7 meldet der Analyzer den fehlenden
+Hilfsdienst von selbst.</p></div>
+
 <h2 class="umbruch" id="k18-2">18.2 Die LED-Farbsprache</h2>
 <table>
 <tr><th>Farbe/Muster</th><th>Bedeutung</th></tr>
@@ -3673,7 +3691,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.15.6 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.15.7 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

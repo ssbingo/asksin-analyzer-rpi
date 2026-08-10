@@ -84,6 +84,9 @@ export interface StatusAnzeigeOptions {
 
 const MAX_FEHLER = 3;
 
+/** Wie oft nachgesehen wird, ob der PWM-Hilfsdienst läuft. */
+const PWM_PRUEFUNG_MS = 60_000;
+
 /** Flanken je Sekunde, ab denen der Taster als gestört gilt (siehe unten). */
 const STURM_GRENZE = 50;
 
@@ -117,6 +120,9 @@ export class StatusAnzeige {
   #tasterStop: (() => void) | null = null;
   /** Damit der Grund einmal im Journal steht und nicht alle 500 ms. */
   #tasterGemeldet = false;
+  /** Damit der fehlende PWM-Helfer einmal gemeldet wird, nicht dauernd. */
+  #pwmGemeldet = false;
+  #letztePwmPruefung = 0;
   #seite = 0;
   /** Hat der Anzeigedienst zuletzt eine Seitenzahl gemeldet? */
   #seitenGemeldet = true;
@@ -271,6 +277,50 @@ export class StatusAnzeige {
     ];
   }
 
+  /**
+   * Prueft bei PWM, ob der Root-Hilfsdienst ueberhaupt laeuft.
+   *
+   * Der Core schreibt bei dieser Betriebsart nur die Farbe als Text nach
+   * /run/asksin-analyzer/led-farbe; treiben muss sie der Dienst
+   * asksin-analyzer-led, weil PWM/DMA Root braucht. Laeuft der nicht, gelingt
+   * das Schreiben trotzdem — es liest nur niemand. Von aussen: dunkle LED,
+   * keine Fehlermeldung, alles scheinbar richtig eingestellt.
+   *
+   * Genau so am 10.08.2026 an Analyzer 01: Die Betriebsart war in der
+   * Weboberflaeche auf PWM gestellt worden, aber die Voraussetzungen dafuer
+   * schafft bisher nur der Installer — rpi_ws281x, der Hilfsdienst und das
+   * Abschalten des Onboard-Audio. Die Einstellung sah aus, als wirke sie.
+   *
+   * Selten geprueft (alle 60 s): Der Dienst kann jederzeit nachtraeglich
+   * eingerichtet werden, und ein Aufruf je Minute faellt nicht ins Gewicht.
+   */
+  async #pwmHelferPruefen(): Promise<void> {
+    if (this.#o.led !== 'ws2812-pwm') return;
+    const jetzt = this.#time.now();
+    if (jetzt - this.#letztePwmPruefung < PWM_PRUEFUNG_MS) return;
+    this.#letztePwmPruefung = jetzt;
+    let laeuft = false;
+    try {
+      const erg = await this.#runner('systemctl', ['is-active', 'asksin-analyzer-led']);
+      laeuft = erg.code === 0;
+    } catch {
+      return;   // systemctl nicht da: keine Aussage, also keine Behauptung
+    }
+    if (laeuft) {
+      this.#pwmGemeldet = false;
+      return;
+    }
+    if (this.#pwmGemeldet) return;
+    this.#pwmGemeldet = true;
+    this.#fehler(
+      'led',
+      'Betriebsart PWM gewählt, aber der Hilfsdienst asksin-analyzer-led ' +
+        'läuft nicht — die Farbe wird geschrieben und von niemandem gelesen. ' +
+        'Einrichten mit: sudo bash /opt/asksin-analyzer/deploy/' +
+        'led-pwm-einrichten.sh (Handbuch 18)',
+    );
+  }
+
   async #ledTakt(signal: AbortSignal, geraet: string): Promise<void> {
     for (;;) {
       try {
@@ -278,6 +328,7 @@ export class StatusAnzeige {
       } catch {
         return;
       }
+      await this.#pwmHelferPruefen();
       if (this.#ledFehler >= MAX_FEHLER) continue;
       const muster = ledMuster(this.#o.daten());
       const faktor = blinkPhase(muster.blinken, this.#time.now());
