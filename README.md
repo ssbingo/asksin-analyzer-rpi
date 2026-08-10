@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.4** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.4** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.14.5** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.14.5** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,23 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.14.5 — 10.08.2026
+
+**Der Flash blieb weiterhin hängen — meine Reparatur aus v0.14.1 saß an der
+falschen Stelle.** Dort hat `close()` eine Zeitgrenze bekommen. Die eigentliche
+Blockade lag eine Zeile tiefer: `for await (const chunk of stream.readable)`
+endet erst, wenn der Strom endet. Gibt `close()` auf, ohne dass der hängende
+`read()` zurückkehrt, läuft die Schleife weiter und `stop()` wartet trotzdem
+für immer.
+
+Die Leseschleife hört jetzt auf ein eigenes Abbruchsignal, unabhängig davon,
+ob der Strom sich schließen lässt. Zusätzlich wartet auch der Verbindungs-
+Aufbau nicht mehr unbegrenzt auf ein fremdes `close()` — der Ingest verlässt
+sich nicht mehr darauf, dass eine Port-Umsetzung zurückkehrt.
+
+Beides mit Test: ein Strom, der nie etwas liefert und sich nicht schließen
+lässt. Gegenprobe ohne Abbruchsignal — der Test hängt bis zur Schranke.
 
 ### v0.14.4 — 10.08.2026
 

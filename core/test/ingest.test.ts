@@ -213,3 +213,43 @@ test('doppeltes start() ist ein Programmierfehler und wirft', async () => {
   assert.throws(() => ingest.start(), /läuft bereits/);
   await ingest.stop();
 });
+
+test('stop() kehrt zurück, auch wenn der Strom sich nicht schliessen lässt', async () => {
+  // Der Hänger vom 10.08.2026, zweimal erlebt.
+  //
+  // An einer seriellen Schnittstelle ohne eingehende Zeichen hängt der read()
+  // im Thread-Pool. destroy() weckt ihn nicht, close() kann aufgeben — aber
+  // das `for await` über den Strom läuft trotzdem weiter, #session kehrt nie
+  // zurück, und stop() wartet für immer. Nach aussen: Der Firmware-Flash
+  // bleibt nach "Ingest wird angehalten" stehen, der HTTP-Aufruf kommt nie
+  // zurück, und die Oberfläche zeigt stundenlang dasselbe.
+  const totgeburt = {
+    // Liefert nie etwas und endet nie.
+    readable: (async function* () {
+      await new Promise(() => { /* niemals */ });
+      yield new Uint8Array();
+    })(),
+    // Und schliessen laesst er sich auch nicht.
+    close: () => new Promise<void>(() => { /* niemals */ }),
+  };
+
+  const ingest = new SerialIngest({
+    openPort: () => Promise.resolve(totgeburt),
+    silenceTimeoutMs: 60_000,   // Watchdog darf hier nicht helfen
+  });
+
+  ingest.start();
+  await new Promise((r) => setTimeout(r, 30));
+
+  // Die Schranke muss ueber der Schliess-Grenze des Ingest liegen (3 s),
+  // sonst misst der Test die Grenze statt des Haengers. Der Pruefpunkt ist
+  // nicht "schnell", sondern "ueberhaupt".
+  const start = Date.now();
+  await Promise.race([
+    ingest.stop(),
+    new Promise((_, ab) =>
+      setTimeout(() => ab(new Error('stop() haengt — genau der Fehler')), 8000),
+    ),
+  ]);
+  assert.ok(Date.now() - start < 8000, 'stop() muss zurückkehren');
+});

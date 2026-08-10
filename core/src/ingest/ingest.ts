@@ -130,6 +130,16 @@ export interface IngestStats {
   lastLineAt: number | null;
 }
 
+/**
+ * Wie lange hoechstens auf das Schliessen eines Ports gewartet wird.
+ *
+ * Die Port-Umsetzung bringt zwar ihre eigene Grenze mit (schliesseStrom in
+ * sttyPort.ts) — aber der Ingest darf sich darauf nicht verlassen. Eine
+ * fremde oder kuenftige Umsetzung koennte fuer immer warten, und dann steht
+ * der ganze Dienst.
+ */
+const SCHLIESS_GRENZE_MS = 3000;
+
 export class SerialIngest {
   readonly #opts: Required<Pick<SerialIngestOptions, 'openPort'>> &
     SerialIngestOptions;
@@ -226,7 +236,15 @@ export class SerialIngest {
           reason = await this.#session(stream, signal);
         } finally {
           try {
-            await stream.close();
+            // Mit Zeitgrenze, und zwar unabhaengig davon, was die
+            // Port-Umsetzung verspricht. Der Ingest darf sich nicht darauf
+            // verlassen, dass ein fremdes close() zurueckkehrt — an einer
+            // seriellen Schnittstelle mit haengendem read() tut es das
+            // moeglicherweise nie, und dann steht der ganze Dienst.
+            await Promise.race([
+              stream.close(),
+              this.#time.delay(SCHLIESS_GRENZE_MS).catch(() => {}),
+            ]);
           } catch {
             /* Schließen eines toten Ports darf nie zusätzlich knallen */
           }
@@ -273,10 +291,16 @@ export class SerialIngest {
     let lastDataAt = this.#time.now();
     let watchdogAusloesung = false;
 
+    // Getrenntes Signal nur fuers Lesen.
+    //
+    // `sessionEnde` darf nicht dafuer herhalten: Nach dem Lesen wird die
+    // Warteschlange noch geleert, und dafuer muss der Dispatcher noch leben.
+    const leseEnde = new AbortController();
+
     const onStop = () => {
       sessionEnde.abort(new Error('gestoppt'));
-      // Ohne dieses close() hinge stop() für immer: ein for-await auf einem
-      // Dateistrom endet erst, wenn der Strom zerstört wird.
+      leseEnde.abort();
+      // close() versucht es, kann aber aufgeben — siehe schliesseStrom().
       void stream.close();
     };
     if (signal.aborted) {
@@ -295,6 +319,7 @@ export class SerialIngest {
         await this.#time.delay(pruefIntervall, sessionEnde.signal);
         if (this.#time.now() - lastDataAt > this.#silenceMs) {
           watchdogAusloesung = true;
+          leseEnde.abort();
           await stream.close();
           return;
         }
@@ -312,9 +337,37 @@ export class SerialIngest {
     // --- Leser: Bytes → Splitter → Queue ---------------------------------
     let leseFehler: unknown;
     try {
-      for await (const chunk of stream.readable) {
+      // Die Schleife MUSS aufs Abbruchsignal hoeren, nicht nur aufs Ende des
+      // Stroms.
+      //
+      // Ein `for await (const c of stream.readable)` endet erst, wenn der
+      // Strom endet. `destroy()` beendet ihn aber nicht, solange im
+      // Thread-Pool ein blockierendes read() auf dem Geraet haengt — an einer
+      // seriellen Schnittstelle ohne eingehende Zeichen der Normalfall. Dann
+      // laeuft die Schleife weiter, #session kehrt nie zurueck, und stop()
+      // wartet fuer immer.
+      //
+      // Am 10.08.2026 zweimal erlebt: Der Firmware-Flash blieb nach
+      // "Ingest wird angehalten" stehen. Beim ersten Mal habe ich die
+      // Zeitgrenze in schliesseStrom() eingezogen — an der richtigen Stelle
+      // waere sie hier gewesen. close() darf aufgeben; diese Schleife muss
+      // es dann auch.
+      //
+      // Das liegengebliebene next() bleibt offen; der Dateideskriptor wird
+      // freigegeben, sobald der haengende read() zurueckkehrt.
+      const leser = stream.readable[Symbol.asyncIterator]();
+      const abbruch: Promise<IteratorResult<Uint8Array>> = new Promise(
+        (aufloesen) => {
+          const fertig = (): void => aufloesen({ done: true, value: undefined });
+          if (leseEnde.signal.aborted) fertig();
+          else leseEnde.signal.addEventListener('abort', fertig, { once: true });
+        },
+      );
+      for (;;) {
+        const naechster = await Promise.race([leser.next(), abbruch]);
+        if (naechster.done === true) break;
         lastDataAt = this.#time.now();
-        for (const zeile of splitter.push(chunk)) {
+        for (const zeile of splitter.push(naechster.value)) {
           this.#dropped += queue.put(zeile);
         }
       }
