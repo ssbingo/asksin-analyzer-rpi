@@ -163,7 +163,18 @@ export function parseLine(raw: string, now: () => number = Date.now): ParsedLine
     const rahmen = anhang[1] as string;
     const nummer = anhang[2] as string;
     const summe = Number.parseInt(anhang[3] as string, 16);
-    if (pruefsumme(rahmen + nummer) !== summe) return ignored('checksum', raw);
+    // Das '+' gehört MIT in die Summe. docs/protokoll.md der Firmware:
+    // „8-Bit-Summe über alle Zeichen von ':' bis einschließlich der letzten
+    // Ziffer der Folgenummer" — und das '+' liegt in diesem Bereich. Die
+    // Firmware summiert schlicht ihren Ausgabepuffer (protokoll.cpp:69), in
+    // dem es natürlich steht.
+    //
+    // Hier fehlte es. Der Analyzer lag damit bei jeder Zeile um genau 43
+    // daneben — den ASCII-Wert von '+' — und verwarf ausnahmslos alles mit
+    // dem Grund 'checksum'. Sichtbar wurde das erst am 10.08.2026, als
+    // Analyzer 01 sein Funkmodul bekam: Telegramme lagen auf der Leitung,
+    // in der Weboberfläche kam keines an. Vorher gab es nichts zu verwerfen.
+    if (pruefsumme(`${rahmen}+${nummer}`) !== summe) return ignored('checksum', raw);
     folge = Number.parseInt(nummer, 16);
     rumpfzeile = rahmen;
   }

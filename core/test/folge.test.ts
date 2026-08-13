@@ -7,10 +7,23 @@ import { FOLGE_RAUM, Folgezaehler, NEUANFANG_AB } from '../src/ingest/folge.ts';
 import { SerialIngest } from '../src/ingest/ingest.ts';
 import type { IngestStream } from '../src/ingest/ingest.ts';
 
-/** Hängt den Anhang an, wie die Firmware es tut. */
+/**
+ * Hängt den Anhang an, wie die Firmware es tut.
+ *
+ * Das '+' gehört mit in die Summe — es liegt zwischen ';' und der
+ * Folgenummer, und die Vorgabe deckt „alle Zeichen von ':' bis
+ * einschließlich der letzten Ziffer der Folgenummer" ab. Hier stand es
+ * früher nicht, genau wie im Parser: Der Test baute seine Zeilen mit
+ * derselben falschen Formel, gegen die er prüfte, und war deshalb grün,
+ * während der Analyzer am Gerät jede einzelne Zeile verwarf.
+ *
+ * Gegen diese Art Selbstbestätigung hilft nur eine Quelle von außen —
+ * dafür stehen weiter unten echte, am 10.08.2026 an Analyzer 01
+ * mitgeschnittene Zeilen.
+ */
 function mitAnhang(rahmen: string, folge: number): string {
   const nummer = folge.toString(16).toUpperCase().padStart(4, '0');
-  const summe = pruefsumme(rahmen + nummer)
+  const summe = pruefsumme(`${rahmen}+${nummer}`)
     .toString(16)
     .toUpperCase()
     .padStart(2, '0');
@@ -349,9 +362,9 @@ describe('Pruefsumme', () => {
     // an der das vor dem Aufspielen auffallen kann.
     assert.equal(pruefsumme(''), 0);
     assert.equal(pruefsumme('A'), 65);
-    // ':5A;' + '0000' — von Hand nachgerechnet
-    const soll = (58 + 53 + 65 + 59 + 48 * 4) & 0xff;
-    assert.equal(pruefsumme(':5A;0000'), soll);
+    // ':5A;+0000' — von Hand nachgerechnet, MIT dem '+' (43).
+    const soll = (58 + 53 + 65 + 59 + 43 + 48 * 4) & 0xff;
+    assert.equal(pruefsumme(':5A;+0000'), soll);
   });
 
   it('laeuft bei 256 sauber ueber', () => {
@@ -359,6 +372,55 @@ describe('Pruefsumme', () => {
     const p = pruefsumme(lang);
     assert.ok(p >= 0 && p <= 255);
     assert.equal(p, (90 * 1000) & 0xff);
+  });
+
+  it('nimmt echte Zeilen vom Gerät an', () => {
+    // Am 10.08.2026 an Analyzer 01 mitgeschnitten, unmittelbar nachdem das
+    // Funkmodul bestückt war — mit `cat /dev/asksin-hat`, also roh und
+    // ungefiltert. Diese Zeilen sind der Prüfstein: Sie stammen aus der
+    // Firmware selbst und teilen keine Annahme mit dem Analyzer. Die
+    // handgebauten Zeilen weiter oben konnten das nicht leisten; sie waren
+    // grün, während am Gerät ausnahmslos alles verworfen wurde.
+    const echt = [
+      ':72;+02AFF2',
+      ':73;+02B0DE',
+      ':6E;+02B3F2',
+      ':460CED84702D88B400000001022C;+032B64',
+      ':52131200835AAC3CF0000100003CA6D1F5303514DC;+03305A',
+      ':430D66A6102499E127508B06012800;+035ABF',
+      ':532110008E3CC0A2BEF6470003DA72EBDB39E53E7AD7EBDDAEC4AA792B616B80FD6900;+039262',
+    ];
+    for (const zeile of echt) {
+      const p = parseLine(zeile, () => 0);
+      assert.notEqual(p.kind, 'ignored', `verworfen: ${zeile}`);
+    }
+    // Und die Deutung muss auch stimmen, nicht nur das Durchkommen:
+    const rausch = parseLine(':72;+02AFF2', () => 0);
+    assert.equal(rausch.kind, 'noise');
+    assert.equal(rausch.kind === 'noise' ? rausch.noise.rssi : 0, -0x72);
+    assert.equal(rausch.kind === 'noise' ? rausch.folge : -1, 0x02af);
+
+    const tele = parseLine(':460CED84702D88B400000001022C;+032B64', () => 0);
+    assert.equal(tele.kind, 'telegram');
+    assert.equal(tele.kind === 'telegram' ? tele.telegram.rssi : 0, -0x46);
+    // :46 0C ED 84 70 2D88B4 000000 01022C ;
+    //  ^  ^  ^  ^  ^  ^      ^      ^
+    //  |  |  |  |  |  |      |      Payload, LL-9 = 3 Byte
+    //  |  |  |  |  |  |      Empfaenger (Broadcast)
+    //  |  |  |  |  |  Absender
+    //  |  |  |  |  Typ
+    //  |  |  |  Flags
+    //  |  |  Zaehler
+    //  |  Laenge
+    //  RSSI-Betrag
+    assert.equal(tele.kind === 'telegram' ? tele.telegram.from : '', '2D88B4');
+    assert.equal(tele.kind === 'telegram' ? tele.telegram.to : '', '000000');
+
+    // Eine verfälschte Zeile muss weiterhin auffallen — sonst hätte ich die
+    // Prüfung nur abgeschaltet statt richtiggestellt.
+    const kaputt = parseLine(':72;+02AFF3', () => 0);
+    assert.equal(kaputt.kind, 'ignored');
+    assert.equal(kaputt.kind === 'ignored' ? kaputt.reason : '', 'checksum');
   });
 
   it('deckt genau den Bereich ab, den die Firmware auch deckt', () => {

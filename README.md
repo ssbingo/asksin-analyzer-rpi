@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.10** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.10** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.11** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.11** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,32 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.11 — 10.08.2026
+
+**Der Analyzer verwarf jede einzelne Zeile — wegen eines Pluszeichens.** Die
+erweiterte Firmware hängt an jede Zeile `+NNNNKK` an: Folgenummer und
+Prüfsumme. Die Vorgabe (`docs/protokoll.md` der Firmware) deckt damit „alle
+Zeichen von `:` bis einschließlich der letzten Ziffer der Folgenummer" ab —
+und das `+` liegt in diesem Bereich. Die Firmware summiert schlicht ihren
+Ausgabepuffer, in dem es natürlich steht.
+
+Der Analyzer summierte `:72;` und `02AF` und ließ das `+` aus. Er lag damit
+bei **jeder** Zeile um genau 43 daneben, den ASCII-Wert von `+`, und verwarf
+ausnahmslos alles mit dem Grund `checksum`.
+
+Sichtbar wurde das erst, als Analyzer 01 sein Funkmodul bekam: Auf der
+Leitung lagen Telegramme, in der Weboberfläche kam keines an, und die
+Firmware-Kachel zählte `Zeilen geprüft 0`. Vorher gab es schlicht nichts zu
+verwerfen.
+
+- Die Summe schließt das `+` jetzt ein.
+- **Der Test hatte denselben Irrtum.** Er baute seine Zeilen mit genau der
+  Formel, gegen die er prüfte, und war deshalb grün, während am Gerät alles
+  durchfiel. Dagegen hilft nur eine Quelle von außen: Sieben **echte,
+  am Gerät mitgeschnittene Zeilen** sind jetzt Prüfstein — Rauschen wie
+  Telegramme, dazu eine absichtlich verfälschte, damit die Prüfung nicht
+  bloß abgeschaltet ist.
 
 ### v0.15.10 — 10.08.2026
 
