@@ -82,16 +82,24 @@ bestueckung/
     jlcpcb_bom.csv   BOM fuer die JLCPCB-Bestueckung, mit LCSC-Nummern.
                      SMD plus eine THT-Ausnahme: Y1 (Resonator
                      CSTLS8M00G53-B0, C83707) loetet JLCPCB in der
-                     Welle mit. U3 (Funkmodul) fehlt dort bewusst —
-                     nicht im JLCPCB-Katalog, wird von Hand geloetet.
+                     Welle mit. U3 (Funkmodul E07-900M10S) ist seit
+                     14.08.2026 als C9900007000 dabei — eine
+                     "JLCPCB Assembly"-Position, die in die eigene
+                     Teilebibliothek gekauft wird und nur fuer PCBA
+                     verwendbar ist (kein Einzelversand).
                      U1 ist als XC6206P332MR-G (C5446) eingetragen,
                      pinkompatibler Ersatz fuer den MCP1754S.
                      S1 ist C231329 (B3U-1000P ohne Zentrierstift,
                      gleiche Pads — die Stiftbohrung bleibt leer).
     jlcpcb_cpl.csv   Pick-&-Place passend zur jlcpcb_bom.csv,
-                     18 Bauteile. Nach dem Upload die
+                     19 Bauteile. Nach dem Upload die
                      Bauteilvorschau pruefen: Drehlage von U1, U2,
-                     S1 und SW1 sowie die Polung von D1.
+                     S1, SW1 und U3 sowie die Polung von D1.
+                     Bei U3 besonders genau hinsehen: Das Modul ist
+                     ein eigener Footprint, und eine um 180 Grad
+                     verdrehte Bestueckung faellt erst beim Flashen
+                     auf. Pad 1 liegt an der Ecke mit der
+                     abgeschraegten Markierung im Bestueckungsdruck.
 
 doku/
     layout.pdf       Bestueckungsseite mit Umriss und Druck

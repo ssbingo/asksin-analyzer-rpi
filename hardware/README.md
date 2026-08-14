@@ -568,7 +568,7 @@ sie las, baute ein anderes Gerät.
 | --- | --- | --- | --- |
 | U1 | MCP1754S-3302xCB (JLCPCB-Ersatz: XC6206P332MR-G) | SOT-23-3 | 1 |
 | U2 | ATmega328P-AU | TQFP-32 | 1 |
-| U3 | Ebyte **E07-900M10S** (CC1101, 855–925 MHz, IPEX) | Modul 14×20 mm | 1 |
+| U3 | Ebyte **E07-900M10S** (CC1101, 855–925 MHz, IPEX; JLCPCB C9900007000) | Modul 14×20 mm | 1 |
 | Y1 | Keramikresonator 8 MHz, integr. C (Murata CSTLS8M00G53-B0, JLCPCB C83707) | 3-polig THT | 1 |
 | L1 | BLM21PG300 Ferrit | 0805 | 1 |
 | R1 | 330 Ω | 0805 | 1 |
@@ -633,9 +633,30 @@ gehören nicht in die Bestellung.
 > richtig. Wer die Daten von Hand neu exportiert, muss das nachziehen — sonst
 > ordnet ein Fertiger, der das Jobfile auswertet, die Innenlagen falsch ein.
 
+### Bestückung bei JLCPCB
+
+Seit dem 14.08.2026 ist auch das **Funkmodul** maschinell bestückbar:
+`E07-900M10S`, JLCPCB-Nummer **C9900007000**, Katalogangabe LCC-22,
+20,0 × 14,0 mm, Raster 1,27 mm — Maße und Halbloch-Raster stimmen mit dem
+Datenblatt überein. Damit übernimmt JLCPCB **19 der 24 Bauteile**; von Hand
+bleiben nur die fünf bedrahteten Steckverbinder J1, J2, J5–J7.
+
+Drei Dinge sind dabei zu beachten:
+
+- Es ist eine **„JLCPCB Assembly"-Position**: Sie wird in die eigene
+  Teilebibliothek gekauft und ist ausschließlich für PCBA-Aufträge
+  verwendbar — einzeln versenden lässt sie sich nicht.
+- Sie zählt als **Extended**, kostet also eine Einrichtungsgebühr je Auftrag.
+- **Bestand und Preis sind erst im Bestellportal verbindlich.** Die
+  Produktseite nennt beides nicht; vor der Bestellung nachsehen.
+
+Prüfe nach dem Hochladen die Bauteilvorschau, besonders die **Drehlage von
+U3**: Das Modul hat einen eigenen Footprint, und eine um 180° verdrehte
+Bestückung fällt erst beim Flashen auf.
+
 ### Aufbau von Hand
 
-Die Bestückung erfolgt selbst. Danach richtet sich das Layout:
+Wer selbst bestückt — danach richtet sich das Layout:
 
 - **Durchsteckpads sind thermisch entlastet**, SMD-Pads voll angebunden
   (Abschnitt 5.1). Ohne das wären die acht Massepins der 40-poligen Buchse
@@ -643,7 +664,14 @@ Die Bestückung erfolgt selbst. Danach richtet sich das Layout:
 - Alle Widerstände und Kondensatoren sind **0805** mit verlängerten Pads für
   Handlötung. Kleiner wird es nicht.
 - Das Funkmodul hat **Halblöcher** — die lassen sich von außen anlöten und sind
-  deutlich gutmütiger als ein Gehäuse mit Pads unter dem Bauteil.
+  deutlich gutmütiger als ein Gehäuse mit Pads unter dem Bauteil. Gutmütig
+  heißt aber nicht harmlos: Das Raster beträgt 1,27 mm, und **Pad 16 (MISO)
+  liegt direkt neben Pad 17 (MOSI)**. Eine Lötbrücke zwischen diesen beiden
+  legt den ISP-Zugang lahm — der Programmierer liest dann seine eigenen Bits
+  zurück und meldet `target does not answer`. Am 14.08.2026 an einer von fünf
+  Platinen genau so passiert. Nach dem Löten deshalb **J2 Pin 1 gegen Pin 4
+  messen: dort darf kein Durchgang sein.** Wer das Modul bei JLCPCB
+  mitbestücken lässt, hat diese Fehlerquelle nicht.
 - Einziges feines Raster ist der **TQFP-32 des Mikrocontrollers** mit 0,8 mm.
   Mit Flussmittel und Entlötlitze gut beherrschbar; wer mag, nutzt die
   Lötpastenmaske aus `F_Paste.gtp` für eine Schablone.

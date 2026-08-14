@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.17.1</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.17.2</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.17.1 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.17.2 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -709,6 +709,14 @@ eckige Pad <strong>Pin 1</strong>.</li>
 </ol>
 
 <h2 id="k6-2">6.2 Das Funkmodul (U3) — Löten an Halblöchern</h2>
+
+<div class="hinweis box"><span class="titel">Seit 14.08.2026: JLCPCB bestückt das Modul mit</span>
+<p style="margin-bottom: 0">Das E07-900M10S steht dort als <strong>C9900007000</strong>
+im Katalog. Wer die Platine ohnehin bestücken lässt, kann sich dieses Kapitel
+sparen — es ist die anspruchsvollste Lötstelle der ganzen Platine, und sie hat
+am 14.08.2026 eine von fünf Platinen gekostet. Einzelheiten in
+<code>hardware/README.md</code>, Abschnitt „Bestückung bei JLCPCB".</p></div>
+
 <p>Das E07-Modul hat keine Beinchen, sondern <strong>Halblöcher</strong>
 (halbrunde, metallisierte Kerben an den Kanten — englisch „castellated holes").
 Das lötet sich leichter, als es aussieht:</p>
@@ -729,7 +737,26 @@ Zinn zugeben — es zieht sich von selbst in die Kerbe und bildet eine kleine
 Hohlkehle. Pro Verbindung 1–2 Sekunden.</li>
 <li><strong>Kontrolle mit Lupe:</strong> Jede Kerbe glänzend gefüllt, keine Brücke
 zwischen Nachbarpads. Brücken mit Entlötlitze entfernen.</li>
+<li><strong>Und dann messen, nicht nur schauen:</strong> Durchgangsprüfer an
+<strong>J2 Pin 1 gegen Pin 4</strong> — dort darf <em>kein</em> Durchgang sein.
+Das sind MISO und MOSI, und sie liegen am Modul auf den <strong>benachbarten
+Pads 16 und 17</strong>.</li>
 </ol>
+
+<div class="achtung box"><span class="titel">⚠ Eine Brücke zwischen MISO und MOSI sieht man nicht, man misst sie</span>
+<p>Am 14.08.2026 fiel eine von fünf Platinen aus: Der USBasp meldete
+<code>target does not answer (0x01)</code>, und zwar bei jeder Taktrate, bis
+hinunter zu 16 kHz. Vier Schwesterplatinen liefen mit demselben Programmierer
+auf Anhieb.</p>
+<p>Die Ursache war eine Lötbrücke zwischen Pad 16 (MISO) und Pad 17 (MOSI) des
+Funkmoduls. Der Programmierer legt sein Kommando auf MOSI und liest gleichzeitig
+MISO — sind beide verbunden, liest er <strong>seine eigenen Bits zurück</strong>
+statt der Antwort des Chips. Er bekommt also durchaus etwas, nur nie das
+erwartete Echo.</p>
+<p style="margin-bottom: 0">Eine Durchgangsprüfung <em>entlang</em> der Leitungen
+findet das nicht — beide Wege sind ja in Ordnung. Gemessen werden muss
+<strong>zwischen</strong> ihnen. Deshalb die eine Messung oben, bevor der
+Programmierer angeschlossen wird.</p></div>
 
 <div class="gefahr box"><span class="titel">✋ Das Modul verträgt maximal 3,6 V</span>
 Das Funkmodul hängt an der 3,3-V-Schiene und stirbt bei 5 V. Auf der fertigen
@@ -3719,7 +3746,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.17.1 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.17.2 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

@@ -103,7 +103,7 @@ SOURCE = {
 # Grundsatz weiterhin SMD; einzige THT-Ausnahme ist der Resonator Y1
 # (CSTLS8M00G53-B0, Wellenlöten laut JLCPCB-Katalog). Die übrigen
 # bedrahteten Teile (J1, J2, J5–J7) werden von Hand bestückt, ebenso das
-# Funkmodul U3: das führt der JLCPCB-Katalog nicht.
+# Funkmodul U3: seit dem 14.08.2026 als C9900007000 bestueckbar.
 #
 # „Basic“ nach der Basic-Parts-Momentaufnahme; der verbindliche Status steht
 # erst im Bestellportal (Extended kostet je Position Einrichtungsgebühr).
@@ -137,11 +137,30 @@ JLC = {
     "C5": ("C49678", "CC0805KRX7R9BB104 100nF 50V X7R", True),
     "C8": ("C49678", "CC0805KRX7R9BB104 100nF 50V X7R", True),
     "C9": ("C49678", "CC0805KRX7R9BB104 100nF 50V X7R", True),
+    # Funkmodul, ab 14.08.2026 bei JLCPCB bestueckbar.
+    #
+    # C9900007000 ist eine "JLCPCB Assembly"-Position: Sie wird in die eigene
+    # Teilebibliothek gekauft und ist NUR fuer PCBA-Auftraege verwendbar, ein
+    # Einzelversand gibt es nicht. Katalogangabe LCC-22, 20,0 x 14,0 mm,
+    # Raster 1,27 mm — das ist unser Modul, Masse und Halbloch-Raster stimmen
+    # mit hardware/README.md ueberein. Freigegeben fuer Economic und Standard.
+    #
+    # Warum das mehr ist als Bequemlichkeit: Am 14.08.2026 fiel eine von fuenf
+    # handbestueckten Platinen aus, weil beim Loeten des Moduls eine Bruecke
+    # zwischen Pad 16 (MISO) und Pad 17 (MOSI) entstand — benachbarte
+    # Halbloecher im 1,27-mm-Raster. Der USBasp las dadurch seine eigenen
+    # Bits zurueck und meldete "target does not answer". Genau diese
+    # Fehlerklasse faellt mit Maschinenbestueckung weg.
+    "U3": ("C9900007000", "E07-900M10S", False),
 }
 
 # SMD, aber nicht im JLCPCB-Katalog — bleibt Handbestückung.
-JLC_HAND = {"U3": "E07-900M10S: nicht im JLCPCB-Katalog, Halbloecher "
-                  "von Hand loeten"}
+#
+# Seit dem 14.08.2026 leer: U3 ist als C9900007000 bestueckbar. Der Eintrag
+# bleibt als Mechanismus stehen, weil er gebraucht wird, sobald ein Teil
+# wieder herausfaellt — und weil er im Protokoll des Erzeugers ausgibt, was
+# von Hand zu loeten bleibt.
+JLC_HAND: dict[str, str] = {}
 
 
 def write_jlc_bom(rows: list[dict]) -> int:

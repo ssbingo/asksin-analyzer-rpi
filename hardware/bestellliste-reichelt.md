@@ -51,7 +51,7 @@ Auswahl im Shop.
 
 | Pos | Menge | Bauteil | Genaue Bezeichnung | Bemerkung |
 | --- | --- | --- | --- | --- |
-| U3 | 1 | CC1101-Funkmodul | **Ebyte E07-900M10S** | 855–925 MHz, 14 × 20 mm, 22 Halblöcher RM 1,27 mm, **IPEX-Buchse**. Bezugsquellen: cdebyte.com, Antratek, AliExpress. ⚠️ **Nicht** `E07-900MM10S` — der ist 10 × 10 mm und hat kein IPEX |
+| U3 | 1 | CC1101-Funkmodul | **Ebyte E07-900M10S** | 855–925 MHz, 14 × 20 mm, 22 Halblöcher RM 1,27 mm, **IPEX-Buchse**. Bezugsquellen: cdebyte.com, Antratek, AliExpress — **oder bei JLCPCB mitbestücken lassen: C9900007000** (dann entfällt der Einkauf und das heikelste Handlöten). ⚠️ **Nicht** `E07-900MM10S` — der ist 10 × 10 mm und hat kein IPEX |
 | J5 | 1 | Stiftleiste JST-PH, 4-polig, gerade, bedrahtet | **B4B-PH-K-S** | RM 2,00 mm |
 | J6 | 1 | Stiftleiste JST-PH, 2-polig, gerade, bedrahtet | **B2B-PH-K-S** | RM 2,00 mm |
 | J7 | 1 | Stiftleiste JST-PH, 3-polig, gerade, bedrahtet | **B3B-PH-K-S** | RM 2,00 mm |

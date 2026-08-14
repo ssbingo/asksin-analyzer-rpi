@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.17.1** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.17.1** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.17.2** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.17.2** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,41 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.17.2 — 14.08.2026
+
+**Das Funkmodul lässt sich jetzt bei JLCPCB mitbestücken** — und damit fällt
+die anspruchsvollste Lötstelle der Platine weg.
+
+`E07-900M10S`, JLCPCB-Nummer **C9900007000**, Katalogangabe LCC-22,
+20,0 × 14,0 mm, Raster 1,27 mm: Maße und Halbloch-Raster stimmen mit unserem
+Datenblatt überein, freigegeben für *Economic* und *Standard*. Bisher stand im
+Erzeuger der Fertigungsdaten ausdrücklich „nicht im JLCPCB-Katalog"; das gilt
+nicht mehr.
+
+- `hardware/kicad/fab/jlcpcb_bom.csv` und `jlcpcb_cpl.csv` enthalten U3.
+  JLCPCB übernimmt damit **19 der 24 Bauteile**; von Hand bleiben nur die
+  fünf bedrahteten Steckverbinder.
+- Fertigungsarchiv neu erzeugt, alle Prüfungen von `pruefe_fertigung.py`
+  bestanden. Der Begleittext im Archiv nennt die Position und mahnt die
+  Drehlage von U3 an — ein um 180° verdreht bestücktes Modul fällt erst beim
+  Flashen auf.
+- Zu beachten und dokumentiert: Es ist eine **„JLCPCB Assembly"-Position**
+  (nur für PCBA, kein Einzelversand), sie zählt als **Extended**, und
+  **Bestand wie Preis sind erst im Bestellportal verbindlich** — die
+  Produktseite nennt beides nicht.
+
+**Der Anlass war ein Ausfall.** Am 14.08.2026 ließ sich eine von fünf frisch
+gefertigten Platinen nicht programmieren: `target does not answer (0x01)`, bei
+jeder Taktrate bis hinunter zu 16 kHz. Ursache war eine Lötbrücke zwischen
+Pad 16 (MISO) und Pad 17 (MOSI) des handgelöteten Funkmoduls — benachbarte
+Halblöcher im 1,27-mm-Raster. Der Programmierer las dadurch seine eigenen Bits
+zurück statt der Antwort des Chips.
+
+Eine Durchgangsprüfung *entlang* der Leitungen findet das nicht; gemessen
+werden muss *zwischen* ihnen. **Handbuch 6.2** hat dafür jetzt eine eigene
+Prüfung — J2 Pin 1 gegen Pin 4, dort darf kein Durchgang sein — samt der
+Erklärung, warum der Fehler so aussieht, wie er aussieht.
 
 ### v0.17.1 — 14.08.2026
 
