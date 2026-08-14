@@ -122,7 +122,23 @@ export function spiHelferOeffnen(geraet: string, hz: number): Promise<SpiSchreib
     let meldung = '';
     let entschieden = false;
 
+    // Ohne Zuhoerer beendet ein Fehler auf einem Strom den ganzen Prozess.
+    //
+    // Genau das ist passiert: systemd schickt beim Stoppen SIGTERM an die
+    // ganze Kontrollgruppe, also auch an den Helfer. Der Core schreibt danach
+    // noch einen letzten schwarzen Rahmen — in eine Leitung, die niemand mehr
+    // liest. Das Ergebnis stand ab dem 13.08.2026 bei jedem Herunterfahren im
+    // Protokoll:
+    //
+    //     FEHLER [absturz] Unbehandelte Ausnahme: Error: write EPIPE
+    //
+    // Ausgerechnet dieselbe Falle, vor der der Kommentar in sttyPort.ts
+    // ausdruecklich warnt. Ein Fehler beim Ausschalten der LED darf den Dienst
+    // nicht mit einem Absturzbericht beenden.
+    kind.stdin.on('error', () => {});
+
     kind.stderr.setEncoding('utf8');
+    kind.stderr.on('error', () => {});
     kind.stderr.on('data', (stueck: string) => {
       meldung += stueck;
       // Die Bereitschaftszeile ist die Quittung: Erst danach steht fest,
@@ -787,6 +803,9 @@ export class StatusAnzeige {
     };
 
     kind.stdout.on('data', anEreignis);
+    // Auch hier ein Zuhoerer: gpiomon wird beim Abmelden mit SIGTERM beendet,
+    // und ein Fehler auf seiner Ausgabe darf nicht den Dienst mitnehmen.
+    kind.stdout.on('error', () => {});
     kind.on('error', () => {});
     kind.on('exit', (code) => {
       if (beendet || code === 0) return;
@@ -797,6 +816,7 @@ export class StatusAnzeige {
         { stdio: ['ignore', 'pipe', 'ignore'] },
       );
       kind.stdout.on('data', anEreignis);
+      kind.stdout.on('error', () => {});
       kind.on('error', () => {});
       kind.on('exit', (code2) => {
         if (!beendet && code2 !== 0) this.#fehler('taster', 'gpiomon nicht verfügbar');

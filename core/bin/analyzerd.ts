@@ -21,6 +21,7 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  renameSync,
   rmSync,
   statSync,
   statfsSync,
@@ -1906,7 +1907,14 @@ async function systemzeilenUebernehmen(): Promise<void> {
       }
     }
     if (systemlog.cursor !== null) {
-      writeFileSync(cursorDatei, systemlog.cursor + '\n');
+      // Erst danebenschreiben, dann umbenennen. Ein Umbenennen ist unteilbar,
+      // und ext4 schiebt bei einem Umbenennen ueber eine bestehende Datei die
+      // Daten vorher hinaus (auto_da_alloc). Ohne das stand nach einem
+      // Stromausfall die richtige Laenge in der Datei, aber lauter Nullbytes —
+      // und der Analyzer versuchte minuetlich, damit das Journal zu lesen.
+      const tmp = `${cursorDatei}.neu`;
+      writeFileSync(tmp, systemlog.cursor + '\n');
+      renameSync(tmp, cursorDatei);
     }
   } catch (err) {
     p.debug('systemlog', `nicht lesbar: ${String(err)}`);

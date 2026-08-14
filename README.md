@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.11** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.11** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.12** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.12** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,43 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.15.12 — 13.08.2026
+
+**Zwei Fehler aus dem Dauerbetrieb, gefunden im Protokoll von Analyzer 01.**
+
+**Ein Stromausfall machte das Systemprotokoll dauerhaft unlesbar.** Der
+Journal-Cursor wird über Dienst-Neustarts hinweg in einer Datei gehalten.
+Bricht während des Schreibens der Strom weg, steht dort anschließend die
+richtige Länge — aber lauter **Nullbytes**; ext4 hatte die Daten noch nicht
+hinausgeschrieben. `String.trim()` entfernt Nullbytes nicht, der Wert kam also
+durch bis in die Befehlszeile:
+
+```
+The argument 'args[9]' must be a string without null bytes
+```
+
+Das stand danach **minütlich** im Protokoll und heilte nie von selbst, weil
+derselbe kaputte Wert immer wieder gelesen wurde.
+
+- Der Cursor wird beim Setzen geprüft — druckbares ASCII, sonst verworfen.
+- Geschrieben wird jetzt daneben und dann umbenannt. Ein Umbenennen ist
+  unteilbar, und ext4 schiebt die Daten dabei vorher hinaus.
+
+**Jedes Herunterfahren endete mit einem Absturzbericht.** systemd schickt
+SIGTERM an die ganze Kontrollgruppe, also auch an den WS2812-Helfer. Der Core
+schrieb danach noch einen letzten schwarzen Rahmen — in eine Leitung, die
+niemand mehr liest. Ein `error`-Ereignis auf einem Strom ohne Zuhörer wird zur
+unbehandelten Ausnahme: `Error: write EPIPE`.
+
+- Fehler-Zuhörer ergänzt, und zwar an **allen** Strömen von Kindprozessen.
+- **`tools/pruefe-stroeme.py`** hält das künftig fest. Die Prüfung fand
+  dabei drei weitere Lücken, die noch niemandem aufgefallen waren — darunter
+  die Ströme von `avrdude`: Wäre der mitten im Aufspielen gestorben, hätte er
+  den Analyzer mitgerissen und die Platine mit halber Firmware zurückgelassen.
+
+Vor diesem Fehlertyp warnt ein Kommentar in `sttyPort.ts` seit dem 10.08.2026
+ausdrücklich. Er hat es nicht verhindert; die Prüfung tut es.
 
 ### v0.15.11 — 10.08.2026
 

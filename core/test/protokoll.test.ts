@@ -237,6 +237,41 @@ test('Systemlog: Cursor verhindert Doppelungen, Kopfzeilen werden verworfen', as
   );
 });
 
+test('Systemlog: ein verstümmelter Cursor wird verworfen, nicht weitergereicht', async () => {
+  // Nach einem Stromausfall stand in /var/lib/asksin-analyzer/journal-cursor
+  // die richtige Laenge, aber lauter Nullbytes — ext4 hatte die Daten noch
+  // nicht geschrieben. String.trim() entfernt Nullbytes NICHT, der Wert kam
+  // also durch bis in die Befehlszeile:
+  //
+  //   The argument 'args[9]' must be a string without null bytes.
+  //
+  // Ab dem 10.08.2026 stand das auf Analyzer 01 minuetlich im Protokoll und
+  // heilte nie, weil derselbe kaputte Wert immer wieder gelesen wurde.
+  const aufrufe: string[][] = [];
+  const log = new Systemlog({
+    run: (_cmd, args) => {
+      aufrufe.push(args);
+      return Promise.resolve({ code: 0, output: 'ok\n' });
+    },
+  });
+
+  for (const murks of ['\0'.repeat(64), 's=abc\0def', '', '   ', 'mit Leerzeichen']) {
+    log.cursor = murks;
+    assert.equal(log.cursor, null, `verworfen: ${JSON.stringify(murks.slice(0, 12))}`);
+  }
+  log.cursor = 's=abc123;i=42;b=xy;m=1;t=2;x=3';
+  assert.equal(log.cursor, 's=abc123;i=42;b=xy;m=1;t=2;x=3', 'ein echter Cursor bleibt');
+
+  // Und nichts davon darf je als Argument herausgehen:
+  log.cursor = '\0'.repeat(64);
+  await log.neueZeilen();
+  for (const args of aufrufe) {
+    for (const a of args) {
+      assert.ok(!a.includes('\0'), `Nullbyte im Argument: ${JSON.stringify(a)}`);
+    }
+  }
+});
+
 test('Systemlog: unsauber beendeter Vorlauf wird als solcher erkannt', async () => {
   const abrupt = new Systemlog({
     run: (_cmd, args) => {

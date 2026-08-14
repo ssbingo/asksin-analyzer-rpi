@@ -88,6 +88,12 @@ export function standardRunnerMitAusgabe(
       };
       kind.stdout.on('data', nimm);
       kind.stderr.on('data', nimm);
+      // Ein Fehler auf einem Strom ohne Zuhoerer beendet den ganzen Dienst.
+      // Hier waere das besonders unangenehm: Stirbt avrdude mitten im
+      // Aufspielen, riss es den Analyzer mit — und die Platine bliebe mit
+      // halber Firmware zurueck. Das Ende des Kindes meldet ohnehin `close`.
+      kind.stdout.on('error', () => {});
+      kind.stderr.on('error', () => {});
 
       const fertig = (code: number): void => {
         clearTimeout(uhr);

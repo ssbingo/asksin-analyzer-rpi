@@ -99,6 +99,13 @@ export interface SystemlogOptions {
  * Liest das Systemjournal ab dem übergebenen Cursor.
  * Rückgabe: neue Zeilen **und** der neue Cursor (für den nächsten Aufruf).
  */
+/**
+ * Was als Cursor durchgeht: druckbares ASCII, keine Steuerzeichen, nicht leer.
+ * Bewusst grosszuegig — die genaue Form legt systemd fest und darf sich
+ * aendern. Ausgeschlossen wird nur, was sicher keiner sein kann.
+ */
+const CURSOR_RE = /^[\x21-\x7e]+$/;
+
 export class Systemlog {
   readonly #run: Kommando;
   readonly #max: number;
@@ -116,8 +123,28 @@ export class Systemlog {
     return this.#cursor;
   }
 
+  /**
+   * Nimmt nur an, was ein Cursor sein kann — alles andere wird verworfen.
+   *
+   * Ein Journal-Cursor besteht aus druckbaren ASCII-Zeichen der Form
+   * `s=…;i=…;b=…;m=…;t=…;x=…`. Er wird über einen Dienst-Neustart hinweg in
+   * einer Datei gehalten, und die kann kaputtgehen: Bricht dem Rechner
+   * während des Schreibens der Strom weg, steht in der Datei anschliessend
+   * die richtige Länge, aber lauter **Nullbytes** — die Datenbloecke waren
+   * noch nicht auf der Platte (verzoegerte Allokation von ext4).
+   *
+   * `String.trim()` entfernt Nullbytes NICHT; sie sind kein Leerraum. Der
+   * Wert kam also durch, landete in `--after-cursor=` und liess jeden Aufruf
+   * scheitern:
+   *
+   *     The argument 'args[9]' must be a string without null bytes.
+   *
+   * Auf Analyzer 01 stand das ab dem 10.08.2026 minuetlich im Protokoll — vom
+   * Stromausfall an, und es heilte nie von selbst, weil der kaputte Wert
+   * immer wieder gelesen wurde. Deshalb hier abweisen statt spaeter stolpern.
+   */
   set cursor(wert: string | null) {
-    this.#cursor = wert;
+    this.#cursor = wert !== null && CURSOR_RE.test(wert) ? wert : null;
   }
 
   /** Ist journalctl da und für uns lesbar? Ergebnis wird gemerkt. */
@@ -189,7 +216,9 @@ export class Systemlog {
       // Die Cursor-Zeile ist Steuerinformation, kein Logeintrag.
       const m = /^-- cursor: (.+)$/.exec(zeile);
       if (m !== null) {
-        this.#cursor = m[1]!.trim();
+        // Über den Setzer, damit hier dieselbe Prüfung greift wie beim Lesen
+        // aus der Datei — eine verstümmelte Ausgabe soll nichts hinterlassen.
+        this.cursor = m[1]!.trim();
         continue;
       }
       // Kopf- und Hinweiszeilen von journalctl überspringen.

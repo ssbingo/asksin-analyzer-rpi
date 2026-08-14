@@ -52,6 +52,9 @@ lauf "systemd-Units und Grafana-Vorlagen werden ausgerollt" \
 lauf "Austauschdateien: Core und Helfer meinen denselben Ort" \
     python3 tools/pruefe-austauschdateien.py
 
+lauf "Kindprozesse: jeder benutzte Strom hat einen Fehler-Zuhörer" \
+    python3 tools/pruefe-stroeme.py
+
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 
