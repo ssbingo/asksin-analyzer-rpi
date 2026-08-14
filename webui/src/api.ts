@@ -192,9 +192,14 @@ export const holeNoise = (minutes = 180): Promise<{ noise: NoiseMinute[] }> =>
 export function holeTelegramme(
   afterId?: number,
   limit = 200,
-): Promise<{ telegrams: Telegramm[]; lastId: number }> {
+  minuten?: number,
+): Promise<{ telegrams: Telegramm[]; lastId: number; gekuerzt?: boolean }> {
   const nach = afterId === undefined ? '' : `afterId=${afterId}&`;
-  return hole(`/api/telegrams?${nach}limit=${limit}`);
+  // `minuten` grenzt nach Zeit ein statt nach Anzahl. Ohne die Angabe liefert
+  // die Schnittstelle wie bisher „die neuesten n" — was fuer die
+  // Telegrammliste richtig ist, fuer ein Zeitdiagramm aber nicht.
+  const zeit = minuten === undefined ? '' : `minutes=${minuten}&`;
+  return hole(`/api/telegrams?${nach}${zeit}limit=${limit}`);
 }
 
 /** POST mit optionalem Bearer-Token (Einstellungen → Auth-Token). */

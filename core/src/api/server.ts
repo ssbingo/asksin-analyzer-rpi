@@ -216,6 +216,15 @@ export interface UpdateHooks {
 
 const SET_CONFIG_FELDER = ['ccuip', 'hostname', 'ntp', 'ip', 'netmask', 'gw', 'demo', 'standort'];
 const MAX_BODY_BYTES = 65_536;
+/**
+ * Obergrenze für `/api/telegrams`.
+ *
+ * Drei Stunden bei 16 Telegrammen je Minute sind rund 2900 — das Diagramm
+ * der Übersicht braucht also gut 3000. 5000 lässt Luft für lebhaftere
+ * Anlagen und bleibt eine Antwort, die auch ein Pi 3 ohne Nachdenken
+ * ausliefert. Greift die Grenze, sagt die Antwort es (`gekuerzt`).
+ */
+const MAX_TELEGRAMME = 5000;
 /** Intel-HEX für 32 KiB Flash ist ~90 KiB — 256 KiB lassen reichlich Luft. */
 const MAX_FIRMWARE_BYTES = 262_144;
 
@@ -796,9 +805,25 @@ export class ApiServer {
     // mit afterId=0 ausdrücklich von ganz vorn.
     const afterId = afterRoh === null ? null : Math.max(0, Number(afterRoh) || 0);
     const limit = Math.min(
-      1000,
+      MAX_TELEGRAMME,
       Math.max(1, Number(url.searchParams.get('limit') ?? 200) || 200),
     );
+    // Zeitfenster, wahlweise. Ohne Angabe gilt weiter „die neuesten n".
+    //
+    // Das Diagramm der Uebersicht zeigt zwei Reihen nebeneinander: das
+    // Grundrauschen nach ZEIT (minutes=180) und die Telegramme — bis
+    // 0.16.0 — nach ANZAHL. Bei 16 Telegrammen je Minute waren 500 Stueck
+    // genau 31 Minuten, waehrend die Unterschrift drei Stunden versprach.
+    // Am 14.08.2026 gefragt: „wieso haben beide Analyzer nur ab ca 8:00 Uhr
+    // Telegramme in der Uebersicht?" — sie hatten mehr, es wurden nur nie
+    // mehr geholt.
+    const minutenRoh = url.searchParams.get('minutes');
+    const abTs =
+      minutenRoh === null
+        ? null
+        : this.#time.now() -
+          Math.min(100_000, Math.max(1, Number(minutenRoh) || 180)) * 60_000;
+
     const db = this.#opts.db;
     const felder =
       'rowid AS id, ts, rssi, len, cnt, flags, type, from_addr, to_addr, payload';
@@ -806,12 +831,18 @@ export class ApiServer {
       afterId !== null
         ? db
             .prepare(
-              `SELECT ${felder} FROM telegrams WHERE rowid > ? ORDER BY rowid LIMIT ?`,
+              `SELECT ${felder} FROM telegrams WHERE rowid > ?${
+                abTs === null ? '' : ' AND ts >= ?'
+              } ORDER BY rowid LIMIT ?`,
             )
-            .all(afterId, limit)
+            .all(...(abTs === null ? [afterId, limit] : [afterId, abTs, limit]))
         : db
-            .prepare(`SELECT ${felder} FROM telegrams ORDER BY rowid DESC LIMIT ?`)
-            .all(limit)
+            .prepare(
+              `SELECT ${felder} FROM telegrams${
+                abTs === null ? '' : ' WHERE ts >= ?'
+              } ORDER BY rowid DESC LIMIT ?`,
+            )
+            .all(...(abTs === null ? [limit] : [abTs, limit]))
             .reverse()
     ) as unknown as Array<{
       id: number;
@@ -852,6 +883,10 @@ export class ApiServer {
     this.#json(res, 200, {
       telegrams,
       lastId: telegrams.at(-1)?.id ?? afterId ?? 0,
+      // Sagen, wenn die Obergrenze gegriffen hat. Sonst sieht ein gekuerztes
+      // Fenster genauso aus wie ein leeres Funkband — und genau diese
+      // Verwechslung war der Anlass.
+      gekuerzt: telegrams.length >= limit,
     });
   }
 

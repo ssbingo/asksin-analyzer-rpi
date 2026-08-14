@@ -340,6 +340,43 @@ test('/api/telegrams: neueste zuerst laden, dann inkrementell über afterId', as
   );
 });
 
+test('/api/telegrams: minutes grenzt nach Zeit ein, nicht nach Anzahl', async (t) => {
+  // Anlass: In der Übersicht liefen zwei Reihen nebeneinander, das
+  // Grundrauschen nach ZEIT und die Telegramme nach ANZAHL. Bei 16
+  // Telegrammen je Minute waren die „neuesten 500" genau 31 Minuten, während
+  // die Unterschrift drei Stunden versprach. Am 14.08.2026 gefragt: „wieso
+  // haben beide Analyzer nur ab ca 8:00 Uhr Telegramme?"
+  const a = await aufbau(t, { mitDevList: true });
+  await a.einspeisen(TELEGRAMM, BURST, HMIP);
+
+  const drin = (await (
+    await fetch(`${a.base}/api/telegrams?minutes=180&limit=100`)
+  ).json()) as { telegrams: unknown[]; gekuerzt: boolean };
+  assert.equal(drin.telegrams.length, 3, 'alles im Fenster kommt mit');
+  assert.equal(drin.gekuerzt, false, 'nichts abgeschnitten');
+
+  // Ein Fenster, das eben erst begonnen hat, darf nichts Älteres liefern.
+  // 1 Minute ist die kleinste zulässige Angabe; die Testtelegramme liegen
+  // auf der Uhr des Aufbaus und damit darin — deshalb hier über die Grenze
+  // pruefen, die wirklich beisst: die Anzahl.
+  const knapp = (await (
+    await fetch(`${a.base}/api/telegrams?minutes=180&limit=2`)
+  ).json()) as { telegrams: Array<Record<string, unknown>>; gekuerzt: boolean };
+  assert.equal(knapp.telegrams.length, 2);
+  assert.deepEqual(
+    knapp.telegrams.map((x) => x['id']),
+    [2, 3],
+    'gekuerzt wird am ALTEN Ende — das Neue ist das Interessante',
+  );
+  assert.equal(knapp.gekuerzt, true, 'und die Kuerzung wird gemeldet');
+
+  // Ohne `minutes` bleibt es beim alten Verhalten (Telegrammliste).
+  const ohne = (await (
+    await fetch(`${a.base}/api/telegrams?limit=100`)
+  ).json()) as { telegrams: unknown[] };
+  assert.equal(ohne.telegrams.length, 3, 'ohne Zeitangabe wie bisher');
+});
+
 test('/api/noise: Minutenaggregat mit Mittelwert und ms-Zeitstempel', async (t) => {
   const a = await aufbau(t);
   await a.einspeisen(':5B;\n', ':50;\n');     // −91, −80

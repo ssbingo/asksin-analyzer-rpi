@@ -23,6 +23,12 @@ let torte: ReturnType<typeof echarts.init> | undefined;
 let telegramme: Telegramm[] = [];
 let lastId = 0;
 
+/** Zeitspanne des Diagramms — fuer BEIDE Reihen dieselbe. */
+const FENSTER_MIN = 180;
+/** Obergrenze der Schnittstelle; darueber meldet sie `gekuerzt`. */
+const MAX_PUNKTE = 5000;
+const gekuerzt = ref(false);
+
 function anpassen(): void {
   chart?.resize();
   torte?.resize();
@@ -138,15 +144,23 @@ function tortenStuecke(s: Snapshot): TortenStueck[] {
 nutzeTakt(async () => {
   const [s, n, t] = await Promise.all([
     holeSnapshot(),
-    holeNoise(180),
-    lastId === 0 ? holeTelegramme(undefined, 500) : holeTelegramme(lastId, 500),
+    holeNoise(FENSTER_MIN),
+    // Erster Abruf: dasselbe Zeitfenster wie das Grundrauschen. Vorher waren
+    // es „die neuesten 500" — bei 16 Telegrammen je Minute eine halbe Stunde,
+    // waehrend die Unterschrift drei Stunden versprach.
+    lastId === 0
+      ? holeTelegramme(undefined, MAX_PUNKTE, FENSTER_MIN)
+      : holeTelegramme(lastId, MAX_PUNKTE),
   ]);
   snapshot.value = s;
+  gekuerzt.value = t.gekuerzt === true;
+  const grenze = Date.now() - FENSTER_MIN * 60_000;
   if (t.telegrams.length > 0) {
-    telegramme = [...telegramme, ...t.telegrams].slice(-1000);
+    // Nach Zeit beschneiden, nicht nach Anzahl — sonst wandert die Grenze mit
+    // dem Verkehr, und das Diagramm zeigt bei viel Funk weniger Zeit.
+    telegramme = [...telegramme, ...t.telegrams].filter((x) => x.ts >= grenze);
     lastId = t.lastId;
   }
-  const grenze = Date.now() - 180 * 60_000;
   chart?.setOption(
     zeitChartOption(
       n.noise.map((m) => [m.ts, m.avg]),
@@ -194,6 +208,8 @@ nutzeTakt(async () => {
     <div ref="chartEl" id="chart"></div>
     <div class="fussnote">
       Grundrauschen als Minutenmittel, Telegramme als Einzelpunkte — letzte 3 Stunden.
+      <span v-if="gekuerzt"><strong>Gekürzt:</strong> Es gab mehr Telegramme, als
+      das Diagramm zeigt — die ältesten fehlen.</span>
     </div>
   </div>
 

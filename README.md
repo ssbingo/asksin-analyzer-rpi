@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.16.0** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.16.0** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.16.1** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.16.1** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,29 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.16.1 — 14.08.2026
+
+**Die Übersicht zeigte eine halbe Stunde Telegramme und behauptete drei
+Stunden.** Im Diagramm laufen zwei Reihen nebeneinander, und sie waren
+unterschiedlich begrenzt: das Grundrauschen nach **Zeit**
+(`/api/noise?minutes=180`), die Telegramme nach **Anzahl** — die neuesten 500,
+ohne jeden Zeitbezug.
+
+Bei 16 Telegrammen je Minute sind 500 Stück genau 31 Minuten. Das sah aus wie
+eine Funkstille bis kurz vor der Gegenwart, war aber nur ein zu kurz geholtes
+Fenster: Die Telegramme lagen längst in der Datenbank.
+
+- `/api/telegrams` kennt jetzt **`minutes`** und grenzt damit nach Zeit ein.
+  Ohne die Angabe bleibt es beim bisherigen Verhalten — für die
+  Telegrammliste ist „die neuesten n" das Richtige.
+- Die Übersicht holt beide Reihen über **dieselbe Konstante**, damit sie beim
+  nächsten Ändern nicht wieder auseinanderlaufen. Beschnitten wird im Browser
+  nach Zeit statt nach Anzahl; sonst schrumpft das Fenster, je mehr gefunkt
+  wird.
+- Greift die Obergrenze (5000), sagt die Antwort es (`gekuerzt`), und die
+  Unterschrift schreibt es dazu. Ein gekürztes Fenster darf nicht aussehen
+  wie ein leeres Funkband — genau diese Verwechslung war der Anlass.
 
 ### v0.16.0 — 13.08.2026
 
