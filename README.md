@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.17.0** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.17.0** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.17.1** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.17.1** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,36 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.17.1 — 14.08.2026
+
+**Der Firmware-Flash gelang mal beim ersten, mal erst beim zweiten Anlauf.**
+Auf Analyzer 01 am 14.08.2026: erster Versuch fehlgeschlagen, zweiter
+erfolgreich — gleiche Datei, gleiches Gerät, Bootloader nachweislich
+vorhanden. Ein Update, das beim zweiten Mal klappt, ist nicht ausgeliefert.
+
+Die Ursache steht in der Zeitrechnung. urboot lauscht nach dem Reset **genau
+eine Sekunde**. Zwischen der fallenden Flanke und dem ersten Sync-Byte lagen
+bisher: ein 50-ms-Puls auf HIGH samt Prozessstart, dann der Start von avrdude,
+das Öffnen des Ports und das Setzen der Baudrate. Auf einem beschäftigten Pi 5
+— inzwischen mit InfluxDB, Verbund und Statusanzeige — reicht das an die
+Sekunde heran. Danach redet avrdude mit der laufenden Anwendung statt mit dem
+Bootloader.
+
+- **Zwischen Reset und avrdude liegt jetzt nichts mehr.** Der HIGH-Puls, der
+  die Flanke für den nächsten Reset vorbereitet, steht davor statt danach; ein
+  Test hält fest, dass dort kein Schritt dazwischenrutscht.
+- **Drei Anläufe je Protokoll, jeder mit frischem Reset.** Wer das Fenster
+  verpasst, dem hilft kein Zuwarten, sondern nur eine neue Flanke.
+- Die Leitung wird am Ende wieder auf HIGH gelegt — nach avrdude, wo es
+  nichts mehr kostet.
+
+**Und der Befundtext, der uns in die Irre geführt hat, ist korrigiert.** Er
+behauptete bei `uP_table does not know mcuid` rundheraus „Auf dem 328P ist
+kein Bootloader" und schickte damit zum USBasp. Tatsächlich gibt es zwei
+Ursachen, und sie führen an verschiedene Stellen. Der Text nennt jetzt beide
+und sagt, woran man sie unterscheidet: sporadisch → verpasstes Zeitfenster,
+immer → wirklich kein Bootloader.
 
 ### v0.17.0 — 14.08.2026
 

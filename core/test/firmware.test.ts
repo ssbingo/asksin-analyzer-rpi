@@ -100,13 +100,28 @@ test('HAT-Flash: zweimal hintereinander — jeder Reset braucht eine eigene Flan
   assert.equal(g.leitung.pegel, 1, 'GPIO4 muss am Ende wieder HIGH sein');
 
   const namen = g.aufrufe.map((a) => `${a.cmd} ${a.args.join(' ')}`);
-  const tief = namen.findIndex((z) => z.includes('4=0'));
   const hoch = namen.findIndex((z) => z.includes('4=1'));
+  const tief = namen.findIndex((z) => z.includes('4=0'));
   const avr = namen.findIndex((z) => z.startsWith('avrdude'));
-  assert.ok(tief >= 0 && hoch > tief, 'erst LOW, dann HIGH');
+
+  // Reihenfolge: erst HIGH (Ausgangspegel), dann LOW (die Flanke, die
+  // zurueckstellt), dann sofort avrdude.
+  assert.ok(hoch >= 0 && tief > hoch, 'erst HIGH, dann der Reset-Impuls');
   // Nachgemessen am 10.08.2026: urboot braucht eine ruhige Leitung, wenn er
   // nach dem Reset die Baudrate misst. Also erst der Impuls, dann avrdude.
-  assert.ok(avr > hoch, 'avrdude startet NACH dem Reset-Impuls');
+  assert.ok(avr > tief, 'avrdude startet NACH dem Reset-Impuls');
+
+  // Und das ist die eigentliche Zusicherung, gelernt am 14.08.2026: Zwischen
+  // der fallenden Flanke und dem Start von avrdude darf NICHTS mehr liegen.
+  // urboot lauscht danach genau eine Sekunde; jeder zusaetzliche
+  // Prozessstart geht davon ab. Frueher stand hier noch ein HIGH-Puls von
+  // 50 ms samt Prozessstart — auf einem beschaeftigten Pi 5 reichte das, um
+  // das Fenster zu verpassen. Der Flash gelang dann beim zweiten Anlauf.
+  assert.deepEqual(
+    namen.slice(tief + 1, avr),
+    [],
+    'zwischen Reset und avrdude darf kein Schritt liegen',
+  );
 
   const avrArgs = g.aufrufe[avr]!.args;
   // 57600 statt der krummen Betriebsrate: urboot misst selbst, und bei 8 MHz
@@ -150,7 +165,15 @@ test('HAT-Flash: scheitert die Freigabe, sagt das Log wie man von Hand löst', a
   // Zurueckziehen der Leitung scheiterte. "Fehlgeschlagen" waere hier falsch:
   // Die Firmware ist geschrieben.
   assert.equal(erg.ok, true, 'avrdude war erfolgreich');
-  assert.equal(n, 2, 'v2 und v1 versucht');
+  // Nicht die Anzahl der Impulse festschreiben — die haengt an der Zahl der
+  // Anlaeufe und aendert sich mit ihr. Festgehalten wird die Aussage: Beide
+  // Syntaxen werden versucht, bevor aufgegeben wird.
+  assert.ok(n >= 2, `v2 und v1 versucht, war: ${n}`);
+  const v2 = g.aufrufe.some((a) => a.cmd === 'timeout' && a.args.includes('gpioset'));
+  const v1 = g.aufrufe.some(
+    (a) => a.cmd === 'gpioset' && a.args.some((x) => x.startsWith('--mode=')),
+  );
+  assert.ok(v2 || v1, 'mindestens eine der beiden Syntaxen wurde probiert');
   assert.match(erg.log, /pinctrl set 4 ip pu/, 'Ausweg steht im Log');
   assert.match(erg.log, /naechste Flash keine fallende Flanke/,
     'warnt vor der Folge fuers naechste Mal');
@@ -175,25 +198,50 @@ test('USB-Flash: kein GPIO — avrdude übernimmt den Reset über DTR', async ()
   assert.equal(r.aufrufe[0]!.cmd, 'avrdude');
 });
 
-test('avrdude-Fehler wird als ok:false mit Log gemeldet, wirft nie', async () => {
-  // Reihenfolge: erst der Reset-Impuls, dann avrdude — urboot braucht eine
-  // ruhige Leitung fuer seine Baudratenmessung. Zwei Anlaeufe, weil urclock
-  // (urboot) vor arduino (Optiboot) kommt.
-  const r = runner([
-    { code: 124, output: '' },                              // Impuls LOW
-    { code: 124, output: '' },                              // Leitung HIGH
-    { code: 1, output: 'urclock_getsync(): not in sync' },  // avrdude urclock
-    { code: 124, output: '' },
-    { code: 124, output: '' },
-    { code: 1, output: 'urclock_getsync(): not in sync' },  // avrdude arduino
-  ]);
+test('avrdude-Fehler: mehrfach wiederholt, dann ok:false — wirft nie', async () => {
+  // Jeder Anlauf bekommt einen frischen Reset. Der Grund steht in der
+  // Zeitrechnung: urboot lauscht nach dem Reset genau eine Sekunde; trifft
+  // avrdude das Fenster nicht, hilft kein Zuwarten, sondern nur ein neuer
+  // Reset. Am 14.08.2026 an Analyzer 01 gesehen — erster Flash
+  // fehlgeschlagen, zweiter erfolgreich, gleiche Datei, gleiches Geraet.
+  const aufrufe: Array<{ cmd: string; args: string[] }> = [];
+  const run = (cmd: string, args: string[]): Promise<KommandoErgebnis> => {
+    aufrufe.push({ cmd, args });
+    return Promise.resolve(
+      cmd === 'avrdude'
+        ? { code: 1, output: 'urclock_getsync(): not in sync' }
+        : { code: 124, output: '' },   // gpioset ueber timeout: 124 = Erfolg
+    );
+  };
   const erg = await flashFirmware('/tmp/fw.hex', {
     device: '/dev/asksin-hat',
-    runCommand: r.run,
+    runCommand: run,
     anlaufMs: 5,
   });
   assert.equal(erg.ok, false);
   assert.match(erg.log, /not in sync/);
+
+  const avrs = aufrufe.filter((a) => a.cmd === 'avrdude');
+  assert.equal(avrs.length, 6, 'drei Anlaeufe je Protokoll, zwei Protokolle');
+  assert.ok(
+    avrs.slice(0, 3).every((a) => a.args.includes('urclock')),
+    'urclock zuerst, und zwar mit allen Anlaeufen',
+  );
+  assert.ok(
+    avrs.slice(3).every((a) => a.args.includes('arduino')),
+    'erst danach das alte Protokoll',
+  );
+
+  // Und vor JEDEM avrdude muss unmittelbar ein Reset stehen — sonst
+  // wiederholt sich nur der Fehlschlag, statt ihn zu beheben.
+  for (let i = 0; i < aufrufe.length; i++) {
+    if (aufrufe[i]!.cmd !== 'avrdude') continue;
+    const davor = aufrufe[i - 1]!;
+    assert.ok(
+      [davor.cmd, ...davor.args].join(' ').includes('4=0'),
+      `vor avrdude Nr. ${i} steht kein Reset, sondern: ${davor.cmd}`,
+    );
+  }
 });
 
 test('siehtNachIntelHexAus: echte Struktur ja, Müll nein', () => {
@@ -271,9 +319,15 @@ test('der Befund landet im angezeigten Verlauf, nicht nur im Rueckgabewert', asy
   assert.match(text, /7\.7/, 'mit Verweis auf die Anleitung');
 });
 
-test('deuteAvrdude: unbekannte mcuid heisst ebenfalls "kein Bootloader"', () => {
+test('deuteAvrdude: unbekannte mcuid nennt BEIDE moeglichen Ursachen', () => {
+  // Der Text sagte frueher nur "kein Bootloader" — und schickte damit am
+  // 14.08.2026 an Analyzer 01 in die falsche Richtung. Dort war der
+  // Bootloader vorhanden; avrdude hatte nur sein Zeitfenster verpasst, und
+  // derselbe Flash gelang beim zweiten Anlauf. Eine Diagnose, die eine von
+  // zwei Ursachen als die einzige ausgibt, ist schlimmer als keine.
   const d = deuteAvrdude('avrdude warning: uP_table does not know mcuid 562');
   assert.ok(d !== null);
-  assert.match(d, /kein Bootloader/);
-  assert.match(d, /bootloader-brennen\.sh/);
+  assert.match(d, /Zeitfenster|eine Sekunde/, 'nennt das verpasste Fenster');
+  assert.match(d, /sporadisch/, 'sagt, woran man die Ursachen unterscheidet');
+  assert.match(d, /bootloader-brennen\.sh/, 'und den Weg fuer den anderen Fall');
 });

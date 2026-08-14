@@ -151,6 +151,16 @@ const RESET_MS = 50;
 const FREIGABE_MS = 50;
 
 /**
+ * Anlaeufe je Protokoll, jeder mit frischem Reset.
+ *
+ * urboot lauscht nach einem externen Reset genau eine Sekunde. Trifft avrdude
+ * dieses Fenster nicht, hilft kein Zuwarten — es hilft nur ein neuer Reset.
+ * Drei Anlaeufe kosten im Fehlerfall Sekunden und machen aus "klappt meistens"
+ * ein "klappt".
+ */
+const VERSUCHE = 3;
+
+/**
  * Vorlauf fuer avrdude, bevor zurueckgesetzt wird.
  *
  * Lang genug, dass der Port offen ist und der erste Sync hinausgeht; kurz
@@ -317,21 +327,65 @@ export async function flashFirmware(
    * Nachgemessen am 10.08.2026 an Analyzer 01, urboot verifiziert im Flash:
    * mit dieser Reihenfolge und 57600 Baud meldet sich der Bootloader.
    */
-  for (const programmer of PROGRAMMER) {
-    tief = await gpioHalten(run, chip, line, 0, resetMs, log, melde);
-    hoch = tief
-      ? await gpioHalten(run, chip, line, 1, FREIGABE_MS, log, melde)
-      : false;
+  // Einmal vorab einen sauberen Ausgangspegel herstellen. Danach erzeugt
+  // JEDER Reset unten eine echte fallende Flanke, ohne dass dazwischen noch
+  // ein Prozess gestartet werden muss.
+  //
+  // Frueher stand dieser Puls NACH dem Reset. Er kostete dort 50 ms plus
+  // einen Prozessstart aus genau der Sekunde, die urboot lauscht — und er
+  // war ueberfluessig: Gibt gpioset die Leitung frei, zieht sie der Pull-up
+  // ohnehin hoch, und GPIO4 haengt zudem ueber C8 am Reset, sieht also nur
+  // Flanken und keine Pegel.
 
-    melde(`avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud`);
-    log.push(`avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud`);
-    avr = await run('avrdude', bauArgs(programmer));
+  // Mehrere Anlaeufe je Protokoll, jeder mit frischem Reset.
+  //
+  // Der Grund steht in der Zeitrechnung: Zwischen der fallenden Flanke und
+  // dem ersten Sync-Byte von avrdude liegen Prozessstart, Oeffnen des Ports
+  // und Setzen der Baudrate. Auf einem beschaeftigten Pi 5 reicht das an die
+  // Sekunde heran, die urboot wartet — und dann redet avrdude mit der
+  // laufenden Anwendung statt mit dem Bootloader.
+  //
+  // Am 14.08.2026 an Analyzer 01 genau so aufgetreten: erster Versuch
+  // fehlgeschlagen, zweiter erfolgreich, gleiche Datei, gleiches Geraet.
+  // Silvio dazu: "Eigentlich sollte es immer funktionieren und nicht nur
+  // sporadisch." Ein Wiederholen kostet Sekunden, ein Fehlschlag den
+  // Anwender seinen Nachmittag.
+  aussen: for (const programmer of PROGRAMMER) {
+    for (let versuch = 1; versuch <= VERSUCHE; versuch++) {
+      // HIGH zuerst, DANN der Reset. Beides gehoert vor avrdude, aber in
+      // dieser Reihenfolge — und das ist kein Schoenheitsschritt:
+      //
+      // libgpiod gibt beim Beenden zwar die Anforderung frei, laesst die
+      // Leitung aber als Ausgang auf LOW stehen (gemessen am 07.08.2026 an
+      // Analyzer 05: der erste Flash nach dem Systemstart gelingt, jeder
+      // weitere nicht). Ohne diesen Puls haette der zweite Anlauf keine
+      // fallende Flanke mehr — und ausgerechnet die Wiederholung, die den
+      // Fehler beheben soll, liefe ins Leere.
+      //
+      // Vor dem Reset kostet er nichts: Das Fenster von urboot beginnt erst
+      // mit der fallenden Flanke danach.
+      hoch = await gpioHalten(run, chip, line, 1, FREIGABE_MS, log, melde);
+      tief = await gpioHalten(run, chip, line, 0, resetMs, log, melde);
 
-    if (avr.code === 0) break;
-    log.push(avr.output.trim());
-    const zwischen = deuteAvrdude(avr.output);
-    if (zwischen !== null) { melde(`\n${zwischen}`); log.push(`\n${zwischen}`); }
+      const zeile =
+        `avrdude -c ${programmer} auf ${options.device} mit ${baud} Baud` +
+        (versuch === 1 ? '' : ` (Versuch ${versuch} von ${VERSUCHE})`);
+      melde(zeile);
+      log.push(zeile);
+      avr = await run('avrdude', bauArgs(programmer));
+
+      if (avr.code === 0) break aussen;
+      log.push(avr.output.trim());
+      const zwischen = deuteAvrdude(avr.output);
+      if (zwischen !== null) { melde(`\n${zwischen}`); log.push(`\n${zwischen}`); }
+    }
   }
+
+  // Zum Schluss die Leitung wieder auf HIGH legen. Das kostet hier nichts
+  // mehr — avrdude ist fertig — und hinterlaesst einen aufgeraeumten Pegel,
+  // statt sich darauf zu verlassen, dass der naechste Lauf ihn selbst
+  // herstellt.
+  hoch = (await gpioHalten(run, chip, line, 1, FREIGABE_MS, log, melde)) && hoch;
 
   // Der Ausgang haengt an avrdude, nicht an der Leitung.
   //
@@ -384,12 +438,19 @@ export function deuteAvrdude(ausgabe: string): string | null {
   }
   if (/uP_table does not know mcuid/.test(ausgabe)) {
     return (
-      'Befund: Auf dem 328P ist kein Bootloader. avrdude hat die laufende '
-      + 'Ausgabe des Sniffers als Antwort gedeutet und daraus eine Kennung '
-      + 'errechnet, die es nicht gibt.\n'
-      + 'Abhilfe: Einmalig den Bootloader ueber den USBasp brennen — Handbuch '
-      + '7.7 beschreibt die Reihenfolge, deploy/bootloader-brennen.sh erledigt '
-      + 'es vom Pi aus.'
+      'Befund: avrdude hat die laufende Ausgabe des Sniffers als Antwort '
+      + 'gedeutet und daraus eine Kennung errechnet, die es nicht gibt. Der '
+      + 'Bootloader war also nicht am Wort — dafuer gibt es ZWEI Gruende, und '
+      + 'sie fuehren an verschiedene Stellen:\n'
+      + '1. Sein Zeitfenster war schon zu. urboot lauscht nach dem Reset genau '
+      + 'eine Sekunde; ist der Pi beschaeftigt, kommt avrdude zu spaet. Dann '
+      + 'gelingt derselbe Flash beim naechsten Anlauf — der Analyzer '
+      + 'wiederholt ihn deshalb von sich aus mehrfach.\n'
+      + '2. Es ist keiner da. Das ist der Fall, wenn zuletzt "Hochladen mit '
+      + 'Programmer" in der Arduino IDE lief.\n'
+      + 'Unterscheiden laesst es sich am Verlauf: Klappt es sporadisch, ist es '
+      + 'Grund 1. Schlaegt es IMMER fehl, Grund 2 — dann einmalig den '
+      + 'Bootloader brennen (Handbuch 7.7, deploy/bootloader-brennen.sh).'
     );
   }
   if (/not in sync: resp=0x3a/.test(ausgabe)) {
