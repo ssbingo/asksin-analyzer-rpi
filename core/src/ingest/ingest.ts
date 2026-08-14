@@ -132,6 +132,17 @@ export interface IngestStats {
    * aussen ueberhaupt nicht zu sehen.
    */
   firmwareNeustarts: number;
+  /**
+   * Wie oft die Firmware den Empfang des CC1101 neu aufsetzen musste.
+   *
+   * Ab Firmware 2. Jeder Eingriff ist ein Hardwarebefund: Der Chip stand
+   * dauerhaft nicht auf Empfang und hätte ohne Zutun nie wieder ein
+   * Telegramm geliefert. Steigt die Zahl regelmässig, stimmt etwas mit dem
+   * Funkmodul, seiner Versorgung oder der SPI-Strecke nicht.
+   */
+  empfangErholungen: number;
+  /** MARCSTATE beim letzten Eingriff; 0x11 = übergelaufener Empfangspuffer. */
+  letzterEmpfangszustand: number | null;
   overlongLines: number;
   partialLines: number;
   /** Ausnahmen aus dem onLine-Verbraucher (gefangen, gezählt, weiter) */
@@ -188,6 +199,10 @@ export class SerialIngest {
   #gefragt = false;
   /** Wie oft die Firmware neu gestartet ist, erkannt an ihrer Startmeldung. */
   #neustarts = 0;
+  /** Wie oft die Firmware den Empfang neu aufsetzen musste (ab Fassung 2). */
+  #empfangErholungen = 0;
+  /** Zustand des CC1101 beim letzten Eingriff; null = noch keiner. */
+  #letzterEmpfangszustand: number | null = null;
   /** Der offene Port der laufenden Sitzung — für Befehle an die Firmware. */
   #strom: IngestStream | null = null;
 
@@ -212,6 +227,8 @@ export class SerialIngest {
       firmware: this.#firmware,
       firmwareGefragtAm: this.#firmwareGefragtAm,
       firmwareNeustarts: this.#neustarts,
+      empfangErholungen: this.#empfangErholungen,
+      letzterEmpfangszustand: this.#letzterEmpfangszustand,
       overlongLines: this.#overlong,
       partialLines: this.#partial,
       consumerErrors: this.#consumerErrors,
@@ -483,6 +500,12 @@ export class SerialIngest {
       this.#firmware = antwort;
     } else if (antwort.art === 'erweitert') {
       this.#erweitert = antwort.an;
+    } else if (antwort.art === 'empfang') {
+      // Die Firmware hat ihr Funkmodul haengen sehen und den Empfang neu
+      // aufgesetzt. Das ist ein Hardwarebefund, kein Betriebsereignis —
+      // deshalb gezaehlt und mit dem angetroffenen Zustand weitergereicht.
+      this.#empfangErholungen++;
+      this.#letzterEmpfangszustand = antwort.zustand;
     } else if (antwort.art === 'funkmodul') {
       // Die Startmeldung `:!CC,…;` kommt UNGEFRAGT, direkt nach dem
       // Hochlaufen der Firmware (asksin-sniffer-firmware/docs/protokoll.md).

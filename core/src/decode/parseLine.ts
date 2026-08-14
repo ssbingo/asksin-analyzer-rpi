@@ -119,6 +119,12 @@ export function parseAntwort(raw: string): Firmwareantwort | null {
   if (felder[0] === 'E' && felder.length >= 2) {
     return { art: 'erweitert', an: felder[1] === '1' };
   }
+  if (felder[0] === 'RX' && felder.length >= 2) {
+    const st = felder[1] ?? '';
+    if (/^[0-9A-Fa-f]{1,2}$/.test(st)) {
+      return { art: 'empfang', zustand: Number.parseInt(st, 16) };
+    }
+  }
   if (felder[0] === '?') return { art: 'unbekannter-befehl' };
   return null;
 }

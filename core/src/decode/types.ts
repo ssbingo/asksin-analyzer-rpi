@@ -102,6 +102,23 @@ export type Firmwareantwort =
       cc1101: number | null;
     }
   | { art: 'erweitert'; an: boolean }
+  | {
+      /**
+       * Der Empfang wurde neu aufgesetzt — ungefragt, ab Firmware 2.
+       *
+       * Die Firmware prüft alle 750 ms den Zustand der Ablaufsteuerung des
+       * CC1101. Steht der Chip dauerhaft nicht auf Empfang, setzt sie ihn
+       * zurück und meldet, **in welchem Zustand** sie ihn angetroffen hat.
+       *
+       * Das ist kein Betriebsereignis, sondern ein Hardwarebefund: Am
+       * 14.08.2026 lieferte Analyzer 01 stundenlang keine Telegramme, während
+       * die Rauschzeilen ungestört weiterliefen. Ein Analyzer, der sich
+       * stillschweigend selbst heilt, verbirgt genau das.
+       */
+      art: 'empfang';
+      /** MARCSTATE des CC1101; 0x11 = übergelaufener Empfangspuffer. */
+      zustand: number;
+    }
   | { art: 'unbekannter-befehl' };
 
 export type ParsedLine =

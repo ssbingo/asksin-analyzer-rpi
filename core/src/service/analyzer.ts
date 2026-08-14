@@ -23,7 +23,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { DutyCycleTracker } from '../analytics/dutyCycle.ts';
 import { LiveStats } from '../analytics/liveStats.ts';
 import type { NoiseFloor } from '../analytics/liveStats.ts';
-import type { ParsedLine } from '../decode/types.ts';
+import type { Firmwareantwort, ParsedLine } from '../decode/types.ts';
 import { SerialIngest } from '../ingest/ingest.ts';
 import type {
   IngestStats,
@@ -65,6 +65,14 @@ export interface AnalyzerOptions {
    */
   onRawLine?: (zeile: string, ts: number) => void;
   onStateChange?: (change: StateChange) => void;
+  /**
+   * Auskunft der Firmware — Fassung, Funkmodul, wiederhergestellter Empfang.
+   *
+   * Der Dienst schreibt sie ins Protokoll. Besonders `art: 'empfang'` gehört
+   * dorthin: Ein Analyzer, der sich stillschweigend selbst heilt, verbirgt
+   * einen Hardwarefehler.
+   */
+  onFirmware?: (antwort: Firmwareantwort) => void;
   /** Fehler aus Flush/Aufräumtakt (werden gezählt, stoppen nichts). */
   onError?: (error: unknown) => void;
 }
@@ -134,6 +142,9 @@ export class Analyzer {
     };
     if (options.onStateChange !== undefined) {
       ingestOptionen.onStateChange = options.onStateChange;
+    }
+    if (options.onFirmware !== undefined) {
+      ingestOptionen.onFirmware = options.onFirmware;
     }
     if (options.onRawLine !== undefined) {
       ingestOptionen.onRawLine = options.onRawLine;

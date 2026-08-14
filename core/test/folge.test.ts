@@ -271,6 +271,31 @@ describe('Freischaltung beim Verbindungsaufbau', () => {
       'der Zeitpunkt der Frage muss gesetzt sein');
   });
 
+  it('meldet die Firmware einen wiederhergestellten Empfang, wird es gezaehlt', async () => {
+    // Ab Firmware 2. Am 14.08.2026 lieferte Analyzer 01 stundenlang keine
+    // Telegramme, waehrend die Rauschzeilen im 750-ms-Takt weiterliefen: der
+    // CC1101 hing, das RSSI-Register blieb lesbar. Die Firmware erkennt das
+    // jetzt selbst und setzt den Empfang neu auf — und sagt, in welchem
+    // Zustand sie den Chip angetroffen hat.
+    const befunde: string[] = [];
+    const ingest = new SerialIngest({
+      openPort: async () => strom([':5A;', ':!RX,11;', ':5B;', ':!RX,01;'], []),
+      silenceTimeoutMs: 50,
+      onFirmware: (a) => {
+        if (a.art === 'empfang') befunde.push(`0x${a.zustand.toString(16)}`);
+      },
+    });
+    await laufen(ingest);
+
+    assert.deepEqual(befunde, ['0x11', '0x1'], 'beide Befunde kommen durch');
+    assert.equal(ingest.stats.empfangErholungen, 2);
+    assert.equal(ingest.stats.letzterEmpfangszustand, 0x01);
+    // Und sie duerfen NICHT als verworfene Zeilen zaehlen — sonst sieht der
+    // Selbstheilungsbericht aus wie eine Stoerung der Strecke.
+    const summe = Object.values(ingest.stats.ignored).reduce((a, b) => a + b, 0);
+    assert.equal(summe, 0, 'Antworten sind keine Fehler');
+  });
+
   it('startet die Firmware neu, wird die Erweiterung neu freigeschaltet', async () => {
     // Am 14.08.2026 gemessen: Nach einem Reset des 328P ueber GPIO4 lief die
     // Firmware in der EINFACHEN Betriebsart weiter — die serielle Verbindung

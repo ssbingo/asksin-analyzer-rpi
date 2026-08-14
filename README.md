@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.16.2** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.16.2** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.17.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.17.0** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,40 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.17.0 — 14.08.2026
+
+**Der Empfänger hing, und niemand konnte es sehen.** Analyzer 01 lieferte am
+14.08.2026 stundenlang kein einziges Telegramm, während die Rauschzeilen im
+750-ms-Takt ungestört weiterliefen. Die Messung war eindeutig: keine
+verworfene Zeile, keine verlorene Folgenummer, kein Neustart — die serielle
+Strecke war makellos. Nur Pakete kamen keine mehr. Ein Reset des 328P holte
+sie sofort zurück.
+
+Das ist die Handschrift eines hängenden CC1101: Das RSSI-Register bleibt
+lesbar — daher das ungestörte Rauschen —, aber die Ablaufsteuerung steht nicht
+mehr auf Empfang. Ein übergelaufener Empfangspuffer löst sich laut Datenblatt
+**nie** von selbst; der Chip bleibt dort, bis jemand `SFRX` schickt. Von
+außen war das nicht von einer ruhigen Funkstrecke zu unterscheiden.
+
+**Firmware 2 heilt das selbst** (eigenes Repo, `v1.1.0`): Der ohnehin
+laufende 750-ms-Alarm liest zusätzlich `MARCSTATE`. Steht der Chip vier
+Abfragen in Folge außerhalb von RX — oder auch nur einmal in
+`RXFIFO_OVERFLOW`, das sich nie auflöst —, setzt sie den Empfang neu auf und
+meldet den angetroffenen Zustand als `:!RX,…;`. Statt Stunden dauert die
+Störung damit unter einer Sekunde, ohne Reset des Mikrocontrollers.
+
+- Der Analyzer versteht die neue Meldung, zählt sie (`empfangErholungen`,
+  `letzterEmpfangszustand`) und **schreibt jeden Eingriff ins Protokoll** —
+  im Klartext, mit dem angetroffenen Zustand. Ein Gerät, das sich
+  stillschweigend selbst heilt, verbirgt einen Hardwarefehler.
+- Ebenso im Protokoll: der Neustart der Firmware samt Auskunft des
+  Funkmoduls.
+
+**Aufspielen:** *Info → Sniffer-Firmware*, Datei
+`asksin-sniffer-firmware/hex/asksin-sniffer.ino.hex`. Das Protokoll bleibt
+bei 1 — ältere Analyzer verwerfen die neue Zeile wie jede andere Antwort und
+verlieren nichts.
 
 ### v0.16.2 — 14.08.2026
 

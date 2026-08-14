@@ -453,6 +453,34 @@ const analyzer = new Analyzer({
           (s.retryInMs === undefined ? '' : ` — nächster Versuch in ${s.retryInMs} ms`),
       );
   },
+  onFirmware: (a) => {
+    if (a.art === 'empfang') {
+      // Ein Analyzer, der sich stillschweigend selbst heilt, verbirgt einen
+      // Hardwarefehler. Deshalb steht jeder Eingriff im Protokoll, mit dem
+      // Zustand, in dem das Funkmodul angetroffen wurde.
+      const hex = `0x${a.zustand.toString(16).toUpperCase().padStart(2, '0')}`;
+      const grund =
+        a.zustand === 0x11
+          ? 'uebergelaufener Empfangspuffer'
+          : a.zustand === 0x01
+            ? 'Ruhezustand'
+            : 'nicht auf Empfang';
+      log(
+        `Funkmodul hing (${grund}, MARCSTATE ${hex}) — die Firmware hat den ` +
+          'Empfang neu aufgesetzt. Haeuft sich das, stimmt etwas mit dem ' +
+          'Modul, seiner Versorgung oder der SPI-Strecke nicht.',
+      );
+    } else if (a.art === 'funkmodul') {
+      log(
+        a.cc1101 === null
+          ? 'Firmware neu gestartet — ihr Funkmodul antwortet NICHT'
+          : `Firmware neu gestartet — Funkmodul antwortet (0x${a.cc1101
+              .toString(16)
+              .toUpperCase()
+              .padStart(2, '0')})`,
+      );
+    }
+  },
   onError: (err) => log(`Persistenz: ${String(err)}`),
 });
 
