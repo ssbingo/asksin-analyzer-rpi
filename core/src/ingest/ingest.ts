@@ -122,6 +122,16 @@ export interface IngestStats {
   firmware: Firmwareantwort | null;
   /** Zeitpunkt der letzten Versionsfrage; null = noch nie gefragt. */
   firmwareGefragtAm: number | null;
+  /**
+   * Wie oft die Firmware neu gestartet ist, ohne dass die Verbindung abriss —
+   * erkannt an ihrer ungefragten Startmeldung `:!CC,…;`.
+   *
+   * Steht diese Zahl still, lief der 328P durch. Waechst sie, ist er neu
+   * hochgelaufen: nach einem Reset ueber GPIO4, einem Watchdog oder einem
+   * Spannungseinbruch. Ohne diesen Zaehler war ein Neustart der Firmware von
+   * aussen ueberhaupt nicht zu sehen.
+   */
+  firmwareNeustarts: number;
   overlongLines: number;
   partialLines: number;
   /** Ausnahmen aus dem onLine-Verbraucher (gefangen, gezählt, weiter) */
@@ -176,6 +186,8 @@ export class SerialIngest {
   #firmwareGefragtAm: number | null = null;
   /** Wurde in DIESER Sitzung schon gefragt? Bei jedem Neuaufbau von vorn. */
   #gefragt = false;
+  /** Wie oft die Firmware neu gestartet ist, erkannt an ihrer Startmeldung. */
+  #neustarts = 0;
   /** Der offene Port der laufenden Sitzung — für Befehle an die Firmware. */
   #strom: IngestStream | null = null;
 
@@ -199,6 +211,7 @@ export class SerialIngest {
       erweitert: this.#erweitert,
       firmware: this.#firmware,
       firmwareGefragtAm: this.#firmwareGefragtAm,
+      firmwareNeustarts: this.#neustarts,
       overlongLines: this.#overlong,
       partialLines: this.#partial,
       consumerErrors: this.#consumerErrors,
@@ -470,6 +483,23 @@ export class SerialIngest {
       this.#firmware = antwort;
     } else if (antwort.art === 'erweitert') {
       this.#erweitert = antwort.an;
+    } else if (antwort.art === 'funkmodul') {
+      // Die Startmeldung `:!CC,…;` kommt UNGEFRAGT, direkt nach dem
+      // Hochlaufen der Firmware (asksin-sniffer-firmware/docs/protokoll.md).
+      // Sie ist damit die Nachricht „ich bin gerade neu gestartet".
+      //
+      // Der 328P kann neu starten, ohne dass die serielle Verbindung abreisst
+      // — beim Zuruecksetzen ueber GPIO4 etwa, oder nach einem Watchdog. Der
+      // Core schickt `:?;` und `:E1;` aber nur EINMAL je Verbindung. Danach
+      // lief die Firmware in der einfachen Betriebsart weiter: keine
+      // Folgenummern, keine Pruefsummen — und damit war die Verlusterkennung
+      // still gestorben, ohne dass es irgendwo aufgefallen waere.
+      //
+      // Am 14.08.2026 gemessen: Nach einem Reset stand `Folge: gesehen` fest
+      // auf 76, waehrend `Zeilen` weiterlief. Deshalb hier neu freischalten.
+      this.#erweitert = false;
+      this.#neustarts++;
+      void this.#freischalten();
     }
     this.#opts.onFirmware?.(antwort);
   }

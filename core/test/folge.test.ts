@@ -271,6 +271,35 @@ describe('Freischaltung beim Verbindungsaufbau', () => {
       'der Zeitpunkt der Frage muss gesetzt sein');
   });
 
+  it('startet die Firmware neu, wird die Erweiterung neu freigeschaltet', async () => {
+    // Am 14.08.2026 gemessen: Nach einem Reset des 328P ueber GPIO4 lief die
+    // Firmware in der EINFACHEN Betriebsart weiter — die serielle Verbindung
+    // war ja nie abgerissen, und `:E1;` schickte der Core nur einmal je
+    // Verbindung. Folge: keine Folgenummern, keine Pruefsummen. `Folge:
+    // gesehen` stand fest auf 76, waehrend `Zeilen` weiterlief. Die
+    // Verlusterkennung war still gestorben.
+    //
+    // Die Startmeldung `:!CC,…;` kommt ungefragt nach jedem Hochlaufen und
+    // ist damit die Nachricht "ich bin neu gestartet".
+    const geschrieben: string[] = [];
+    const ingest = new SerialIngest({
+      openPort: async () =>
+        strom(
+          [':5A;', ':!AS,1,1,8,14;', ':!E,1;', ':5B;', ':!CC,14;', ':5C;'],
+          geschrieben,
+        ),
+      silenceTimeoutMs: 50,
+    });
+    await laufen(ingest);
+
+    assert.deepEqual(
+      geschrieben,
+      [':?;', ':E1;', ':?;', ':E1;'],
+      'nach der Startmeldung muss erneut freigeschaltet werden',
+    );
+    assert.equal(ingest.stats.firmwareNeustarts, 1, 'der Neustart wird gezaehlt');
+  });
+
   it('fragt die Firmware und schaltet die Erweiterung frei', async () => {
     const geschrieben: string[] = [];
     const ingest = new SerialIngest({

@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.16.1** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.16.1** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.16.2** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.16.2** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,27 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.16.2 — 14.08.2026
+
+**Nach einem Neustart der Firmware lief sie in der einfachen Betriebsart
+weiter — und niemand merkte es.**
+
+Der 328P kann neu starten, ohne dass die serielle Verbindung abreißt: beim
+Zurücksetzen über GPIO4, nach einem Watchdog, nach einem Spannungseinbruch.
+Die Befehle `:?;` und `:E1;` schickte der Core aber nur **einmal je
+Verbindung**. Danach kamen keine Folgenummern und keine Prüfsummen mehr —
+die Verlusterkennung war still gestorben.
+
+Am 14.08.2026 an Analyzer 01 gemessen: Nach einem Reset stand `Folge: gesehen`
+fest auf 76, während `Zeilen` weiterlief.
+
+- Die Startmeldung `:!CC,…;` kommt ungefragt nach jedem Hochlaufen der
+  Firmware. Der Core wertet sie jetzt als das aus, was sie ist — „ich bin neu
+  gestartet" — und schaltet die Erweiterung erneut frei.
+- Neu in den Kennzahlen: **`firmwareNeustarts`**. Steht die Zahl still, lief
+  der 328P durch; wächst sie, ist er neu hochgelaufen. Vorher war ein
+  Neustart der Firmware von außen überhaupt nicht zu sehen.
 
 ### v0.16.1 — 14.08.2026
 
