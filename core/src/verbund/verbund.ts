@@ -15,6 +15,7 @@
 
 import { systemTime } from '../ingest/time.ts';
 import type { TimeSource } from '../ingest/time.ts';
+import { alsText, holen } from '../net/holen.ts';
 
 export interface PeerKonfig {
   /** Anzeigename; leer = Standortname aus health des Peers. */
@@ -28,24 +29,26 @@ export interface PeerKonfig {
 export type FetchJson = (url: string, token?: string) => Promise<unknown>;
 
 export const httpFetchJson: FetchJson = async (url, token) => {
-  const res = await fetch(url, {
+  // Erst holen (liest den Körper vollständig), dann urteilen. Andersherum
+  // blieb bei jedem nicht erreichbaren Peer eine Antwort liegen.
+  const a = await holen(url, {
     headers: token === undefined ? {} : { authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(4000),
   });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return res.json();
+  if (!a.ok) throw new Error(`HTTP ${a.status}`);
+  return JSON.parse(alsText(a)) as unknown;
 };
 
 /** POST ohne Body (Kommandos wie /api/update/core) — liefert den HTTP-Status. */
 export type PostAufruf = (url: string, token?: string) => Promise<number>;
 
 export const httpPost: PostAufruf = async (url, token) => {
-  const res = await fetch(url, {
+  const a = await holen(url, {
     method: 'POST',
     headers: token === undefined ? {} : { authorization: `Bearer ${token}` },
     signal: AbortSignal.timeout(8000),
   });
-  return res.status;
+  return a.status;
 };
 
 export interface PeerZustand {

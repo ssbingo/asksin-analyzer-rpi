@@ -55,6 +55,9 @@ lauf "Austauschdateien: Core und Helfer meinen denselben Ort" \
 lauf "Kindprozesse: jeder benutzte Strom hat einen Fehler-Zuhörer" \
     python3 tools/pruefe-stroeme.py
 
+lauf "HTTP: fetch nur über holen(), damit der Körper gelesen wird" \
+    python3 tools/pruefe-fetch.py
+
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 

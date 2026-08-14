@@ -14,6 +14,7 @@
 
 import { systemTime } from '../ingest/time.ts';
 import type { TimeSource } from '../ingest/time.ts';
+import { alsText, holen } from '../net/holen.ts';
 
 /** Tag-Schlüssel/-Werte: Komma, Gleichheitszeichen und Leerzeichen escapen. */
 export function escapeTag(wert: string): string {
@@ -182,7 +183,9 @@ export type InfluxPost = (
 ) => Promise<{ status: number; text: string }>;
 
 export const httpInfluxPost: InfluxPost = async (url, token, body) => {
-  const res = await fetch(url, {
+  // Über holen(), nicht über fetch(): Der Körper MUSS gelesen werden, sonst
+  // bleibt die Antwort samt Puffer liegen. Hier lief das alle 30 Sekunden.
+  const a = await holen(url, {
     method: 'POST',
     headers: {
       authorization: `Token ${token}`,
@@ -191,7 +194,7 @@ export const httpInfluxPost: InfluxPost = async (url, token, body) => {
     body,
     signal: AbortSignal.timeout(8000),
   });
-  return { status: res.status, text: res.ok ? '' : await res.text() };
+  return { status: a.status, text: a.ok ? '' : alsText(a) };
 };
 
 export interface InfluxStatus {

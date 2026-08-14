@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.15.12** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.15.12** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.16.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.16.0** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,41 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.16.0 — 13.08.2026
+
+**Das Speicherleck: sechs vergessene HTTP-Antworten, eine davon im
+30-Sekunden-Takt.**
+
+Der Speicher des Dienstes wuchs im Dauerbetrieb gleichmäßig um rund 9 MB je
+Stunde — auf Analyzer 01 von 118 auf 379 MB in 70 Stunden, ohne Zusammenhang
+mit Last oder Telegrammaufkommen. Gleichmäßig über die Zeit und unabhängig von
+der Arbeit: Das passt zu einem Zeittakt und zu nichts sonst.
+
+Die Ursache: Wer eine Antwort holt und ihren Körper nicht liest, gibt sie
+nicht frei. Undici hält die Verbindung samt gepuffertem Körper fest, bis er
+gelesen oder verworfen wurde. Dem Aufrufer sieht man das nicht an — der Code
+wirkt vollständig, es fehlt nur der Satz, der nicht dasteht. Besonders gern
+fehlte er im **Fehlerpfad**, wo vor dem Lesen geworfen wurde.
+
+- **`core/src/net/holen.ts`** ist jetzt der einzige Weg nach draußen. Er liest
+  den Körper immer zu Ende, auch bei Fehlerstatus, auch wenn der Aufrufer ihn
+  nicht braucht. Alle sechs Stellen gehen darüber: InfluxDB (Schreiben und
+  Standort-Abfrage), Verbund (Abruf und Kommando), CCU-Geräteliste,
+  Adapter-Versionsprüfung, Alarmzustellung.
+- **`tools/pruefe-fetch.py`** sorgt dafür, dass daneben kein zweiter entsteht.
+
+**Und der Speicher lässt sich künftig zuordnen, statt ihn zu suchen.** Die
+Systemzeile im Protokoll nennt alle 15 Minuten nicht mehr nur den Gesamtwert,
+sondern auch Heap, externen Speicher, Puffer und die Zahl offener
+Deskriptoren. Damit ist beim Überfliegen zu sehen, *was* wächst — JS-Objekte,
+native Puffer oder etwas ausserhalb von Node. Das entscheidet, ob ein
+Heap-Schnappschuss überhaupt weiterhilft.
+
+```
+Temperatur 47.4 °C · Speicher frei 1255 MB · Last 0.00 · Laufzeit 8.2 h ·
+Prozess 186 MB (Heap 61, extern 4, Puffer 2) · 47 Deskriptoren
+```
 
 ### v0.15.12 — 13.08.2026
 

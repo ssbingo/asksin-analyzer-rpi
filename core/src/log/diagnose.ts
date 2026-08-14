@@ -44,6 +44,30 @@ export interface Systemwerte {
   drosselung: Drosselung | null;
   /** Speicher dieses Prozesses. */
   prozessRssMb: number;
+  /**
+   * Aufschlüsselung desselben Speichers — die Diagnose eines Lecks.
+   *
+   * Anlass: Auf Analyzer 01 wuchs `prozessRssMb` im Dauerbetrieb gleichmäßig
+   * um rund 9 MB je Stunde (118 → 379 MB in 70 h), ohne Zusammenhang mit
+   * Last oder Telegrammaufkommen. Aus dem RSS allein lässt sich nicht
+   * ablesen, **was** wächst; aus diesen drei Zahlen schon:
+   *
+   *   * `heapBenutztMb` steigt   → JS-Objekte werden gehalten, die niemand
+   *     mehr braucht. Dann lohnt ein Heap-Schnappschuss.
+   *   * `externMb`/`pufferMb` steigen → Buffer oder native Zuordnungen; da
+   *     hilft ein Heap-Schnappschuss NICHT, sie stehen nicht darin.
+   *   * Alle drei flach, RSS wächst → Zersplitterung des Allokators oder
+   *     etwas ausserhalb von Node (offene Deskriptoren, Kindprozesse).
+   *
+   * Drei Zahlen je Viertelstunde im Protokoll — billiger als jeder Versuch,
+   * das Leck durch Lesen zu finden.
+   */
+  heapGesamtMb: number;
+  heapBenutztMb: number;
+  externMb: number;
+  pufferMb: number;
+  /** Wie viele Deskriptoren der Prozess offen hält; null, wenn nicht lesbar. */
+  deskriptoren: number | null;
 }
 
 export interface Drosselung {
@@ -85,6 +109,7 @@ export interface DiagnoseOptions {
   leseTemperatur?: () => number | null;
   leseLuefter?: () => number | null;
   leseMeminfo?: () => string | null;
+  leseDeskriptoren?: () => number | null;
   plattePfad?: string;
 }
 
@@ -161,6 +186,8 @@ export async function erhebeSystemwerte(
     plattenFreiMb = null;
   }
   const [last1, last5] = loadavg();
+  // Einmal abfragen, nicht fünfmal: memoryUsage() hält kurz die Schleife an.
+  const speicher = process.memoryUsage();
   const auslagerungGesamt = meminfo === null ? null : meminfoWert(meminfo, 'SwapTotal');
   const auslagerungFrei = meminfo === null ? null : meminfoWert(meminfo, 'SwapFree');
   return {
@@ -180,8 +207,31 @@ export async function erhebeSystemwerte(
     luefterUpm: (o.leseLuefter ?? leseLuefterUpm)(),
     drosselungRoh: roh,
     drosselung: roh === null ? null : deuteDrosselung(roh),
-    prozessRssMb: process.memoryUsage().rss / 1024 / 1024,
+    prozessRssMb: speicher.rss / MB,
+    heapGesamtMb: speicher.heapTotal / MB,
+    heapBenutztMb: speicher.heapUsed / MB,
+    externMb: speicher.external / MB,
+    pufferMb: speicher.arrayBuffers / MB,
+    deskriptoren: (o.leseDeskriptoren ?? zaehleDeskriptoren)(),
   };
+}
+
+const MB = 1024 * 1024;
+
+/**
+ * Offene Dateideskriptoren dieses Prozesses.
+ *
+ * Steht im Verdachtsfall neben dem Speicher: Ein Leck an Deskriptoren — nicht
+ * geschlossene Kindprozesse, liegengebliebene Sockets — treibt den Speicher
+ * mit hoch und ist an dieser Zahl sofort zu sehen, während ein
+ * Heap-Schnappschuss nichts davon zeigt.
+ */
+export function zaehleDeskriptoren(): number | null {
+  try {
+    return readdirSync(`/proc/${process.pid}/fd`).length;
+  } catch {
+    return null;   // kein /proc (nicht Linux) — dann eben keine Aussage
+  }
 }
 
 /**

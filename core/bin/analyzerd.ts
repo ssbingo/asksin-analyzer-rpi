@@ -88,6 +88,8 @@ import {
   siehtNachIntelHexAus,
   standardRunnerMitAusgabe,
 } from '../src/update/firmware.ts';
+import { alsText, holen } from '../src/net/holen.ts';
+import type { Antwort } from '../src/net/holen.ts';
 
 /** Verlauf des letzten oder laufenden Firmware-Flashs. */
 let flashStand: { laeuft: boolean; log: string; ok: boolean | null } = {
@@ -1417,7 +1419,7 @@ async function zaehleStandorte(): Promise<number | null> {
     return null;
   }
   try {
-    const res = await fetch(
+    const res = await holen(
       `${k.url.replace(/\/+$/, '')}/api/v2/query?org=${encodeURIComponent(k.org)}`,
       {
         method: 'POST',
@@ -1434,7 +1436,7 @@ async function zaehleStandorte(): Promise<number | null> {
     );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     // CSV: eine Kopfzeile, danach je Standort eine Zeile.
-    const zeilen = (await res.text())
+    const zeilen = alsText(res)
       .split('\n')
       .filter((z) => z.trim() !== '' && !z.startsWith('#') && !z.includes(',_value'));
     const zahl = zeilen.length;
@@ -1567,9 +1569,9 @@ async function schickeProbe(
   koerper: string,
   erfolg: string,
 ): Promise<string> {
-  let antwort: Response;
+  let antwort: Antwort;
   try {
-    antwort = await fetch(url, {
+    antwort = await holen(url, {
       method: 'POST',
       headers: kopf,
       body: koerper,
@@ -1582,7 +1584,7 @@ async function schickeProbe(
       deuteZustellfehler(kanal, 0, e instanceof Error ? e.message : String(e)),
     );
   }
-  const text = await antwort.text().catch(() => '');
+  const text = alsText(antwort);
   if (!antwort.ok) {
     throw new Error(deuteZustellfehler(kanal, antwort.status, text));
   }
@@ -1600,9 +1602,9 @@ async function schickeProbe(
 async function pruefeAdapterVersion(url: string): Promise<Versionsbefund> {
   let gemeldet: string | null = null;
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    const res = await holen(url, { signal: AbortSignal.timeout(4000) });
     if (res.ok) {
-      const d = (await res.json()) as { version?: unknown };
+      const d = JSON.parse(alsText(res)) as { version?: unknown };
       if (typeof d.version === 'string') gemeldet = d.version;
     }
   } catch {
@@ -1979,7 +1981,14 @@ async function diagnoseSchreiben(regelmaessig: boolean): Promise<void> {
         'system',
         `Temperatur ${w.temperaturC?.toFixed(1) ?? '?'} °C · ` +
           `Speicher frei ${(w.speicherVerfuegbarMb ?? w.speicherFreiMb).toFixed(0)} MB · ` +
-          `Last ${w.last5.toFixed(2)} · Laufzeit ${(w.laufzeitS / 3600).toFixed(1)} h`,
+          `Last ${w.last5.toFixed(2)} · Laufzeit ${(w.laufzeitS / 3600).toFixed(1)} h · ` +
+          // Aufschlüsselung im Klartext, damit ein wachsender Speicher schon
+          // beim Überfliegen des Protokolls zuzuordnen ist und nicht erst,
+          // wenn jemand die JSON-Anhänge auswertet.
+          `Prozess ${w.prozessRssMb.toFixed(0)} MB ` +
+          `(Heap ${w.heapBenutztMb.toFixed(0)}, extern ${w.externMb.toFixed(0)}, ` +
+          `Puffer ${w.pufferMb.toFixed(0)}) · ` +
+          `${w.deskriptoren ?? '?'} Deskriptoren`,
         w,
       );
     }

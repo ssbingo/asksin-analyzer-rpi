@@ -25,6 +25,7 @@ import { systemTime } from '../ingest/time.ts';
 import type { TimeSource } from '../ingest/time.ts';
 import { decodeCcuResponse } from './ccuResponse.ts';
 import { DeviceResolver, parseDevList } from './devlist.ts';
+import { holen } from '../net/holen.ts';
 
 /**
  * URL des ReGa-Abrufs. Die Anführungszeichen MÜSSEN als %22 kodiert sein —
@@ -46,11 +47,13 @@ export type FetchBytes = (
 
 /** Standard-Abruf über globales fetch — Bytes, NICHT als Text dekodieren. */
 export const httpFetchBytes: FetchBytes = async (url, signal) => {
-  const res = await fetch(url, { signal });
-  if (!res.ok) {
-    throw new Error(`CCU-Abruf: HTTP ${res.status} ${res.statusText}`);
+  // Erst lesen, dann urteilen — sonst bleibt die Antwort bei jedem Fehler
+  // der CCU liegen.
+  const a = await holen(url, { signal });
+  if (!a.ok) {
+    throw new Error(`CCU-Abruf: HTTP ${a.status}`);
   }
-  return new Uint8Array(await res.arrayBuffer());
+  return a.bytes;
 };
 
 /** Woher der aktuell gehaltene Resolver stammt. */
