@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.17.2** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.17.2** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.18.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.18.0** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,41 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.18.0 — 14.08.2026
+
+**Die Selbstheilung aus Firmware 2 hat nicht ausgelöst — und genau das ist
+die Auskunft.** Analyzer 01 blieb am 14.08.2026 volle 24 Minuten ohne
+Telegramm, während die Rauschzeilen im 750-ms-Takt ungestört weiterliefen.
+`empfangErholungen` stand dabei auf **0**: Der Chip war die ganze Zeit auf
+Empfang (`MARCSTATE 0x0D`) und lieferte trotzdem nichts.
+
+MARCSTATE allein ist damit zu grob. Es sagt „der Empfänger läuft", nicht „er
+hört etwas". Der Registerzugriff war korrekt — AskSinPP liest MARCSTATE an
+zwei Stellen genauso —, er misst nur die falsche Sache.
+
+**Firmware 3 meldet deshalb bei Funkstille ihre Lebenszeichen**
+(Firmware-Repo `v1.2.0`): `:!RF,…;` nach 60 Sekunden ohne Telegramm, danach
+höchstens einmal je Minute, mit vier weiteren Registern des CC1101. Sie
+**greift nicht ein** — erst muss feststehen, was der Chip in diesen Minuten
+tut. Ein Eingriff auf Verdacht hat in Firmware 2 schon einmal am falschen
+Zustand gemessen.
+
+Die Register trennen die möglichen Ursachen:
+
+| Befund | Deutung |
+| --- | --- |
+| `RXBYTES` > 0 und stehend | Pakete kommen an, niemand holt sie ab — Verdacht auf GDO0 |
+| `RXBYTES` 0, `FREQEST` groß | Empfänger steht neben dem Kanal — Verdacht auf Temperaturdrift |
+| `RXBYTES` 0, `FREQEST` klein | kein Träger in Reichweite |
+
+Der Analyzer schreibt die Deutung **im Klartext ins Protokoll**, damit sie
+niemand im Kopf haben muss:
+
+```
+Funkstille seit einer Minute: MARCSTATE 0x0D, Empfangspuffer 0 Byte,
+Frequenzablage 3, PKTSTATUS 0x10, LQI 0x7F — kein Traeger in Reichweite.
+```
 
 ### v0.17.2 — 14.08.2026
 

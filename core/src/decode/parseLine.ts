@@ -125,6 +125,23 @@ export function parseAntwort(raw: string): Firmwareantwort | null {
       return { art: 'empfang', zustand: Number.parseInt(st, 16) };
     }
   }
+  if (felder[0] === 'RF' && felder.length >= 6) {
+    const hex = (i: number): number | null => {
+      const s = felder[i] ?? '';
+      return /^[0-9A-Fa-f]{1,2}$/.test(s) ? Number.parseInt(s, 16) : null;
+    };
+    const w = [hex(1), hex(2), hex(3), hex(4), hex(5)];
+    if (w.every((x) => x !== null)) {
+      return {
+        art: 'funkzustand',
+        zustand: w[0] as number,
+        rxBytes: w[1] as number,
+        freqEst: w[2] as number,
+        pktStatus: w[3] as number,
+        lqi: w[4] as number,
+      };
+    }
+  }
   if (felder[0] === '?') return { art: 'unbekannter-befehl' };
   return null;
 }

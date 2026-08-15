@@ -271,6 +271,34 @@ describe('Freischaltung beim Verbindungsaufbau', () => {
       'der Zeitpunkt der Frage muss gesetzt sein');
   });
 
+  it('Lebenszeichen bei Funkstille kommen als Auskunft an, nicht als Fehler', async () => {
+    // Ab Firmware 3. Am 14.08.2026 blieb Analyzer 01 auf Firmware 2 volle
+    // 24 Minuten ohne Telegramm, waehrend die Rauschzeilen ungestoert
+    // weiterliefen — und `empfangErholungen` stand auf 0. Der Chip war die
+    // ganze Zeit auf Empfang und lieferte trotzdem nichts. MARCSTATE allein
+    // ist damit zu grob; diese Zeile nennt vier Register mehr.
+    const gesehen: Array<Record<string, number>> = [];
+    const ingest = new SerialIngest({
+      openPort: async () => strom([':5A;', ':!RF,0D,00,03,10,7F;'], []),
+      silenceTimeoutMs: 50,
+      onFirmware: (a) => {
+        if (a.art === 'funkzustand') {
+          gesehen.push({
+            zustand: a.zustand, rxBytes: a.rxBytes, freqEst: a.freqEst,
+            pktStatus: a.pktStatus, lqi: a.lqi,
+          });
+        }
+      },
+    });
+    await laufen(ingest);
+
+    assert.deepEqual(gesehen, [
+      { zustand: 0x0d, rxBytes: 0, freqEst: 3, pktStatus: 0x10, lqi: 0x7f },
+    ]);
+    const summe = Object.values(ingest.stats.ignored).reduce((a, b) => a + b, 0);
+    assert.equal(summe, 0, 'eine Auskunft ist kein verworfener Rahmen');
+  });
+
   it('meldet die Firmware einen wiederhergestellten Empfang, wird es gezaehlt', async () => {
     // Ab Firmware 2. Am 14.08.2026 lieferte Analyzer 01 stundenlang keine
     // Telegramme, waehrend die Rauschzeilen im 750-ms-Takt weiterliefen: der

@@ -119,6 +119,30 @@ export type Firmwareantwort =
       /** MARCSTATE des CC1101; 0x11 = übergelaufener Empfangspuffer. */
       zustand: number;
     }
+  | {
+      /**
+       * Lebenszeichen des Empfängers bei anhaltender Funkstille — ab
+       * Firmware 3, ungefragt, höchstens einmal je Minute.
+       *
+       * Anlass: Am 14.08.2026 blieb Analyzer 01 auf Firmware 2 vierundzwanzig
+       * Minuten ohne Telegramm, während die Rauschzeilen ungestört
+       * weiterliefen — und `empfangErholungen` stand auf 0. Der Chip war die
+       * ganze Zeit auf Empfang und lieferte trotzdem nichts. MARCSTATE allein
+       * ist damit zu grob: Es sagt „der Empfänger läuft", nicht „er hört
+       * etwas".
+       */
+      art: 'funkzustand';
+      /** MARCSTATE; 0x0D = Empfang. */
+      zustand: number;
+      /** Bytes im Empfangspuffer. Stehend und > 0 = niemand holt sie ab. */
+      rxBytes: number;
+      /** Frequenzablage des Demodulators, Zweierkomplement. */
+      freqEst: number;
+      /** GDO-Leitungen und Trägererkennung. */
+      pktStatus: number;
+      /** Güte der letzten Demodulation. */
+      lqi: number;
+    }
   | { art: 'unbekannter-befehl' };
 
 export type ParsedLine =

@@ -470,6 +470,25 @@ const analyzer = new Analyzer({
           'Empfang neu aufgesetzt. Haeuft sich das, stimmt etwas mit dem ' +
           'Modul, seiner Versorgung oder der SPI-Strecke nicht.',
       );
+    } else if (a.art === 'funkzustand') {
+      // Lebenszeichen bei Funkstille (ab Firmware 3). Im Klartext, weil die
+      // Deutung sonst niemand im Kopf hat — und weil genau diese Zeile die
+      // Frage beantwortet, die sich hinterher nicht mehr stellen laesst.
+      const hx = (n: number): string =>
+        `0x${n.toString(16).toUpperCase().padStart(2, '0')}`;
+      // FREQEST ist ein Zweierkomplement: Werte ab 0x80 sind negativ.
+      const ablage = a.freqEst > 0x7f ? a.freqEst - 0x100 : a.freqEst;
+      const deutung =
+        a.rxBytes > 0
+          ? 'Pakete liegen im Puffer, werden aber nicht abgeholt — Verdacht auf GDO0'
+          : Math.abs(ablage) > 20
+            ? 'Empfaenger steht neben dem Kanal — Verdacht auf Frequenzdrift'
+            : 'kein Traeger in Reichweite';
+      log(
+        `Funkstille seit einer Minute: MARCSTATE ${hx(a.zustand)}, ` +
+          `Empfangspuffer ${a.rxBytes} Byte, Frequenzablage ${ablage}, ` +
+          `PKTSTATUS ${hx(a.pktStatus)}, LQI ${hx(a.lqi)} — ${deutung}.`,
+      );
     } else if (a.art === 'funkmodul') {
       log(
         a.cc1101 === null
