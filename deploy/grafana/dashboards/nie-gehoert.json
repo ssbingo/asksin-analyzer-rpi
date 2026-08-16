@@ -1,0 +1,202 @@
+{
+  "uid": "asksin-nie-gehoert",
+  "title": "AskSin — Verschollene Geräte",
+  "description": "Geräte, die in der CCU stehen und von keinem Analyzer im Verbund je empfangen wurden. Grundlage ist die Messreihe `geraeteliste`, die jeder Analyzer alle fünf Minuten schreibt.",
+  "tags": [
+    "asksin",
+    "AskSin-Analyzer"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": []
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Verschollen",
+      "description": "Geräte in der CCU-Liste, die KEIN Analyzer je gehört hat. Jedes davon ist ein Fund: kein Empfang, ausgefallen, oder längst ausgebaut und nie aus der Zentrale genommen.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraeteliste\")\n  |> filter(fn: (r) => r._field == \"jeGehoert\")\n  |> last()\n  |> group(columns: [\"adresse\"])\n  |> max()\n  |> filter(fn: (r) => r._value == 0)\n  |> group()\n  |> count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "In der CCU-Liste",
+      "description": "Reale Funkgeräte. Gruppen, die Zentrale selbst und die Pseudoadressen des CCU-Skripts zählen nicht mit — eine Gruppe hat keinen Sender.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraeteliste\")\n  |> filter(fn: (r) => r._field == \"jeGehoert\")\n  |> last()\n  |> group(columns: [\"adresse\"])\n  |> max()\n  |> group()\n  |> count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "textMode": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Von keinem Analyzer je gehört",
+      "description": "Die eigentliche Arbeitsliste. Reihenfolge zum Abarbeiten: erst prüfen, ob das Gerät überhaupt noch existiert; dann Batterie; dann Standort des nächsten Analyzers.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraeteliste\")\n  |> filter(fn: (r) => r._field == \"jeGehoert\")\n  |> last()\n  |> group(columns: [\"adresse\", \"name\", \"serial\"])\n  |> max()\n  |> filter(fn: (r) => r._value == 0)\n  |> group()\n  |> keep(columns: [\"name\", \"adresse\", \"serial\"])\n  |> sort(columns: [\"name\"])",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "name",
+            "desc": false
+          }
+        ]
+      }
+    },
+    {
+      "type": "table",
+      "title": "Wer hört wen — je Standort",
+      "description": "1 = dieser Standort hat das Gerät schon gehört, 0 = nie. Eine Zeile mit lauter Nullen ist ein verschollenes Gerät; eine mit genau einer Eins hängt an einem einzigen Analyzer — fällt der aus, ist auch dieses Gerät blind.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraeteliste\")\n  |> filter(fn: (r) => r._field == \"jeGehoert\")\n  |> last()\n  |> keep(columns: [\"name\", \"adresse\", \"standort\", \"_value\"])\n  |> pivot(rowKey: [\"adresse\", \"name\"], columnKey: [\"standort\"], valueColumn: \"_value\")\n  |> sort(columns: [\"name\"])",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": []
+      }
+    }
+  ]
+}

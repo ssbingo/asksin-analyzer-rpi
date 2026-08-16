@@ -117,6 +117,29 @@ export interface InfluxDaten {
      *  das ploetzlich schweigt, hat fast immer eine leere Batterie. */
     sekundenSeitEmpfang: number;
   }>;
+  /**
+   * Die **Sollmenge**: jedes reale Funkgerät der CCU-Liste, mit der Auskunft,
+   * ob dieser Analyzer es je gehört hat.
+   *
+   * Warum das in die Zeitreihendatenbank gehört, obwohl es keine Messung ist:
+   * Ein nie gehörtes Gerät hinterlässt dort **keine Spur**. Ohne die
+   * Sollmenge lässt sich die Frage „welches Gerät hat niemand gehört?"
+   * grundsätzlich nicht stellen — man kann nicht nach der Abwesenheit einer
+   * Zeitreihe suchen.
+   *
+   * Mit `jeGehoert` je Standort wird daraus eine triviale Abfrage: nach
+   * Adresse gruppieren, Maximum über alle Standorte. Steht dort 0, hat es im
+   * ganzen Verbund niemand gehört. Kein Anti-Join, keine Sonderlogik.
+   *
+   * Leer, solange keine Geräteliste vorliegt — dann fehlt die Messreihe
+   * ganz, statt Nullen zu behaupten.
+   */
+  geraeteliste: Array<{
+    address: string;
+    name: string;
+    serial: string;
+    jeGehoert: boolean;
+  }>;
 }
 
 /** Baut alle Zeilen eines Takts — rein und damit exakt testbar. */
@@ -158,6 +181,19 @@ export function baueZeilen(daten: InfluxDaten, tsMs: number): string[] {
       tsMs,
     ),
   ];
+  // Die Sollmenge kommt seltener als die Messwerte — sie aendert sich nur,
+  // wenn jemand ein Geraet an- oder ablernt. Der Aufrufer entscheidet, wann;
+  // hier wird nur geschrieben, was er mitgibt.
+  for (const g of daten.geraeteliste) {
+    zeilen.push(
+      zeile(
+        'geraeteliste',
+        { ...standort, adresse: g.address, name: g.name, serial: g.serial },
+        { jeGehoert: g.jeGehoert ? 1 : 0 },
+        tsMs,
+      ),
+    );
+  }
   for (const g of daten.geraete) {
     zeilen.push(
       zeile(

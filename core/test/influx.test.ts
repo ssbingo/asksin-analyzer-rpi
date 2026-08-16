@@ -27,6 +27,13 @@ const DATEN: InfluxDaten = {
     diskFreiProzent: 84.2,
     luefterUpm: 3120,
   },
+  geraeteliste: [
+    { address: '350001', name: 'Defekt_BWM Carport (klemmt)',
+      serial: 'MEQ0000001', jeGehoert: true },
+    // Steht in der CCU, hat aber nie gefunkt — der eigentliche Fund.
+    { address: '9F9F9F', name: 'Dachboden Rauchmelder',
+      serial: 'NEQ7654321', jeGehoert: false },
+  ],
   geraete: [
     {
       address: '350001',
@@ -57,9 +64,9 @@ test('Line Protocol: Escaping von Leerzeichen, Kommas und Anführungszeichen', (
   );
 });
 
-test('baueZeilen: analyzer, system und je eine Zeile pro Gerät', () => {
+test('baueZeilen: analyzer, system, Sollmenge und je eine Zeile pro Gerät', () => {
   const zeilen = baueZeilen(DATEN, 1_000_000);
-  assert.equal(zeilen.length, 4);
+  assert.equal(zeilen.length, 6, 'analyzer + system + 2 Listeneintraege + 2 Geraete');
   assert.match(zeilen[0]!, /^analyzer,standort=Keller\\ \(Master\) /);
   assert.match(zeilen[0]!, /telegrammeProMinute=12/);
   assert.match(zeilen[0]!, /grundrauschen=-90\.5/);
@@ -69,8 +76,15 @@ test('baueZeilen: analyzer, system und je eine Zeile pro Gerät', () => {
   assert.match(zeilen[1]!, /^system,standort=Keller\\ \(Master\) /);
   assert.match(zeilen[1]!, /tempC=46\.8/);
   assert.match(zeilen[1]!, /luefterUpm=3120/);
-  assert.match(zeilen[2]!, /^geraet,standort=.*,adresse=350001,name=Defekt_BWM\\ Carport\\ \(klemmt\) /);
-  assert.match(zeilen[2]!, /dutyCycle=91\.2/);
+  // Die Sollmenge steht VOR den Messwerten der Geraete — sie beantwortet die
+  // Frage "wer fehlt", und ein nie gehoertes Geraet hat sonst keine Spur in
+  // der Datenbank.
+  assert.match(zeilen[2]!, /^geraeteliste,standort=.*,adresse=350001,/);
+  assert.match(zeilen[2]!, /serial=MEQ0000001 jeGehoert=1/);
+  assert.match(zeilen[3]!, /^geraeteliste,standort=.*,adresse=9F9F9F,/);
+  assert.match(zeilen[3]!, /jeGehoert=0/, 'nie gehoert wird als 0 geschrieben');
+  assert.match(zeilen[4]!, /^geraet,standort=.*,adresse=350001,name=Defekt_BWM\\ Carport\\ \(klemmt\) /);
+  assert.match(zeilen[4]!, /dutyCycle=91\.2/);
   assert.ok(zeilen.every((z) => z.endsWith(' 1000000000000')), 'Nanosekunden');
 });
 
@@ -131,8 +145,8 @@ test('InfluxSchreiber: schreibt im Takt, zählt Erfolge und Fehler, stoppt saube
     'http://influx:8086/api/v2/write?org=haus&bucket=asksin&precision=ns',
   );
   assert.equal(anfragen[0]!.token, 'geheim');
-  // analyzer + system + zwei Geraete
-  assert.equal(anfragen[0]!.body.split('\n').length, 4);
+  // analyzer + system + zwei Listeneintraege + zwei Geraete
+  assert.equal(anfragen[0]!.body.split('\n').length, 6);
   assert.equal(s.status.schreibvorgaenge, 1);
 
   antwortStatus = 500;

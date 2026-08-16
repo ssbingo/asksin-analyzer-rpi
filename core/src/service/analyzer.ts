@@ -253,13 +253,56 @@ export class Analyzer {
    * (Vorgabe 365 Tage) — „nie gehört" heisst streng genommen „nicht im
    * aufbewahrten Zeitraum", und das ist die ehrlichere Aussage.
    */
-  #ccuAbgleich(resolver: DeviceResolver | null): AnalyzerSnapshot['ccuAbgleich'] {
-    if (resolver === null) return null;
-    const liste = new Set<number>(resolver.geraeteAdressen());
+  /**
+   * Jedes reale Funkgerät der CCU-Liste mit der Auskunft, ob es je gehört
+   * wurde. Leer, wenn keine Liste vorliegt.
+   *
+   * Öffentlich, weil zwei Verbraucher dasselbe brauchen: die Übersicht (nur
+   * die Zahlen) und die Langzeitdaten (die ganze Liste je Standort, damit
+   * sich im Verbund fragen lässt, wen NIEMAND gehört hat).
+   */
+  ccuGeraete(): Array<{
+    addr: number;
+    address: string;
+    name: string;
+    serial: string;
+    jeGehoert: boolean;
+  }> {
+    const resolver = this.#opts.devList?.resolver ?? null;
+    if (resolver === null) return [];
+    const gehoert = this.#jeGehoert();
+    return resolver.geraeteAdressen().map((addr) => {
+      const e = resolver.resolve(addr);
+      return {
+        addr,
+        address: addr.toString(16).toUpperCase().padStart(6, '0'),
+        name: e?.name ?? addr.toString(16).toUpperCase().padStart(6, '0'),
+        serial: e?.serial ?? '',
+        jeGehoert: gehoert.has(addr),
+      };
+    });
+  }
+
+  /**
+   * Alle je empfangenen Absender.
+   *
+   * Grundlage ist `device_hours`: eine Zeile je Absender und Stunde, also
+   * genau die gesuchte Menge, ohne Millionen Telegrammzeilen zu scannen. Die
+   * Tabelle unterliegt der Aufbewahrung (Vorgabe 365 Tage) — „nie gehört"
+   * heisst streng genommen „nicht im aufbewahrten Zeitraum", und das ist die
+   * ehrlichere Aussage.
+   */
+  #jeGehoert(): Set<number> {
     const zeilen = this.#opts.db
       .prepare('SELECT DISTINCT addr FROM device_hours')
       .all() as unknown as Array<{ addr: number }>;
-    const gehoert = new Set<number>(zeilen.map((r) => r.addr));
+    return new Set<number>(zeilen.map((r) => r.addr));
+  }
+
+  #ccuAbgleich(resolver: DeviceResolver | null): AnalyzerSnapshot['ccuAbgleich'] {
+    if (resolver === null) return null;
+    const liste = new Set<number>(resolver.geraeteAdressen());
+    const gehoert = this.#jeGehoert();
     let jeGehoert = 0;
     for (const addr of liste) if (gehoert.has(addr)) jeGehoert++;
     let fremde = 0;

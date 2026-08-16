@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.19.0** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.19.0** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.20.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.20.0** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,39 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.20.0 — 16.08.2026
+
+**Grafana-Dashboard „Verschollene Geräte"** — Geräte, die in der CCU stehen
+und von **keinem** Analyzer im Verbund je gehört wurden.
+
+Das ging bisher grundsätzlich nicht, und zwar aus einem Grund, der leicht zu
+übersehen ist: **Ein nie gehörtes Gerät hinterlässt in einer
+Zeitreihendatenbank keine Spur.** Nach der Abwesenheit einer Zeitreihe kann
+man nicht suchen. Ohne die Sollmenge ist die Frage nicht zu stellen.
+
+Deshalb schreibt jeder Analyzer sie jetzt mit: neues Measurement
+**`geraeteliste`** (Tags `standort`, `adresse`, `name`, `serial`) mit dem Feld
+`jeGehoert` — 1 oder 0, für genau diesen Standort. Damit wird die Auswertung
+trivial: nach Adresse gruppieren, Maximum über alle Standorte. Steht dort 0,
+hat es im ganzen Verbund niemand gehört. Kein Anti-Join, keine Sonderlogik.
+
+Das Dashboard (`asksin-nie-gehoert`, vier Panels) zeigt:
+
+- **Verschollen** und **In der CCU-Liste** als Kennzahlen
+- **Von keinem Analyzer je gehört** — die Arbeitsliste mit Name, Adresse,
+  Seriennummer
+- **Wer hört wen — je Standort** — eine Matrix. Eine Zeile mit lauter Nullen
+  ist ein verschollenes Gerät; eine mit genau einer Eins hängt an einem
+  einzigen Analyzer und wird blind, sobald der ausfällt.
+
+Bewusst **ohne Standort-Auswahl**: Ein Gerät gilt erst dann als verschollen,
+wenn alle Analyzer schweigen. Mit Filter bekäme man „von diesem einen nicht
+gehört" — eine andere und viel harmlosere Aussage.
+
+Geschrieben wird die Liste **alle fünf Minuten**, nicht im Messtakt: Bei über
+200 Einträgen wären das sonst rund 700 000 Punkte je Tag und Analyzer, für
+eine Menge, die sich nur beim An- oder Ablernen ändert.
 
 ### v0.19.0 — 16.08.2026
 

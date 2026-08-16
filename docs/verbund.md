@@ -104,6 +104,28 @@ primäre Wahrheit) per Line Protocol in eine zentrale **InfluxDB v2**
   grundrauschen, geraete
 - Measurement `geraet` (Tags `standort`, `adresse`, `name`): rssi,
   dutyCycle, telegramme
+- Measurement **`geraeteliste`** (Tags `standort`, `adresse`, `name`,
+  `serial`): Feld `jeGehoert` — 1 oder 0, alle fünf Minuten geschrieben
+
+**Warum die Geräteliste in eine Zeitreihendatenbank gehört, obwohl sie keine
+Messung ist.** Ein nie gehörtes Gerät hinterlässt dort *keine Spur*. Nach der
+Abwesenheit einer Zeitreihe lässt sich nicht suchen — die Frage „welches
+Gerät hat niemand gehört?" ist ohne die Sollmenge grundsätzlich nicht zu
+stellen. Steht sie dagegen mit `jeGehoert` je Standort dort, wird daraus eine
+triviale Abfrage: nach `adresse` gruppieren, Maximum über alle Standorte.
+Ergebnis 0 heißt: Im ganzen Verbund hat es niemand gehört.
+
+Gezählt werden nur **reale Funkgeräte** — Gruppen, die Zentrale selbst und
+die Pseudoadressen des CCU-Skripts bleiben draußen, denn eine Gruppe hat
+keinen Sender. Grundlage für `jeGehoert` ist `device_hours`, also alles seit
+Beginn der Aufzeichnung; die Tabelle unterliegt der Aufbewahrung von 365
+Tagen, „nie gehört" heißt also genau genommen „nicht im aufbewahrten
+Zeitraum".
+
+Fünf Minuten statt des Messtakts, weil die Liste bei einer mittleren Anlage
+über 200 Einträge hat: im 30-Sekunden-Takt wären das rund 700 000 Punkte je
+Tag und Analyzer — für eine Menge, die sich nur ändert, wenn jemand ein Gerät
+an- oder ablernt.
 - Konfiguration über **Einstellungen → Langzeitdaten** (URL, Org, Bucket,
   Token — wird nie wieder angezeigt, Intervall ≥ 5 s), sofort wirksam,
   dienst-schreibbar persistiert; Influx-Ausfälle stören den Analyzer nicht
@@ -111,7 +133,16 @@ primäre Wahrheit) per Line Protocol in eine zentrale **InfluxDB v2**
 Grafana-Beispielabfragen (Flux): Standortvergleich Rauschen
 `filter(fn: (r) => r._measurement == "analyzer" and r._field == "grundrauschen")`
 gruppiert nach `standort`; Duty-Cycle-Trends je Gerät über Measurement
-`geraet`. Die Dashboards selbst baut man sich in Grafana nach Geschmack.
+`geraet`.
+
+**Mitgelieferte Vorlagen** liegen in `deploy/grafana/dashboards/` und werden
+aus `vorlagen-bauen.py` erzeugt — neun Stück, darunter **„Verschollene
+Geräte"** (`asksin-nie-gehoert`): die Arbeitsliste der Geräte, die in der CCU
+stehen und von *keinem* Analyzer je gehört wurden, plus eine Matrix „wer hört
+wen" je Standort. Dieses Dashboard hat bewusst **keine Standort-Auswahl**:
+Ein Gerät gilt erst dann als verschollen, wenn alle Analyzer schweigen. Wer
+nach Standorten filterte, bekäme „von diesem einen nicht gehört" — eine
+andere und viel harmlosere Aussage.
 
 ### M9.6 — MQTT-Ausgang *(optional, nur bei Bedarf)*
 

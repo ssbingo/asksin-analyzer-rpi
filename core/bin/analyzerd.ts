@@ -1278,6 +1278,22 @@ function influxKonfigLesen(): InfluxKonfig {
 /** Zeitpunkt des Dienststarts — Grundlage der Laufzeit in den Langzeitdaten. */
 const dienstStartMs = Date.now();
 
+/**
+ * Wie oft die CCU-Geraeteliste in die Langzeitdaten geschrieben wird.
+ *
+ * Deutlich seltener als die Messwerte, und zwar aus Groessengruenden: Die
+ * Liste hat bei einer mittleren Anlage ueber 200 Eintraege. Im
+ * 30-Sekunden-Takt waeren das 8 Punkte je Sekunde, rund 700 000 am Tag und
+ * Analyzer — fuer eine Menge, die sich nur aendert, wenn jemand ein Geraet
+ * an- oder ablernt.
+ *
+ * Fuenf Minuten reichen: Grafana fragt ohnehin "der letzte bekannte Stand je
+ * Adresse", und eine Anlage, bei der ein neu angelerntes Geraet fuenf Minuten
+ * spaeter im Dashboard steht, ist schnell genug.
+ */
+const LISTE_INTERVALL_MS = 300_000;
+let listeZuletzt = 0;
+
 function influxDaten(): InfluxDaten {
   const s = analyzer.snapshot();
   const jetzt = Date.now();
@@ -1299,6 +1315,18 @@ function influxDaten(): InfluxDaten {
       diskFreiProzent: leseDiskFreiProzent(),
       luefterUpm: leseLuefterUpm(),
     },
+    // Die Sollmenge nur alle paar Minuten mitschicken; dazwischen bleibt das
+    // Feld leer und es entstehen keine Zeilen.
+    geraeteliste:
+      jetzt - listeZuletzt >= LISTE_INTERVALL_MS
+        ? ((listeZuletzt = jetzt),
+          analyzer.ccuGeraete().map((g) => ({
+            address: g.address,
+            name: g.name,
+            serial: g.serial,
+            jeGehoert: g.jeGehoert,
+          })))
+        : [],
     geraete: s.devices.map((g) => ({
       address: g.address,
       name: g.name,

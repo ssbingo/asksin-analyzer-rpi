@@ -651,6 +651,93 @@ def batterie() -> dict:
         p, [var_bucket(), var_standort()], zeitraum="now-7d", takt="5m")
 
 
+def nie_gehoert() -> dict:
+    """Wer steht in der CCU und wurde von KEINEM Analyzer je gehoert?
+
+    Die Frage, die sich aus Messdaten allein nicht beantworten laesst: Ein nie
+    gehoertes Geraet hinterlaesst in einer Zeitreihendatenbank keine Spur, und
+    nach der Abwesenheit einer Zeitreihe kann man nicht suchen.
+
+    Deshalb schreibt jeder Analyzer die **Sollmenge** mit: die Messreihe
+    `geraeteliste` mit einem Punkt je Geraet der CCU-Liste und dem Feld
+    `jeGehoert` (1 oder 0) fuer genau diesen Standort. Daraus wird die Frage
+    trivial — nach Adresse gruppieren, Maximum ueber alle Standorte. Steht
+    dort 0, hat es im ganzen Verbund niemand gehoert.
+
+    Bewusst OHNE die Standort-Variable: Ein Geraet gilt erst dann als
+    verschollen, wenn ALLE Analyzer schweigen. Wer nach Standorten filtert,
+    bekaeme "von diesem einen nicht gehoert" — eine andere und viel
+    harmlosere Aussage.
+    """
+    letzter_stand = (
+        '  |> filter(fn: (r) => r._measurement == "geraeteliste")\n'
+        '  |> filter(fn: (r) => r._field == "jeGehoert")\n'
+        '  |> last()\n'
+    )
+    p = [
+        kennzahl(
+            "Verschollen", flux(
+                letzter_stand
+                + '  |> group(columns: ["adresse"])\n'
+                  '  |> max()\n'
+                  '  |> filter(fn: (r) => r._value == 0)\n'
+                  '  |> group()\n'
+                  '  |> count()'),
+            0, 0, w=6,
+            beschreibung="Geräte in der CCU-Liste, die KEIN Analyzer je "
+                         "gehört hat. Jedes davon ist ein Fund: kein "
+                         "Empfang, ausgefallen, oder längst ausgebaut und "
+                         "nie aus der Zentrale genommen.",
+            schwellen=[{"color": "green", "value": None},
+                       {"color": "orange", "value": 1}]),
+        kennzahl(
+            "In der CCU-Liste", flux(
+                letzter_stand
+                + '  |> group(columns: ["adresse"])\n'
+                  '  |> max()\n'
+                  '  |> group()\n'
+                  '  |> count()'),
+            6, 0, w=6,
+            beschreibung="Reale Funkgeräte. Gruppen, die Zentrale selbst und "
+                         "die Pseudoadressen des CCU-Skripts zählen nicht "
+                         "mit — eine Gruppe hat keinen Sender."),
+        tabelle(
+            "Von keinem Analyzer je gehört", flux(
+                letzter_stand
+                + '  |> group(columns: ["adresse", "name", "serial"])\n'
+                  '  |> max()\n'
+                  '  |> filter(fn: (r) => r._value == 0)\n'
+                  '  |> group()\n'
+                  '  |> keep(columns: ["name", "adresse", "serial"])\n'
+                  '  |> sort(columns: ["name"])'),
+            0, 4, w=24, h=12,
+            beschreibung="Die eigentliche Arbeitsliste. Reihenfolge zum "
+                         "Abarbeiten: erst prüfen, ob das Gerät überhaupt "
+                         "noch existiert; dann Batterie; dann Standort des "
+                         "nächsten Analyzers.",
+            sortierung={"displayName": "name", "desc": False}),
+        tabelle(
+            "Wer hört wen — je Standort", flux(
+                letzter_stand
+                + '  |> keep(columns: ["name", "adresse", "standort", "_value"])\n'
+                  '  |> pivot(rowKey: ["adresse", "name"], '
+                  'columnKey: ["standort"], valueColumn: "_value")\n'
+                  '  |> sort(columns: ["name"])'),
+            0, 16, w=24, h=12,
+            beschreibung="1 = dieser Standort hat das Gerät schon gehört, "
+                         "0 = nie. Eine Zeile mit lauter Nullen ist ein "
+                         "verschollenes Gerät; eine mit genau einer Eins "
+                         "hängt an einem einzigen Analyzer — fällt der aus, "
+                         "ist auch dieses Gerät blind."),
+    ]
+    return dashboard(
+        "asksin-nie-gehoert", "AskSin — Verschollene Geräte",
+        "Geräte, die in der CCU stehen und von keinem Analyzer im Verbund je "
+        "empfangen wurden. Grundlage ist die Messreihe `geraeteliste`, die "
+        "jeder Analyzer alle fünf Minuten schreibt.",
+        p, [], zeitraum="now-24h", takt="5m")
+
+
 def verbund() -> dict:
     p = [
         zustandsband("Verbindung je Standort",
@@ -742,6 +829,7 @@ ALLE = {
     "batterie": batterie,
     "verbund": verbund,
     "geraetezustand": geraetezustand,
+    "nie-gehoert": nie_gehoert,
 }
 
 
