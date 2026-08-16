@@ -196,8 +196,27 @@ nutzeTakt(async () => {
     </div>
     <div class="kachel">
       <div class="titel">Geräte (aktiv)</div>
-      <div class="wert">{{ snapshot.devices.length }}</div>
-      <div class="zusatz" v-if="snapshot.devList !== null">
+      <div class="wert">
+        {{ snapshot.devices.length }}<span
+          class="von" v-if="snapshot.ccuAbgleich !== null"
+        >&thinsp;/&thinsp;{{ snapshot.ccuAbgleich.inListe }}</span>
+      </div>
+      <!--
+        Die zweite Zahl ist der eigentliche Zweck: Ein Gerät, das in der
+        Zentrale steht und nie zu hören war, hat entweder keinen Empfang, ist
+        ausgefallen oder wurde ausgebaut, ohne dass es jemand aus der CCU
+        genommen hat. Vorher zeigte die Kachel nur, was sie hört — nie, was
+        fehlt.
+      -->
+      <div class="zusatz" v-if="snapshot.ccuAbgleich !== null">
+        <span :class="snapshot.ccuAbgleich.nieGehoert > 0 ? 'schwach' : 'gut'">
+          {{ snapshot.ccuAbgleich.nieGehoert }} nie gehört</span>,
+        {{ snapshot.ccuAbgleich.jeGehoert }} von
+        {{ snapshot.ccuAbgleich.inListe }} aus der CCU-Liste<span
+          v-if="snapshot.ccuAbgleich.fremde > 0"
+        >, {{ snapshot.ccuAbgleich.fremde }} fremde</span>
+      </div>
+      <div class="zusatz" v-else-if="snapshot.devList !== null">
         Namen: {{ snapshot.devList.source === 'ccu' ? 'von der CCU' :
                   snapshot.devList.source === 'cache' ? 'aus dem Cache' : 'noch keine' }}
       </div>

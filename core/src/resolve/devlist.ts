@@ -141,6 +141,25 @@ export class DeviceResolver {
     return this.#byAddress.size;
   }
 
+  /**
+   * Adressen **realer Funkgeräte** aus der Liste.
+   *
+   * Ohne Gruppen (`team`), ohne die Zentrale (`central`) und ohne die
+   * Pseudoadressen des CCU-Skripts. Nur diese Geräte funken selbst, und nur
+   * bei ihnen ist „nie gehört" eine Aussage: Eine Gruppe hat keinen Sender,
+   * und die Zentrale sendet unter ihrer eigenen Adresse.
+   *
+   * Gedacht für den Abgleich „steht in der CCU, wurde aber nie empfangen" —
+   * die eigentliche Fundstelle beim Ausleuchten einer Anlage.
+   */
+  geraeteAdressen(): number[] {
+    const raus: number[] = [];
+    for (const [addr, eintraege] of this.#byAddress) {
+      if (eintraege.some((e) => e.kind === 'device')) raus.push(addr);
+    }
+    return raus;
+  }
+
   /** Alle Einträge zu einer Adresse, Vorrangreihenfolge (Gerät zuerst). */
   entries(address: number): ResolvedDevice[] {
     return this.#byAddress.get(address) ?? [];

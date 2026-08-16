@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.18.0** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.18.0** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.19.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.19.0** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,37 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.19.0 — 16.08.2026
+
+**Die Übersicht zeigt jetzt auch, was fehlt.** Die Kachel „Geräte (aktiv)"
+nannte bisher nur, was gerade zu hören ist. Neu daneben: wie viele reale
+Funkgeräte in der CCU-Liste stehen — und wie viele davon **nie** empfangen
+wurden.
+
+```
+Geräte (aktiv)
+11 / 214
+3 nie gehört, 211 von 214 aus der CCU-Liste, 5 fremde
+```
+
+Das ist beim Ausleuchten einer Anlage die eigentliche Fundstelle: Ein Gerät,
+das in der Zentrale steht und nie funkt, hat entweder keinen Empfang, ist
+ausgefallen oder wurde ausgebaut, ohne dass es jemand aus der CCU genommen
+hat.
+
+- Gezählt werden **nur reale Funkgeräte**. Gruppen (`*Team`), die Zentrale
+  selbst und die Pseudoadressen des CCU-Skripts bleiben draußen — eine Gruppe
+  hat keinen Sender, und „nie gehört" wäre bei ihr keine Aussage.
+- Grundlage ist `device_hours`, also **alles seit Beginn der Aufzeichnung**,
+  nicht das Live-Fenster. Die Tabelle unterliegt der Aufbewahrung (Vorgabe
+  365 Tage); „nie gehört" heißt streng genommen „nicht im aufbewahrten
+  Zeitraum", und das ist die ehrlichere Aussage.
+- **Fremde** sind die Gegenrichtung: Absender, die gefunkt haben, aber nicht
+  in der Liste stehen — Nachbarschaft, oder ein Gerät, das die CCU nicht
+  kennt.
+- Ohne Geräteliste erscheint der Vergleich **gar nicht**, statt Nullen zu
+  zeigen. „0 nie gehört" ohne Liste wäre keine Aussage, sondern eine Lüge.
 
 ### v0.18.0 — 14.08.2026
 

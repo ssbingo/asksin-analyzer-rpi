@@ -24,6 +24,7 @@ import { DutyCycleTracker } from '../analytics/dutyCycle.ts';
 import { LiveStats } from '../analytics/liveStats.ts';
 import type { NoiseFloor } from '../analytics/liveStats.ts';
 import type { Firmwareantwort, ParsedLine } from '../decode/types.ts';
+import type { DeviceResolver } from '../resolve/devlist.ts';
 import { SerialIngest } from '../ingest/ingest.ts';
 import type {
   IngestStats,
@@ -104,6 +105,31 @@ export interface AnalyzerSnapshot {
   devList:
     | (DevListStats & { createdAt: number | null; entries: number | null })
     | null;
+  /**
+   * Abgleich der CCU-Liste mit dem, was je empfangen wurde.
+   *
+   * Die eigentliche Fundstelle beim Ausleuchten einer Anlage: Ein Gerät, das
+   * in der Zentrale steht und **nie** zu hören war, hat entweder keinen
+   * Empfang, ist ausgefallen oder wurde ausgebaut, ohne dass es jemand aus
+   * der CCU genommen hat. Ohne diesen Vergleich fällt genau das nicht auf —
+   * die Übersicht zeigte bisher nur, was sie hört, nie was fehlt.
+   *
+   * Gezählt werden ausschliesslich reale Funkgeräte: keine Gruppen, nicht
+   * die Zentrale, keine Pseudoadressen. Grundlage ist `device_hours`, also
+   * alles seit Beginn der Aufzeichnung — nicht das Live-Fenster.
+   *
+   * null, wenn keine Geräteliste vorliegt.
+   */
+  ccuAbgleich: {
+    /** Reale Funkgeräte in der CCU-Liste. */
+    inListe: number;
+    /** Davon je empfangen. */
+    jeGehoert: number;
+    /** Davon nie empfangen — die interessante Zahl. */
+    nieGehoert: number;
+    /** Empfangene Absender, die NICHT in der Liste stehen (Nachbarschaft). */
+    fremde: number;
+  } | null;
   /** Fehler aus Flush-/Aufräumtakt seit dem Start. */
   persistErrors: number;
   /** Nach zuletzt gesehen sortiert, wie devices() der LiveStats. */
@@ -218,6 +244,34 @@ export class Analyzer {
     }
   }
 
+  /**
+   * Welche Geräte der CCU-Liste je gehört wurden — und welche nie.
+   *
+   * Grundlage ist `device_hours`: eine Zeile je Absender und Stunde, also
+   * genau die Menge aller je empfangenen Absender, ohne Millionen
+   * Telegrammzeilen zu scannen. Die Tabelle unterliegt der Aufbewahrung
+   * (Vorgabe 365 Tage) — „nie gehört" heisst streng genommen „nicht im
+   * aufbewahrten Zeitraum", und das ist die ehrlichere Aussage.
+   */
+  #ccuAbgleich(resolver: DeviceResolver | null): AnalyzerSnapshot['ccuAbgleich'] {
+    if (resolver === null) return null;
+    const liste = new Set<number>(resolver.geraeteAdressen());
+    const zeilen = this.#opts.db
+      .prepare('SELECT DISTINCT addr FROM device_hours')
+      .all() as unknown as Array<{ addr: number }>;
+    const gehoert = new Set<number>(zeilen.map((r) => r.addr));
+    let jeGehoert = 0;
+    for (const addr of liste) if (gehoert.has(addr)) jeGehoert++;
+    let fremde = 0;
+    for (const addr of gehoert) if (!liste.has(addr)) fremde++;
+    return {
+      inListe: liste.size,
+      jeGehoert,
+      nieGehoert: liste.size - jeGehoert,
+      fremde,
+    };
+  }
+
   /** Der eine Lese-Einstieg für API und Anzeige. */
   snapshot(now: number = this.#time.now()): AnalyzerSnapshot {
     const devListDienst = this.#opts.devList;
@@ -254,6 +308,7 @@ export class Analyzer {
               createdAt: resolver?.createdAt.getTime() ?? null,
               entries: resolver?.size ?? null,
             },
+      ccuAbgleich: this.#ccuAbgleich(resolver),
       persistErrors: this.#persistErrors,
       devices,
     };

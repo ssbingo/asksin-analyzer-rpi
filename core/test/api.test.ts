@@ -20,6 +20,13 @@ const LISTE = JSON.stringify({
   created_at: 1_785_300_000,
   devices: [
     { address: 0x1a2b3c, serial: 'OEQ1234567', name: 'Wäschekeller Fenster' },
+    // Steht in der CCU, funkt aber nie — genau der Fall, den der Abgleich
+    // sichtbar machen soll.
+    { address: 0x9f9f9f, serial: 'NEQ7654321', name: 'Dachboden Rauchmelder' },
+    // Gruppe und Zentrale zaehlen NICHT als Funkgeraete: Eine Gruppe hat
+    // keinen Sender, die Zentrale sendet unter eigener Adresse.
+    { address: 0xabcdef, serial: '*Rauchmelder-Team', name: 'Team' },
+    { address: 0x275000, serial: 'BidCoS-RF', name: 'Zentrale' },
   ],
 });
 
@@ -375,6 +382,36 @@ test('/api/telegrams: minutes grenzt nach Zeit ein, nicht nach Anzahl', async (t
     await fetch(`${a.base}/api/telegrams?limit=100`)
   ).json()) as { telegrams: unknown[] };
   assert.equal(ohne.telegrams.length, 3, 'ohne Zeitangabe wie bisher');
+});
+
+test('Snapshot: CCU-Abgleich zeigt, welche Geraete NIE gehoert wurden', async (t) => {
+  // Der Wunsch dahinter: "Damit liesse sich gut ableiten, wieviel Geraete gar
+  // nicht gehoert werden, obwohl sie in der CCU-Liste stehen." Genau das ist
+  // beim Ausleuchten einer Anlage die Fundstelle — die Uebersicht zeigte
+  // bisher nur, was sie hoert, nie was fehlt.
+  const a = await aufbau(t, { mitDevList: true });
+  await a.einspeisen(TELEGRAMM, BURST);   // 1A2B3C (in der Liste) und 111111
+
+  const s = (await (await fetch(`${a.base}/api/snapshot`)).json()) as {
+    ccuAbgleich: { inListe: number; jeGehoert: number; nieGehoert: number; fremde: number };
+  };
+
+  // Vier Listeneintraege, aber nur ZWEI reale Funkgeraete: Gruppe und
+  // Zentrale zaehlen nicht mit.
+  assert.equal(s.ccuAbgleich.inListe, 2, 'nur reale Geraete');
+  assert.equal(s.ccuAbgleich.jeGehoert, 1, '1A2B3C hat gefunkt');
+  assert.equal(s.ccuAbgleich.nieGehoert, 1, '9F9F9F steht in der CCU und schweigt');
+  assert.equal(s.ccuAbgleich.fremde, 1, '111111 funkt, steht aber nicht in der Liste');
+});
+
+test('Snapshot ohne Geraeteliste: kein Abgleich statt falscher Nullen', async (t) => {
+  // Ohne Liste ist "nie gehoert = 0" keine Aussage, sondern eine Luege.
+  const a = await aufbau(t);
+  await a.einspeisen(TELEGRAMM);
+  const s = (await (await fetch(`${a.base}/api/snapshot`)).json()) as {
+    ccuAbgleich: unknown;
+  };
+  assert.equal(s.ccuAbgleich, null);
 });
 
 test('/api/noise: Minutenaggregat mit Mittelwert und ms-Zeitstempel', async (t) => {

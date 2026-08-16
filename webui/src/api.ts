@@ -56,6 +56,13 @@ export interface Snapshot {
     createdAt: number | null;
     entries: number | null;
   } | null;
+  /** Abgleich der CCU-Liste mit allem, was je empfangen wurde. */
+  ccuAbgleich: {
+    inListe: number;
+    jeGehoert: number;
+    nieGehoert: number;
+    fremde: number;
+  } | null;
   persistErrors: number;
   devices: GeraetEintrag[];
 }

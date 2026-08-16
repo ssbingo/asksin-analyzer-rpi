@@ -135,6 +135,9 @@ h3 { font-size: 0.95rem; margin: 1.5rem 0 0.6rem; color: var(--muted); font-weig
 .kachel .titel { color: var(--muted); font-size: 0.8rem; margin-bottom: 0.25rem; }
 .kachel .wert { font-size: 1.35rem; font-weight: 600; }
 .kachel .zusatz { color: var(--muted); font-size: 0.8rem; margin-top: 0.15rem; }
+/* Die Bezugsgroesse neben dem Messwert: kleiner und ruhiger, damit die
+   gehoerte Zahl die Kachel traegt und die Gesamtzahl sie nur einordnet. */
+.kachel .wert .von { color: var(--muted); font-size: 0.62em; font-weight: 400; }
 
 /* ---- Panels und Tabellen ---- */
 
