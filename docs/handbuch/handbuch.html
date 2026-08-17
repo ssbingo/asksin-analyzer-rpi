@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 0.20.0</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 0.20.1</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 0.20.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 0.20.1 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2654,7 +2654,17 @@ Speichern nie wieder angezeigt (leeres Feld = vorhandenes behalten).</li>
 <tr><td><code>analyzer</code></td><td><code>standort</code></td><td>connected, telegrammeProMinute, grundrauschen, geraete, maxDutyCycle, dutyAlarme, laufzeitSekunden</td></tr>
 <tr><td><code>system</code></td><td><code>standort</code></td><td>cpuLast, tempC, ramFreiProzent, diskFreiProzent, luefterUpm</td></tr>
 <tr><td><code>geraet</code></td><td><code>standort</code>, <code>adresse</code>, <code>name</code></td><td>rssi, dutyCycle, telegramme, sekundenSeitEmpfang</td></tr>
+<tr><td><code>geraeteliste</code></td><td><code>standort</code>, <code>adresse</code>, <code>name</code>, <code>serial</code></td><td>jeGehoert (1 oder 0), alle fünf Minuten</td></tr>
 </table>
+
+<div class="hinweis box"><span class="titel">Warum die Geräteliste in eine Zeitreihendatenbank gehört</span>
+<p>Sie ist keine Messung — und trotzdem steht sie dort, weil sonst eine ganze
+Frage unbeantwortbar bliebe: <strong>Ein nie gehörtes Gerät hinterlässt keine
+Spur.</strong> Nach der Abwesenheit einer Zeitreihe kann man nicht suchen.</p>
+<p style="margin-bottom: 0">Mit <code>jeGehoert</code> je Standort wird daraus
+eine einfache Abfrage: nach Adresse gruppieren, Maximum über alle Standorte
+nehmen. Steht dort 0, hat es im ganzen Verbund niemand gehört. Genau davon
+lebt die Ansicht <em>Verschollene Geräte</em>.</p></div>
 <p>In Grafana (Datenquelle: deine InfluxDB) entstehen daraus z. B.
 „Grundrauschen aller Standorte übereinander", „Duty-Cycle-Trend von Gerät X
 über 30 Tage" oder „RSSI-Verlauf eines Sensors an drei Standorten" — nach
@@ -2850,24 +2860,24 @@ der fertige Verweis; ein Klick genügt.</p>
 </ol>
 
 <figure>
-  <img src="img/grafana/uebersicht.svg" alt="Der Ordner AskSin-Analyzer mit acht Ansichten">
-  <figcaption>So sieht der Ordner aus. Die acht Ansichten sind bereits
+  <img src="img/grafana/uebersicht.svg" alt="Der Ordner AskSin-Analyzer mit neun Ansichten">
+  <figcaption>So sieht der Ordner aus. Die neun Ansichten sind bereits
   eingerichtet — es muss nichts konfiguriert, verbunden oder importiert
   werden.</figcaption>
 </figure>
 
 <p><strong>Warum dort schon etwas steht:</strong> Normalerweise beginnt man in
 Grafana mit einer leeren Seite und baut jede Kurve selbst. Genau daran
-scheitern die meisten. Deshalb bringt der Analyzer die acht Ansichten fertig
+scheitern die meisten. Deshalb bringt der Analyzer die neun Ansichten fertig
 mit, samt Verbindung zur Datenbank.</p>
 
-<p class="klein">Diese acht Ansichten werden bei jedem Grafana-Start neu
+<p class="klein">Diese neun Ansichten werden bei jedem Grafana-Start neu
 eingelesen. Ändert man eine im Browser und speichert, ist die Änderung beim
 nächsten Neustart wieder weg — sonst liessen sie sich nicht mit dem Projekt
 aktualisieren. Für Eigenes legt man ein neues Dashboard
 <strong>ausserhalb</strong> dieses Ordners an; das bleibt unangetastet.</p>
 
-<h2 id="k19-8">19.8 Die acht Ansichten im Einzelnen</h2>
+<h2 id="k19-8">19.8 Die neun Ansichten im Einzelnen</h2>
 
 <p>Jede Ansicht beantwortet eine bestimmte Frage. Wer weiß, welche Frage er
 hat, findet damit sofort die richtige Seite. Die Zahlen in den Bildern
@@ -3029,6 +3039,43 @@ gar nicht erst an der falschen Stelle.</p>
 Lüfterdrehzahl (Feld 2) auf null, während die Temperatur (Feld 1) steigt, ist
 der Lüfter defekt. Feld 5 ist der Wert, den man mit lokaler Datenbank im Auge
 behalten sollte — er fällt zwangsläufig, nur eben sehr langsam.</p>
+
+<h3 id="verschollene-gera-te-wen-ho-rt-niemand">Verschollene Geräte — wen hört niemand?</h3>
+
+<figure>
+  <img src="img/grafana/nie-gehoert.svg" alt="Ansicht Verschollene Geräte">
+  <figcaption>Die Arbeitsliste: in der CCU vorhanden, im Funk nie erschienen.</figcaption>
+</figure>
+
+<table>
+<tr><th>Nr.</th><th>Was dort steht</th></tr>
+<tr><td>1</td><td>Wie viele Geräte in der CCU stehen, die <strong>kein einziger</strong> Analyzer je gehört hat. Jedes davon ist ein Fund.</td></tr>
+<tr><td>2</td><td>Die Bezugsgröße: reale Funkgeräte in der Liste. Gruppen, die Zentrale selbst und die Pseudoadressen des CCU-Skripts zählen nicht mit — eine Gruppe hat keinen Sender.</td></tr>
+<tr><td>3</td><td>Die Arbeitsliste mit Name, Adresse und Seriennummer. Reihenfolge zum Abarbeiten: existiert das Gerät überhaupt noch, dann Batterie, dann Standort des nächsten Analyzers.</td></tr>
+<tr><td>4</td><td>Die Matrix: 1 heißt „dieser Standort hat es schon gehört“, 0 heißt „nie“.</td></tr>
+</table>
+
+<p><strong>Die Matrix ist der nützlichste Teil dieser Ansicht</strong>, und
+zwar nicht wegen der Nullzeilen. Eine Zeile mit lauter Nullen ist ein
+verschollenes Gerät — das steht schon in der Liste darüber. Interessanter ist
+eine Zeile mit <strong>genau einer Eins</strong>: Dieses Gerät hängt an einem
+einzigen Analyzer. Fällt der aus oder wird umgestellt, ist auch dieses Gerät
+blind, und niemand merkt es. Das ist die Information, nach der man beim Planen
+von Standorten eigentlich sucht.</p>
+
+<div class="hinweis box"><span class="titel">Diese Ansicht hat bewusst keine Standort-Auswahl</span>
+Ein Gerät gilt erst dann als verschollen, wenn <em>alle</em> Analyzer
+schweigen. Mit einem Filter bekäme man „von diesem einen nicht gehört“ — eine
+andere und viel harmlosere Aussage, die man beim Draufschauen leicht
+verwechselt. Deshalb fehlt hier die Auswahl, die alle anderen Ansichten
+haben.</div>
+
+<p><strong>Ein „nie gehört“ ist kein Beweis für einen Defekt.</strong> Grundlage
+ist alles seit Beginn der Aufzeichnung, und die Datenbank hält 365 Tage vor —
+streng genommen heißt die Zahl also „nicht im aufbewahrten Zeitraum“. Ein
+Gerät, das erst gestern angelernt wurde, taucht hier ebenso auf wie eines, das
+vor zwei Jahren ausgebaut und nie aus der Zentrale genommen wurde. Die Liste
+ist ein Ausgangspunkt zum Nachsehen, kein Urteil.</p>
 
 <h2 class="umbruch" id="k19-9">19.9 Alarme: wohin sie melden sollen</h2>
 
@@ -3746,7 +3793,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.20.0 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 0.20.1 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

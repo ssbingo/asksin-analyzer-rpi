@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Zeichnet schematische Vorschauen der acht Grafana-Ansichten.
+Zeichnet schematische Vorschauen der neun Grafana-Ansichten.
 
 Warum gezeichnet und nicht abfotografiert: Ein echter Bildschirmabzug aus
 Grafana zeigt die Namen der Homematic-Geräte im Haus — und dieses Repo ist
@@ -382,6 +382,46 @@ def geraetezustand() -> None:
     schreibe("geraetezustand", i)
 
 
+def nie_gehoert() -> None:
+    """Die Arbeitsliste: Wer steht in der CCU und wurde von niemandem gehoert?"""
+    i = kopf("Verschollene Geräte")
+    i += kennzahl(24, 70, 300, 96, "Verschollen", "3", ROT, 1)
+    i += kennzahl(344, 70, 300, 96, "In der CCU-Liste", "214", PETROL, 2)
+
+    i += rahmen(24, 186, 952, 176, "Von keinem Analyzer je gehört", 3)
+    i += zeilen(44, 212, 912, [
+        ("Dachboden Rauchmelder", "NEQ7654321", ROT),
+        ("Garage Fensterkontakt", "MEQ0245901", ROT),
+        ("Gartenhaus Thermostat", "OEQ0918823", ROT),
+        ("Carport Bewegungsmelder", "MEQ1180042", ROT),
+    ])
+
+    i += rahmen(24, 378, 952, 218, "Wer hört wen — je Standort", 4)
+    spalten = ["Dachboden", "Keller", "Werkstatt", "Garten"]
+    for s, txt in enumerate(spalten):
+        i += (f'<text x="{560 + s * 100}" y="424" text-anchor="middle" '
+              f'font-family="DejaVu Sans, sans-serif" font-size="11" '
+              f'fill="{MATT}">{txt}</text>')
+    matrix = [
+        ("Wäschekeller Fenster", [1, 1, 0, 0]),
+        ("Dachboden Rauchmelder", [0, 0, 0, 0]),
+        ("Gartenhaus Thermostat", [0, 0, 0, 0]),
+        ("Carport Bewegungsmelder", [0, 0, 0, 1]),
+        ("Küche Heizung", [1, 1, 1, 1]),
+    ]
+    for r, (name, werte) in enumerate(matrix):
+        y = 452 + r * 28
+        i += (f'<rect x="44" y="{y-15}" width="912" height="22" rx="3" '
+              f'fill="{GRUND}" opacity="0.5"/>'
+              f'<text x="54" y="{y}" font-family="DejaVu Sans, sans-serif" '
+              f'font-size="12" fill="{TEXT}">{name}</text>')
+        for s, w in enumerate(werte):
+            i += (f'<text x="{560 + s * 100}" y="{y}" text-anchor="middle" '
+                  f'font-family="DejaVu Sans, sans-serif" font-size="12" '
+                  f'font-weight="bold" fill="{GRUEN if w else ROT}">{w}</text>')
+    schreibe("nie-gehoert", i)
+
+
 def uebersicht() -> None:
     """Der Ordner in Grafana, damit man weiss, wo man klicken muss."""
     i = (f'<rect width="{BREITE}" height="{HOEHE}" fill="{GRUND}"/>'
@@ -399,21 +439,25 @@ def uebersicht() -> None:
         ("Batterie- und Ausfallwächter", "Wer schweigt?"),
         ("Verbund-Vergleich", "Die Funkloch-Karte"),
         ("Gerätezustand", "Wie geht es den Analyzern?"),
+        ("Verschollene Geräte", "Wen hört niemand?"),
     ]
+    # Neun Eintraege statt acht: der Zeilenabstand wird enger, damit das Bild
+    # dieselbe Hoehe behaelt wie die uebrigen acht Abbildungen. Sonst faellt
+    # es im Handbuch aus der Reihe.
     for k, (name, zweck) in enumerate(eintraege):
-        y = 108 + k * 58
-        i += (f'<rect x="40" y="{y}" width="920" height="46" rx="6" fill="{PANEL}" '
+        y = 104 + k * 55
+        i += (f'<rect x="40" y="{y}" width="920" height="44" rx="6" fill="{PANEL}" '
               f'stroke="{RAHMEN}"/>'
               f'<text x="62" y="{y+29}" font-family="DejaVu Sans, sans-serif" '
               f'font-size="14" fill="{TEXT}">{name}</text>'
-              f'<text x="520" y="{y+29}" font-family="DejaVu Sans, sans-serif" '
+              f'<text x="520" y="{y+28}" font-family="DejaVu Sans, sans-serif" '
               f'font-size="12" fill="{MATT}">{zweck}</text>')
-        i += marke(k + 1, 936, y + 23)
+        i += marke(k + 1, 936, y + 22)
     schreibe("uebersicht", i)
 
 
 if __name__ == "__main__":
     for bauen in (uebersicht, leitstand, funkqualitaet, dutycycle, geraetedetail,
-                  stoerungen, batterie, verbund, geraetezustand):
+                  stoerungen, batterie, verbund, geraetezustand, nie_gehoert):
         bauen()
-    print(f"\n9 Vorschauen in {HIER}")
+    print(f"\n10 Vorschauen in {HIER}")

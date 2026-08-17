@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.20.0** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.20.0** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.20.1** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.20.1** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,32 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v0.20.1 — 17.08.2026
+
+**Das Handbuch hinkte der gestrigen Ausgabe hinterher.** Kapitel 19 erklärt
+jede Grafana-Ansicht einzeln — mit schematischer Abbildung, nummerierter
+Tabelle und Erklärung. Nach v0.20.0 sprach es an vier Stellen weiterhin von
+„acht Ansichten", die Abbildung des Ordners zeigte acht Einträge, die neunte
+war nirgends beschrieben, und in 19.2 fehlte das Measurement `geraeteliste`.
+
+Aufgefallen ist es nur, weil jemand nachgefragt hat. Genau das soll nicht der
+Prüfweg sein.
+
+- **19.8** hat jetzt den Abschnitt *Verschollene Geräte — wen hört niemand?*
+  samt eigener Abbildung, Nummerntabelle und zwei Einordnungen: warum diese
+  Ansicht bewusst keine Standort-Auswahl hat, und warum ein „nie gehört" kein
+  Beweis für einen Defekt ist.
+- **19.2** nennt `geraeteliste` und erklärt in einem Kasten, warum eine
+  Geräteliste überhaupt in einer Zeitreihendatenbank steht.
+- Die Ordner-Abbildung zeigt neun Einträge; der Zeilenabstand wurde enger,
+  damit das Bild dieselbe Höhe behält wie die übrigen acht.
+- **`tools/pruefe-dashboards.py`** hält das künftig zusammen: Zu jeder Vorlage
+  in `deploy/grafana/dashboards/` muss es eine Abbildung und eine Einbindung
+  im Handbuch geben, und die im Text genannte Anzahl muss stimmen. Läuft im
+  Prüflauf mit; beide Fehlerfälle sind gegengeprüft.
+
+Handbuch jetzt 130 Seiten.
 
 ### v0.20.0 — 16.08.2026
 

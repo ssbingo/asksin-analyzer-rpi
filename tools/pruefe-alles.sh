@@ -58,6 +58,9 @@ lauf "Kindprozesse: jeder benutzte Strom hat einen Fehler-Zuhörer" \
 lauf "HTTP: fetch nur über holen(), damit der Körper gelesen wird" \
     python3 tools/pruefe-fetch.py
 
+lauf "Grafana-Vorlagen: jede Ansicht ist im Handbuch erklärt" \
+    python3 tools/pruefe-dashboards.py
+
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 
