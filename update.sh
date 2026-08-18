@@ -97,8 +97,15 @@ installiere_dateien() {
     if [ -f /etc/systemd/system/asksin-analyzer-oled.service ]; then
         # Die Bauhoehe steht als Argument in der vorhandenen Unit; sie darf
         # beim Ueberschreiben nicht verlorengehen.
+        #
+        # Das `|| true` ist nicht Zierde. Fehlt das Argument — etwa weil die
+        # Unit von Hand ersetzt wurde —, liefert grep Rueckgabewert 1, und
+        # mit `set -euo pipefail` bricht damit das GANZE Update ab: mitten im
+        # Schritt "neustart", ohne Rollback, ohne verwertbare Meldung. Der
+        # Ersatzwert `${HOEHE:-32}` zwei Zeilen tiefer wurde nie erreicht.
+        # Am 18.08.2026 genau so passiert.
         HOEHE="$(grep -oE '\-\-hoehe [0-9]+' /etc/systemd/system/asksin-analyzer-oled.service \
-                 | grep -oE '[0-9]+' | head -1)"
+                 | grep -oE '[0-9]+' | head -1 || true)"
         install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-oled.service" \
             /etc/systemd/system/asksin-analyzer-oled.service
         sed -i "s|deploy/oled.py.*|deploy/oled.py --hoehe ${HOEHE:-32}|" \
