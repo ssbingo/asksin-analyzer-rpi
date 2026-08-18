@@ -91,6 +91,16 @@ export interface ZigbeeHooks {
   zustand(): Record<string, unknown>;
   /** Geräte der letzten `stunden` Stunden, aus den Stundensummen. */
   geraete(stunden: number): unknown[];
+  /**
+   * Geräte, die deCONZ kennt, dieser Analyzer aber im Zeitraum **nicht**
+   * gehört hat.
+   *
+   * Der eigentliche Zweck des Ganzen — und er funktioniert schon mit einem
+   * einzigen Standort: Die deCONZ-Liste ist die Sollmenge, alles Gehörte die
+   * Istmenge, die Differenz die Frage. Ohne Namensanbindung ist die Liste
+   * leer, denn dann gibt es keine Sollmenge.
+   */
+  nieGehoert(stunden: number): unknown[];
   /** Pakete der letzten `minuten` Minuten, höchstens `grenze` Stück. */
   pakete(minuten: number, grenze: number): { pakete: unknown[]; gekuerzt: boolean };
   /**
@@ -506,7 +516,11 @@ export class ApiServer {
           const hooks = this.#opts.zigbee;
           if (hooks === undefined) return this.#text(res, 501, 'Kein Zigbee-Mithörer');
           const stunden = zahlAusUrl(url, 'stunden', 24, 1, 24 * 90);
-          return this.#json(res, 200, { stunden, geraete: hooks.geraete(stunden) });
+          return this.#json(res, 200, {
+            stunden,
+            geraete: hooks.geraete(stunden),
+            nieGehoert: hooks.nieGehoert(stunden),
+          });
         }
         case '/api/zigbee/pakete': {
           const hooks = this.#opts.zigbee;

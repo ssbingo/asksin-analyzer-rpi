@@ -373,9 +373,17 @@ export interface ZigbeePaket {
 
 export const holeZigbee = (): Promise<ZigbeeZustand> => hole('/api/zigbee');
 
+/** Ein Gerät, das deCONZ kennt, dieser Analyzer aber nicht gehört hat. */
+export interface ZigbeeVermisst {
+  ieee: string;
+  name: string;
+  hersteller?: string;
+  modell?: string;
+}
+
 export const holeZigbeeGeraete = (
   stunden = 24,
-): Promise<{ stunden: number; geraete: ZigbeeGeraet[] }> =>
+): Promise<{ stunden: number; geraete: ZigbeeGeraet[]; nieGehoert: ZigbeeVermisst[] }> =>
   hole(`/api/zigbee/geraete?stunden=${stunden}`);
 
 export const holeZigbeePakete = (

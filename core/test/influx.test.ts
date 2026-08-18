@@ -159,3 +159,47 @@ test('InfluxSchreiber: schreibt im Takt, zählt Erfolge und Fehler, stoppt saube
   await time.advance(120_000);
   assert.equal(anfragen.length, vorher, 'nach stop() keine Schreibvorgänge mehr');
 });
+
+test('Zigbee-Messreihen: eigene Namen, IEEE nur wenn bekannt', () => {
+  const zeilen = baueZeilen({
+    ...DATEN,
+    standort: 'Dachboden',
+    zigbee: [
+      {
+        addr: '837E', ieee: '00005EEF10000001', name: 'LED Garten',
+        pan: 'ABCD', pakete: 1191, rssi: -73, lqi: 254,
+        schwachProzent: 0.3, eigenesNetz: true,
+      },
+      {
+        // Noch keine IEEE gelernt — das Etikett muss dann FEHLEN, nicht leer sein.
+        addr: '666D', ieee: null, name: '', pan: 'BEEF',
+        pakete: 946, rssi: -89, lqi: 10, schwachProzent: 96.5, eigenesNetz: false,
+      },
+    ],
+    zigbeeListe: [
+      { ieee: '00005EEF10000001', name: 'LED Garten', jeGehoert: true },
+      { ieee: '00005EEF10000009', name: 'LED Keller', jeGehoert: false },
+    ],
+  }, 1_700_000_000_000);
+
+  const geraet = zeilen.filter((z) => z.startsWith('zigbee_geraet'));
+  assert.equal(geraet.length, 2);
+  assert.match(geraet[0]!, /ieee=00005EEF10000001/);
+  assert.match(geraet[0]!, /eigenesNetz=true/);
+  assert.match(geraet[0]!, /pakete=1191/);
+  assert.ok(!geraet[1]!.includes('ieee='), 'ohne IEEE kein leeres Etikett');
+  assert.match(geraet[1]!, /eigenesNetz=false/);
+
+  const liste = zeilen.filter((z) => z.startsWith('zigbee_liste'));
+  assert.equal(liste.length, 2);
+  // Gesucht wird nach der IEEE-Adresse, nicht nach dem Namen: Im
+  // Line-Protokoll werden Leerzeichen in Etiketten mit Backslash geschuetzt,
+  // aus "LED Keller" wird "LED\ Keller".
+  assert.match(liste.find((z) => z.includes('00005EEF10000009'))!, /jeGehoert=0/);
+  assert.match(liste.find((z) => z.includes('00005EEF10000001'))!, /jeGehoert=1/);
+});
+
+test('ohne Zigbee fehlen die Messreihen ganz, statt Nullen zu behaupten', () => {
+  const zeilen = baueZeilen({ ...DATEN, standort: 'Keller' }, 1_700_000_000_000);
+  assert.equal(zeilen.filter((z) => z.startsWith('zigbee_')).length, 0);
+});

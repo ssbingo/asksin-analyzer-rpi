@@ -15,6 +15,59 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — Was ohne zweiten Stick geht: „nicht gehört" und Langzeitdaten
+
+Der zweite Stick ist bestellt. Drei von vier offenen Punkten brauchen ihn
+nicht.
+
+### „Nicht gehört" — funktioniert mit einem einzigen Standort
+
+Die deCONZ-Liste ist die **Sollmenge**, alles Gehörte die **Istmenge**, die
+Differenz die Antwort. `GET /api/zigbee/geraete` liefert jetzt zusätzlich
+`nieGehoert`, die Oberfläche zeigt sie als eigenen Abschnitt.
+
+Mit dem ausdrücklichen Vorbehalt, der dort auch steht: **Ein einzelner
+Standort kann „ausgefallen" und „außer Reichweite" nicht unterscheiden.**
+Genau dafür kommt der zweite Stick.
+
+Ohne Namensanbindung bleibt die Liste leer — es gibt dann keine Sollmenge,
+und eine erfundene wäre schlimmer als keine.
+
+### Langzeitdaten
+
+Zwei neue Messreihen, getrennt von den BidCoS-Reihen:
+
+| Messreihe | Inhalt |
+| --- | --- |
+| `zigbee_geraet` | je Gerät der letzten Stunde: Pakete, RSSI, LQI, Anteil schwach, eigenes Netz ja/nein |
+| `zigbee_liste` | Sollmenge aus deCONZ mit `jeGehoert` 0/1 |
+
+Zwei Entscheidungen mit Begründung:
+
+* **Die IEEE-Adresse ist ein eigenes Etikett** — sie ist die einzige Kennung,
+  die einen Neuanmeldevorgang übersteht. Ist sie noch nicht gelernt, fehlt
+  das Etikett, statt leer dazustehen.
+* **Ohne Mithörer entstehen gar keine Zeilen.** Eine Messreihe voller Nullen
+  wäre eine Behauptung, keine Messung — dieselbe Regel wie bei der
+  BidCoS-Geräteliste.
+
+### Eine Kleinigkeit, die zwei Anläufe brauchte
+
+Der Test suchte die Zeile über den Gerätenamen und fand sie nicht. Grund:
+Im Line-Protokoll werden **Leerzeichen in Etiketten mit Backslash geschützt** —
+aus `LED Keller` wird `LED\ Keller`. Gesucht wird jetzt über die
+IEEE-Adresse, die keine Leerzeichen hat.
+
+`npm run check`: **367 Tests, 0 Fehler.**
+
+### Was noch offen ist
+
+* **Verbund-Matrix** — baubar und mit erfundenen Gegenstellen testbar, aber
+  erst mit zwei Sticks aussagekräftig.
+* **Grafana-Vorlagen** — brauchen erst Daten in InfluxDB.
+
+---
+
 ## 18.08.2026 — Handbuch auf den Stand gebracht (M16.8)
 
 Von 23 auf **25 Seiten**. Neues Kapitel 14 „Im Analyzer: einschalten,

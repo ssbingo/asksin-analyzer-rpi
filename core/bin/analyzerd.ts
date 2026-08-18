@@ -1381,7 +1381,68 @@ function influxDaten(): InfluxDaten {
       // sortieren und schwellen, ohne Zeitrechnung in der Abfrage.
       sekundenSeitEmpfang: Math.max(0, Math.round((jetzt - g.lastSeen) / 1000)),
     })),
+    // Zigbee (M16.7). Läuft kein Mithörer, bleiben beide Felder leer und es
+    // entstehen gar keine Zeilen — eine Messreihe voller Nullen wäre eine
+    // Behauptung, keine Messung.
+    zigbee: zigbeeKonfig.aktiv ? zigbeeFuerInflux() : [],
+    zigbeeListe:
+      zigbeeKonfig.aktiv && jetzt - zigbeeListeZuletzt >= LISTE_INTERVALL_MS
+        ? ((zigbeeListeZuletzt = jetzt), zigbeeListeFuerInflux())
+        : [],
   };
+}
+
+/** Zeitpunkt der letzten Zigbee-Sollmenge — sie ändert sich selten. */
+let zigbeeListeZuletzt = 0;
+
+/**
+ * Die Geräte der letzten Stunde für die Langzeitdaten.
+ *
+ * Eine Stunde, nicht 24: Grafana soll den Verlauf zeigen, nicht einen über den
+ * Tag verschmierten Mittelwert. Die Stundensummen liegen ohnehin so vor.
+ */
+function zigbeeFuerInflux(): NonNullable<InfluxDaten['zigbee']> {
+  const roh = zigbeeHooks.geraete(1) as Array<Record<string, unknown>>;
+  if (roh.length === 0) return [];
+  // Das Netz mit den meisten Paketen ist das eigene — der Mithörer steht
+  // mittendrin, Nachbarnetze kommen nur von weit her herein.
+  const jePan = new Map<number, number>();
+  for (const g of roh) {
+    const pan = g['pan'] as number;
+    jePan.set(pan, (jePan.get(pan) ?? 0) + (g['pakete'] as number));
+  }
+  let eigenes: number | null = null;
+  let max = -1;
+  for (const [pan, n] of jePan) if (n > max) { max = n; eigenes = pan; }
+
+  return roh.map((g) => {
+    const pakete = g['pakete'] as number;
+    return {
+      addr: g['addr'] as string,
+      ieee: typeof g['ieee'] === 'string' ? g['ieee'] : null,
+      name: typeof g['name'] === 'string' ? g['name'] : '',
+      pan: `${(g['pan'] as number).toString(16).toUpperCase().padStart(4, '0')}`,
+      pakete,
+      rssi: Math.round((g['sum_rssi'] as number) / pakete),
+      lqi: Math.round((g['sum_lqi'] as number) / pakete),
+      schwachProzent: Math.round(((g['schwach'] as number) * 1000) / pakete) / 10,
+      eigenesNetz: g['pan'] === eigenes,
+    };
+  });
+}
+
+/** Sollmenge aus deCONZ mit dem Kennzeichen „hier je gehört". */
+function zigbeeListeFuerInflux(): NonNullable<InfluxDaten['zigbeeListe']> {
+  const alle = zigbeeNamen.alle();
+  if (alle.length === 0) return [];
+  const vermisst = new Set(
+    (zigbeeHooks.nieGehoert(24) as Array<{ ieee: string }>).map((v) => v.ieee),
+  );
+  return alle.map((g) => ({
+    ieee: g.ieee,
+    name: g.name,
+    jeGehoert: !vermisst.has(g.ieee),
+  }));
 }
 
 let influxSchreiber: InfluxSchreiber | null = null;
@@ -2125,6 +2186,33 @@ const zigbeeHooks: ZigbeeHooks = {
       }
     }
     return zeilen;
+  },
+
+  nieGehoert: (stunden: number): unknown[] => {
+    // Sollmenge: was deCONZ kennt. Istmenge: welche IEEE-Adressen in diesem
+    // Zeitraum gehört wurden. Ohne Namensanbindung gibt es keine Sollmenge —
+    // dann ist die Liste leer statt erfunden.
+    const alle = zigbeeNamen.alle();
+    if (alle.length === 0) return [];
+
+    const ab = Math.floor(Date.now() / 3_600_000) - stunden;
+    const gehoert = new Set<string>();
+    const zeilen = db.prepare(
+      `SELECT DISTINCT a.ieee
+         FROM zigbee_device_hours h
+         JOIN zigbee_adressen a ON a.pan = h.pan AND a.addr = h.addr
+        WHERE h.hour >= ?`,
+    ).all(ab) as Array<{ ieee: string }>;
+    for (const z of zeilen) gehoert.add(z.ieee);
+
+    return alle
+      .filter((g) => !gehoert.has(g.ieee))
+      .map((g) => ({
+        ieee: g.ieee,
+        name: g.name,
+        ...(g.hersteller === undefined ? {} : { hersteller: g.hersteller }),
+        ...(g.modell === undefined ? {} : { modell: g.modell }),
+      }));
   },
 
   pakete: (minuten: number, grenze: number): { pakete: unknown[]; gekuerzt: boolean } => {

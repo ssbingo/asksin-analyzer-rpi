@@ -41,6 +41,10 @@ function pruefHooks(): ZigbeeHooks & { gesehen: Record<string, unknown> } {
     gesehen,
     zustand: () => ({ aktiv: true, verbunden: false, kanal: 11, pakete: 0 }),
     geraete: (stunden) => { gesehen['stunden'] = stunden; return []; },
+    nieGehoert: (stunden) => {
+      gesehen['nieGehoertStunden'] = stunden;
+      return [{ ieee: '00005EEF10000009', name: 'LED - Keller' }];
+    },
     pakete: (minuten, grenze) => {
       gesehen['minuten'] = minuten; gesehen['grenze'] = grenze;
       return { pakete: [], gekuerzt: false };
@@ -170,5 +174,16 @@ test('ein leerer Rumpf ist erlaubt — dann gilt der eingetragene Rechner', asyn
     assert.equal(r.status, 200);
     await r.json();
     assert.equal(hooks.gesehen['host'], '');
+  });
+});
+
+test('die Geräteliste nennt auch, was NICHT gehört wurde', async () => {
+  const hooks = pruefHooks();
+  await mitServer(hooks, async (basis) => {
+    const r = await fetch(`${basis}/api/zigbee/geraete?stunden=6`);
+    const j = await r.json() as { nieGehoert: Array<{ name: string }> };
+    assert.equal(hooks.gesehen['nieGehoertStunden'], 6, 'derselbe Zeitraum');
+    assert.equal(j.nieGehoert.length, 1);
+    assert.equal(j.nieGehoert[0]!.name, 'LED - Keller');
   });
 });

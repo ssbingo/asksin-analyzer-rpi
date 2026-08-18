@@ -140,6 +140,34 @@ export interface InfluxDaten {
     serial: string;
     jeGehoert: boolean;
   }>;
+  /**
+   * Zigbee-Geräte dieses Standorts (M16.7). Leer, wenn kein Mithörer läuft —
+   * dann fehlt die Messreihe ganz, statt Nullen zu behaupten.
+   *
+   * Getrennt von `geraete` und `geraeteliste`: Eine BidCoS-Adresse hat drei
+   * Byte, eine Zigbee-Kurzadresse zwei. In einer Messreihe zusammengeworfen
+   * wären sie irgendwann verwechselt — und zwar dort, wo es niemand merkt.
+   */
+  zigbee?: Array<{
+    /** Kurzadresse, vier Hexstellen. */
+    addr: string;
+    /** IEEE-Adresse, sofern gelernt — die einzige über die Zeit stabile Kennung. */
+    ieee: string | null;
+    name: string;
+    pan: string;
+    pakete: number;
+    rssi: number;
+    lqi: number;
+    /** Anteil schwach empfangener Pakete in Prozent. */
+    schwachProzent: number;
+    /** Gehört dieses Gerät zum eigenen Netz? */
+    eigenesNetz: boolean;
+  }>;
+  /**
+   * Sollmenge aus deCONZ mit dem Kennzeichen, ob dieser Standort das Gerät
+   * je gehört hat — die Grundlage für „welches Gerät hört niemand".
+   */
+  zigbeeListe?: Array<{ ieee: string; name: string; jeGehoert: boolean }>;
 }
 
 /** Baut alle Zeilen eines Takts — rein und damit exakt testbar. */
@@ -184,6 +212,42 @@ export function baueZeilen(daten: InfluxDaten, tsMs: number): string[] {
   // Die Sollmenge kommt seltener als die Messwerte — sie aendert sich nur,
   // wenn jemand ein Geraet an- oder ablernt. Der Aufrufer entscheidet, wann;
   // hier wird nur geschrieben, was er mitgibt.
+  for (const z of daten.zigbee ?? []) {
+    zeilen.push(
+      zeile(
+        'zigbee_geraet',
+        {
+          ...standort,
+          addr: z.addr,
+          // Die IEEE-Adresse ist die einzige Kennung, die einen Neuanmeldevorgang
+          // ueberlebt. Fehlt sie, wird sie weggelassen statt erfunden.
+          ...(z.ieee === null ? {} : { ieee: z.ieee }),
+          name: z.name,
+          pan: z.pan,
+          eigenesNetz: String(z.eigenesNetz),
+        },
+        {
+          pakete: z.pakete,
+          rssi: z.rssi,
+          lqi: z.lqi,
+          schwachProzent: z.schwachProzent,
+        },
+        tsMs,
+      ),
+    );
+  }
+
+  for (const z of daten.zigbeeListe ?? []) {
+    zeilen.push(
+      zeile(
+        'zigbee_liste',
+        { ...standort, ieee: z.ieee, name: z.name },
+        { jeGehoert: z.jeGehoert ? 1 : 0 },
+        tsMs,
+      ),
+    );
+  }
+
   for (const g of daten.geraeteliste) {
     zeilen.push(
       zeile(

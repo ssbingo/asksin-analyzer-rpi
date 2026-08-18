@@ -6,12 +6,15 @@ import {
   holeZigbeePakete,
   setzeZigbee,
 } from '../api.ts';
-import type { ZigbeeGeraet, ZigbeePaket, ZigbeeZustand } from '../api.ts';
+import type {
+  ZigbeeGeraet, ZigbeePaket, ZigbeeVermisst, ZigbeeZustand,
+} from '../api.ts';
 import { dbm, uhrzeit, vorZeit } from '../format.ts';
 import { nutzeTakt } from '../takt.ts';
 
 const zustand = ref<ZigbeeZustand | null>(null);
 const geraete = ref<ZigbeeGeraet[]>([]);
+const vermisst = ref<ZigbeeVermisst[]>([]);
 const pakete = ref<ZigbeePaket[]>([]);
 const gekuerzt = ref(false);
 const stunden = ref(24);
@@ -38,6 +41,7 @@ nutzeTakt(async () => {
     holeZigbeePakete(10, 300),
   ]);
   geraete.value = g.geraete;
+  vermisst.value = g.nieGehoert;
   pakete.value = p.pakete;
   gekuerzt.value = p.gekuerzt;
   jetzt.value = Date.now();
@@ -203,6 +207,9 @@ function hex(n: number | null): string {
           {{ eigene.length }} im eigenen Netz,
           <strong v-if="grenzwertig > 0" class="schlecht">{{ grenzwertig }} grenzwertig</strong>
           <span v-else>keines grenzwertig</span>
+          <template v-if="vermisst.length > 0">
+            , <strong>{{ vermisst.length }} nicht gehört</strong>
+          </template>
         </span>
       </p>
 
@@ -237,6 +244,27 @@ function hex(n: number | null): string {
       <p v-if="eigene.length === 0" class="leise">
         Noch keine Geräte in diesem Zeitraum.
       </p>
+
+      <template v-if="vermisst.length > 0">
+        <h3>Nicht gehört</h3>
+        <p class="leise">
+          Diese Geräte kennt deine Zigbee-Steuerung, dieser Analyzer hat sie im
+          gewählten Zeitraum aber <strong>kein einziges Mal</strong> gehört.
+          Das heißt nicht, dass sie ausgefallen sind — sie können auch schlicht
+          außerhalb seiner Reichweite liegen. Erst ein zweiter Standort trennt
+          die beiden Fälle.
+        </p>
+        <table class="daten" style="max-width: 34rem">
+          <thead><tr><th>Gerät</th><th>Hersteller</th><th>Modell</th></tr></thead>
+          <tbody>
+            <tr v-for="v in vermisst" :key="v.ieee">
+              <td>{{ v.name }}</td>
+              <td class="leise">{{ v.hersteller ?? '—' }}</td>
+              <td class="leise">{{ v.modell ?? '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </template>
 
       <template v-if="fremde.length > 0">
         <h3>Fremde Netze in Hörweite</h3>
