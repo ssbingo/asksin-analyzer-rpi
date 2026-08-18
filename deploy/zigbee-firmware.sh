@@ -214,11 +214,24 @@ c_info 'Der Stick antwortet nicht als Mithoerer — Firmware wird aufgespielt.'
 if [ ! -x "$WERKZEUG" ]; then
     schreibe_status true "werkzeug" null "Flash-Werkzeug einrichten"
     c_info 'Flash-Werkzeug einrichten (einmalig)...'
+    # Auf einem knapp bemessenen Geraet ist dieser Schritt der teuerste des
+    # ganzen Vorgangs — teurer als das Aufspielen selbst. Wer wenig Speicher
+    # hat, soll wenigstens wissen, woran es liegt, wenn es lange dauert.
+    SPEICHER_MB="$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
+    if [ "$SPEICHER_MB" -gt 0 ] && [ "$SPEICHER_MB" -lt 1536 ]; then
+        c_warn "Dieses Geraet hat nur ${SPEICHER_MB} MB Arbeitsspeicher."
+        c_warn "Das einmalige Einrichten kann mehrere Minuten dauern und das"
+        c_warn "Geraet dabei spuerbar auslasten. Das ist normal."
+    fi
     python3 -m venv "$FLASHER_DIR" \
         || abbruch "werkzeug" "Python-Umgebung liess sich nicht anlegen (python3-venv installiert?)"
-    "$FLASHER_DIR/bin/pip" install --quiet --upgrade pip \
+    # --no-cache-dir ist auf einem Pi 3 kein Feinschliff, sondern noetig: Der
+    # Zwischenspeicher von pip legt jedes Rad zusaetzlich ab, und auf einem
+    # Geraet mit 1 GB Arbeitsspeicher, das nebenher mitschreibt, ist das der
+    # Unterschied zwischen "dauert lange" und "der Rechner ist weg".
+    "$FLASHER_DIR/bin/pip" install --quiet --no-cache-dir --upgrade pip \
         || c_warn 'pip liess sich nicht aktualisieren — weiter mit der vorhandenen Fassung.'
-    "$FLASHER_DIR/bin/pip" install --quiet universal-silabs-flasher \
+    "$FLASHER_DIR/bin/pip" install --quiet --no-cache-dir universal-silabs-flasher \
         || abbruch "werkzeug" "universal-silabs-flasher liess sich nicht installieren (Internetverbindung?)"
     c_ok 'Werkzeug eingerichtet.'
 fi
