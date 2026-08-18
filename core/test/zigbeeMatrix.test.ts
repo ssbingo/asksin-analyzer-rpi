@@ -15,6 +15,25 @@ function ort(standort: string, geraete: StandortGeraet[]): StandortBericht {
   return { standort, erreichbar: true, geraete };
 }
 
+/**
+ * Ein Gerät, dessen IEEE-Adresse noch nicht gelernt wurde.
+ *
+ * Eigene Hilfsfunktion statt `geraet({ ieee: undefined })`: Mit
+ * `exactOptionalPropertyTypes` ist eine fehlende Eigenschaft etwas anderes
+ * als eine auf `undefined` gesetzte — und der Unterschied ist hier genau der
+ * Punkt, denn der Matrixschlüssel prüft auf Vorhandensein.
+ */
+function ohneIeee(t: Partial<StandortGeraet> = {}): StandortGeraet {
+  const { ieee: _weg, ...rest } = geraet(t);
+  return rest;
+}
+
+/** Ein Gerät, für das dieser Standort keinen Namen kennt. */
+function ohneNamen(t: Partial<StandortGeraet> = {}): StandortGeraet {
+  const { name: _weg, ...rest } = geraet(t);
+  return rest;
+}
+
 test('zwei Standorte, ein Gerät: eine Zeile mit beiden Werten', () => {
   const m = baueZigbeeMatrix([
     ort('Dachboden', [geraet({ sum_rssi: -7300 })]),
@@ -43,8 +62,8 @@ test('zusammengeführt wird über die IEEE-Adresse, nicht über die Kurzadresse'
 
 test('ohne IEEE trennt PAN + Kurzadresse — und die Zeile sagt es', () => {
   const m = baueZigbeeMatrix([
-    ort('Dachboden', [geraet({ ieee: undefined, addr: '1111' })]),
-    ort('Keller', [geraet({ ieee: undefined, addr: '2222' })]),
+    ort('Dachboden', [ohneIeee({ addr: '1111' })]),
+    ort('Keller', [ohneIeee({ addr: '2222' })]),
   ]);
   assert.equal(m.geraete.length, 2, 'ohne IEEE lässt sich nichts zusammenführen');
   for (const g of m.geraete) assert.equal(g.ieee, null, 'daran ist es erkennbar');
@@ -53,8 +72,8 @@ test('ohne IEEE trennt PAN + Kurzadresse — und die Zeile sagt es', () => {
 test('dieselbe Kurzadresse in zwei Netzen bleibt getrennt', () => {
   const m = baueZigbeeMatrix([
     ort('Dachboden', [
-      geraet({ ieee: undefined, pan: 0xE9FD, addr: '1234' }),
-      geraet({ ieee: undefined, pan: 0xF078, addr: '1234' }),
+      ohneIeee({ pan: 0xE9FD, addr: '1234' }),
+      ohneIeee({ pan: 0xF078, addr: '1234' }),
     ]),
   ]);
   assert.equal(m.geraete.length, 2, 'PAN gehört mit in den Schlüssel');
@@ -103,7 +122,7 @@ test('nur an einem Standort gehört wird gezählt und einsortiert', () => {
 
 test('ein Name von irgendeinem Standort genügt', () => {
   const m = baueZigbeeMatrix([
-    ort('Dachboden', [geraet({ name: undefined })]),
+    ort('Dachboden', [ohneNamen()]),
     ort('Keller', [geraet({ name: 'LED Garten' })]),
   ]);
   assert.equal(m.geraete[0]!.name, 'LED Garten');
