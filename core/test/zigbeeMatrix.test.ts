@@ -133,3 +133,45 @@ test('ohne Standorte kommt eine leere Matrix, kein Absturz', () => {
   assert.deepEqual(m.geraete, []);
   assert.equal(m.zusammenfassung.gesamt, 0);
 });
+
+test('ein Standort ohne Mithörer ist nicht dasselbe wie einer ohne Empfang', () => {
+  // Der Fall, um den es geht: Analyzer 04 hat einen Stick, Analyzer 01 nicht.
+  // Die Matrix darf daraus nicht "01 hört nichts" machen — das waere eine
+  // Aussage ueber den Funk, wo es eine ueber die Ausstattung ist.
+  const m = baueZigbeeMatrix(
+    [
+      ort('Dachboden', [geraet()]),
+      { standort: 'Keller Büro', erreichbar: false, geraete: [] },
+    ],
+    [{ ieee: '00005EEF10000001', name: 'LED Garten' }],
+  );
+  assert.deepEqual(m.nichtErreichbar, ['Keller Büro']);
+  const g = m.geraete[0]!;
+  assert.equal(g.nirgends, false);
+  assert.equal(g.beste, 'Dachboden');
+  assert.equal('Keller Büro' in g.empfang, false,
+    'kein Eintrag — nicht null, nicht 0');
+});
+
+test('mit zwei Standorten wird aus "vermisst" entweder still oder unerreichbar', () => {
+  // Genau der Ertrag des zweiten Sticks, an einem Beispiel festgehalten.
+  const nurDachboden = baueZigbeeMatrix(
+    [ort('Dachboden', [])],
+    [{ ieee: 'AAAA000000000001', name: 'LED Terrasse' }],
+  );
+  assert.equal(nurDachboden.geraete[0]!.nirgends, true,
+    'ein Standort: Gerät gilt als nirgends gehört');
+
+  const mitKeller = baueZigbeeMatrix(
+    [
+      ort('Dachboden', []),
+      ort('Keller', [geraet({ ieee: 'AAAA000000000001', name: 'LED Terrasse' })]),
+    ],
+    [{ ieee: 'AAAA000000000001', name: 'LED Terrasse' }],
+  );
+  const g = mitKeller.geraete[0]!;
+  assert.equal(g.nirgends, false, 'zweiter Standort hört es — also lebt es');
+  assert.equal(g.beste, 'Keller');
+  assert.equal(mitKeller.zusammenfassung.nurEinStandort, 1,
+    'und die Kopfzeile weist es als Einzelfund aus');
+});

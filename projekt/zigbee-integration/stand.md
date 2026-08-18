@@ -15,6 +15,44 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — Die Empfangsmatrix steht (M16.7)
+
+Der eigentliche Ertrag des Vorhabens, fertig gebaut und geprüft — bevor der
+zweite Stick da ist.
+
+**`baueZigbeeMatrix()` ist eine reine Funktion.** Fertige Gerätelisten hinein,
+Matrix heraus; kein Netzwerk, keine Uhr, keine Datenbank. Damit sind genau die
+Fälle prüfbar, die sich im Betrieb kaum herstellen lassen: ein Standort ohne
+Stick, dieselbe Kurzadresse in zwei Netzen, ein Gerät mit gewechselter
+Kurzadresse.
+
+Drei Entscheidungen, jede mit einem Test dahinter:
+
+| Entscheidung | Warum |
+| --- | --- |
+| Zusammenführung über die **IEEE-Adresse** | Kurzadressen werden neu vergeben; sonst zwei Zeilen für ein Gerät — oder zwei Geräte in einer |
+| Ein unerreichbarer Standort bekommt **keinen Eintrag**, keine Null | Sonst sähe „kein Stick" aus wie „nichts gehört" — genau die Verwechslung, die die Matrix auflösen soll |
+| Was niemand hört, steht **ganz oben** | Sonst fällt heraus, wonach man sucht |
+
+**Nur der Master braucht einen deCONZ-Schlüssel.** Die Standorte melden
+Adressen samt IEEE, der Master hängt die Namen an. Ein Zugangstoken im
+Verbund statt fünf.
+
+Der Fan-out ist bewusst **getrennt vom Schnappschuss-Umlauf**: Der läuft im
+Sekundentakt für die Live-Sicht auf BidCoS. Stundensummen dort mitzuschleppen
+hiesse, jedem Standort ohne Mithörer bei jedem Abruf eine leere Antwort
+abzuverlangen.
+
+Neu: `GET /api/verbund/zigbee`, ein Abschnitt im Verbund-Tab.
+
+Ein Test hält den Ertrag des zweiten Sticks ausdrücklich fest: Dasselbe Gerät
+gilt mit **einem** Standort als „nirgends gehört" — mit **zwei** wird daraus
+„lebt, aber nur einer hört es". Das ist der ganze Unterschied.
+
+`npm run check`: **379 Tests, 0 Fehler.**
+
+---
+
 ## 18.08.2026 — Was ohne zweiten Stick geht: „nicht gehört" und Langzeitdaten
 
 Der zweite Stick ist bestellt. Drei von vier offenen Punkten brauchen ihn

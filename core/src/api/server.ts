@@ -157,6 +157,14 @@ export interface ApiServerOptions {
   verbund?: {
     uebersicht(): Promise<unknown>;
     matrix?(): Promise<unknown>;
+    /**
+     * Zigbee-Empfangsmatrix (M16.7): welcher Standort hört welches Gerät.
+     *
+     * Getrennt von `matrix()`, nicht dazugemischt: BidCoS- und Zigbee-Adressen
+     * sind verschieden lang, und eine gemeinsame Tabelle würde sie früher oder
+     * später verwechseln — an einer Stelle, an der es niemandem auffällt.
+     */
+    zigbeeMatrix?(stunden: number): Promise<unknown>;
     matrixCsv?(): Promise<string>;
     telegramme?(): Promise<unknown>;
     /** Peer-Liste für die UI-Verwaltung — OHNE Tokens. */
@@ -456,6 +464,14 @@ export class ApiServer {
             return this.#text(res, 501, 'Keine Verbund-Rolle konfiguriert');
           }
           return this.#json(res, 200, await verbund.uebersicht());
+        }
+        case '/api/verbund/zigbee': {
+          const hooks = this.#opts.verbund;
+          if (hooks?.zigbeeMatrix === undefined) {
+            return this.#text(res, 501, 'Keine Zigbee-Matrix');
+          }
+          const stunden = zahlAusUrl(url, 'stunden', 24, 1, 24 * 90);
+          return this.#json(res, 200, await hooks.zigbeeMatrix(stunden));
         }
         case '/api/verbund/matrix': {
           const verbund = this.#opts.verbund;

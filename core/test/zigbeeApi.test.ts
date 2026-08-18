@@ -187,3 +187,11 @@ test('die Geräteliste nennt auch, was NICHT gehört wurde', async () => {
     assert.equal(j.nieGehoert[0]!.name, 'LED - Keller');
   });
 });
+
+test('ohne Zigbee-Matrix antwortet der Verbund-Zweig mit 501', async () => {
+  await mitServer(undefined, async (basis) => {
+    const r = await fetch(`${basis}/api/verbund/zigbee`);
+    assert.equal(r.status, 501);
+    await r.text();
+  });
+});

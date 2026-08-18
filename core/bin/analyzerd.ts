@@ -46,6 +46,7 @@ import {
   ZigbeeLeser,
 } from '../src/zigbee/leser.ts';
 import { ZigbeeSpeicher } from '../src/zigbee/speicher.ts';
+import { baueZigbeeMatrix } from '../src/verbund/zigbeeMatrix.ts';
 import { DeconzNamen } from '../src/zigbee/namen.ts';
 import { testeCcu } from '../src/resolve/ccuTest.ts';
 import { DevListService, httpFetchBytes } from '../src/resolve/fetcher.ts';
@@ -813,6 +814,26 @@ const verbundHooks = {
   uebersicht: () => verbund.uebersicht(),
   matrix: () => verbund.matrix(),
   matrixCsv: () => verbund.matrixCsv(),
+  zigbeeMatrix: async (stunden: number) => {
+    // Die Standorte melden Adressen samt IEEE; die Namen hängt der Master an.
+    // So liegt genau EIN deCONZ-Zugangstoken im Verbund statt fünf.
+    const berichte = await verbund.zigbeeBerichte(stunden);
+    const eigene = zigbeeHooks.geraete(stunden) as Array<Record<string, unknown>>;
+    berichte.unshift({
+      standort,
+      erreichbar: zigbeeKonfig.aktiv,
+      geraete: eigene as never,
+    });
+    const soll = zigbeeNamen.alle().map((g) => ({ ieee: g.ieee, name: g.name }));
+    const matrix = baueZigbeeMatrix(berichte, soll);
+    // Namen nachtragen, wo die Standorte keine kannten.
+    for (const g of matrix.geraete) {
+      if (g.name !== '' || g.ieee === null) continue;
+      const treffer = zigbeeNamen.name(g.ieee);
+      if (treffer !== undefined) g.name = treffer;
+    }
+    return { ts: Date.now(), stunden, ...matrix };
+  },
   telegramme: () => verbund.telegramme(),
   starteFlottenUpdate: () => verbund.starteFlottenUpdate(),
   flottenStatus: () => verbund.flottenStatus(),

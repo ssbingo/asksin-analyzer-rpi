@@ -14,6 +14,8 @@ import type {
   VerbundUebersicht,
 } from '../api.ts';
 import { dbm, rssiKlasse, uhrzeit } from '../format.ts';
+import { holeZigbeeMatrix } from '../api.ts';
+import type { ZigbeeMatrix } from '../api.ts';
 import { nutzeTakt } from '../takt.ts';
 
 const uebersicht = ref<VerbundUebersicht | null>(null);
@@ -21,6 +23,7 @@ const matrix = ref<VerbundMatrix | null>(null);
 const telegramme = ref<VerbundTelegramm[]>([]);
 const flotte = ref<FlottenStatus | null>(null);
 const flottenMeldung = ref('');
+const zigbee = ref<ZigbeeMatrix | null>(null);
 const filter = ref('');
 const keineRolle = ref(false);
 
@@ -34,6 +37,13 @@ nutzeTakt(async () => {
       return;
     }
     throw err;
+  }
+  // Zigbee getrennt: Ein Verbund ohne Mithoerer antwortet mit 501, und das
+  // darf den uebrigen Abruf nicht mitreissen.
+  try {
+    zigbee.value = await holeZigbeeMatrix(24);
+  } catch {
+    zigbee.value = null;
   }
   const [m, t, f] = await Promise.all([
     holeVerbundMatrix(),
@@ -261,5 +271,66 @@ const gefiltert = computed(() => {
         Telegramm; die Chips zeigen jeden Standort mit seinem Empfangspegel.
       </div>
     </div>
+
+    <div class="panel">
+      <h3 style="margin-top: 0">Zigbee — wer hört wen</h3>
+
+      <p v-if="!zigbee" class="fussnote" style="margin-top: 0">
+        Keine Zigbee-Matrix. Der Master braucht dafür einen Mithörer und eine
+        Namensanbindung; die Standorte melden, was sie gehört haben.
+      </p>
+
+      <template v-else>
+        <p style="margin-top: 0">
+          {{ zigbee.zusammenfassung.gesamt }} Geräte, davon
+          <strong :class="zigbee.zusammenfassung.nirgends > 0 ? 'fehler' : 'ok'">
+            {{ zigbee.zusammenfassung.nirgends }} von niemandem gehört</strong>
+          und {{ zigbee.zusammenfassung.nurEinStandort }} nur an einem Standort.
+          <span class="gedimmt">Zeitraum: {{ zigbee.stunden }} h</span>
+        </p>
+
+        <div class="fussnote" v-if="zigbee.nichtErreichbar.length > 0"
+             style="margin-bottom: .6rem">
+          Ohne Mithörer oder gerade nicht erreichbar:
+          <strong>{{ zigbee.nichtErreichbar.join(', ') }}</strong>.
+          Deren Spalten sind <em>unbekannt</em>, nicht leer — „kein Stick" ist
+          etwas anderes als „nichts gehört".
+        </div>
+
+        <div class="tabelle-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Gerät</th>
+                <th v-for="s in zigbee.standorte" :key="s">{{ s }}</th>
+                <th>bester Standort</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="g in zigbee.geraete" :key="g.ieee ?? `${g.pan}-${g.addr}`">
+                <td>
+                  {{ g.name || '—' }}
+                  <span class="gedimmt" v-if="g.addr">0x{{ g.addr }}</span>
+                  <span class="gedimmt" v-if="!g.ieee" title="Noch kein Paket trug die IEEE-Adresse">
+                    (nicht zusammenführbar)</span>
+                </td>
+                <td v-for="s in zigbee.standorte" :key="s">
+                  <span v-if="zigbee.nichtErreichbar.includes(s)" class="gedimmt">?</span>
+                  <span v-else-if="g.empfang[s]" :class="rssiKlasse(g.empfang[s]!.rssi)">
+                    {{ dbm(g.empfang[s]!.rssi) }}
+                  </span>
+                  <span v-else class="gedimmt">—</span>
+                </td>
+                <td>
+                  <strong v-if="g.beste">{{ g.beste }}</strong>
+                  <span v-else class="fehler">niemand</span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </template>
+    </div>
+
   </template>
 </template>

@@ -15,6 +15,9 @@
 
 import { systemTime } from '../ingest/time.ts';
 import type { TimeSource } from '../ingest/time.ts';
+import type {
+  StandortBericht, StandortGeraet,
+} from './zigbeeMatrix.ts';
 import { alsText, holen } from '../net/holen.ts';
 
 export interface PeerKonfig {
@@ -364,6 +367,45 @@ export class VerbundDienst {
       standorte,
       geraete: [...zeilen.values()].sort((a, b) => a.name.localeCompare(b.name, 'de')),
     };
+  }
+
+  /**
+   * Zigbee-Gerätelisten aller Standorte einsammeln.
+   *
+   * Eigener Fan-out statt Mitbenutzung des Schnappschuss-Umlaufs: Der
+   * Schnappschuss ist die Live-Sicht auf BidCoS und wird im Sekundentakt
+   * geholt. Zigbee-Gerätelisten sind Stundensummen — sie im selben Takt
+   * mitzuschleppen hiesse, jedem Standort ohne Mithörer bei jedem Abruf eine
+   * leere Antwort abzuverlangen.
+   *
+   * Ein Standort ohne Mithörer antwortet mit 501 und erscheint als
+   * `erreichbar: false`. Das ist beabsichtigt: In der Matrix soll „hat keinen
+   * Stick" nicht wie „hat nichts gehört" aussehen.
+   */
+  async zigbeeBerichte(stunden: number): Promise<StandortBericht[]> {
+    const uebersicht = await this.uebersicht();
+    const berichte: StandortBericht[] = [];
+
+    await Promise.all(
+      this.#peers.map(async (peer, i) => {
+        const basis = peer.url.replace(/\/$/, '');
+        const zustand = uebersicht.peers[i];
+        const standort = zustand?.standort ?? peer.name ?? peer.url;
+        try {
+          const antwort = (await this.#fetch(
+            `${basis}/api/zigbee/geraete?stunden=${stunden}`,
+            peer.token,
+          )) as { geraete?: unknown };
+          const geraete = Array.isArray(antwort.geraete)
+            ? (antwort.geraete as StandortGeraet[])
+            : [];
+          berichte[i] = { standort, erreichbar: true, geraete };
+        } catch {
+          berichte[i] = { standort, erreichbar: false, geraete: [] };
+        }
+      }),
+    );
+    return berichte.filter((b) => b !== undefined);
   }
 
   /** Die Matrix als CSV (Semikolon, wie die übrigen Exporte). */

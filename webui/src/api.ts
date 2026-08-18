@@ -435,6 +435,32 @@ export async function zigbeeSchluesselAnfordern(
   return await res.json() as { ok: boolean; meldung: string; anzahl?: number };
 }
 
+export interface ZigbeeMatrixGeraet {
+  ieee: string | null;
+  addr: string;
+  pan: number;
+  name: string;
+  /** Standortname → Empfang. Fehlt der Eintrag, hat der Standort nichts gehört. */
+  empfang: Record<string, {
+    rssi: number; lqi: number; pakete: number; schwachProzent: number;
+  }>;
+  beste: string | null;
+  nirgends: boolean;
+}
+
+export interface ZigbeeMatrix {
+  ts: number;
+  stunden: number;
+  standorte: string[];
+  /** Standorte ohne Mithörer oder gerade nicht erreichbar. */
+  nichtErreichbar: string[];
+  geraete: ZigbeeMatrixGeraet[];
+  zusammenfassung: { gesamt: number; nirgends: number; nurEinStandort: number };
+}
+
+export const holeZigbeeMatrix = (stunden = 24): Promise<ZigbeeMatrix> =>
+  hole(`/api/verbund/zigbee?stunden=${stunden}`);
+
 // ---- Langzeitdaten / InfluxDB (M9.5) ------------------------------------
 
 export interface InfluxZustand {
