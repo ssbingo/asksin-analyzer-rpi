@@ -27,6 +27,7 @@ import {
   testeCcu,
   holeZigbee,
   setzeZigbee,
+  zigbeeSchluesselAnfordern,
 } from '../api.ts';
 import type {
   Alarmkanal,
@@ -47,7 +48,6 @@ const standort = ref('');
 const zigbee = ref<ZigbeeZustand | null>(null);
 const zigbeeFehlt = ref(false);
 const deconzHost = ref('');
-const deconzSchluessel = ref('');
 const ccuip = ref('');
 
 // --- CCU-Verbindungstest ---------------------------------------------------
@@ -542,16 +542,22 @@ async function zigbeeLaden(): Promise<void> {
 }
 void zigbeeLaden();
 
+async function schluesselHolen(): Promise<void> {
+  await aktion('Schlüssel angefordert', async () => {
+    const r = await zigbeeSchluesselAnfordern(deconzHost.value);
+    // Die Rueckmeldung von deCONZ ist die eigentliche Auskunft — auch und
+    // gerade, wenn das Anmeldefenster zu war.
+    if (!r.ok) throw new Error(r.meldung);
+  });
+  await zigbeeLaden();
+}
+
 async function deconzSpeichern(): Promise<void> {
   await aktion('Namen-Anbindung gespeichert — Namen werden geholt', async () => {
     await setzeZigbee({
       deconzHost: deconzHost.value,
-      // Leer heißt „unverändert": Der Schlüssel wird nie zurückgeliefert,
-      // sonst würde jedes Speichern der Seite ihn löschen.
-      deconzSchluessel: deconzSchluessel.value,
     });
   });
-  deconzSchluessel.value = '';
   await zigbeeLaden();
 }
 
@@ -1220,16 +1226,27 @@ async function zigbeeUmschalten(): Promise<void> {
       <span class="name">deCONZ-Rechner (IP oder Hostname, ggf. mit :Port)</span>
       <input type="text" v-model="deconzHost" placeholder="z. B. 192.168.1.60" />
     </label>
-    <label class="feld">
-      <span class="name">
-        API-Schlüssel — in Phoscon unter Einstellungen → Gateway → Erweitert
-        „App authentifizieren", dann hier eintragen
-        <template v-if="zigbee?.namen?.aktiv"> (gesetzt; leer lassen heißt „unverändert")</template>
-      </span>
-      <input type="password" v-model="deconzSchluessel" placeholder="unverändert lassen" />
-    </label>
+    <p class="fussnote" style="margin-top: .6rem">
+      <strong>Den Schlüssel holt sich der Analyzer selbst.</strong> deCONZ zeigt
+      bestehende Schlüssel nie an — es vergibt nur neue, und nur während des
+      Anmeldefensters. Also:
+    </p>
+    <ol class="fussnote" style="margin: 0 0 .6rem 1.2rem">
+      <li>In Phoscon: <em>Einstellungen → Gateway → Erweitert →
+        „App authentifizieren"</em></li>
+      <li>Innerhalb einer Minute hier auf <em>Schlüssel anfordern</em> klicken</li>
+    </ol>
     <div class="zeile">
-      <button :disabled="beschaeftigt" @click="deconzSpeichern">Namen-Anbindung speichern</button>
+      <button class="primaer" :disabled="beschaeftigt" @click="schluesselHolen">
+        Schlüssel anfordern
+      </button>
+      <button :disabled="beschaeftigt" @click="deconzSpeichern">
+        Nur Rechner speichern
+      </button>
+    </div>
+    <div class="fussnote" v-if="zigbee?.namen?.aktiv">
+      Ein Schlüssel ist hinterlegt. Ein neuer ersetzt ihn, und der alte wird
+      bei deCONZ widerrufen.
     </div>
   </div>
 

@@ -2142,6 +2142,31 @@ const zigbeeHooks: ZigbeeHooks = {
     return { pakete: gekuerzt ? zeilen.slice(0, grenze) : zeilen, gekuerzt };
   },
 
+  schluesselAnfordern: async (host: string): Promise<Record<string, unknown>> => {
+    const ziel = host.trim() === '' ? zigbeeKonfig.deconzHost : host.trim();
+    const ergebnis = await zigbeeNamen.schluesselAnfordern(
+      ziel, zigbeeKonfig.deconzSchluessel);
+    if (!ergebnis.ok) return { ...ergebnis };
+
+    zigbeeKonfig.deconzHost = ziel;
+    zigbeeKonfig.deconzSchluessel = zigbeeNamen.schluessel;
+    writeFileSync(
+      zigbeeKonfigDatei,
+      JSON.stringify({
+        aktiv: zigbeeKonfig.aktiv,
+        device: zigbeeKonfig.device,
+        kanal: zigbeeKonfig.kanal,
+        deconzHost: zigbeeKonfig.deconzHost,
+        deconzSchluessel: zigbeeKonfig.deconzSchluessel,
+      }, null, 2),
+      { mode: 0o600 },
+    );
+    // Der Schluessel steht nicht im Protokoll — nur, dass es einen gibt.
+    log(`Zigbee: neuer deCONZ-Schlüssel für ${ziel} hinterlegt`);
+    await zigbeeNamen.aktualisieren();
+    return { ...ergebnis, anzahl: zigbeeNamen.anzahl };
+  },
+
   setzen: async (auftrag: Record<string, unknown>): Promise<Record<string, unknown>> => {
     const neu: ZigbeeKonfig = { ...zigbeeKonfig };
     let neustartNoetig = false;

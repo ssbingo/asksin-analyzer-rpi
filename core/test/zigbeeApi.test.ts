@@ -50,6 +50,10 @@ function pruefHooks(): ZigbeeHooks & { gesehen: Record<string, unknown> } {
       if (auftrag['kanal'] === 99) throw new Error('kanal: 11 bis 26 erwartet');
       return { ...auftrag, neustartNoetig: false };
     },
+    schluesselAnfordern: async (host) => {
+      gesehen['host'] = host;
+      return { ok: true, meldung: 'Neuer Schlüssel von deCONZ erhalten.' };
+    },
   };
 }
 
@@ -139,5 +143,32 @@ test('kaputtes JSON bringt den Server nicht durcheinander', async () => {
     const danach = await fetch(`${basis}/api/zigbee`);
     assert.equal(danach.status, 200);
     await danach.json();
+  });
+});
+
+test('der Schlüssel wird angefordert, nicht übertragen', async () => {
+  const hooks = pruefHooks();
+  await mitServer(hooks, async (basis) => {
+    const r = await fetch(`${basis}/api/zigbee/schluessel`, {
+      method: 'POST', body: JSON.stringify({ host: '192.0.2.9' }),
+    });
+    assert.equal(r.status, 200);
+    const j = await r.json() as Record<string, unknown>;
+    assert.equal(hooks.gesehen['host'], '192.0.2.9');
+    assert.equal(j['ok'], true);
+    // In der Antwort darf kein Schluessel stehen — sonst laege er wieder im
+    // Browser, in der Zwischenablage und im Bildschirmfoto.
+    assert.ok(!('schluessel' in j), 'kein Schlüssel in der Antwort');
+    assert.ok(!('deconzSchluessel' in j), 'kein Schlüssel in der Antwort');
+  });
+});
+
+test('ein leerer Rumpf ist erlaubt — dann gilt der eingetragene Rechner', async () => {
+  const hooks = pruefHooks();
+  await mitServer(hooks, async (basis) => {
+    const r = await fetch(`${basis}/api/zigbee/schluessel`, { method: 'POST' });
+    assert.equal(r.status, 200);
+    await r.json();
+    assert.equal(hooks.gesehen['host'], '');
   });
 });

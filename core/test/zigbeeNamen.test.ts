@@ -151,3 +151,68 @@ test('eine leere Antwort ersetzt vorhandene Namen nicht', async () => {
     server.close();
   }
 });
+
+/** deCONZ-Ersatz für die Schlüsselvergabe. */
+function anmeldeErsatz(antwort: unknown, status = 200): Promise<{
+  server: Server; port: number; geloescht: string[];
+}> {
+  const geloescht: string[] = [];
+  const server = createServer((req, res) => {
+    if (req.method === 'DELETE') {
+      geloescht.push((req.url ?? '').split('/').at(-1) ?? '');
+      res.end('[{"success":"ok"}]');
+      return;
+    }
+    res.statusCode = status;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(antwort));
+  });
+  return new Promise((auf) => {
+    server.listen(0, '127.0.0.1', () => {
+      const a = server.address();
+      auf({ server, port: typeof a === 'object' && a !== null ? a.port : 0, geloescht });
+    });
+  });
+}
+
+test('der Analyzer holt sich seinen Schlüssel selbst', async () => {
+  const { server, port, geloescht } = await anmeldeErsatz(
+    [{ success: { username: 'NEUERSCHLUESSEL' } }]);
+  try {
+    await mitVerzeichnis(async (cache) => {
+      const n = new DeconzNamen({ host: '', schluessel: '', cachePfad: cache });
+      const r = await n.schluesselAnfordern(`127.0.0.1:${port}`, 'ALTERSCHLUESSEL');
+      assert.equal(r.ok, true, r.meldung);
+      assert.equal(n.schluessel, 'NEUERSCHLUESSEL');
+      assert.deepEqual(geloescht, ['ALTERSCHLUESSEL'], 'der alte wird widerrufen');
+      // Der Schluessel darf in keiner Meldung stehen.
+      assert.ok(!r.meldung.includes('NEUERSCHLUESSEL'), r.meldung);
+    });
+  } finally {
+    server.close();
+  }
+});
+
+test('ist das Anmeldefenster zu, sagt die Meldung was zu tun ist', async () => {
+  const { server, port } = await anmeldeErsatz(
+    [{ error: { type: 101, address: '/', description: 'link button not pressed' } }], 403);
+  try {
+    await mitVerzeichnis(async (cache) => {
+      const n = new DeconzNamen({ host: '', schluessel: '', cachePfad: cache });
+      const r = await n.schluesselAnfordern(`127.0.0.1:${port}`);
+      assert.equal(r.ok, false);
+      assert.match(r.meldung, /lehnt ab/);
+    });
+  } finally {
+    server.close();
+  }
+});
+
+test('ohne deCONZ-Rechner wird gar nicht erst gefragt', async () => {
+  await mitVerzeichnis(async (cache) => {
+    const n = new DeconzNamen({ host: '', schluessel: '', cachePfad: cache });
+    const r = await n.schluesselAnfordern('');
+    assert.equal(r.ok, false);
+    assert.match(r.meldung, /Kein deCONZ-Rechner/);
+  });
+});

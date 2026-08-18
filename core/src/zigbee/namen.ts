@@ -148,6 +148,90 @@ export class DeconzNamen {
     }
   }
 
+  /**
+   * Einen eigenen Schlüssel bei deCONZ anfordern.
+   *
+   * Warum das hierher gehört und nicht in eine Anleitung: deCONZ **zeigt
+   * bestehende Schlüssel nie an**. Es vergibt nur neue, und zwar ausschliesslich
+   * während des Anmeldefensters, das in Phoscon unter
+   * „Einstellungen → Gateway → Erweitert → App authentifizieren" für rund eine
+   * Minute geöffnet wird.
+   *
+   * Wer den Schlüssel von Hand besorgt, muss ihn abtippen oder kopieren — und
+   * damit landet ein Zugangstoken in einer Zwischenablage, einem Chatfenster
+   * oder einem Screenshot. Holt der Analyzer ihn selbst, sieht ihn niemand.
+   *
+   * @param altenWiderrufen Schlüssel, der danach aus der Freigabeliste
+   *   entfernt wird. Ohne Widerruf sammeln sich dort mit jedem Versuch
+   *   Einträge an, die alle gültig bleiben.
+   */
+  async schluesselAnfordern(
+    host: string,
+    altenWiderrufen?: string,
+  ): Promise<{ ok: boolean; meldung: string }> {
+    if (host === '') return { ok: false, meldung: 'Kein deCONZ-Rechner eingetragen.' };
+    let neuer: string;
+    try {
+      const antwort = await holen(`http://${host}/api`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ devicetype: 'asksin-analyzer' }),
+        signal: AbortSignal.timeout(this.#o.timeoutMs ?? 8000),
+      });
+      const roh = JSON.parse(new TextDecoder().decode(antwort.bytes)) as Array<
+        Record<string, Record<string, string>>
+      >;
+      const ersterFehler = roh.find((e) => 'error' in e)?.['error'];
+      if (ersterFehler !== undefined) {
+        // Die haeufigste Antwort ueberhaupt — und die einzige, bei der man
+        // genau weiss, was zu tun ist.
+        const beschreibung = ersterFehler['description'] ?? '';
+        return {
+          ok: false,
+          meldung: beschreibung.includes('unauthorized')
+            ? 'deCONZ hat abgelehnt. Das Anmeldefenster ist zu — in Phoscon '
+              + 'unter Einstellungen → Gateway → Erweitert auf '
+              + '„App authentifizieren" klicken und es innerhalb einer Minute '
+              + 'hier erneut versuchen.'
+            : `deCONZ lehnt ab: ${beschreibung}`,
+        };
+      }
+      const schluessel = roh.find((e) => 'success' in e)?.['success']?.['username'];
+      if (schluessel === undefined || schluessel === '') {
+        return { ok: false, meldung: 'deCONZ hat keinen Schlüssel geliefert.' };
+      }
+      neuer = schluessel;
+    } catch (err) {
+      return { ok: false, meldung: `deCONZ nicht erreichbar: ${String(err)}` };
+    }
+
+    this.#o.host = host;
+    this.#o.schluessel = neuer;
+
+    let nachsatz = '';
+    if (altenWiderrufen !== undefined && altenWiderrufen !== ''
+        && altenWiderrufen !== neuer) {
+      try {
+        const weg = await holen(
+          `http://${host}/api/${neuer}/config/whitelist/${altenWiderrufen}`,
+          { method: 'DELETE', signal: AbortSignal.timeout(this.#o.timeoutMs ?? 8000) },
+        );
+        nachsatz = weg.ok
+          ? ' Der alte Schlüssel wurde widerrufen.'
+          : ' Der alte Schlüssel liess sich nicht widerrufen — in Phoscon nachsehen.';
+      } catch {
+        nachsatz = ' Der alte Schlüssel liess sich nicht widerrufen — in Phoscon nachsehen.';
+      }
+    }
+    // Der Schluessel selbst steht ausdruecklich NICHT in der Meldung.
+    return { ok: true, meldung: `Neuer Schlüssel von deCONZ erhalten.${nachsatz}` };
+  }
+
+  /** Der aktuelle Schlüssel — nur für das Speichern im Dienst, nie für die UI. */
+  get schluessel(): string {
+    return this.#o.schluessel;
+  }
+
   async #json(url: string): Promise<unknown> {
     const antwort = await holen(url, {
       signal: AbortSignal.timeout(this.#o.timeoutMs ?? 8000),

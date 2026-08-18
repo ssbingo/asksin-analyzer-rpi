@@ -405,6 +405,28 @@ export async function setzeZigbee(
   return await res.json() as { aktiv: boolean; kanal: number; neustartNoetig: boolean };
 }
 
+/**
+ * Einen deCONZ-Schlüssel anfordern, während dort das Anmeldefenster offen ist.
+ *
+ * Der Schlüssel kommt NICHT zurück — er bleibt auf dem Analyzer. deCONZ zeigt
+ * bestehende Schlüssel ohnehin nie an; wer einen von Hand besorgt, trägt ein
+ * Zugangstoken durch Zwischenablage und Bildschirm.
+ */
+export async function zigbeeSchluesselAnfordern(
+  host: string,
+): Promise<{ ok: boolean; meldung: string; anzahl?: number }> {
+  const res = await fetch('/api/zigbee/schluessel', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify({ host }),
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json() as { ok: boolean; meldung: string; anzahl?: number };
+}
+
 // ---- Langzeitdaten / InfluxDB (M9.5) ------------------------------------
 
 export interface InfluxZustand {

@@ -101,6 +101,16 @@ export interface ZigbeeHooks {
    * Antwort im Feld `neustartNoetig`, statt es zu verschweigen.
    */
   setzen(auftrag: Record<string, unknown>): Promise<Record<string, unknown>>;
+  /**
+   * Einen Schlüssel bei deCONZ anfordern, solange dort das Anmeldefenster
+   * offen ist.
+   *
+   * Der Grund für diesen Zweig: deCONZ zeigt bestehende Schlüssel nie an. Wer
+   * einen von Hand besorgt, kopiert ein Zugangstoken durch Zwischenablage und
+   * Bildschirm. Holt der Analyzer ihn selbst, sieht ihn niemand — und die
+   * Antwort enthält ihn ausdrücklich nicht.
+   */
+  schluesselAnfordern(host: string): Promise<Record<string, unknown>>;
 }
 
 export interface ApiServerOptions {
@@ -637,6 +647,20 @@ export class ApiServer {
           res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('Auftrag angenommen — Probezeit läuft, Status unter /api/netzwerk/status');
           return;
+        }
+        case '/api/zigbee/schluessel': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.zigbee;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          let auftrag: Record<string, unknown> = {};
+          try {
+            const roh = await this.#leseBody(req);
+            if (roh.trim() !== '') auftrag = JSON.parse(roh) as Record<string, unknown>;
+          } catch {
+            return this.#text(res, 400, 'Ungültiges JSON');
+          }
+          const host = typeof auftrag['host'] === 'string' ? auftrag['host'] : '';
+          return this.#json(res, 200, await hooks.schluesselAnfordern(host));
         }
         case '/api/zigbee': {
           if (!this.#autorisiert(req, res)) return;
