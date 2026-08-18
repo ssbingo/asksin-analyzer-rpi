@@ -15,6 +15,45 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — Festlegung: Ohne Mithörer auf dem Master kein Zigbee-Verbund
+
+Der User hat die Regel gesetzt, und sie dreht meine Änderung von vorhin
+wieder um. Ich hatte den Reiter an „irgendwo im Verbund läuft einer" gehängt;
+die Regel lautet **„der Master selbst"**.
+
+Die Begründung trägt: Wer zusammenführt, soll selbst messen. Ein Master ohne
+eigene Zeile in der Matrix könnte nicht unterscheiden, ob ein „nirgends
+gehört" an den Standorten liegt oder daran, dass er gar nicht hinhört.
+
+Zurückgebaut: `zigbeeImVerbund` ist aus `/api/health` wieder verschwunden — es
+hatte keinen Zweck mehr. Der Reiter hängt wieder am eigenen Mithörer, und
+`/api/verbund/zigbee` antwortet ohne ihn mit **501 samt Begründung** statt mit
+einer halben Matrix.
+
+Als E3b im Plan festgehalten.
+
+### Und dabei eine Unterscheidung nachgeholt, die ich selbst verlangt hatte
+
+Ein Standort **ohne Mithörer** landete im selben Topf wie ein **nicht
+erreichbarer**. Für die Frage, die der Master beantworten soll — gehört
+dieser Client dazu? — ist das genau der Unterschied:
+
+| | heißt | dann hilft |
+| --- | --- | --- |
+| kein Mithörer | der Standort läuft, hört Zigbee nur nicht mit | ein Stick |
+| nicht erreichbar | wir wissen es nicht | nachsehen |
+
+Der Fan-out trennt jetzt 501 vom echten Ausfall, die Matrix führt beide
+Listen getrennt, und die Tabelle zeigt „kein Stick" statt „?".
+
+Das ist dieselbe Regel, auf der ich zwei Stunden vorher bestanden hatte —
+„kein Stick ist etwas anderes als nichts gehört" — nur hatte ich sie auf der
+Ebene der Standorte selbst nicht angewandt.
+
+`npm run check`: **383 Tests, 0 Fehler.**
+
+---
+
 ## 18.08.2026 — Ein Reiter am falschen Kriterium
 
 Die Frage des Users („macht es Sinn, den Stick zum Master umzustecken?") hat

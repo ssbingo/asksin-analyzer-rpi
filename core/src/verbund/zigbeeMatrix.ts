@@ -34,6 +34,15 @@ export interface StandortBericht {
   standort: string;
   /** Nicht erreichbar? Dann steht der Standort in der Matrix, aber ohne Werte. */
   erreichbar: boolean;
+  /**
+   * Warum keine Werte kommen — die beiden Fälle sind NICHT dasselbe.
+   *
+   * `kein-mithoerer` heißt: Der Standort läuft, er hört Zigbee nur nicht mit.
+   * Da hilft ein Stick. `nicht-erreichbar` heißt: Wir wissen es nicht. Da
+   * hilft Nachsehen. Sie in einen Topf zu werfen hieße, dem Betrachter die
+   * Entscheidung zu nehmen, welche der beiden Arbeiten ansteht.
+   */
+  grund?: 'kein-mithoerer' | 'nicht-erreichbar';
   geraete: StandortGeraet[];
 }
 
@@ -67,8 +76,10 @@ export interface ZigbeeMatrixGeraet {
 
 export interface ZigbeeMatrix {
   standorte: string[];
-  /** Standorte, die gerade nicht antworten — ihre Spalten sind nicht leer, sondern unbekannt. */
+  /** Standorte, die gerade nicht antworten — ihre Spalten sind unbekannt, nicht leer. */
   nichtErreichbar: string[];
+  /** Standorte, die laufen, aber keinen Mithörer betreiben. */
+  ohneMithoerer: string[];
   geraete: ZigbeeMatrixGeraet[];
   /** Kurzfassung für die Kopfzeile. */
   zusammenfassung: {
@@ -120,7 +131,12 @@ export function baueZigbeeMatrix(
   }
   const berichte = [...zusammen.values()];
   const standorte = berichte.map((b) => b.standort);
-  const nichtErreichbar = berichte.filter((b) => !b.erreichbar).map((b) => b.standort);
+  const nichtErreichbar = berichte
+    .filter((b) => !b.erreichbar && b.grund !== 'kein-mithoerer')
+    .map((b) => b.standort);
+  const ohneMithoerer = berichte
+    .filter((b) => !b.erreichbar && b.grund === 'kein-mithoerer')
+    .map((b) => b.standort);
 
   const zeilen = new Map<string, ZigbeeMatrixGeraet>();
 
@@ -195,6 +211,7 @@ export function baueZigbeeMatrix(
   return {
     standorte,
     nichtErreichbar,
+    ohneMithoerer,
     geraete,
     zusammenfassung: {
       gesamt: geraete.length,

@@ -424,8 +424,18 @@ export class VerbundDienst {
             ? (antwort.geraete as StandortGeraet[])
             : [];
           berichte[i] = { standort, erreichbar: true, geraete };
-        } catch {
-          berichte[i] = { standort, erreichbar: false, geraete: [] };
+        } catch (err) {
+          // 501 ist kein Ausfall, sondern eine Auskunft: „Ich habe keinen
+          // Mithoerer." Das vom echten Ausfall zu trennen ist der Unterschied
+          // zwischen „Stick besorgen" und „nachsehen, warum er nicht
+          // antwortet".
+          const meldung = err instanceof Error ? err.message : String(err);
+          berichte[i] = {
+            standort,
+            erreichbar: false,
+            grund: meldung.includes('501') ? 'kein-mithoerer' : 'nicht-erreichbar',
+            geraete: [],
+          };
         }
       }),
     );

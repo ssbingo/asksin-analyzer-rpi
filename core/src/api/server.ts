@@ -137,18 +137,6 @@ export interface ApiServerOptions {
    * im Sekundentakt, und ein zweiter Abruf nur für ein Wort wäre Verschwendung.
    */
   rolle?: () => 'master' | 'client';
-  /**
-   * Läuft irgendwo im Verbund ein Zigbee-Mithörer?
-   *
-   * Steuert den Reiter „Verbund · Zigbee" auf dem Master. Sein EIGENER
-   * Mithörer ist dafür das falsche Kriterium: Die Matrix entsteht aus den
-   * Standorten. Ein Master ohne Stick, dessen Dachboden einen hat, muss die
-   * Matrix sehen können — sonst ist sie unerreichbar.
-   *
-   * Der Wert kommt aus dem zwischengespeicherten Verbund-Umlauf, kostet also
-   * keinen zusätzlichen Abruf.
-   */
-  zigbeeImVerbund?: () => boolean;
   config?: ApiConfig;
   /** Wenn gesetzt: Pflicht-Bearer-Token für alle verändernden Endpunkte. */
   authToken?: string;
@@ -491,7 +479,15 @@ export class ApiServer {
             return this.#text(res, 501, 'Keine Zigbee-Matrix');
           }
           const stunden = zahlAusUrl(url, 'stunden', 24, 1, 24 * 90);
-          return this.#json(res, 200, await hooks.zigbeeMatrix(stunden));
+          try {
+            return this.#json(res, 200, await hooks.zigbeeMatrix(stunden));
+          } catch (err) {
+            // 501 und nicht 500: „gibt es hier nicht" ist kein Fehler, sondern
+            // ein Zustand — und die Oberflaeche behandelt 501 bereits als
+            // „diese Ansicht ist auf diesem Geraet nicht eingerichtet".
+            return this.#text(res, 501,
+              err instanceof Error ? err.message : String(err));
+          }
         }
         case '/api/verbund/matrix': {
           const verbund = this.#opts.verbund;
@@ -1206,7 +1202,6 @@ export class ApiServer {
       zigbee: this.#opts.zigbee !== undefined
         && this.#opts.zigbee.zustand()['aktiv'] === true,
       rolle: this.#opts.rolle?.() ?? 'master',
-      zigbeeImVerbund: this.#opts.zigbeeImVerbund?.() ?? false,
     };
   }
 

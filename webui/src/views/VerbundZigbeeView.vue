@@ -33,9 +33,18 @@ const auffaellig = computed(() => matrix.value?.geraete.filter(
 
   <div class="panel" v-if="nichtVorhanden">
     <p style="margin: 0">
-      Keine Zigbee-Matrix. Sie entsteht erst, wenn dieser Analyzer einen
-      Mithörer betreibt und eine Namensanbindung hat — die Standorte melden
-      ihre Geräte, der Master führt sie zusammen.
+      <strong>Der Master braucht einen eigenen Mithörer.</strong> Erst dann
+      entsteht die Verbund-Auswertung für Zigbee — wer zusammenführt, soll
+      selbst messen: Sonst hätte der Master keine eigene Zeile, und niemand
+      könnte sagen, ob ein „nirgends gehört“ an den Standorten liegt oder
+      daran, dass er gar nicht hinhört.
+    </p>
+    <p style="margin: .6rem 0 0" class="fussnote">
+      Clients dürfen Zigbee unabhängig davon lokal betreiben; sie sehen ihre
+      Daten unter <em>Meldungen · Zigbee</em>. Ob sie hier erscheinen,
+      entscheidet die Gegenstellenliste unter
+      <RouterLink to="/settings">Einstellungen · BidCoS</RouterLink> — wie bei
+      BidCoS auch.
     </p>
   </div>
 
@@ -61,12 +70,17 @@ const auffaellig = computed(() => matrix.value?.geraete.filter(
           Stand {{ uhrzeit(matrix.ts) }}</span>
       </p>
 
+      <div class="fussnote" v-if="matrix.ohneMithoerer.length > 0"
+           style="margin-bottom: .4rem">
+        <strong>Ohne Mithörer:</strong> {{ matrix.ohneMithoerer.join(', ') }} —
+        diese Standorte laufen, hören Zigbee aber nicht mit. Ein Stick dort
+        würde die Matrix um eine Spalte erweitern.
+      </div>
       <div class="fussnote" v-if="matrix.nichtErreichbar.length > 0"
            style="margin-bottom: .6rem">
-        Ohne Mithörer oder gerade nicht erreichbar:
-        <strong>{{ matrix.nichtErreichbar.join(', ') }}</strong>.
-        Deren Spalten stehen auf <em>?</em>, nicht auf <em>—</em>:
-        „kein Stick“ ist etwas anderes als „nichts gehört“.
+        <strong>Nicht erreichbar:</strong> {{ matrix.nichtErreichbar.join(', ') }} —
+        hier wissen wir es nicht. Deren Spalten stehen auf <em>?</em>, nicht
+        auf <em>—</em>.
       </div>
 
       <div class="tabelle-scroll">
@@ -89,7 +103,9 @@ const auffaellig = computed(() => matrix.value?.geraete.filter(
               </td>
               <td v-for="s in matrix.standorte" :key="s">
                 <span v-if="matrix.nichtErreichbar.includes(s)" class="gedimmt"
-                      title="Dieser Standort hat keinen Mithörer oder antwortet nicht">?</span>
+                      title="Dieser Standort antwortet gerade nicht — unbekannt, nicht null">?</span>
+                <span v-else-if="matrix.ohneMithoerer.includes(s)" class="gedimmt"
+                      title="Dieser Standort hört Zigbee nicht mit">kein Stick</span>
                 <span v-else-if="g.empfang[s]" :class="rssiKlasse(g.empfang[s]!.rssi)">
                   {{ dbm(g.empfang[s]!.rssi) }}
                 </span>

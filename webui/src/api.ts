@@ -119,8 +119,6 @@ export interface Health {
   zigbee?: boolean;
   /** Rolle im Verbund — Verbund-Ansichten gibt es nur auf dem Master. */
   rolle?: 'master' | 'client';
-  /** Läuft IRGENDWO im Verbund ein Mithörer? Steuert „Verbund · Zigbee". */
-  zigbeeImVerbund?: boolean;
 }
 
 /** Auskunft der Firmware auf `:?;` — nur bei der erweiterten Fassung. */
@@ -456,8 +454,10 @@ export interface ZigbeeMatrix {
   ts: number;
   stunden: number;
   standorte: string[];
-  /** Standorte ohne Mithörer oder gerade nicht erreichbar. */
+  /** Standorte, die gerade nicht antworten — unbekannt, nicht leer. */
   nichtErreichbar: string[];
+  /** Standorte, die laufen, aber keinen Mithörer betreiben. */
+  ohneMithoerer: string[];
   geraete: ZigbeeMatrixGeraet[];
   zusammenfassung: { gesamt: number; nirgends: number; nurEinStandort: number };
 }

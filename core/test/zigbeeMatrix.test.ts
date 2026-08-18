@@ -201,3 +201,17 @@ test('erreichbar schlägt unerreichbar, wenn ein Standort doppelt kommt', () => 
   assert.deepEqual(m.nichtErreichbar, [], 'nicht als unerreichbar geführt');
   assert.equal(m.geraete[0]!.beste, 'Keller Büro');
 });
+
+test('„kein Mithörer" und „nicht erreichbar" bleiben zwei verschiedene Dinge', () => {
+  // Fuer den Betrachter entscheidet das darueber, welche Arbeit ansteht:
+  // einen Stick besorgen oder nachsehen, warum ein Analyzer schweigt.
+  const m = baueZigbeeMatrix([
+    ort('Keller Büro', [geraet()]),
+    { standort: 'Gartenhaus', erreichbar: false, grund: 'kein-mithoerer', geraete: [] },
+    { standort: 'Dachboden', erreichbar: false, grund: 'nicht-erreichbar', geraete: [] },
+  ]);
+  assert.deepEqual(m.ohneMithoerer, ['Gartenhaus']);
+  assert.deepEqual(m.nichtErreichbar, ['Dachboden']);
+  assert.deepEqual(m.standorte, ['Keller Büro', 'Gartenhaus', 'Dachboden'],
+    'beide stehen trotzdem in der Tabelle');
+});

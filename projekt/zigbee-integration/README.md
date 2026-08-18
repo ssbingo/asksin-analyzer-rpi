@@ -98,6 +98,22 @@ Ist Zigbee aktiviert und der Stick nicht da (abgezogen, defekt, falscher
 Gerätename), meldet die Oberfläche das ruhig und deutlich. Der Dienst startet,
 BidCoS läuft weiter. Kein Startabbruch, keine Neustartschleife.
 
+### E3b — Zigbee im Verbund setzt einen Mithörer **auf dem Master** voraus
+
+Festgelegt am 18.08.2026. Ohne eigenen Mithörer gibt es auf dem Master keine
+Verbund-Auswertung für Zigbee — der Reiter erscheint nicht, und der API-Zweig
+antwortet mit 501 samt Begründung.
+
+*Warum:* Wer zusammenführt, soll selbst messen. Ein Master, der nur fremde
+Zahlen weiterreicht, hätte keine eigene Zeile in der Matrix — und dann könnte
+niemand sagen, ob ein „nirgends gehört" an den Standorten liegt oder daran,
+dass der Master gar nicht hinhört.
+
+**Clients dürfen Zigbee unabhängig davon lokal betreiben.** Sie sehen ihre
+eigenen Daten unter *Meldungen · Zigbee*. Ob sie im Verbund erscheinen,
+entscheidet der Master über seine Gegenstellenliste — dieselbe Liste wie bei
+BidCoS, keine zweite.
+
 ### E4 — Ein Kanal zur Zeit, und zwar der des eigenen Netzes
 
 Der Sniffer hört auf **einem** Kanal. Voreinstellung ist der Kanal des eigenen

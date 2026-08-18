@@ -815,6 +815,24 @@ const verbundHooks = {
   matrix: () => verbund.matrix(),
   matrixCsv: () => verbund.matrixCsv(),
   zigbeeMatrix: async (stunden: number) => {
+    // Ohne eigenen Mithörer gibt es keine Zigbee-Auswertung im Verbund.
+    //
+    // Das ist eine ausdrückliche Festlegung, keine technische Not: Der Master
+    // führt zusammen, und wer zusammenführt, soll selbst messen. Ein Master,
+    // der nur fremde Zahlen weiterreicht, hätte keine eigene Zeile in der
+    // Matrix — und niemand könnte sagen, ob ein „nirgends gehört" an den
+    // Standorten liegt oder daran, dass der Master gar nicht hinhört.
+    //
+    // Die Clients dürfen Zigbee trotzdem lokal betreiben; sie sehen ihre
+    // eigenen Daten unter „Meldungen · Zigbee". Ob sie im Verbund erscheinen,
+    // entscheidet der Master über seine Gegenstellenliste — wie bei BidCoS.
+    if (!zigbeeKonfig.aktiv) {
+      throw new Error(
+        'Der Master hat keinen Zigbee-Mithörer. Ohne ihn gibt es keine '
+        + 'Verbund-Auswertung für Zigbee.',
+      );
+    }
+
     // Die Standorte melden Adressen samt IEEE; die Namen hängt der Master an.
     // So liegt genau EIN deCONZ-Zugangstoken im Verbund statt fünf.
     const berichte = await verbund.zigbeeBerichte(stunden);
@@ -2361,7 +2379,6 @@ const api = new ApiServer({
   statusAnzeige: statusAnzeigeHooks,
   zigbee: zigbeeHooks,
   rolle: () => aktuelleRolle().rolle,
-  zigbeeImVerbund: () => zigbeeKonfig.aktiv || verbund.zigbeeIrgendwo(),
   influx: influxHooks,
   langzeit: langzeitHooks,
   alarmziel: alarmzielHooks,
