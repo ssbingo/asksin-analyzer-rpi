@@ -1,14 +1,20 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import {
   holeNoise,
   holeSnapshot,
   holeLangzeit,
   holeStatusAnzeige,
   holeTelegramme,
+  holeZigbee,
+  holeZigbeeGeraete,
   statusSeiteWeiter,
 } from '../api.ts';
-import type { LangzeitZustand, Snapshot, StatusAnzeigeZustand, Telegramm } from '../api.ts';
+import type {
+  LangzeitZustand, Snapshot, StatusAnzeigeZustand, Telegramm,
+  ZigbeeGeraet, ZigbeeVermisst, ZigbeeZustand,
+} from '../api.ts';
+import { zigbeeAktiv } from '../zustand.ts';
 import { echarts, tortenOption, zeitChartOption } from '../chart.ts';
 import type { TortenStueck } from '../chart.ts';
 import { dbm, vorZeit } from '../format.ts';
@@ -38,6 +44,38 @@ function anpassen(): void {
 
 const status = ref<StatusAnzeigeZustand | null>(null);
 const langzeit = ref<LangzeitZustand | null>(null);
+
+// ---- Zigbee-Kachelreihe (M16) -------------------------------------------
+//
+// Zweite Reihe unter den vier BidCoS-Kacheln, und nur wenn der Mithörer
+// läuft. Sie beantwortet für Zigbee dieselben vier Fragen: Hört er? Wo?
+// Wie viel? Und wen hört er NICHT — die letzte ist auch hier die wichtigste.
+const zigbee = ref<ZigbeeZustand | null>(null);
+const zigbeeGeraete = ref<ZigbeeGeraet[]>([]);
+const zigbeeVermisst = ref<ZigbeeVermisst[]>([]);
+/** Zeitraum der Gerätezählung — wie auf der Zigbee-Seite. */
+const ZIGBEE_STUNDEN = 24;
+
+/**
+ * Das eigene Netz: dasjenige mit den meisten Paketen.
+ *
+ * Der Mithörer steht mittendrin, Nachbarnetze kommen nur von weit her
+ * herein. Dieselbe Regel wie auf der Zigbee-Seite — und sie ist hier nicht
+ * bloss Kosmetik: Ohne sie zählte die Kachel die Geräte der Nachbarn mit und
+ * meldete mehr gehörte Geräte, als deCONZ überhaupt kennt.
+ */
+const zigbeeEigenesNetz = computed<number | null>(() => {
+  const summen = new Map<number, number>();
+  for (const g of zigbeeGeraete.value) summen.set(g.pan, (summen.get(g.pan) ?? 0) + g.pakete);
+  let beste: number | null = null;
+  let max = -1;
+  for (const [pan, anzahl] of summen) if (anzahl > max) { max = anzahl; beste = pan; }
+  return beste;
+});
+const zigbeeEigene = computed(
+  () => zigbeeGeraete.value.filter((g) => g.pan === zigbeeEigenesNetz.value));
+const zigbeeFremde = computed(
+  () => zigbeeGeraete.value.filter((g) => g.pan !== zigbeeEigenesNetz.value));
 const oledCanvas = ref<HTMLCanvasElement | null>(null);
 
 const statusAktiv = (): boolean => {
@@ -80,6 +118,31 @@ nutzeTakt(async () => {
     status.value = null;               // ältere Core-Version ohne den Endpunkt
   }
 }, 2000);
+
+// Der Zustand des Mithörers ist billig und darf mit der Seite mittakten.
+nutzeTakt(async () => {
+  if (!zigbeeAktiv.value) { zigbee.value = null; return; }
+  try {
+    zigbee.value = await holeZigbee();
+  } catch {
+    zigbee.value = null;               // kein Mithörer auf diesem Analyzer
+  }
+}, 3000);
+
+// Die Geräteliste NICHT: Sie fasst 24 Stunden Stundensummen zusammen. Alle
+// drei Sekunden wäre das auf einem Pi 3 spürbar — und die Zahlen ändern sich
+// stündlich. Einmal je Minute genügt vollauf.
+nutzeTakt(async () => {
+  if (!zigbeeAktiv.value) { zigbeeGeraete.value = []; zigbeeVermisst.value = []; return; }
+  try {
+    const g = await holeZigbeeGeraete(ZIGBEE_STUNDEN);
+    zigbeeGeraete.value = g.geraete;
+    zigbeeVermisst.value = g.nieGehoert;
+  } catch {
+    zigbeeGeraete.value = [];
+    zigbeeVermisst.value = [];
+  }
+}, 60000);
 
 // Eigener, langsamerer Takt: Diese Werte ändern sich höchstens beim Umbauen,
 // und die Standortzahl kommt aus einer Abfrage an die Datenbank. Sie im
@@ -222,6 +285,72 @@ nutzeTakt(async () => {
       </div>
     </div>
   </div>
+
+  <!--
+    Zweite Reihe: dasselbe für Zigbee, und nur wo ein Mithörer läuft.
+
+    Bewusst dieselben vier Fragen in derselben Reihenfolge wie oben — hört er,
+    wo, wie viel, und wen hört er NICHT. Wer die obere Reihe gelesen hat,
+    findet sich in der unteren ohne Nachdenken zurecht. Ein Grundrauschen
+    fehlt hier und wird auch nicht erfunden: Die Sniffer-Firmware liefert RSSI
+    nur je Paket, nicht zwischen den Paketen.
+  -->
+  <template v-if="zigbeeAktiv && zigbee !== null">
+    <div class="reihen-titel">
+      <RouterLink to="/zigbee">Zigbee-Mithörer</RouterLink>
+      <span class="gedimmt">— 2,4 GHz, Kanal {{ zigbee.kanal }}</span>
+    </div>
+    <div class="kacheln">
+      <div class="kachel">
+        <div class="titel">Mithörer</div>
+        <div class="wert" :class="zigbee.verbunden ? 'gut' : 'schwach'">
+          {{ zigbee.verbunden ? 'verbunden' : 'getrennt' }}
+        </div>
+        <div class="zusatz" v-if="zigbee.verbundenSeit !== null">
+          seit {{ vorZeit(zigbee.verbundenSeit, Date.now()).replace('vor ', '') }}
+        </div>
+        <div class="zusatz" v-else>Stick antwortet nicht</div>
+      </div>
+      <div class="kachel">
+        <div class="titel">Kanal</div>
+        <div class="wert">{{ zigbee.kanal }}</div>
+        <div class="zusatz">von 11 bis 26</div>
+      </div>
+      <div class="kachel">
+        <div class="titel">Pakete</div>
+        <div class="wert">{{ zigbee.pakete.toLocaleString('de-DE') }}</div>
+        <!-- Gespeichert ist weniger als empfangen, und das ist Absicht:
+             Bestätigungen werden gezählt, nicht abgelegt. Stünde nur eine
+             der beiden Zahlen da, sähe die Lücke wie ein Verlust aus. -->
+        <div class="zusatz">
+          {{ zigbee.gespeichert.toLocaleString('de-DE') }} gespeichert,
+          {{ zigbee.bestaetigungen.toLocaleString('de-DE') }} Bestätigungen
+        </div>
+      </div>
+      <div class="kachel">
+        <div class="titel">Geräte ({{ ZIGBEE_STUNDEN }} h)</div>
+        <div class="wert">
+          {{ zigbeeEigene.length }}<span
+            class="von" v-if="zigbee.namen?.aktiv"
+          >&thinsp;/&thinsp;{{ zigbee.namen.anzahl }}</span>
+        </div>
+        <!-- Dieselbe Aussage wie beim CCU-Abgleich darüber: Was die Steuerung
+             kennt und niemand hört, ist die eigentlich interessante Zahl. -->
+        <div class="zusatz" v-if="zigbee.namen?.aktiv">
+          <span :class="zigbeeVermisst.length > 0 ? 'schwach' : 'gut'">
+            {{ zigbeeVermisst.length }} nie gehört</span>,
+          {{ zigbee.namen.anzahl }} in deCONZ<span
+            v-if="zigbeeFremde.length > 0"
+          >, {{ zigbeeFremde.length }} fremde</span>
+        </div>
+        <div class="zusatz" v-else>
+          ohne Namen — deCONZ nicht eingerichtet<span
+            v-if="zigbeeFremde.length > 0"
+          >, {{ zigbeeFremde.length }} fremde</span>
+        </div>
+      </div>
+    </div>
+  </template>
 
   <div class="panel">
     <div ref="chartEl" id="chart"></div>
