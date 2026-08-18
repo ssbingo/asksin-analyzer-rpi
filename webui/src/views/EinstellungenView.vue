@@ -48,6 +48,10 @@ const standort = ref('');
 const zigbee = ref<ZigbeeZustand | null>(null);
 const zigbeeFehlt = ref(false);
 const deconzHost = ref('');
+// Eigene Meldung fuer diesen Abschnitt. Die gemeinsame steht ganz oben
+// auf der Seite; wer unten auf einen Knopf drueckt, sieht sie nicht und
+// haelt das Ergebnis fuer "es passiert nichts".
+const zigbeeMeldung = ref<{ art: 'ok' | 'fehler'; text: string } | null>(null);
 const ccuip = ref('');
 
 // --- CCU-Verbindungstest ---------------------------------------------------
@@ -543,12 +547,21 @@ async function zigbeeLaden(): Promise<void> {
 void zigbeeLaden();
 
 async function schluesselHolen(): Promise<void> {
-  await aktion('Schlüssel angefordert', async () => {
+  beschaeftigt.value = true;
+  zigbeeMeldung.value = null;
+  try {
     const r = await zigbeeSchluesselAnfordern(deconzHost.value);
     // Die Rueckmeldung von deCONZ ist die eigentliche Auskunft — auch und
-    // gerade, wenn das Anmeldefenster zu war.
-    if (!r.ok) throw new Error(r.meldung);
-  });
+    // gerade, wenn das Anmeldefenster zu war oder der alte Schluessel
+    // stehenbleibt.
+    zigbeeMeldung.value = { art: r.ok ? 'ok' : 'fehler', text: r.meldung };
+  } catch (err) {
+    zigbeeMeldung.value = {
+      art: 'fehler', text: err instanceof Error ? err.message : String(err),
+    };
+  } finally {
+    beschaeftigt.value = false;
+  }
   await zigbeeLaden();
 }
 
@@ -1244,9 +1257,12 @@ async function zigbeeUmschalten(): Promise<void> {
         Nur Rechner speichern
       </button>
     </div>
+    <div class="meldung" v-if="zigbeeMeldung" :class="zigbeeMeldung.art"
+         style="margin-top: .6rem">{{ zigbeeMeldung.text }}</div>
     <div class="fussnote" v-if="zigbee?.namen?.aktiv">
-      Ein Schlüssel ist hinterlegt. Ein neuer ersetzt ihn, und der alte wird
-      bei deCONZ widerrufen.
+      Ein Schlüssel ist hinterlegt. Ein neuer ersetzt ihn hier — löschen lässt
+      sich der alte allerdings nur in Phoscon: deCONZ gibt Schlüssel über die
+      Schnittstelle nicht frei.
     </div>
   </div>
 

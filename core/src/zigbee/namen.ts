@@ -216,11 +216,19 @@ export class DeconzNamen {
           `http://${host}/api/${neuer}/config/whitelist/${altenWiderrufen}`,
           { method: 'DELETE', signal: AbortSignal.timeout(this.#o.timeoutMs ?? 8000) },
         );
+        // deCONZ 2.32.5 lehnt das Löschen von Schlüsseln über die API ab —
+        // es antwortet "unauthorized user" (403), auch mit gültigem Schlüssel
+        // (am 18.08.2026 nachgemessen). Der Versuch bleibt trotzdem stehen:
+        // Er kostet nichts, andere Fassungen erlauben es, und die Antwort
+        // sagt dem Anwender genau, was er noch von Hand tun muss.
         nachsatz = weg.ok
           ? ' Der alte Schlüssel wurde widerrufen.'
-          : ' Der alte Schlüssel liess sich nicht widerrufen — in Phoscon nachsehen.';
+          : ' ACHTUNG: Der alte Schlüssel gilt weiter — deCONZ lässt ihn über '
+            + 'die Schnittstelle nicht löschen. In Phoscon unter Einstellungen '
+            + '→ Gateway → Erweitert bei den authentifizierten Apps entfernen.';
       } catch {
-        nachsatz = ' Der alte Schlüssel liess sich nicht widerrufen — in Phoscon nachsehen.';
+        nachsatz = ' ACHTUNG: Der alte Schlüssel gilt weiter — in Phoscon unter '
+          + 'Einstellungen → Gateway → Erweitert entfernen.';
       }
     }
     // Der Schluessel selbst steht ausdruecklich NICHT in der Meldung.
