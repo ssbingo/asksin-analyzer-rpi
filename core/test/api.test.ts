@@ -1,7 +1,9 @@
 import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 import assert from 'node:assert/strict';
-import { hostname } from 'node:os';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { hostname, tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { ApiServer } from '../src/api/server.ts';
 import { dayOf, dayRange, toVersionParts } from '../src/api/compat.ts';
@@ -49,6 +51,7 @@ async function aufbau(t: TestContext, extra: {
   maxLogBatch?: number;
   onReboot?: () => void;
   uiDir?: string;
+  handbuecher?: Record<string, { datei: string; name: string }>;
   update?: import('../src/api/server.ts').UpdateHooks;
   verbund?: import('../src/api/server.ts').ApiServerOptions['verbund'];
   netzwerk?: import('../src/api/server.ts').NetzwerkHooks;
@@ -91,6 +94,7 @@ async function aufbau(t: TestContext, extra: {
     ...(extra.maxLogBatch === undefined ? {} : { maxLogBatch: extra.maxLogBatch }),
     ...(extra.onReboot === undefined ? {} : { onReboot: extra.onReboot }),
     ...(extra.uiDir === undefined ? {} : { uiDir: extra.uiDir }),
+    ...(extra.handbuecher === undefined ? {} : { handbuecher: extra.handbuecher }),
     ...(extra.update === undefined ? {} : { update: extra.update }),
     ...(extra.verbund === undefined ? {} : { verbund: extra.verbund }),
     ...(extra.netzwerk === undefined ? {} : { netzwerk: extra.netzwerk }),
@@ -968,3 +972,41 @@ test('Demo-Modus veraendert NICHTS ausser den Funktelegrammen', async (t) => {
   // Anwender, dass die TELEGRAMME simuliert sind.
   assert.equal(cfg['demo'], 1);
 });
+
+test('beide Handbücher liegen unter eigenen Pfaden — und verwechseln sich nicht',
+  async (t: TestContext) => {
+    // Der eigentliche Anlass: Auf der Zigbee-Seite stand der Hinweis auf das
+    // Zigbee-Handbuch, der Verweis darunter öffnete aber das grosse. Zwei
+    // Bücher an einer Route kann es deshalb nicht mehr geben.
+    const dir = await mkdtemp(join(tmpdir(), 'asksin-handbuch-'));
+    t.after(() => rm(dir, { recursive: true, force: true }));
+    await writeFile(join(dir, 'gross.pdf'), '%PDF-1.7 gross');
+    await writeFile(join(dir, 'zigbee.pdf'), '%PDF-1.7 zigbee');
+
+    const a = await aufbau(t, {
+      handbuecher: {
+        '/handbuch.pdf': { datei: join(dir, 'gross.pdf'), name: 'AskSin-Analyzer-Handbuch.pdf' },
+        '/handbuch-zigbee.pdf': { datei: join(dir, 'zigbee.pdf'), name: 'Zigbee-Mithoerer-Handbuch.pdf' },
+        '/handbuch-fehlt.pdf': { datei: join(dir, 'gibtsnicht.pdf'), name: 'Fehlt.pdf' },
+      },
+    });
+
+    const gross = await fetch(`${a.base}/handbuch.pdf`);
+    assert.equal(gross.status, 200);
+    assert.equal(gross.headers.get('content-type'), 'application/pdf');
+    assert.match(await gross.text(), /gross/);
+
+    const zigbee = await fetch(`${a.base}/handbuch-zigbee.pdf`);
+    assert.equal(zigbee.status, 200);
+    assert.match(await zigbee.text(), /zigbee/, 'nicht das grosse Handbuch');
+    assert.match(
+      zigbee.headers.get('content-disposition') ?? '', /Zigbee-Mithoerer-Handbuch\.pdf/,
+      'der Dateiname beim Speichern gehört zum Buch, nicht zur Route',
+    );
+
+    // Fehlt eine Datei, nennt die Antwort den Pfad — sonst sucht man im
+    // falschen Verzeichnis.
+    const fehlt = await fetch(`${a.base}/handbuch-fehlt.pdf`);
+    assert.equal(fehlt.status, 404);
+    assert.match(await fehlt.text(), /gibtsnicht\.pdf/);
+  });

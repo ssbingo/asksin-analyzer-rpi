@@ -1993,12 +1993,26 @@ const alarmzielHooks = {
 };
 
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
-// Das Handbuch liegt im Projekt, nicht im Web-UI-Verzeichnis; ausgeliefert
-// wird es über eine eigene Route, damit es auch ohne Internet erreichbar ist.
-const handbuchDatei = resolve(
-  import.meta.dirname,
-  '../../docs/handbuch/AskSin-Analyzer-Handbuch.pdf',
-);
+// Die Handbücher liegen im Projekt, nicht im Web-UI-Verzeichnis; ausgeliefert
+// werden sie über eigene Routen, damit sie auch ohne Internet erreichbar sind.
+//
+// Zwei Bücher mit zwei Lesern: Das grosse begleitet den Analyzer von der
+// Platine an, das Zigbee-Buch nur den Mithörer. Solange die Zigbee-Erweiterung
+// eigenständig gepflegt wird, bleibt es ein eigenes Buch; erst danach wandert
+// sein Inhalt als Kapitel in das grosse.
+const handbuecher: Record<string, { datei: string; name: string }> = {
+  '/handbuch.pdf': {
+    datei: resolve(import.meta.dirname, '../../docs/handbuch/AskSin-Analyzer-Handbuch.pdf'),
+    name: 'AskSin-Analyzer-Handbuch.pdf',
+  },
+  '/handbuch-zigbee.pdf': {
+    datei: resolve(
+      import.meta.dirname,
+      '../../projekt/zigbee-integration/handbuch/Zigbee-Mithoerer-Handbuch.pdf',
+    ),
+    name: 'Zigbee-Mithoerer-Handbuch.pdf',
+  },
+};
 // ---- Protokoll-Hooks fuer die Weboberflaeche ----------------------------
 
 const protokollHooks = {
@@ -2440,7 +2454,7 @@ const api = new ApiServer({
   config: { ccuip: konfig.ccu.host, demo: demoAktiv, standort },
   ...(konfig.http.authToken === '' ? {} : { authToken: konfig.http.authToken }),
   ...(existsSync(uiDir) ? { uiDir } : {}),
-  ...(existsSync(handbuchDatei) ? { handbuchDatei } : {}),
+  handbuecher,
   update: updateHooks,
   verbund: verbundHooks,
   netzwerk: netzwerkHooks,
@@ -2510,9 +2524,21 @@ const { host, port } = await api.listen(konfig.http.port, konfig.http.host).catc
   },
 );
 log(`AskSin-Analyzer ${paketVersion()} — API auf http://${host}:${port}`);
-if (existsSync(uiDir)) log(`Web-UI: ${uiDir}`);
-if (existsSync(handbuchDatei)) log('Handbuch: /handbuch.pdf');
-else log('Kein Web-UI gefunden (webui/dist fehlt) — nur API');
+// Das `else` hing bis zum 18.08.2026 am Handbuch statt am Web-UI: Lag das
+// Handbuch da, blieb die Meldung "Kein Web-UI gefunden" aus — und fehlte es,
+// stand sie da, obwohl das Web-UI vorhanden war. Aufgefallen ist es erst, als
+// aus dem einen Handbuch eine Schleife wurde und der Compiler sich meldete.
+if (existsSync(uiDir)) {
+  log(`Web-UI: ${uiDir}`);
+} else {
+  log('Kein Web-UI gefunden (webui/dist fehlt) — nur API');
+}
+for (const [route, buch] of Object.entries(handbuecher)) {
+  // Ein fehlendes Handbuch ist kein Fehler — die PDFs werden gebaut, nicht
+  // eingecheckt erzeugt. Nur soll niemand vergeblich auf den Knopf drücken,
+  // ohne dass es irgendwo steht.
+  log(existsSync(buch.datei) ? `Handbuch: ${route}` : `Handbuch fehlt: ${buch.datei}`);
+}
 
 // ---- Systemdiagnose im Takt (M13) ---------------------------------------
 //

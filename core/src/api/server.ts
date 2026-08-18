@@ -172,15 +172,19 @@ export interface ApiServerOptions {
   /** Verzeichnis des gebauten Web-UI (webui/dist). Ohne Angabe: kein UI. */
   uiDir?: string;
   /**
-   * Pfad zum Handbuch-PDF, ausgeliefert unter `/handbuch.pdf`.
+   * Die Handbücher, jeweils Route → Datei und Anzeigename.
    *
-   * Eigene Route statt Ablage im Web-UI-Verzeichnis: Das PDF liegt im Repo
-   * unter `docs/handbuch/` und soll dort auch bleiben — eine Kopie in
-   * `webui/dist` würde bei jedem Bau mitwandern und die Datei doppelt im
-   * Repository halten. Der Weg über eine Route hält das Handbuch zugleich
-   * **ohne Internet** erreichbar; das Gerät steht im Schrank.
+   * Eigene Routen statt Ablage im Web-UI-Verzeichnis: Die PDFs liegen im Repo
+   * (`docs/handbuch/` und `projekt/…/handbuch/`) und sollen dort auch bleiben —
+   * Kopien in `webui/dist` würden bei jedem Bau mitwandern und die Dateien
+   * doppelt im Repository halten. Der Weg über Routen hält die Handbücher
+   * zugleich **ohne Internet** erreichbar; das Gerät steht im Schrank.
+   *
+   * Als Liste und nicht als einzelnes Feld, seit es zwei sind: Das
+   * Zigbee-Handbuch ist ein eigenes Buch mit eigenem Leser, und wer auf der
+   * Zigbee-Seite steht, soll nicht das BidCoS-Handbuch angeboten bekommen.
    */
-  handbuchDatei?: string;
+  handbuecher?: Record<string, { datei: string; name: string }>;
   /** Update-Mechanik (liefert analyzerd). Ohne Hooks: 501 auf /api/update/*. */
   update?: UpdateHooks;
   /** Verbund-Rolle (M9.2/M9.3). Ohne: 501 auf /api/verbund*. */
@@ -670,24 +674,21 @@ export class ApiServer {
         res.end(inhalt);
         return;
       }
-      // Handbuch — eigener Pfad, damit es ohne Internet erreichbar ist.
-      if (pfad === '/handbuch.pdf') {
-        const datei =
-          this.#opts.handbuchDatei === undefined
-            ? null
-            : this.#leseDatei(this.#opts.handbuchDatei);
+      // Handbücher — eigene Pfade, damit sie ohne Internet erreichbar sind.
+      const buch = this.#opts.handbuecher?.[pfad];
+      if (buch !== undefined) {
+        const datei = this.#leseDatei(buch.datei);
         if (datei === null) {
           return this.#text(
             res,
             404,
-            'Handbuch nicht gefunden. Es liegt im Projekt unter ' +
-              'docs/handbuch/AskSin-Analyzer-Handbuch.pdf und steht auch bei ' +
-              'jedem Release auf GitHub bereit.',
+            `Handbuch nicht gefunden (${buch.name}). Es liegt im Projekt unter ` +
+              `${buch.datei} und steht auch bei jedem Release auf GitHub bereit.`,
           );
         }
         res.writeHead(200, {
           'Content-Type': 'application/pdf',
-          'Content-Disposition': 'inline; filename="AskSin-Analyzer-Handbuch.pdf"',
+          'Content-Disposition': `inline; filename="${buch.name}"`,
           'Cache-Control': 'no-cache',
         });
         res.end(datei);

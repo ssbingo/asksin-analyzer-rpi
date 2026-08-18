@@ -251,7 +251,13 @@ async function firmwareAufspielen(): Promise<void> {
     </div>
   </template>
 
-  <HandbuchFuss hinweis="Das Zigbee-Handbuch führt vom Auspacken des Sticks bis zur ersten Messung." />
+  <!-- haupt="zigbee": Wer hier steht, sucht das Zigbee-Buch. Bis zum
+       18.08.2026 stand hier der Hinweis auf das Zigbee-Handbuch — der
+       Verweis darunter öffnete aber das grosse. -->
+  <HandbuchFuss
+    haupt="zigbee"
+    hinweis="Kapitel 6 erklärt das Aufspielen der Firmware, Kapitel 8 die Zahlen, Kapitel 14 diese Seite."
+  />
 </template>
 
 <style scoped>
