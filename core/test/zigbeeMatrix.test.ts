@@ -175,3 +175,29 @@ test('mit zwei Standorten wird aus "vermisst" entweder still oder unerreichbar',
   assert.equal(mitKeller.zusammenfassung.nurEinStandort, 1,
     'und die Kopfzeile weist es als Einzelfund aus');
 });
+
+test('derselbe Standort zweimal ergibt EINE Spalte', () => {
+  // Der Master fuehrt sich ueblicherweise selbst als Gegenstelle (127.0.0.1).
+  // Steuert er zusaetzlich seine eigenen Geraete bei, kaeme der Standort
+  // doppelt an — und die Tabelle haette zwei gleichnamige Spalten, die
+  // niemand auseinanderhalten kann.
+  const m = baueZigbeeMatrix([
+    ort('Keller Büro', [geraet({ ieee: 'AAAA000000000001', name: 'A' })]),
+    ort('Keller Büro', [geraet({ ieee: 'AAAA000000000002', name: 'B' })]),
+    ort('Dachboden', [geraet({ ieee: 'AAAA000000000001', name: 'A' })]),
+  ]);
+  assert.deepEqual(m.standorte, ['Keller Büro', 'Dachboden']);
+  assert.equal(m.geraete.length, 2, 'beide Geräte, keine Dopplung');
+  const a = m.geraete.find((g) => g.name === 'A')!;
+  assert.equal(Object.keys(a.empfang).length, 2, 'an beiden Standorten gehört');
+});
+
+test('erreichbar schlägt unerreichbar, wenn ein Standort doppelt kommt', () => {
+  // Sonst entschiede die Reihenfolge darueber, ob eine Spalte Werte zeigt.
+  const m = baueZigbeeMatrix([
+    { standort: 'Keller Büro', erreichbar: false, geraete: [] },
+    ort('Keller Büro', [geraet()]),
+  ]);
+  assert.deepEqual(m.nichtErreichbar, [], 'nicht als unerreichbar geführt');
+  assert.equal(m.geraete[0]!.beste, 'Keller Büro');
+});

@@ -818,12 +818,22 @@ const verbundHooks = {
     // Die Standorte melden Adressen samt IEEE; die Namen hängt der Master an.
     // So liegt genau EIN deCONZ-Zugangstoken im Verbund statt fünf.
     const berichte = await verbund.zigbeeBerichte(stunden);
-    const eigene = zigbeeHooks.geraete(stunden) as Array<Record<string, unknown>>;
-    berichte.unshift({
-      standort,
-      erreichbar: zigbeeKonfig.aktiv,
-      geraete: eigene as never,
-    });
+
+    // Den eigenen Standort NUR dann ergänzen, wenn ihn nicht schon eine
+    // Gegenstelle liefert.
+    //
+    // Die Peer-Liste enthält den Master üblicherweise selbst (als
+    // http://127.0.0.1:8080) — der Installer trägt ihn dort ein, damit die
+    // Übersicht vollständig ist. Wer ihn hier blind voranstellt, bekommt eine
+    // Tabelle mit zwei gleichnamigen Spalten. Genau so ist es am 18.08.2026
+    // passiert: „Keller Büro | Keller Büro | Dachboden | Gartenhaus".
+    if (!berichte.some((b) => b.standort === standort)) {
+      berichte.unshift({
+        standort,
+        erreichbar: zigbeeKonfig.aktiv,
+        geraete: zigbeeHooks.geraete(stunden) as never,
+      });
+    }
     const soll = zigbeeNamen.alle().map((g) => ({ ieee: g.ieee, name: g.name }));
     const matrix = baueZigbeeMatrix(berichte, soll);
     // Namen nachtragen, wo die Standorte keine kannten.

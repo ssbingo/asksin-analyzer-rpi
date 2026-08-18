@@ -99,9 +99,26 @@ function mittel(summe: number, anzahl: number): number {
 }
 
 export function baueZigbeeMatrix(
-  berichte: readonly StandortBericht[],
+  eingang: readonly StandortBericht[],
   soll: readonly SollGeraet[] = [],
 ): ZigbeeMatrix {
+  // Gleichnamige Standorte zusammenfassen — zwei Spalten mit demselben Namen
+  // wären für den Leser nicht auseinanderzuhalten. Der Fall entsteht, wenn ein
+  // Master sich selbst als Gegenstelle führt (127.0.0.1) und zusätzlich seine
+  // eigenen Geräte beisteuert. Der Aufrufer soll das vermeiden; hier steht die
+  // zweite Verteidigungslinie, damit die Tabelle nie doppelt erscheint.
+  const zusammen = new Map<string, StandortBericht>();
+  for (const b of eingang) {
+    const vorhanden = zusammen.get(b.standort);
+    if (vorhanden === undefined) {
+      zusammen.set(b.standort, { ...b, geraete: [...b.geraete] });
+      continue;
+    }
+    // Erreichbar schlägt unerreichbar, und die Gerätelisten werden vereinigt.
+    vorhanden.erreichbar = vorhanden.erreichbar || b.erreichbar;
+    vorhanden.geraete.push(...b.geraete);
+  }
+  const berichte = [...zusammen.values()];
   const standorte = berichte.map((b) => b.standort);
   const nichtErreichbar = berichte.filter((b) => !b.erreichbar).map((b) => b.standort);
 
