@@ -2350,6 +2350,7 @@ const api = new ApiServer({
   netzwerk: netzwerkHooks,
   statusAnzeige: statusAnzeigeHooks,
   zigbee: zigbeeHooks,
+  rolle: () => aktuelleRolle().rolle,
   influx: influxHooks,
   langzeit: langzeitHooks,
   alarmziel: alarmzielHooks,

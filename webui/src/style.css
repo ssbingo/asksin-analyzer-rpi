@@ -50,7 +50,22 @@ nav.haupt a {
   border-radius: 6px;
   color: var(--muted);
   font-weight: 500;
+  /* Zweizeilige Beschriftungen (Telegramme/BidCoS, Verbund/Zigbee) stehen
+     neben einzeiligen. `flex-end` legt die Grundlinien der UNTEREN Zeile
+     aufeinander — sonst tanzen einzeilige Reiter gegenüber zweizeiligen. */
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  line-height: 1.15;
 }
+nav.haupt a .oben {
+  /* Die Kategorie ist die Nebensache: Zwei Reiter „Verbund" unterscheiden
+     sich in der zweiten Zeile, und genau die soll ins Auge fallen. */
+  font-size: 0.78em;
+  font-weight: 400;
+  opacity: 0.7;
+}
+nav.haupt a .unten { font-weight: 600; }
 nav.haupt a.router-link-active { color: var(--text); background: var(--panel2); }
 nav.haupt a:hover { color: var(--text); }
 

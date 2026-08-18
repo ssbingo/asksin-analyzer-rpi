@@ -15,6 +15,58 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — Navigation umgebaut: Rolle entscheidet, was sichtbar ist
+
+Vorgabe des Users, in vier Punkten:
+
+1. Verbund-Ansichten **nur auf dem Master** — ein Client liefert zu, er
+   verwaltet nicht.
+2. Der Block „weitere Analyzer verknüpfen" verschwindet auf Clients.
+3. Eigene Reiter für Zigbee, zweizeilig beschriftet.
+4. „Verbund" heißt jetzt „Verbund · BidCoS".
+
+### Die neue Leiste
+
+| Reiter | sichtbar wenn |
+| --- | --- |
+| Übersicht | immer |
+| Telegramme · BidCoS | immer |
+| Meldungen · Zigbee | Mithörer eingeschaltet |
+| Verbund · BidCoS | **Master** |
+| Verbund · Zigbee | **Master** und Mithörer |
+| Einstellungen | immer |
+| Einstellungen · Zigbee | Mithörer eingeschaltet |
+| Wartung, Info | immer |
+
+Die Rolle kommt über `/api/health` — dort, wo die Kopfzeile ohnehin im
+Sekundentakt nachfragt. Ein eigener Zweig nur für ein Wort wäre Verschwendung.
+
+**Der Router leitet Master-Pfade auf einem Client auf die Übersicht um.** Der
+Menüpunkt verschwindet zwar, aber ein Lesezeichen oder ein alter Link käme
+sonst auf einer Seite an, die nichts anzeigen kann. Solange die Rolle noch
+nicht feststeht (vor dem ersten health-Abruf) gilt „master" — lieber einmal
+zu viel zeigen, als den Master beim Laden auf seine eigene Übersicht zu werfen.
+
+### Entscheidungen, die der User getroffen hat
+
+* Direktaufruf auf dem Client → **wortlose Umleitung** statt Hinweisseite.
+* Verbund-Zigbee gibt es **auch dann nur auf dem Master**, wenn ein Client
+  einen Mithörer hat — dieselbe Regel wie bei BidCoS.
+* Die Zigbee-Einstellungen ziehen **vollständig** um; keine Doppelung.
+
+### Was der Umbau ans Licht brachte
+
+**`vue-tsc` prüft Templates nicht.** Beim Ausschneiden des Zigbee-Abschnitts
+aus `VerbundView.vue` blieben unbalancierte Tags stehen — die Typprüfung war
+grün, erst `vite build` meldete „Invalid end tag". Für Vue-Ansichten ist der
+**Bau** die Prüfung, nicht der Typcheck.
+
+Die Meldung des Zigbee-Einstellungstabs steht bewusst **oben in der eigenen
+Ansicht** statt in der Sammelmeldung der Hauptseite — dieselbe Falle wie beim
+Schlüsselknopf, wo ein erfolgreicher Vorgang wie „es passiert nichts" aussah.
+
+---
+
 ## 18.08.2026 — Die Empfangsmatrix steht (M16.7)
 
 Der eigentliche Ertrag des Vorhabens, fertig gebaut und geprüft — bevor der

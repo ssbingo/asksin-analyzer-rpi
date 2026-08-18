@@ -25,9 +25,6 @@ import {
   sendeStatusAnzeige,
   setzeAuthToken,
   testeCcu,
-  holeZigbee,
-  setzeZigbee,
-  zigbeeSchluesselAnfordern,
 } from '../api.ts';
 import type {
   Alarmkanal,
@@ -38,20 +35,13 @@ import type {
   NetzwerkZustand,
   VerbundPeerEintrag,
   CcuTestErgebnis,
-  ZigbeeZustand,
 } from '../api.ts';
+import { rolle } from '../zustand.ts';
 
 const standort = ref('');
-// Zigbee: nur der Schalter. Alles Weitere steht auf der eigenen Seite —
-// die ist aber erst erreichbar, wenn er an ist. Genau deshalb gehoert das
-// Einschalten hierher und nicht dorthin.
-const zigbee = ref<ZigbeeZustand | null>(null);
-const zigbeeFehlt = ref(false);
-const deconzHost = ref('');
 // Eigene Meldung fuer diesen Abschnitt. Die gemeinsame steht ganz oben
 // auf der Seite; wer unten auf einen Knopf drueckt, sieht sie nicht und
 // haelt das Ergebnis fuer "es passiert nichts".
-const zigbeeMeldung = ref<{ art: 'ok' | 'fehler'; text: string } | null>(null);
 const ccuip = ref('');
 
 // --- CCU-Verbindungstest ---------------------------------------------------
@@ -534,56 +524,9 @@ const demoUmschalten = (): Promise<void> | undefined => {
     },
   );
 };
-async function zigbeeLaden(): Promise<void> {
-  try {
-    zigbee.value = await holeZigbee();
-    if (deconzHost.value === '') deconzHost.value = zigbee.value.namen?.host ?? '';
-    zigbeeFehlt.value = false;
-  } catch (err) {
-    // 501 heisst: Dieser Core kennt Zigbee nicht (aeltere Fassung).
-    if (err instanceof Error && err.message.includes('501')) zigbeeFehlt.value = true;
-  }
-}
-void zigbeeLaden();
 
-async function schluesselHolen(): Promise<void> {
-  beschaeftigt.value = true;
-  zigbeeMeldung.value = null;
-  try {
-    const r = await zigbeeSchluesselAnfordern(deconzHost.value);
-    // Die Rueckmeldung von deCONZ ist die eigentliche Auskunft — auch und
-    // gerade, wenn das Anmeldefenster zu war oder der alte Schluessel
-    // stehenbleibt.
-    zigbeeMeldung.value = { art: r.ok ? 'ok' : 'fehler', text: r.meldung };
-  } catch (err) {
-    zigbeeMeldung.value = {
-      art: 'fehler', text: err instanceof Error ? err.message : String(err),
-    };
-  } finally {
-    beschaeftigt.value = false;
-  }
-  await zigbeeLaden();
-}
 
-async function deconzSpeichern(): Promise<void> {
-  await aktion('Namen-Anbindung gespeichert — Namen werden geholt', async () => {
-    await setzeZigbee({
-      deconzHost: deconzHost.value,
-    });
-  });
-  await zigbeeLaden();
-}
 
-async function zigbeeUmschalten(): Promise<void> {
-  const ziel = !(zigbee.value?.aktiv ?? false);
-  await aktion(
-    ziel
-      ? 'Zigbee eingeschaltet — wirkt nach dem Neustart des Dienstes'
-      : 'Zigbee ausgeschaltet — wirkt nach dem Neustart des Dienstes',
-    async () => { await setzeZigbee({ aktiv: ziel }); },
-  );
-  await zigbeeLaden();
-}
 
 </script>
 
@@ -701,11 +644,14 @@ async function zigbeeUmschalten(): Promise<void> {
     <button :disabled="beschaeftigt" @click="tokenSpeichern">Token speichern</button>
   </div>
 
-  <div class="panel">
+  <!-- Nur auf dem Master. Ein Client liefert zu, er verwaltet nicht — und
+       eingetragene Gegenstellen haetten dort keine Wirkung ausser Verwirrung:
+       Die Verbund-Ansichten gibt es auf einem Client gar nicht. -->
+  <div class="panel" v-if="rolle === 'master'">
     <h3 style="margin-top: 0">Verbund — weitere Analyzer verknüpfen</h3>
     <p style="margin-top: 0">
       Trage hier die anderen Analyzer des Hauses ein — dieser Analyzer zeigt
-      dann unter <RouterLink to="/verbund">Verbund</RouterLink> alle Standorte,
+      dann unter <RouterLink to="/verbund">Verbund · BidCoS</RouterLink> alle Standorte,
       die Empfangsmatrix und die zusammengeführte Telegrammliste. Auf den
       übrigen Analyzern ist nichts einzutragen.
     </p>
@@ -1202,66 +1148,6 @@ async function zigbeeUmschalten(): Promise<void> {
     <div class="fussnote">
       Beim Umschalten startet der Dienst neu. Die Simulation schreibt in eine
       eigene Demo-Datenbank; echte Aufzeichnungen bleiben unberührt.
-    </div>
-  </div>
-
-  <div class="panel" v-if="!zigbeeFehlt">
-    <h3 style="margin-top: 0">Zigbee-Mithörer</h3>
-    <p style="margin-top: 0">
-      Ein zweites Ohr auf 2,4 GHz — es braucht einen eigenen USB-Stick mit
-      Sniffer-Firmware. Der Analyzer tritt dem Zigbee-Netz nicht bei, er hört
-      nur zu; Inhalte bleiben verschlüsselt.
-      Zustand: <strong :class="zigbee?.aktiv ? 'mittel' : 'gedimmt'">
-        {{ zigbee?.aktiv ? 'eingeschaltet' : 'aus' }}</strong>
-      <template v-if="zigbee?.aktiv">
-        —
-        <strong :class="zigbee.verbunden ? 'gut' : 'fehler'">
-          {{ zigbee.verbunden ? 'Stick antwortet' : 'Stick antwortet nicht' }}</strong>
-      </template>
-    </p>
-    <button :disabled="beschaeftigt" @click="zigbeeUmschalten">
-      {{ zigbee?.aktiv ? 'Zigbee ausschalten …' : 'Zigbee einschalten …' }}
-    </button>
-    <div class="fussnote">
-      Das Ein- und Ausschalten wirkt nach einem Neustart des Dienstes. Danach
-      erscheint der Menüpunkt <strong>Zigbee</strong> mit Geräten, Empfangsgüte
-      und laufenden Paketen.
-    </div>
-
-    <h4 style="margin-bottom: .3rem">Gerätenamen aus deCONZ</h4>
-    <p class="fussnote" style="margin-top: 0">
-      Der Mithörer sieht nur Kurzadressen wie <code>0x837E</code>. deCONZ kennt
-      die Namen — die Verbindung entsteht über die IEEE-Adresse, die der
-      Analyzer aus den Funkpaketen selbst lernt. Ohne diese Angaben bleibt
-      alles anonym, aber messbar.
-    </p>
-    <label class="feld">
-      <span class="name">deCONZ-Rechner (IP oder Hostname, ggf. mit :Port)</span>
-      <input type="text" v-model="deconzHost" placeholder="z. B. 192.168.1.60" />
-    </label>
-    <p class="fussnote" style="margin-top: .6rem">
-      <strong>Den Schlüssel holt sich der Analyzer selbst.</strong> deCONZ zeigt
-      bestehende Schlüssel nie an — es vergibt nur neue, und nur während des
-      Anmeldefensters. Also:
-    </p>
-    <ol class="fussnote" style="margin: 0 0 .6rem 1.2rem">
-      <li>In Phoscon: <em>Einstellungen → Gateway → Erweitert →
-        „App authentifizieren"</em></li>
-      <li>Innerhalb einer Minute hier auf <em>Schlüssel anfordern</em> klicken</li>
-    </ol>
-    <div class="zeile">
-      <button class="primaer" :disabled="beschaeftigt" @click="schluesselHolen">
-        Schlüssel anfordern
-      </button>
-      <button :disabled="beschaeftigt" @click="deconzSpeichern">
-        Nur Rechner speichern
-      </button>
-    </div>
-    <div class="meldung" v-if="zigbeeMeldung" :class="zigbeeMeldung.art"
-         style="margin-top: .6rem">{{ zigbeeMeldung.text }}</div>
-    <div class="fussnote" v-if="zigbee?.namen?.aktiv">
-      Ein Schlüssel ist hinterlegt. Ein neuer ersetzt ihn und widerruft den
-      alten bei deCONZ.
     </div>
   </div>
 

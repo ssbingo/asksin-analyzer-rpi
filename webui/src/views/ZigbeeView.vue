@@ -4,7 +4,6 @@ import {
   holeZigbee,
   holeZigbeeGeraete,
   holeZigbeePakete,
-  setzeZigbee,
 } from '../api.ts';
 import type {
   ZigbeeGeraet, ZigbeePaket, ZigbeeVermisst, ZigbeeZustand,
@@ -19,7 +18,6 @@ const pakete = ref<ZigbeePaket[]>([]);
 const gekuerzt = ref(false);
 const stunden = ref(24);
 const nichtVorhanden = ref(false);
-const meldung = ref('');
 const jetzt = ref(Date.now());
 
 /** Rahmenarten, wie sie im FCF stehen. */
@@ -85,27 +83,7 @@ const fremde = computed(() => geraete.value.filter((g) => g.pan !== eigenesNetz.
 const grenzwertig = computed(() =>
   eigene.value.filter((g) => bewertung(g).klasse === 'schlecht').length);
 
-async function kanalSetzen(neu: number): Promise<void> {
-  meldung.value = '';
-  try {
-    const a = await setzeZigbee({ kanal: neu });
-    meldung.value = `Kanal ${a.kanal} eingestellt.`;
-  } catch (err) {
-    meldung.value = err instanceof Error ? err.message : String(err);
-  }
-}
 
-async function umschalten(): Promise<void> {
-  meldung.value = '';
-  try {
-    const a = await setzeZigbee({ aktiv: !(zustand.value?.aktiv ?? false) });
-    meldung.value = a.neustartNoetig
-      ? `Zigbee ${a.aktiv ? 'eingeschaltet' : 'ausgeschaltet'} — wirkt nach dem Neustart des Dienstes.`
-      : `Zigbee ${a.aktiv ? 'eingeschaltet' : 'ausgeschaltet'}.`;
-  } catch (err) {
-    meldung.value = err instanceof Error ? err.message : String(err);
-  }
-}
 
 function hex(n: number | null): string {
   return n === null ? '—' : `0x${n.toString(16).toUpperCase().padStart(4, '0')}`;
@@ -114,7 +92,7 @@ function hex(n: number | null): string {
 
 <template>
   <section v-if="nichtVorhanden" class="karte">
-    <h2>Zigbee</h2>
+    <h2>Meldungen · Zigbee</h2>
     <p>
       Dieser Analyzer hat keinen Zigbee-Mithörer. Er braucht einen eigenen
       USB-Stick; die Einrichtung steht im Handbuch.
@@ -123,7 +101,7 @@ function hex(n: number | null): string {
 
   <template v-else-if="zustand">
     <section class="karte">
-      <h2>Zigbee-Mithörer</h2>
+      <h2>Meldungen · Zigbee</h2>
 
       <p v-if="!zustand.aktiv" class="hinweis">
         Ausgeschaltet. Solange er aus ist, wird nichts aufgezeichnet.
@@ -142,13 +120,7 @@ function hex(n: number | null): string {
             <span v-if="zustand.verbundenSeit" class="leise">
               seit {{ uhrzeit(zustand.verbundenSeit) }}</span>
           </td></tr>
-          <tr><th>Kanal</th><td>
-            {{ zustand.kanal }}
-            <button v-if="zustand.kanal > 11" class="klein"
-                    @click="kanalSetzen(zustand.kanal - 1)">−</button>
-            <button v-if="zustand.kanal < 26" class="klein"
-                    @click="kanalSetzen(zustand.kanal + 1)">+</button>
-          </td></tr>
+          <tr><th>Kanal</th><td>{{ zustand.kanal }}</td></tr>
           <tr><th>Pakete gelesen</th><td>{{ zustand.pakete.toLocaleString('de') }}</td></tr>
           <tr><th>davon gespeichert</th><td>
             {{ zustand.gespeichert.toLocaleString('de') }}
@@ -170,11 +142,9 @@ function hex(n: number | null): string {
         </tbody>
       </table>
 
-      <p>
-        <button @click="umschalten">
-          {{ zustand.aktiv ? 'Ausschalten' : 'Einschalten' }}
-        </button>
-        <span v-if="meldung" class="meldung">{{ meldung }}</span>
+      <p class="leise">
+        Einschalten, Kanal und die Namensanbindung stehen unter
+        <strong>Einstellungen · Zigbee</strong>.
       </p>
     </section>
 

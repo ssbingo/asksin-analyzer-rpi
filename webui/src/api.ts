@@ -117,6 +117,8 @@ export interface Health {
   sniffer?: SnifferZustand;
   /** Läuft ein Zigbee-Mithörer? Steuert den Menüpunkt. */
   zigbee?: boolean;
+  /** Rolle im Verbund — Verbund-Ansichten gibt es nur auf dem Master. */
+  rolle?: 'master' | 'client';
 }
 
 /** Auskunft der Firmware auf `:?;` — nur bei der erweiterten Fassung. */

@@ -129,6 +129,14 @@ export interface ApiServerOptions {
   devList?: DevListService;
   /** Semver des Core — wird zu `version_upper`/`version_lower`. */
   version?: string;
+  /**
+   * Rolle im Verbund für `/api/health`.
+   *
+   * Die Oberfläche blendet daran die Verbund-Tabs ein oder aus. Sie gehört in
+   * health und nicht in einen eigenen Zweig: Die Kopfzeile holt health ohnehin
+   * im Sekundentakt, und ein zweiter Abruf nur für ein Wort wäre Verschwendung.
+   */
+  rolle?: () => 'master' | 'client';
   config?: ApiConfig;
   /** Wenn gesetzt: Pflicht-Bearer-Token für alle verändernden Endpunkte. */
   authToken?: string;
@@ -1185,6 +1193,7 @@ export class ApiServer {
       // Analyzer ohne Mithoerer soll den Punkt gar nicht erst sehen.
       zigbee: this.#opts.zigbee !== undefined
         && this.#opts.zigbee.zustand()['aktiv'] === true,
+      rolle: this.#opts.rolle?.() ?? 'master',
     };
   }
 

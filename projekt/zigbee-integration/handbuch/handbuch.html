@@ -1204,26 +1204,29 @@ done</pre>
 
   <h3>14.1 Einschalten</h3>
   <p>
-    <em>Einstellungen → Zigbee-Mithörer → Zigbee einschalten.</em> Das wirkt
-    nach einem Neustart des Dienstes; danach erscheint oben der neue
-    Menüpunkt <strong>Zigbee</strong>.
+    <em>Einstellungen · Zigbee → Zigbee einschalten.</em> Das wirkt
+    nach einem Neustart des Dienstes; danach erscheinen oben die neuen
+    Menüpunkte <strong>Meldungen · Zigbee</strong> und —
+    auf dem Master des Verbunds — <strong>Verbund · Zigbee</strong>.
   </p>
   <div class="kasten">
     <div class="titel">Warum der Schalter in den Einstellungen sitzt</div>
     <p style="margin-bottom:0">
-      Der Menüpunkt <strong>Zigbee</strong> erscheint nur, wenn der Mithörer
-      eingeschaltet ist — ein Analyzer ohne Stick soll keinen toten Eintrag
-      zeigen. Läge der Schalter auf dieser Seite, käme man nach dem
-      Ausschalten nicht mehr an ihn heran.
+      Die Zigbee-Menüpunkte erscheinen nur, wenn der Mithörer eingeschaltet
+      ist — ein Analyzer ohne Stick soll keine toten Einträge zeigen. Läge der
+      Schalter dort, käme man nach dem Ausschalten nicht mehr an ihn heran.
+      Deshalb steht er unter <strong>Einstellungen · Zigbee</strong>, und dieser
+      Reiter bleibt sichtbar.
     </p>
   </div>
 
-  <h3>14.2 Was die Zigbee-Seite zeigt</h3>
+  <h3>14.2 Was „Meldungen · Zigbee“ zeigt</h3>
   <table>
     <tr><th style="width:32%">Abschnitt</th><th>Antwortet auf</th></tr>
     <tr><td><strong>Zustand</strong></td><td>Hört er? Auf welchem Kanal? Seit wann? Wie viele Pakete, wie viele verworfen?</td></tr>
     <tr><td><strong>Geräte</strong></td><td>Wer sendet, wie stark, wie sauber — und was davon <strong>grenzwertig</strong> ist</td></tr>
     <tr><td><strong>Fremde Netze</strong></td><td>Nachbarn auf demselben Kanal. Nicht deine Geräte, aber sie belegen deinen Empfang mit</td></tr>
+    <tr><td><strong>Nicht gehört</strong></td><td>Geräte aus deCONZ, die dieser Standort nie gehört hat — mit einem Standort noch kein Beweis für einen Defekt</td></tr>
     <tr><td><strong>Pakete</strong></td><td>die laufende Liste der letzten zehn Minuten</td></tr>
   </table>
   <p>
@@ -1241,7 +1244,7 @@ done</pre>
     Zigbee überträgt die IEEE-Adresse des Absenders im Paketkopf
     <strong>unverschlüsselt</strong> mit, in rund der Hälfte aller Datenrahmen.
   </p>
-  <p>Zwei Schritte, beide in <em>Einstellungen → Zigbee-Mithörer</em>:</p>
+  <p>Zwei Schritte, beide unter <em>Einstellungen · Zigbee</em>:</p>
   <ol class="schritte">
     <li><span class="was">deCONZ-Rechner eintragen</span> — IP oder Hostname, bei Bedarf mit <code>:Port</code>.</li>
     <li>

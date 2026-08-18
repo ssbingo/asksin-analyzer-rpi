@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { holeHealth } from './api.ts';
+import { rolle, zigbeeAktiv } from './zustand.ts';
 import { nutzeTakt } from './takt.ts';
 
 const verbunden = ref(false);
@@ -8,7 +9,7 @@ const erreichbar = ref(false);
 const demo = ref(false);
 const updateVerfuegbar = ref(false);
 const standort = ref('');
-const zigbee = ref(false);
+
 
 nutzeTakt(async () => {
   try {
@@ -17,7 +18,8 @@ nutzeTakt(async () => {
     verbunden.value = h.connected;
     demo.value = h.demo;
     updateVerfuegbar.value = h.updateVerfuegbar === true;
-    zigbee.value = h.zigbee === true;
+    zigbeeAktiv.value = h.zigbee === true;
+    rolle.value = h.rolle ?? 'master';
     if (h.standort !== standort.value) {
       standort.value = h.standort;
       // Browser-Tabs mehrerer Analyzer bleiben so unterscheidbar:
@@ -40,12 +42,17 @@ nutzeTakt(async () => {
     </span>
     <nav class="haupt">
       <RouterLink to="/home">Übersicht</RouterLink>
-      <RouterLink to="/list">Telegramme</RouterLink>
-      <RouterLink to="/verbund">Verbund</RouterLink>
-      <!-- Nur wenn eingeschaltet: Vier von fünf Analyzern haben keinen
-           Mithörer, und ein toter Menüpunkt ist schlechter als keiner. -->
-      <RouterLink v-if="zigbee" to="/zigbee">Zigbee</RouterLink>
+      <RouterLink to="/list"><span class="oben">Telegramme</span><span class="unten">BidCoS</span></RouterLink>
+      <!-- Nur wenn ein Mithörer läuft: Vier von fünf Analyzern haben keinen,
+           und ein toter Menüpunkt ist schlechter als keiner. -->
+      <RouterLink v-if="zigbeeAktiv" to="/zigbee"><span class="oben">Meldungen</span><span class="unten">Zigbee</span></RouterLink>
+      <!-- Verbund-Ansichten gibt es nur auf dem Master. Ein Client liefert zu,
+           er verwaltet nicht — und ein Tab, der nur erklärt, warum er leer ist,
+           ist kein Tab. -->
+      <RouterLink v-if="rolle === 'master'" to="/verbund"><span class="oben">Verbund</span><span class="unten">BidCoS</span></RouterLink>
+      <RouterLink v-if="rolle === 'master' && zigbeeAktiv" to="/verbund-zigbee"><span class="oben">Verbund</span><span class="unten">Zigbee</span></RouterLink>
       <RouterLink to="/settings">Einstellungen</RouterLink>
+      <RouterLink v-if="zigbeeAktiv" to="/settings-zigbee"><span class="oben">Einstellungen</span><span class="unten">Zigbee</span></RouterLink>
       <RouterLink to="/wartung">Wartung</RouterLink>
       <RouterLink to="/info">Info</RouterLink>
     </nav>
