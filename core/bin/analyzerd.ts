@@ -1441,6 +1441,8 @@ function zigbeeFuerInflux(): NonNullable<InfluxDaten['zigbee']> {
     return {
       addr: g['addr'] as string,
       ieee: typeof g['ieee'] === 'string' ? g['ieee'] : null,
+      // Leerer Name ist zulaessig — baueZeilen() setzt dafuer die Kurzadresse
+      // ein, damit das Etikett nie leer bleibt (siehe dort).
       name: typeof g['name'] === 'string' ? g['name'] : '',
       pan: `${(g['pan'] as number).toString(16).toUpperCase().padStart(4, '0')}`,
       pakete,

@@ -422,6 +422,34 @@ def nie_gehoert() -> None:
     schreibe("nie-gehoert", i)
 
 
+def zigbee() -> None:
+    """Die Zigbee-Ansicht: Empfangsguete auf 2,4 GHz statt nur 'erreichbar'."""
+    i = kopf("Zigbee-Mithörer")
+    i += kennzahl(24, 70, 228, 96, "Geräte gehört", "34", PETROL, 1)
+    i += kennzahl(268, 70, 228, 96, "Grenzwertig", "4", GELB, 2)
+    i += kennzahl(512, 70, 228, 96, "Nie gehört", "1", ROT, 3)
+    i += kennzahl(756, 70, 220, 96, "Fremde Netze", "2", MATT, 4)
+
+    i += rahmen(24, 186, 470, 210, "Empfangsstärke je Gerät (dBm)", 5)
+    for n, saat in enumerate((11, 29, 47)):
+        i += kurve(44, 212, 430, 170, saat, farbe=(PETROL, GRUEN, GELB)[n])
+
+    i += rahmen(506, 186, 470, 210, "Anteil schwach empfangener Pakete", 6)
+    i += band(526, 300, 430, 40, [(0.62, GRUEN), (0.22, GELB), (0.16, ROT)])
+    i += (f'<text x="526" y="368" font-family="DejaVu Sans, sans-serif" '
+          f'font-size="11" fill="{MATT}">LQI bricht unter etwa −87 dBm ein — '
+          f'die Kante ist gemessen, nicht geschätzt</text>')
+
+    i += rahmen(24, 412, 952, 184, "Geräte je Standort — schwächster zuerst", 7)
+    i += zeilen(44, 438, 912, [
+        ("LED − Terrasse oben 04", "−89 dBm · LQI 6", ROT),
+        ("LED − Terrasse unten 03", "−88 dBm · LQI 28", ROT),
+        ("LED − Garten Weg 04", "−84 dBm · LQI 253", GELB),
+        ("Router − Zwischenstecker Garage", "−61 dBm · LQI 255", GRUEN),
+    ])
+    schreibe("zigbee", i)
+
+
 def uebersicht() -> None:
     """Der Ordner in Grafana, damit man weiss, wo man klicken muss."""
     i = (f'<rect width="{BREITE}" height="{HOEHE}" fill="{GRUND}"/>'
@@ -440,12 +468,14 @@ def uebersicht() -> None:
         ("Verbund-Vergleich", "Die Funkloch-Karte"),
         ("Gerätezustand", "Wie geht es den Analyzern?"),
         ("Verschollene Geräte", "Wen hört niemand?"),
+        ("Zigbee-Mithörer", "Empfangsgüte auf 2,4 GHz"),
     ]
-    # Neun Eintraege statt acht: der Zeilenabstand wird enger, damit das Bild
-    # dieselbe Hoehe behaelt wie die uebrigen acht Abbildungen. Sonst faellt
-    # es im Handbuch aus der Reihe.
+    # Der Zeilenabstand richtet sich nach der Anzahl, damit das Bild dieselbe
+    # Hoehe behaelt wie die uebrigen Abbildungen. Sonst faellt es im Handbuch
+    # aus der Reihe — beim neunten Eintrag ist das schon einmal passiert.
+    abstand = min(55, (HOEHE - 130) // max(len(eintraege), 1))
     for k, (name, zweck) in enumerate(eintraege):
-        y = 104 + k * 55
+        y = 104 + k * abstand
         i += (f'<rect x="40" y="{y}" width="920" height="44" rx="6" fill="{PANEL}" '
               f'stroke="{RAHMEN}"/>'
               f'<text x="62" y="{y+29}" font-family="DejaVu Sans, sans-serif" '
@@ -458,6 +488,7 @@ def uebersicht() -> None:
 
 if __name__ == "__main__":
     for bauen in (uebersicht, leitstand, funkqualitaet, dutycycle, geraetedetail,
-                  stoerungen, batterie, verbund, geraetezustand, nie_gehoert):
+                  stoerungen, batterie, verbund, geraetezustand, nie_gehoert,
+                zigbee):
         bauen()
     print(f"\n10 Vorschauen in {HIER}")

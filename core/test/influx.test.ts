@@ -203,3 +203,18 @@ test('ohne Zigbee fehlen die Messreihen ganz, statt Nullen zu behaupten', () => 
   const zeilen = baueZeilen({ ...DATEN, standort: 'Keller' }, 1_700_000_000_000);
   assert.equal(zeilen.filter((z) => z.startsWith('zigbee_')).length, 0);
 });
+
+test('ein leerer Geraetename wird zur Kurzadresse, nie zu einem leeren Etikett', () => {
+  // InfluxDB verwirft Etiketten mit leerem Wert vollstaendig. Die Spalte fehlt
+  // dann fuer genau diese Reihen, und jede Abfrage, die sie benutzt, scheitert.
+  const zeilen = baueZeilen({
+    ...DATEN,
+    standort: 'Dachboden',
+    zigbee: [{
+      addr: '666D', ieee: null, name: '', pan: 'BEEF',
+      pakete: 10, rssi: -89, lqi: 10, schwachProzent: 100, eigenesNetz: false,
+    }],
+  }, 1_700_000_000_000);
+  const zeile = zeilen.find((z) => z.startsWith('zigbee_geraet'))!;
+  assert.match(zeile, /name=0x666D/, 'Kurzadresse statt leerem Namen');
+});

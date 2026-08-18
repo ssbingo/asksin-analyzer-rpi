@@ -1,0 +1,270 @@
+{
+  "uid": "asksin-zigbee",
+  "title": "AskSin — Zigbee-Mithörer",
+  "description": "Empfangsgüte im Zigbee-Netz. Der Analyzer hört passiv mit; Inhalte bleiben verschlüsselt. Gemessen wird, WIE GUT ein Gerät ankommt — nicht nur, OB es erreichbar ist. Genau das kann der Koordinator nicht liefern.",
+  "tags": [
+    "asksin",
+    "AskSin-Analyzer",
+    "zigbee"
+  ],
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "5m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "bucket",
+        "label": "Bucket",
+        "type": "constant",
+        "query": "asksin",
+        "current": {
+          "text": "asksin",
+          "value": "asksin"
+        },
+        "hide": 2
+      },
+      {
+        "name": "standort",
+        "label": "Standort",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "asksin-influx"
+        },
+        "multi": true,
+        "includeAll": true,
+        "refresh": 1,
+        "query": {
+          "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"asksin\", tag: \"standort\")"
+        },
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": []
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "Geräte gehört",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zigbee_geraet\" and r._field == \"pakete\")\n  |> filter(fn: (r) => r.eigenesNetz == \"true\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group(columns: [\"ieee\"])\n  |> last()\n  |> group()\n  |> count()"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Davon grenzwertig",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zigbee_geraet\" and r._field == \"lqi\")\n  |> filter(fn: (r) => r.eigenesNetz == \"true\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group(columns: [\"ieee\"])\n  |> last()\n  |> group()\n  |> filter(fn: (r) => r._value < 50)\n  |> count()"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Nie gehört",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zigbee_liste\" and r._field == \"jeGehoert\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group(columns: [\"ieee\"])\n  |> max()\n  |> group()\n  |> filter(fn: (r) => r._value == 0)\n  |> count()"
+        }
+      ],
+      "description": "Geräte aus der Zigbee-Steuerung, die KEIN Standort gehört hat. Bei nur einem Standort heißt das noch nicht 'defekt' — es kann auch außerhalb der Reichweite liegen. Erst mit zwei Standorten trennen sich die Fälle.",
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Fremde Netze in Hörweite",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zigbee_geraet\" and r._field == \"pakete\")\n  |> filter(fn: (r) => r.eigenesNetz == \"false\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group(columns: [\"pan\"])\n  |> last()\n  |> group()\n  |> count()"
+        }
+      ],
+      "description": "Nachbarnetze auf demselben Kanal. Nicht deine Geräte — aber sie belegen deinen Empfang mit."
+    },
+    {
+      "type": "timeseries",
+      "title": "Empfangsstärke je Gerät (dBm)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zigbee_geraet\" and r._field == \"rssi\")\n  |> filter(fn: (r) => r.eigenesNetz == \"true\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"name\", \"standort\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dBm",
+          "custom": {
+            "lineWidth": 1
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": -88
+              },
+              {
+                "color": "green",
+                "value": -80
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Anteil schwach empfangener Pakete (%)",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zigbee_geraet\" and r._field == \"schwachProzent\")\n  |> filter(fn: (r) => r.eigenesNetz == \"true\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"name\", \"standort\"])"
+        }
+      ],
+      "description": "Anteil der Pakete mit LQI unter 50. Die Schwelle ist gemessen, nicht geschätzt: An 47 827 Paketen bricht LQI unterhalb von etwa −87 dBm als Kante ein — darüber 77 bis 255, darunter 0 bis 20.",
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "max": 100,
+          "min": 0
+        }
+      }
+    },
+    {
+      "type": "table",
+      "title": "Geräte je Standort",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"zigbee_geraet\")\n  |> filter(fn: (r) => r._field == \"rssi\" or r._field == \"lqi\" or r._field == \"pakete\")\n  |> filter(fn: (r) => r.eigenesNetz == \"true\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> last()\n  // Aeltere Zeilen tragen kein Namensetikett: InfluxDB verwirft leere Etiketten,\n  // und bis zum 18.08.2026 wurde fuer namenlose Geraete ein leerer Name\n  // geschrieben. Ohne diese Zeile scheitert das Pivot an genau diesen Reihen.\n  |> map(fn: (r) => ({ r with name: if exists r.name then r.name else \"0x\" + r.addr }))\n  |> keep(columns: [\"standort\", \"name\", \"addr\", \"_field\", \"_value\"])\n  |> pivot(rowKey: [\"standort\", \"name\", \"addr\"], columnKey: [\"_field\"], valueColumn: \"_value\")\n  |> group()\n  |> sort(columns: [\"rssi\"])"
+        }
+      ],
+      "description": "Sortiert nach Empfangsstärke — was oben steht, hat es am schwersten."
+    }
+  ]
+}

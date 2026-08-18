@@ -222,7 +222,15 @@ export function baueZeilen(daten: InfluxDaten, tsMs: number): string[] {
           // Die IEEE-Adresse ist die einzige Kennung, die einen Neuanmeldevorgang
           // ueberlebt. Fehlt sie, wird sie weggelassen statt erfunden.
           ...(z.ieee === null ? {} : { ieee: z.ieee }),
-          name: z.name,
+          // Ohne Namen die Kurzadresse — niemals eine leere Zeichenkette.
+          //
+          // `zeile()` laesst leere Etiketten weg (so will es das Line-Protokoll).
+          // Die Spalte fehlt dann fuer genau die Reihen ohne Namen, und jede
+          // Abfrage, die nach ihr gruppiert oder pivotiert, scheitert mit
+          // "specified row key column does not exist in table". Am 18.08.2026
+          // genau so passiert — gefunden beim Pruefen der Grafana-Abfragen
+          // gegen echte Daten, nicht durch Nachdenken.
+          name: z.name !== '' ? z.name : `0x${z.addr}`,
           pan: z.pan,
           eigenesNetz: String(z.eigenesNetz),
         },

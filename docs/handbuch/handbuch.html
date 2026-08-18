@@ -2860,24 +2860,24 @@ der fertige Verweis; ein Klick genügt.</p>
 </ol>
 
 <figure>
-  <img src="img/grafana/uebersicht.svg" alt="Der Ordner AskSin-Analyzer mit neun Ansichten">
-  <figcaption>So sieht der Ordner aus. Die neun Ansichten sind bereits
+  <img src="img/grafana/uebersicht.svg" alt="Der Ordner AskSin-Analyzer mit zehn Ansichten">
+  <figcaption>So sieht der Ordner aus. Die zehn Ansichten sind bereits
   eingerichtet — es muss nichts konfiguriert, verbunden oder importiert
   werden.</figcaption>
 </figure>
 
 <p><strong>Warum dort schon etwas steht:</strong> Normalerweise beginnt man in
 Grafana mit einer leeren Seite und baut jede Kurve selbst. Genau daran
-scheitern die meisten. Deshalb bringt der Analyzer die neun Ansichten fertig
+scheitern die meisten. Deshalb bringt der Analyzer die zehn Ansichten fertig
 mit, samt Verbindung zur Datenbank.</p>
 
-<p class="klein">Diese neun Ansichten werden bei jedem Grafana-Start neu
+<p class="klein">Diese zehn Ansichten werden bei jedem Grafana-Start neu
 eingelesen. Ändert man eine im Browser und speichert, ist die Änderung beim
 nächsten Neustart wieder weg — sonst liessen sie sich nicht mit dem Projekt
 aktualisieren. Für Eigenes legt man ein neues Dashboard
 <strong>ausserhalb</strong> dieses Ordners an; das bleibt unangetastet.</p>
 
-<h2 id="k19-8">19.8 Die neun Ansichten im Einzelnen</h2>
+<h2 id="k19-8">19.8 Die zehn Ansichten im Einzelnen</h2>
 
 <p>Jede Ansicht beantwortet eine bestimmte Frage. Wer weiß, welche Frage er
 hat, findet damit sofort die richtige Seite. Die Zahlen in den Bildern
@@ -3076,6 +3076,43 @@ streng genommen heißt die Zahl also „nicht im aufbewahrten Zeitraum“. Ein
 Gerät, das erst gestern angelernt wurde, taucht hier ebenso auf wie eines, das
 vor zwei Jahren ausgebaut und nie aus der Zentrale genommen wurde. Die Liste
 ist ein Ausgangspunkt zum Nachsehen, kein Urteil.</p>
+
+<h3 id="zigbee-mitho-rer-empfangsgu-te-statt-erreichbar">Zigbee-Mithörer — Empfangsgüte statt „erreichbar“</h3>
+
+<figure>
+  <img src="img/grafana/zigbee.svg" alt="Ansicht Zigbee-Mithörer">
+  <figcaption>Das zweite Ohr auf 2,4 GHz: nicht ob ein Gerät antwortet, sondern mit wie viel Reserve.</figcaption>
+</figure>
+
+<table>
+<tr><th>Nr.</th><th>Was dort steht</th></tr>
+<tr><td>1</td><td>Geräte des eigenen Netzes, die im Zeitraum gehört wurden.</td></tr>
+<tr><td>2</td><td>Davon grenzwertig: Verbindungsgüte (LQI) unter 50. Diese Geräte funktionieren heute noch, aber ohne Reserve.</td></tr>
+<tr><td>3</td><td>Geräte aus der Zigbee-Steuerung, die <strong>kein</strong> Standort gehört hat.</td></tr>
+<tr><td>4</td><td>Fremde Netze auf demselben Kanal — nicht Deine Geräte, aber sie belegen den Empfang mit.</td></tr>
+<tr><td>5</td><td>Empfangsstärke je Gerät über die Zeit. Die Farbschwelle liegt bei −80 und −88 dBm.</td></tr>
+<tr><td>6</td><td>Anteil schwach empfangener Pakete. Steigt er, ohne dass die Empfangsstärke fällt, kommt eine Störquelle dazu.</td></tr>
+<tr><td>7</td><td>Alle Geräte je Standort, <strong>schwächster zuerst</strong> — die Arbeitsliste.</td></tr>
+</table>
+
+<p><strong>Warum diese Ansicht überhaupt nötig ist.</strong> Die Zigbee-Zentrale
+sagt Dir, ob ein Gerät <em>erreichbar</em> ist. Sie kann Dir nicht sagen, mit
+wie viel Reserve — dafür müsste sie mithören, und genau das kann ein
+Koordinator nicht, während er sein Netz verwaltet. Ein Gerät bei −88 dBm und
+eines bei −52 dBm sind für sie beide „erreichbar“. Das eine fällt beim
+nächsten feuchten Sommer aus, das andere nicht.</p>
+
+<div class="hinweis box"><span class="titel">Die LQI-Schwelle ist gemessen, nicht geschätzt</span>
+An 47 827 Paketen einer Stunde bricht die Verbindungsgüte unterhalb von etwa
+−87 dBm als <em>Kante</em> ein: darüber Werte von 77 bis 255, darunter 0 bis 20.
+Dazwischen liegt fast nichts. Deshalb steht die Grenze bei 50 und nicht bei
+einem runden Wert.</div>
+
+<p><strong>Ein „nie gehört“ bedeutet mit einem einzigen Standort noch
+nichts.</strong> Es kann heißen, dass das Gerät still ist — oder dass es
+außerhalb der Reichweite dieses einen Analyzers liegt. Diese beiden Fälle
+trennt erst ein zweiter Mithörer an einem anderen Ort; die Empfangsmatrix im
+Verbund-Tab zeigt es dann Zeile für Zeile.</p>
 
 <h2 class="umbruch" id="k19-9">19.9 Alarme: wohin sie melden sollen</h2>
 
