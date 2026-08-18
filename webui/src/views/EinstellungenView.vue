@@ -1260,9 +1260,8 @@ async function zigbeeUmschalten(): Promise<void> {
     <div class="meldung" v-if="zigbeeMeldung" :class="zigbeeMeldung.art"
          style="margin-top: .6rem">{{ zigbeeMeldung.text }}</div>
     <div class="fussnote" v-if="zigbee?.namen?.aktiv">
-      Ein Schlüssel ist hinterlegt. Ein neuer ersetzt ihn hier — löschen lässt
-      sich der alte allerdings nur in Phoscon: deCONZ gibt Schlüssel über die
-      Schnittstelle nicht frei.
+      Ein Schlüssel ist hinterlegt. Ein neuer ersetzt ihn und widerruft den
+      alten bei deCONZ.
     </div>
   </div>
 

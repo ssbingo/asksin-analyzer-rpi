@@ -216,11 +216,15 @@ export class DeconzNamen {
           `http://${host}/api/${neuer}/config/whitelist/${altenWiderrufen}`,
           { method: 'DELETE', signal: AbortSignal.timeout(this.#o.timeoutMs ?? 8000) },
         );
-        // deCONZ 2.32.5 lehnt das Löschen von Schlüsseln über die API ab —
-        // es antwortet "unauthorized user" (403), auch mit gültigem Schlüssel
-        // (am 18.08.2026 nachgemessen). Der Versuch bleibt trotzdem stehen:
-        // Er kostet nichts, andere Fassungen erlauben es, und die Antwort
-        // sagt dem Anwender genau, was er noch von Hand tun muss.
+        // Der Widerruf funktioniert (am 18.08.2026 an deCONZ 2.32.5 belegt:
+        // der alte Schlüssel bekam danach auf /lights "unauthorized user").
+        //
+        // Zur Diagnose eine Warnung, die einen halben Nachmittag gekostet hat:
+        // **`GET /api/<key>/config` antwortet OHNE Anmeldung.** deCONZ liefert
+        // dort eine reduzierte Konfiguration, auch für einen frei erfundenen
+        // Schlüssel. Wer damit prüft, ob ein Schlüssel noch gilt, bekommt
+        // immer "ja". Prüfen lässt sich das nur an einem geschützten Zweig,
+        // etwa /lights.
         nachsatz = weg.ok
           ? ' Der alte Schlüssel wurde widerrufen.'
           : ' ACHTUNG: Der alte Schlüssel gilt weiter — deCONZ lässt ihn über '

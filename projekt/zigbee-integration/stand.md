@@ -15,6 +15,58 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — deCONZ-Schlüssel: zwei Fehler von mir, einer davon eine Fehldiagnose
+
+### Der Schlüssel wird angefordert, nicht abgetippt
+
+deCONZ **zeigt bestehende Schlüssel nie an** — es vergibt nur neue, und nur
+während des Anmeldefensters. Ein Eingabefeld ist damit die schlechtere
+Bauweise: Wer den Schlüssel von Hand besorgt, trägt ein Zugangstoken durch
+Zwischenablage, Bildschirm und womöglich einen Screenshot.
+
+Jetzt ein Knopf. Der Schlüssel entsteht auf dem Analyzer und verlässt ihn
+nie — nicht in einer API-Antwort, keinem Zustandsobjekt, keinem
+Protokolleintrag; aus Fehlermeldungen wird er herausgeschnitten, weil er in
+der URL steckt.
+
+### „Es passiert nichts"
+
+Der Knopf steht am Ende der Einstellungsseite, die Rückmeldung erschien ganz
+oben — außerhalb des Bildes. Im Protokoll des Geräts stand viermal
+`neuer deCONZ-Schlüssel hinterlegt`, jedes Mal gefolgt von `34 Geräte von
+deCONZ`. Es funktionierte die ganze Zeit; nur sah es aus wie ein toter Knopf.
+Der Abschnitt hat jetzt seine eigene Meldung direkt beim Knopf.
+
+### Und dann meine Fehldiagnose
+
+Ich prüfte mit `GET /api/<key>/config`, ob der alte Schlüssel noch gilt, bekam
+die Konfiguration zurück und schloss: **„Der Widerruf funktioniert nicht."**
+Das war falsch, und ich habe es als gesicherte Erkenntnis in einen Commit
+geschrieben.
+
+**`GET /config` antwortet in deCONZ OHNE Anmeldung.** Gegenprobe mit dem
+Schlüssel `VOELLIGERUNSINN123`: dieselbe Antwort. Der Zweig wird von
+`handleConfigBasicApi` bedient, bevor überhaupt eine Prüfung greift — im
+Quelltext von `de_web_plugin.cpp` nachgelesen, nicht vermutet.
+
+Am geschützten Zweig gemessen ist die Lage umgekehrt:
+
+| Schlüssel | `GET /lights` |
+| --- | --- |
+| aktueller | liefert die Lampen |
+| alter | **`unauthorized user`** |
+
+**Der Widerruf hat funktioniert.** Meine 403 beim manuellen Löschversuch war
+die *Folge* davon: Der Schlüssel war längst tot, und ein toter Schlüssel
+bekommt auf jeden geschützten Zweig 403. Ich habe Ursache und Wirkung
+vertauscht.
+
+Quelltext und Oberfläche sind berichtigt. Die Warnung steht jetzt dort, wo
+sie hingehört — als Kommentar an der Stelle, an der jemand wieder auf die
+Idee kommen könnte, mit `/config` zu prüfen.
+
+---
+
 ## 18.08.2026 — Namen statt Kurzadressen. Die Brücke lag in den Funkdaten
 
 Aus `0x837E` wird „LED - Garten Weg 06". Der Weg dorthin war nicht der
