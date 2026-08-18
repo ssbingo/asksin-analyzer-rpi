@@ -15,6 +15,38 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — Ein Reiter am falschen Kriterium
+
+Die Frage des Users („macht es Sinn, den Stick zum Master umzustecken?") hat
+einen Fehler in meinem Umbau von vor einer Stunde freigelegt.
+
+**`Verbund · Zigbee` hing am eigenen Mithörer des Masters.** Das ist das
+falsche Kriterium: Die Matrix entsteht aus den **Standorten**. Analyzer 01 ist
+Master und hat noch keinen Stick — der Reiter wäre also unsichtbar geblieben,
+obwohl der Dachboden längst Daten liefert. Die Matrix wäre schlicht
+unerreichbar gewesen.
+
+Behoben: `/api/health` liefert jetzt zusätzlich `zigbeeImVerbund`. Der Wert
+kommt aus dem **zwischengespeicherten** Verbund-Umlauf, kostet also keinen
+zusätzlichen Abruf — die Frage wird bei jedem health gestellt.
+
+Nebenbei trägt `PeerZustand` jetzt ein Feld `zigbee`. `false` statt `null`,
+sobald ein Standort geantwortet hat: „hat keinen Mithörer" ist eine Auskunft,
+„nicht gefragt" wäre keine.
+
+**Und die Antwort auf die eigentliche Frage lautet: nicht umstecken.** Mit
+einem Stick gibt es keine Matrix, nur einen Blickwinkel — umstecken tauscht
+den Dachboden gegen den Keller und unterbricht eine laufende Messung. Der
+Reiter war der einzige Grund, der dafür sprach, und der ist jetzt weg.
+
+Auf Wunsch heißt der Einstellungsreiter jetzt ebenfalls zweizeilig
+„Einstellungen · BidCoS". Anzumerken bleibt: Netzwerk, Status-LED und
+Demo-Modus darin sind nicht BidCoS-spezifisch — wer sie dort sucht, könnte
+stutzen. Die Einheitlichkeit war dem User wichtiger, und das ist seine
+Entscheidung.
+
+---
+
 ## 18.08.2026 — Navigation umgebaut: Rolle entscheidet, was sichtbar ist
 
 Vorgabe des Users, in vier Punkten:

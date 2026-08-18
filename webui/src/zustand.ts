@@ -10,6 +10,16 @@ import { ref } from 'vue';
 export const rolle = ref<'master' | 'client'>('master');
 export const zigbeeAktiv = ref(false);
 
+/**
+ * Betreibt irgendein Standort einen Mithörer?
+ *
+ * Getrennt von `zigbeeAktiv`: Der Reiter „Verbund · Zigbee" hängt nicht am
+ * eigenen Stick, sondern daran, ob es überhaupt etwas zusammenzuführen gibt.
+ * Ein Master ohne Stick, dessen Dachboden einen hat, muss die Matrix sehen —
+ * sonst wäre sie unerreichbar.
+ */
+export const zigbeeImVerbund = ref(false);
+
 /** Ansichten, die es nur auf dem Master gibt. */
 export const NUR_MASTER = ['/verbund', '/verbund-zigbee'];
 

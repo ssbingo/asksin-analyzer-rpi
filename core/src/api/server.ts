@@ -137,6 +137,18 @@ export interface ApiServerOptions {
    * im Sekundentakt, und ein zweiter Abruf nur für ein Wort wäre Verschwendung.
    */
   rolle?: () => 'master' | 'client';
+  /**
+   * Läuft irgendwo im Verbund ein Zigbee-Mithörer?
+   *
+   * Steuert den Reiter „Verbund · Zigbee" auf dem Master. Sein EIGENER
+   * Mithörer ist dafür das falsche Kriterium: Die Matrix entsteht aus den
+   * Standorten. Ein Master ohne Stick, dessen Dachboden einen hat, muss die
+   * Matrix sehen können — sonst ist sie unerreichbar.
+   *
+   * Der Wert kommt aus dem zwischengespeicherten Verbund-Umlauf, kostet also
+   * keinen zusätzlichen Abruf.
+   */
+  zigbeeImVerbund?: () => boolean;
   config?: ApiConfig;
   /** Wenn gesetzt: Pflicht-Bearer-Token für alle verändernden Endpunkte. */
   authToken?: string;
@@ -1194,6 +1206,7 @@ export class ApiServer {
       zigbee: this.#opts.zigbee !== undefined
         && this.#opts.zigbee.zustand()['aktiv'] === true,
       rolle: this.#opts.rolle?.() ?? 'master',
+      zigbeeImVerbund: this.#opts.zigbeeImVerbund?.() ?? false,
     };
   }
 

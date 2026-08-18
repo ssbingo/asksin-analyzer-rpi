@@ -71,6 +71,14 @@ export interface PeerZustand {
   maxDutyCycle: { name: string; percent: number } | null;
   /** Uhr des Peers minus eigene Uhr (ms), um die halbe Laufzeit korrigiert. */
   zeitdriftMs: number | null;
+  /**
+   * Läuft dort ein Zigbee-Mithörer?
+   *
+   * Der Master braucht das, um zu entscheiden, ob es die Zigbee-Matrix
+   * überhaupt zu zeigen gibt. Sein EIGENER Mithörer ist dafür das falsche
+   * Kriterium: Die Matrix entsteht aus den Standorten, nicht aus ihm.
+   */
+  zigbee: boolean | null;
 }
 
 export interface VerbundUebersicht {
@@ -255,6 +263,7 @@ export class VerbundDienst {
       deviceCount: null,
       maxDutyCycle: null,
       zeitdriftMs: null,
+      zigbee: null,
     };
     try {
       const vorher = this.#time.now();
@@ -306,6 +315,9 @@ export class VerbundDienst {
 
       return {
         ...leer,
+        // false statt null, sobald der Peer geantwortet hat: „hat keinen
+        // Mithoerer" ist eine Auskunft, „nicht gefragt" waere keine.
+        zigbee: wahrheit(health['zigbee']) ?? false,
         name: peer.name ?? standort ?? basis,
         erreichbar: true,
         standort,
@@ -367,6 +379,18 @@ export class VerbundDienst {
       standorte,
       geraete: [...zeilen.values()].sort((a, b) => a.name.localeCompare(b.name, 'de')),
     };
+  }
+
+  /**
+   * Betreibt irgendein Standort einen Mithörer?
+   *
+   * Beantwortet aus dem zwischengespeicherten Umlauf — ohne eigenen Abruf,
+   * denn diese Frage wird bei jedem health gestellt. Ist der Cache noch leer
+   * (frisch gestarteter Dienst), lautet die Antwort `false`; sie wird richtig,
+   * sobald der erste Umlauf durch ist.
+   */
+  zigbeeIrgendwo(): boolean {
+    return this.#cache?.daten.peers.some((p) => p.zigbee === true) ?? false;
   }
 
   /**

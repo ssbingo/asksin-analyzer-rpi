@@ -119,6 +119,8 @@ export interface Health {
   zigbee?: boolean;
   /** Rolle im Verbund — Verbund-Ansichten gibt es nur auf dem Master. */
   rolle?: 'master' | 'client';
+  /** Läuft IRGENDWO im Verbund ein Mithörer? Steuert „Verbund · Zigbee". */
+  zigbeeImVerbund?: boolean;
 }
 
 /** Auskunft der Firmware auf `:?;` — nur bei der erweiterten Fassung. */

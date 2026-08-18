@@ -2351,6 +2351,7 @@ const api = new ApiServer({
   statusAnzeige: statusAnzeigeHooks,
   zigbee: zigbeeHooks,
   rolle: () => aktuelleRolle().rolle,
+  zigbeeImVerbund: () => zigbeeKonfig.aktiv || verbund.zigbeeIrgendwo(),
   influx: influxHooks,
   langzeit: langzeitHooks,
   alarmziel: alarmzielHooks,
