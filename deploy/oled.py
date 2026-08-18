@@ -489,21 +489,6 @@ def main() -> int:
     ap.add_argument("--adresse", default="0x3c")
     args = ap.parse_args()
 
-    try:
-        anzeige = OledAnzeige(args.breite, args.hoehe, int(args.adresse, 16))
-    except ImportError as err:
-        print(f"oled: Bibliothek fehlt ({err}) — Einrichtung siehe install.sh",
-              file=sys.stderr)
-        return 1
-    except Exception as err:                                  # noqa: BLE001
-        print(f"oled: Display nicht erreichbar: {err}", file=sys.stderr)
-        if "lgd-nfy" in str(err) or "lgd-nfy" in repr(err):
-            # Wiedererkennbarer Fall: lgpio konnte seine Pipes nicht anlegen.
-            print("oled: lgpio braucht ein beschreibbares Arbeitsverzeichnis. "
-                  "In der Unit muessen WorkingDirectory, HOME und LG_WD auf "
-                  "/var/lib/asksin-analyzer zeigen.", file=sys.stderr)
-        return 1
-
     laeuft = True
 
     def beenden(_sig, _frm) -> None:                          # noqa: ANN001
@@ -512,6 +497,60 @@ def main() -> int:
 
     signal.signal(signal.SIGTERM, beenden)
     signal.signal(signal.SIGINT, beenden)
+
+    # --- Auf das Display warten, statt aufzugeben -------------------------
+    #
+    # Anlass (18.08.2026, Analyzer 04): Nach einem Neustart antwortete das
+    # OLED ueber eine Minute lang nicht auf 0x3c. Der Dienst gab nach fuenf
+    # Versuchen auf, systemd meldete "Start request repeated too quickly",
+    # und die Anzeige blieb dunkel — bis jemand von Hand nachstartete. Im
+    # Journal frueherer Starts stand dasselbe: einmal 25 Fehlversuche, einmal
+    # 5, dazwischen fehlerfreie Starts. Also kein Defekt, sondern ein
+    # sporadisch spaeter Bus.
+    #
+    # Eine feste Zahl von Versuchen ist fuer so etwas die falsche Antwort:
+    # Sie ist entweder zu klein (dann bleibt das Display dunkel) oder zu
+    # gross (dann dauert das Aufgeben ewig, obwohl gar keins angeschlossen
+    # ist). Deshalb wird hier unbegrenzt weiterversucht, aber mit wachsendem
+    # Abstand und sparsamer Meldung. Nebeneffekt: Wird ein Display im
+    # laufenden Betrieb eingesteckt, kommt es von selbst.
+    WARTE_START_S = 2.0
+    WARTE_MAX_S = 60.0
+
+    anzeige = None
+    warte = WARTE_START_S
+    versuch = 0
+    while laeuft and anzeige is None:
+        versuch += 1
+        try:
+            anzeige = OledAnzeige(args.breite, args.hoehe, int(args.adresse, 16))
+        except ImportError as err:
+            # Fehlende Bibliothek geht durch Warten nicht weg.
+            print(f"oled: Bibliothek fehlt ({err}) — Einrichtung siehe install.sh",
+                  file=sys.stderr)
+            return 1
+        except Exception as err:                              # noqa: BLE001
+            if "lgd-nfy" in str(err) or "lgd-nfy" in repr(err):
+                # Wiedererkennbarer Fall: lgpio konnte seine Pipes nicht anlegen.
+                # Auch das geht durch Warten nicht weg.
+                print(f"oled: Display nicht erreichbar: {err}", file=sys.stderr)
+                print("oled: lgpio braucht ein beschreibbares Arbeitsverzeichnis. "
+                      "In der Unit muessen WorkingDirectory, HOME und LG_WD auf "
+                      "/var/lib/asksin-analyzer zeigen.", file=sys.stderr)
+                return 1
+            # Erste Meldung sofort, danach nur noch jede zehnte — sonst
+            # fuellt ein dauerhaft fehlendes Display das Journal.
+            if versuch == 1 or versuch % 10 == 0:
+                print(f"oled: Display nicht erreichbar (Versuch {versuch}): {err}"
+                      f" — es wird weiter versucht", file=sys.stderr, flush=True)
+            time.sleep(warte)
+            warte = min(warte * 2, WARTE_MAX_S)
+
+    if anzeige is None:                     # Abbruch waehrend des Wartens
+        return 0
+
+    if versuch > 1:
+        print(f"oled: Display nach {versuch} Versuchen da", flush=True)
 
     print(f"oled: {args.breite}x{args.hoehe} an {args.adresse}", flush=True)
 

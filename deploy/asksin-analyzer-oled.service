@@ -9,9 +9,15 @@
 Description=AskSin-Analyzer: OLED-Anzeige
 After=asksin-analyzer.service
 Wants=asksin-analyzer.service
-# Nicht endlos im Sekundentakt neu starten, wenn etwas dauerhaft fehlt —
-# nach fuenf Versuchen in zwei Minuten ist Schluss, und der Grund steht im
-# Journal statt hundertmal darunter.
+# Diese Grenze gilt AUSSCHLIESSLICH fuer echte Abstuerze des Helfers.
+#
+# Ein nicht erreichbares Display ist ausdruecklich KEIN Absturz mehr: Seit
+# dem 18.08.2026 wartet oled.py selbst darauf, mit wachsendem Abstand. Vorher
+# beendete es sich, systemd verbrauchte die fuenf Versuche in 25 Sekunden und
+# gab auf — die Anzeige blieb dunkel, bis jemand von Hand nachstartete. Auf
+# Analyzer 04 ist das mehrfach passiert (einmal 25 Fehlversuche, einmal 5).
+# Wer diese Grenze wieder als "Schutz gegen fehlendes Display" liest, baut
+# genau den Fehler zurueck.
 StartLimitIntervalSec=120
 StartLimitBurst=5
 
