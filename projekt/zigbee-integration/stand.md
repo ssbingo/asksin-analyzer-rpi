@@ -15,6 +15,112 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — M16.6: API und Oberfläche
+
+Vier neue Zweige, eine eigene Seite, ein Schalter.
+
+| Zweig | Zweck |
+| --- | --- |
+| `GET /api/zigbee` | Zustand: eingeschaltet? hört er? was kommt an? |
+| `GET /api/zigbee/geraete?stunden=` | aus den Stundensummen, je Netz getrennt |
+| `GET /api/zigbee/pakete?minuten=&max=` | laufende Liste, mit `gekuerzt`-Kennzeichen |
+| `POST /api/zigbee` | ein/aus und Kanalwechsel, tokengeschützt |
+
+**Zeiträume werden begrenzt, nicht abgewiesen.** `?stunden=999999` liefert
+90 Tage, `?minuten=0` liefert eine Minute. Eine Ansicht, die wegen einer zu
+großen Zahl gar nichts zeigt, ist unbrauchbarer als eine gekürzte.
+
+**Der Kanal wirkt sofort, das Ein- und Ausschalten erst nach dem Neustart.**
+Die Antwort sagt das im Feld `neustartNoetig`, statt es zu verschweigen.
+
+### Der Entwurfsfehler, der mir dabei aufgefallen ist
+
+Der Menüpunkt erscheint nur, wenn Zigbee eingeschaltet ist (E2: Analyzer
+ohne Mithörer sollen keinen toten Punkt sehen). Ich hatte den Schalter
+zunächst **auf diese Seite** gelegt — womit man Zigbee, einmal ausgeschaltet,
+über die Oberfläche nie wieder hätte einschalten können.
+
+Der Schalter sitzt jetzt in den **Einstellungen**, wie es der Plan von Anfang
+an vorsah. Ich hatte ihn dort nur nicht hingebaut.
+
+### Einstellungen überstimmen die Konfigurationsdatei — und sagen es
+
+`zigbee.json` im Datenverzeichnis übersteuert `config.json`; der Dienst läuft
+unprivilegiert und darf `/etc` nicht schreiben. Genau diese Konstruktion hat
+bei der Statusanzeige einmal einen Tag gekostet: `config.json` stand auf SPI,
+`statusanzeige.json` auf PWM, beide sahen richtig aus, die LED blieb dunkel.
+Deshalb schreibt der Dienst jeden übersteuerten Wert beim Start ins Protokoll.
+
+### Bewertung wieder über den Mittelwert
+
+Die Geräteliste bewertet nach dem Mittel, nicht nach dem schwächsten je
+empfangenen Paket — derselbe Fehler, der am Vormittag elf Geräte falsch als
+grenzwertig ausgewiesen hatte. Die Spanne steht daneben, aber sie entscheidet
+nicht.
+
+`npm run check`: **350 Tests, 0 Fehler.** Web-UI gebaut, alle Projektprüfungen
+bestanden.
+
+---
+
+## 18.08.2026 — Zigbee läuft im Dienst. Und ein Update, das ich zerbrochen habe
+
+Analyzer 04 (Dachboden, Pi 3 Model B Plus) läuft mit eingeschaltetem
+Zigbee-Mithörer.
+
+### Erst der Fehler, den ich selbst gebaut habe
+
+Das Update auf `e5f8afa` schlug fehl. Ursache war **nicht** der neue Code,
+sondern dass ich am Vormittag die OLED-Unit von Hand aufgespielt hatte —
+dabei ging das Argument `--hoehe 32` verloren, das der Assistent dort
+einträgt.
+
+`installiere_dateien` liest genau dieses Argument, um es beim Überschreiben
+zu erhalten. Fehlt es, liefert `grep` Rückgabewert 1, und mit
+`set -euo pipefail` bricht das **ganze** Update ab: mitten im Schritt
+„neustart", ohne Rollback, ohne verwertbare Meldung.
+
+Der Ersatzwert `${HOEHE:-32}` zwei Zeilen tiefer stand für einen Fall da,
+den das Skript gar nicht erleben konnte. Dieselbe Konstruktion in
+`install.sh` trug das `|| true` bereits — in `update.sh` fehlte es an genau
+einer Stelle. Behoben und nachgestellt.
+
+**Lehre für mich:** Dateien von Hand auf ein Gerät zu schieben, die sonst
+ein Skript pflegt, hinterlässt einen Zustand, den das Skript nicht kennt.
+Das Update hätte den Fehler nie gezeigt, wenn ich am Vormittag den
+regulären Weg genommen hätte.
+
+### Dann der Nachweis
+
+| | |
+| --- | --- |
+| Journal | `Zigbee-Mithörer aktiv: /dev/asksin-zigbee, Kanal 11` |
+| nach 75 s | **852 Pakete**, 33 Gerätezeilen |
+| Rahmenarten in der Tabelle | **nur 1 (Daten)** — Bestätigungen werden gezählt, nicht gespeichert |
+| RSSI | −27 bis −93 dBm |
+
+Die Spalte `schwach` trägt sofort: Der Koordinator hat 0 von 209 schwachen
+Paketen, ein Gerät aus dem Nachbarnetz 96 von 96.
+
+### Die Lastmessung — M16.3 ist damit abgenommen
+
+Derselbe Pi 3, dieselbe Messmethode wie beim Ausgangswert:
+
+| | ohne Zigbee | **mit Zigbee** |
+| --- | --- | --- |
+| CPU | 6,6–7,9 % | **9,5–13,2 %** |
+| Arbeitsspeicher | 124–125 MB | **143–144 MB** |
+
+**Zigbee kostet rund 3 Prozentpunkte CPU und 19 MB** auf dem schwächsten
+Gerät im Verbund. Von 905 MB RAM sind das gut zwei Prozent. Das Risiko
+„1 MBaud überfordert den Pi 3" ist damit erledigt — gemessen im Betrieb,
+nicht hochgerechnet.
+
+Was noch aussteht, ist der **Dauerlauf**: ob der Speicher über Tage stabil
+bleibt. Der läuft ab jetzt von selbst.
+
+---
+
 ## 18.08.2026 — M16.5, erster Teil: Konfiguration, Dienst, Assistent
 
 Der Leser hängt jetzt im Dienst. Was dazugekommen ist:

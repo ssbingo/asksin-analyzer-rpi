@@ -25,6 +25,8 @@ import {
   sendeStatusAnzeige,
   setzeAuthToken,
   testeCcu,
+  holeZigbee,
+  setzeZigbee,
 } from '../api.ts';
 import type {
   Alarmkanal,
@@ -35,9 +37,15 @@ import type {
   NetzwerkZustand,
   VerbundPeerEintrag,
   CcuTestErgebnis,
+  ZigbeeZustand,
 } from '../api.ts';
 
 const standort = ref('');
+// Zigbee: nur der Schalter. Alles Weitere steht auf der eigenen Seite —
+// die ist aber erst erreichbar, wenn er an ist. Genau deshalb gehoert das
+// Einschalten hierher und nicht dorthin.
+const zigbee = ref<ZigbeeZustand | null>(null);
+const zigbeeFehlt = ref(false);
 const ccuip = ref('');
 
 // --- CCU-Verbindungstest ---------------------------------------------------
@@ -520,6 +528,28 @@ const demoUmschalten = (): Promise<void> | undefined => {
     },
   );
 };
+async function zigbeeLaden(): Promise<void> {
+  try {
+    zigbee.value = await holeZigbee();
+    zigbeeFehlt.value = false;
+  } catch (err) {
+    // 501 heisst: Dieser Core kennt Zigbee nicht (aeltere Fassung).
+    if (err instanceof Error && err.message.includes('501')) zigbeeFehlt.value = true;
+  }
+}
+void zigbeeLaden();
+
+async function zigbeeUmschalten(): Promise<void> {
+  const ziel = !(zigbee.value?.aktiv ?? false);
+  await aktion(
+    ziel
+      ? 'Zigbee eingeschaltet — wirkt nach dem Neustart des Dienstes'
+      : 'Zigbee ausgeschaltet — wirkt nach dem Neustart des Dienstes',
+    async () => { await setzeZigbee({ aktiv: ziel }); },
+  );
+  await zigbeeLaden();
+}
+
 </script>
 
 <template>
@@ -1137,6 +1167,30 @@ const demoUmschalten = (): Promise<void> | undefined => {
     <div class="fussnote">
       Beim Umschalten startet der Dienst neu. Die Simulation schreibt in eine
       eigene Demo-Datenbank; echte Aufzeichnungen bleiben unberührt.
+    </div>
+  </div>
+
+  <div class="panel" v-if="!zigbeeFehlt">
+    <h3 style="margin-top: 0">Zigbee-Mithörer</h3>
+    <p style="margin-top: 0">
+      Ein zweites Ohr auf 2,4 GHz — es braucht einen eigenen USB-Stick mit
+      Sniffer-Firmware. Der Analyzer tritt dem Zigbee-Netz nicht bei, er hört
+      nur zu; Inhalte bleiben verschlüsselt.
+      Zustand: <strong :class="zigbee?.aktiv ? 'mittel' : 'gedimmt'">
+        {{ zigbee?.aktiv ? 'eingeschaltet' : 'aus' }}</strong>
+      <template v-if="zigbee?.aktiv">
+        —
+        <strong :class="zigbee.verbunden ? 'gut' : 'fehler'">
+          {{ zigbee.verbunden ? 'Stick antwortet' : 'Stick antwortet nicht' }}</strong>
+      </template>
+    </p>
+    <button :disabled="beschaeftigt" @click="zigbeeUmschalten">
+      {{ zigbee?.aktiv ? 'Zigbee ausschalten …' : 'Zigbee einschalten …' }}
+    </button>
+    <div class="fussnote">
+      Das Ein- und Ausschalten wirkt nach einem Neustart des Dienstes. Danach
+      erscheint der Menüpunkt <strong>Zigbee</strong> mit Geräten, Empfangsgüte
+      und laufenden Paketen.
     </div>
   </div>
 

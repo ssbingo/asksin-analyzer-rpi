@@ -32,6 +32,7 @@ import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 
 import { ApiServer } from '../src/api/server.ts';
+import type { ZigbeeHooks } from '../src/api/server.ts';
 import type { NetzwerkHooks, UpdateHooks } from '../src/api/server.ts';
 import { VerbundDienst } from '../src/verbund/verbund.ts';
 import type { PeerKonfig } from '../src/verbund/verbund.ts';
@@ -1903,6 +1904,216 @@ const protokollHooks = {
   datei: (name: string): string | null => protokoll?.lies(name) ?? null,
 };
 
+// ---- Zigbee-Mithörer (M16) ---------------------------------------------
+//
+// Einstellungen aus der Oberflaeche landen in einer eigenen Datei im
+// Datenverzeichnis, nicht in /etc/asksin-analyzer/config.json: Der Dienst
+// laeuft unprivilegiert und darf dort nicht schreiben.
+//
+// Diese Datei **uebersteuert** config.json. Genau daran ist die Statusanzeige
+// schon einmal gescheitert — config.json stand auf SPI, statusanzeige.json auf
+// PWM, und die LED blieb dunkel, waehrend beide Dateien "richtig" aussahen.
+// Deshalb wird der uebersteuerte Wert hier beim Start ins Protokoll geschrieben.
+const zigbeeKonfigDatei = join(datenDir, 'zigbee.json');
+
+interface ZigbeeKonfig {
+  aktiv: boolean;
+  device: string;
+  kanal: number;
+}
+
+function zigbeeKonfigLesen(): ZigbeeKonfig {
+  const ausConfig: ZigbeeKonfig = {
+    aktiv: konfig.zigbee?.aktiv === true,
+    device: konfig.zigbee?.device ?? ZIGBEE_DEVICE,
+    kanal: konfig.zigbee?.kanal ?? ZIGBEE_KANAL,
+  };
+  if (!existsSync(zigbeeKonfigDatei)) return ausConfig;
+  try {
+    const roh = JSON.parse(readFileSync(zigbeeKonfigDatei, 'utf8')) as Partial<ZigbeeKonfig>;
+    const zusammen: ZigbeeKonfig = {
+      aktiv: typeof roh.aktiv === 'boolean' ? roh.aktiv : ausConfig.aktiv,
+      device: typeof roh.device === 'string' && roh.device !== ''
+        ? roh.device : ausConfig.device,
+      kanal: Number.isInteger(roh.kanal) && (roh.kanal as number) >= 11
+        && (roh.kanal as number) <= 26 ? (roh.kanal as number) : ausConfig.kanal,
+    };
+    for (const feld of ['aktiv', 'device', 'kanal'] as const) {
+      if (zusammen[feld] !== ausConfig[feld]) {
+        log(`Zigbee: ${feld} aus zigbee.json (${String(zusammen[feld])}) ` +
+            `uebersteuert config.json (${String(ausConfig[feld])})`);
+      }
+    }
+    return zusammen;
+  } catch (err) {
+    log(`Zigbee: ${zigbeeKonfigDatei} unlesbar (${String(err)}) — config.json gilt`);
+    return ausConfig;
+  }
+}
+
+//
+// Eigener Leser, eigener Speicher, eigene Tabellen — der BidCoS-Pfad wird
+// nicht angefasst. Fehlt der Stick, versucht der Leser es weiter und der
+// Analyzer läuft davon unberührt: KEIN Startabbruch, keine Neustartschleife.
+//
+// Im Demo-Modus bleibt er aus. Erfundene Funktelegramme gibt es dort mit
+// Absicht; erfundene Zigbee-Pakete wären etwas anderes — sie sollen zeigen,
+// was wirklich in der Luft ist.
+const zigbeeKonfig = zigbeeKonfigLesen();
+let zigbeeLeser: ZigbeeLeser | null = null;
+let zigbeeSpeicher: ZigbeeSpeicher | null = null;
+
+if (zigbeeKonfig.aktiv && !demoAktiv) {
+  const geraet = zigbeeKonfig.device;
+  zigbeeSpeicher = new ZigbeeSpeicher(db, {
+    ...(konfig.zigbee?.bestaetigungen === undefined
+      ? {}
+      : { bestaetigungen: konfig.zigbee.bestaetigungen }),
+  });
+  const speicher = zigbeeSpeicher;
+  zigbeeLeser = new ZigbeeLeser({
+    openPort: sttyPortOpener(geraet, ZIGBEE_BAUD, (text) =>
+      log(`Zigbee-Anschluss: ${text}`)),
+    kanal: zigbeeKonfig.kanal,
+    onPaket: (paket) => speicher.aufnehmen(paket),
+  });
+  zigbeeLeser.start();
+  log(`Zigbee-Mithörer aktiv: ${geraet}, Kanal ${zigbeeLeser.kanal}`);
+
+  // Regelmäßig spülen, damit nach einem harten Abbruch höchstens ein paar
+  // Sekunden fehlen. Der Speicher schreibt zusätzlich bei vollem Puffer.
+  const spuelTakt = setInterval(() => {
+    try {
+      speicher.schreiben();
+    } catch (err) {
+      protokoll?.fehler('zigbee', `Zigbee-Schreiben fehlgeschlagen: ${String(err)}`);
+    }
+  }, 30_000);
+  spuelTakt.unref();
+
+  // Aufräumen einmal täglich — dieselbe Taktung wie beim BidCoS-Pfad.
+  const aufraeumTakt = setInterval(() => {
+    try {
+      const weg = speicher.aufraeumen({
+        ...(konfig.zigbee?.paketeTage === undefined
+          ? {}
+          : { paketeTage: konfig.zigbee.paketeTage }),
+        ...(konfig.zigbee?.stundenTage === undefined
+          ? {}
+          : { stundenTage: konfig.zigbee.stundenTage }),
+      });
+      if (weg.pakete > 0 || weg.stunden > 0) {
+        log(`Zigbee aufgeraeumt: ${weg.pakete} Pakete, ${weg.stunden} Stundenzeilen`);
+      }
+    } catch (err) {
+      protokoll?.fehler('zigbee', `Zigbee-Aufraeumen fehlgeschlagen: ${String(err)}`);
+    }
+  }, 86_400_000);
+  aufraeumTakt.unref();
+} else if (zigbeeKonfig.aktiv) {
+  log('Zigbee-Mithörer im Demo-Modus ausgelassen');
+}
+
+/** Was die Oberfläche über Zigbee erfährt und einstellen darf. */
+const zigbeeHooks: ZigbeeHooks = {
+  zustand: (): Record<string, unknown> => {
+    const s = zigbeeLeser?.stats;
+    return {
+      aktiv: zigbeeKonfig.aktiv,
+      device: zigbeeKonfig.device,
+      kanal: zigbeeLeser?.kanal ?? zigbeeKonfig.kanal,
+      demo: demoAktiv,
+      // Ohne Stick bleibt `verbunden` false — daran ist der Zustand
+      // erkennbar, nicht daran, dass Zahlen fehlen.
+      verbunden: s?.verbunden ?? false,
+      verbundenSeit: s?.verbundenSeit ?? null,
+      zeilen: s?.zeilen ?? 0,
+      pakete: s?.pakete ?? 0,
+      verworfen: s?.verworfen ?? null,
+      ueberlauf: s?.ueberlauf ?? 0,
+      neuverbindungen: s?.neuverbindungen ?? 0,
+      letzteZeileAm: s?.letzteZeileAm ?? null,
+      gespeichert: zigbeeSpeicher?.stats.geschrieben ?? 0,
+      bestaetigungen: zigbeeSpeicher?.stats.bestaetigungen ?? 0,
+      schreibfehler: zigbeeSpeicher?.stats.fehler ?? 0,
+    };
+  },
+
+  geraete: (stunden: number): unknown[] => {
+    const ab = Math.floor(Date.now() / 3_600_000) - stunden;
+    return db.prepare(
+      `SELECT pan, addr,
+              SUM(pakete)  AS pakete,
+              SUM(schwach) AS schwach,
+              MIN(min_rssi) AS min_rssi,
+              MAX(max_rssi) AS max_rssi,
+              SUM(sum_rssi) AS sum_rssi,
+              MIN(min_lqi)  AS min_lqi,
+              MAX(max_lqi)  AS max_lqi,
+              SUM(sum_lqi)  AS sum_lqi,
+              MAX(hour)     AS zuletzt
+         FROM zigbee_device_hours
+        WHERE hour >= ?
+        GROUP BY pan, addr
+        ORDER BY pakete DESC`,
+    ).all(ab);
+  },
+
+  pakete: (minuten: number, grenze: number): { pakete: unknown[]; gekuerzt: boolean } => {
+    const ab = Date.now() - minuten * 60_000;
+    // Eins mehr holen als erlaubt: Nur so ist zu erkennen, ob gekuerzt wurde.
+    // Ohne diese Auskunft haelt die Oberflaeche eine Kuerzung fuer Funkstille.
+    const zeilen = db.prepare(
+      `SELECT ts, kanal, rssi, lqi, laenge, typ, seq, pan, von, an, rundruf
+         FROM zigbee_packets
+        WHERE ts >= ?
+        ORDER BY ts DESC
+        LIMIT ?`,
+    ).all(ab, grenze + 1);
+    const gekuerzt = zeilen.length > grenze;
+    return { pakete: gekuerzt ? zeilen.slice(0, grenze) : zeilen, gekuerzt };
+  },
+
+  setzen: async (auftrag: Record<string, unknown>): Promise<Record<string, unknown>> => {
+    const neu: ZigbeeKonfig = { ...zigbeeKonfig };
+    let neustartNoetig = false;
+
+    if ('kanal' in auftrag) {
+      const k = Number(auftrag['kanal']);
+      if (!Number.isInteger(k) || k < 11 || k > 26) {
+        throw new Error('kanal: ganze Zahl von 11 bis 26 erwartet');
+      }
+      neu.kanal = k;
+    }
+    if ('aktiv' in auftrag) {
+      if (typeof auftrag['aktiv'] !== 'boolean') {
+        throw new Error('aktiv: true oder false erwartet');
+      }
+      neu.aktiv = auftrag['aktiv'];
+      // Ein- und Ausschalten heisst: serielle Schnittstelle oeffnen oder
+      // schliessen und die Tabellen anlegen. Das im laufenden Dienst zu
+      // verdrahten waere mehr Zustand als Nutzen — ein Neustart ist ehrlicher.
+      if (neu.aktiv !== zigbeeKonfig.aktiv) neustartNoetig = true;
+    }
+
+    writeFileSync(zigbeeKonfigDatei, JSON.stringify(neu, null, 2));
+    const kanalGewechselt = neu.kanal !== zigbeeKonfig.kanal;
+    zigbeeKonfig.aktiv = neu.aktiv;
+    zigbeeKonfig.kanal = neu.kanal;
+
+    // Der Kanal wirkt sofort, wenn der Leser laeuft — dafuer braucht es
+    // keinen Neustart, und die Oberflaeche soll das auch nicht behaupten.
+    if (kanalGewechselt && zigbeeLeser !== null) {
+      await zigbeeLeser.kanalSetzen(neu.kanal);
+      log(`Zigbee: Kanal auf ${neu.kanal} gewechselt`);
+    }
+    if (neustartNoetig) {
+      log(`Zigbee ${neu.aktiv ? 'ein' : 'aus'}geschaltet — wirkt nach dem Neustart`);
+    }
+    return { ...neu, neustartNoetig };
+  },
+};
+
 const api = new ApiServer({
   analyzer,
   db,
@@ -1916,6 +2127,7 @@ const api = new ApiServer({
   verbund: verbundHooks,
   netzwerk: netzwerkHooks,
   statusAnzeige: statusAnzeigeHooks,
+  zigbee: zigbeeHooks,
   influx: influxHooks,
   langzeit: langzeitHooks,
   alarmziel: alarmzielHooks,
@@ -1953,69 +2165,6 @@ const api = new ApiServer({
   },
 });
 
-// ---- Zigbee-Mithörer (M16) ---------------------------------------------
-//
-// Eigener Leser, eigener Speicher, eigene Tabellen — der BidCoS-Pfad wird
-// nicht angefasst. Fehlt der Stick, versucht der Leser es weiter und der
-// Analyzer läuft davon unberührt: KEIN Startabbruch, keine Neustartschleife.
-//
-// Im Demo-Modus bleibt er aus. Erfundene Funktelegramme gibt es dort mit
-// Absicht; erfundene Zigbee-Pakete wären etwas anderes — sie sollen zeigen,
-// was wirklich in der Luft ist.
-const zigbeeKonfig = konfig.zigbee ?? {};
-let zigbeeLeser: ZigbeeLeser | null = null;
-let zigbeeSpeicher: ZigbeeSpeicher | null = null;
-
-if (zigbeeKonfig.aktiv === true && !demoAktiv) {
-  const geraet = zigbeeKonfig.device ?? ZIGBEE_DEVICE;
-  zigbeeSpeicher = new ZigbeeSpeicher(db, {
-    ...(zigbeeKonfig.bestaetigungen === undefined
-      ? {}
-      : { bestaetigungen: zigbeeKonfig.bestaetigungen }),
-  });
-  const speicher = zigbeeSpeicher;
-  zigbeeLeser = new ZigbeeLeser({
-    openPort: sttyPortOpener(geraet, ZIGBEE_BAUD, (text) =>
-      log(`Zigbee-Anschluss: ${text}`)),
-    kanal: zigbeeKonfig.kanal ?? ZIGBEE_KANAL,
-    onPaket: (paket) => speicher.aufnehmen(paket),
-  });
-  zigbeeLeser.start();
-  log(`Zigbee-Mithörer aktiv: ${geraet}, Kanal ${zigbeeLeser.kanal}`);
-
-  // Regelmäßig spülen, damit nach einem harten Abbruch höchstens ein paar
-  // Sekunden fehlen. Der Speicher schreibt zusätzlich bei vollem Puffer.
-  const spuelTakt = setInterval(() => {
-    try {
-      speicher.schreiben();
-    } catch (err) {
-      protokoll?.fehler('zigbee', `Zigbee-Schreiben fehlgeschlagen: ${String(err)}`);
-    }
-  }, 30_000);
-  spuelTakt.unref();
-
-  // Aufräumen einmal täglich — dieselbe Taktung wie beim BidCoS-Pfad.
-  const aufraeumTakt = setInterval(() => {
-    try {
-      const weg = speicher.aufraeumen({
-        ...(zigbeeKonfig.paketeTage === undefined
-          ? {}
-          : { paketeTage: zigbeeKonfig.paketeTage }),
-        ...(zigbeeKonfig.stundenTage === undefined
-          ? {}
-          : { stundenTage: zigbeeKonfig.stundenTage }),
-      });
-      if (weg.pakete > 0 || weg.stunden > 0) {
-        log(`Zigbee aufgeraeumt: ${weg.pakete} Pakete, ${weg.stunden} Stundenzeilen`);
-      }
-    } catch (err) {
-      protokoll?.fehler('zigbee', `Zigbee-Aufraeumen fehlgeschlagen: ${String(err)}`);
-    }
-  }, 86_400_000);
-  aufraeumTakt.unref();
-} else if (zigbeeKonfig.aktiv === true) {
-  log('Zigbee-Mithörer im Demo-Modus ausgelassen');
-}
 
 analyzer.start();
 await statusAnzeigeAufbauen();

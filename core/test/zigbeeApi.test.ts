@@ -1,0 +1,143 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { DatabaseSync } from 'node:sqlite';
+
+import { ApiServer } from '../src/api/server.ts';
+import type { ZigbeeHooks } from '../src/api/server.ts';
+import { Analyzer } from '../src/service/analyzer.ts';
+import { openDatabase } from '../src/persist/db.ts';
+import type { IngestStream, PortOpener } from '../src/ingest/ingest.ts';
+
+/** Ein Port, der nichts liefert — der Analyzer wird hier nicht gebraucht. */
+const stillerPort: PortOpener = async (): Promise<IngestStream> => ({
+  readable: (async function* () { /* nichts */ })(),
+  close: () => {},
+});
+
+async function mitServer(
+  zigbee: ZigbeeHooks | undefined,
+  pruefung: (basis: string, db: DatabaseSync) => Promise<void>,
+): Promise<void> {
+  const db = openDatabase(':memory:');
+  const analyzer = new Analyzer({ openPort: stillerPort, db });
+  const api = new ApiServer({
+    analyzer, db,
+    ...(zigbee === undefined ? {} : { zigbee }),
+  });
+  const { port } = await api.listen(0);
+  try {
+    await pruefung(`http://127.0.0.1:${port}`, db);
+  } finally {
+    await api.close();
+    await analyzer.stop();
+    db.close();
+  }
+}
+
+/** Hooks, die mitschreiben, womit sie gerufen wurden. */
+function pruefHooks(): ZigbeeHooks & { gesehen: Record<string, unknown> } {
+  const gesehen: Record<string, unknown> = {};
+  return {
+    gesehen,
+    zustand: () => ({ aktiv: true, verbunden: false, kanal: 11, pakete: 0 }),
+    geraete: (stunden) => { gesehen['stunden'] = stunden; return []; },
+    pakete: (minuten, grenze) => {
+      gesehen['minuten'] = minuten; gesehen['grenze'] = grenze;
+      return { pakete: [], gekuerzt: false };
+    },
+    setzen: async (auftrag) => {
+      gesehen['auftrag'] = auftrag;
+      if (auftrag['kanal'] === 99) throw new Error('kanal: 11 bis 26 erwartet');
+      return { ...auftrag, neustartNoetig: false };
+    },
+  };
+}
+
+test('ohne Hooks antworten die Zigbee-Zweige mit 501', async () => {
+  await mitServer(undefined, async (basis) => {
+    for (const pfad of ['/api/zigbee', '/api/zigbee/geraete', '/api/zigbee/pakete']) {
+      const r = await fetch(basis + pfad);
+      assert.equal(r.status, 501, pfad);
+      await r.text();
+    }
+  });
+});
+
+test('Zustand kommt als JSON heraus', async () => {
+  await mitServer(pruefHooks(), async (basis) => {
+    const r = await fetch(`${basis}/api/zigbee`);
+    assert.equal(r.status, 200);
+    const j = await r.json() as Record<string, unknown>;
+    assert.equal(j['aktiv'], true);
+    assert.equal(j['verbunden'], false);
+  });
+});
+
+test('Zeitraeume werden begrenzt statt abgewiesen', async () => {
+  const hooks = pruefHooks();
+  await mitServer(hooks, async (basis) => {
+    // Unsinnig gross: Die Ansicht soll trotzdem etwas zeigen.
+    await (await fetch(`${basis}/api/zigbee/geraete?stunden=999999`)).json();
+    assert.equal(hooks.gesehen['stunden'], 24 * 90, 'auf 90 Tage begrenzt');
+
+    await (await fetch(`${basis}/api/zigbee/pakete?minuten=0&max=99999`)).json();
+    assert.equal(hooks.gesehen['minuten'], 1, 'mindestens eine Minute');
+    assert.equal(hooks.gesehen['grenze'], 5000, 'auf 5000 Pakete begrenzt');
+
+    // Unsinn im Text: Vorgabe statt Fehler.
+    await (await fetch(`${basis}/api/zigbee/geraete?stunden=viele`)).json();
+    assert.equal(hooks.gesehen['stunden'], 24, 'Vorgabe 24 Stunden');
+  });
+});
+
+test('Einstellen geht nur mit Token, wenn einer gesetzt ist', async () => {
+  const db = openDatabase(':memory:');
+  const analyzer = new Analyzer({ openPort: stillerPort, db });
+  const api = new ApiServer({
+    analyzer, db, authToken: 'geheim',
+    zigbee: pruefHooks(),
+  });
+  const { port } = await api.listen(0);
+  try {
+    const ohne = await fetch(`http://127.0.0.1:${port}/api/zigbee`, {
+      method: 'POST', body: JSON.stringify({ kanal: 15 }),
+    });
+    assert.equal(ohne.status, 401);
+    await ohne.text();
+
+    const mit = await fetch(`http://127.0.0.1:${port}/api/zigbee`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer geheim' },
+      body: JSON.stringify({ kanal: 15 }),
+    });
+    assert.equal(mit.status, 200);
+    const j = await mit.json() as Record<string, unknown>;
+    assert.equal(j['kanal'], 15);
+  } finally {
+    await api.close();
+    await analyzer.stop();
+    db.close();
+  }
+});
+
+test('ein abgelehnter Auftrag wird als 400 mit Begruendung beantwortet', async () => {
+  await mitServer(pruefHooks(), async (basis) => {
+    const r = await fetch(`${basis}/api/zigbee`, {
+      method: 'POST', body: JSON.stringify({ kanal: 99 }),
+    });
+    assert.equal(r.status, 400);
+    assert.match(await r.text(), /11 bis 26/);
+  });
+});
+
+test('kaputtes JSON bringt den Server nicht durcheinander', async () => {
+  await mitServer(pruefHooks(), async (basis) => {
+    const r = await fetch(`${basis}/api/zigbee`, { method: 'POST', body: '{kaputt' });
+    assert.equal(r.status, 400);
+    await r.text();
+    // Danach muss der Server weiter antworten.
+    const danach = await fetch(`${basis}/api/zigbee`);
+    assert.equal(danach.status, 200);
+    await danach.json();
+  });
+});

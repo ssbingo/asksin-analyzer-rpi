@@ -115,6 +115,8 @@ export interface Health {
    * Zustand der Sniffer-Firmware. Fehlt bei älteren Core-Fassungen.
    */
   sniffer?: SnifferZustand;
+  /** Läuft ein Zigbee-Mithörer? Steuert den Menüpunkt. */
+  zigbee?: boolean;
 }
 
 /** Auskunft der Firmware auf `:?;` — nur bei der erweiterten Fassung. */
@@ -304,6 +306,87 @@ export async function sendeStatusAnzeige(auftrag: {
     throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
   }
   if (!res.ok) throw new Error(await res.text());
+}
+
+// ---- Zigbee-Mithörer (M16) ----------------------------------------------
+
+export interface ZigbeeZustand {
+  aktiv: boolean;
+  device: string;
+  kanal: number;
+  demo: boolean;
+  /** Hört der Stick gerade? Ohne Stick bleibt das false — die Zahlen sind trotzdem da. */
+  verbunden: boolean;
+  verbundenSeit: number | null;
+  zeilen: number;
+  pakete: number;
+  verworfen: Record<string, number> | null;
+  /** Durch Überlauf der Warteschlange verlorene Pakete. */
+  ueberlauf: number;
+  neuverbindungen: number;
+  letzteZeileAm: number | null;
+  gespeichert: number;
+  /** Bestätigungen — gezählt, nicht gespeichert (sie tragen keine Adressen). */
+  bestaetigungen: number;
+  schreibfehler: number;
+}
+
+export interface ZigbeeGeraet {
+  pan: number;
+  addr: string;
+  pakete: number;
+  /** Davon mit LQI unter 50 — die gemessene Kante liegt bei etwa −87 dBm. */
+  schwach: number;
+  min_rssi: number;
+  max_rssi: number;
+  sum_rssi: number;
+  min_lqi: number;
+  max_lqi: number;
+  sum_lqi: number;
+  zuletzt: number;
+}
+
+export interface ZigbeePaket {
+  ts: number;
+  kanal: number;
+  rssi: number;
+  lqi: number;
+  laenge: number;
+  typ: number;
+  seq: number;
+  pan: number | null;
+  von: string | null;
+  an: string | null;
+  rundruf: number;
+}
+
+export const holeZigbee = (): Promise<ZigbeeZustand> => hole('/api/zigbee');
+
+export const holeZigbeeGeraete = (
+  stunden = 24,
+): Promise<{ stunden: number; geraete: ZigbeeGeraet[] }> =>
+  hole(`/api/zigbee/geraete?stunden=${stunden}`);
+
+export const holeZigbeePakete = (
+  minuten = 10,
+  max = 500,
+): Promise<{ minuten: number; pakete: ZigbeePaket[]; gekuerzt: boolean }> =>
+  hole(`/api/zigbee/pakete?minuten=${minuten}&max=${max}`);
+
+/** Ein- und Ausschalten oder Kanalwechsel. Antwort sagt, ob ein Neustart nötig ist. */
+export async function setzeZigbee(
+  auftrag: { aktiv?: boolean; kanal?: number },
+): Promise<{ aktiv: boolean; kanal: number; neustartNoetig: boolean }> {
+  const res = await fetch('/api/zigbee', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify(auftrag),
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json() as { aktiv: boolean; kanal: number; neustartNoetig: boolean };
 }
 
 // ---- Langzeitdaten / InfluxDB (M9.5) ------------------------------------

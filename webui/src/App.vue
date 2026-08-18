@@ -8,6 +8,7 @@ const erreichbar = ref(false);
 const demo = ref(false);
 const updateVerfuegbar = ref(false);
 const standort = ref('');
+const zigbee = ref(false);
 
 nutzeTakt(async () => {
   try {
@@ -16,6 +17,7 @@ nutzeTakt(async () => {
     verbunden.value = h.connected;
     demo.value = h.demo;
     updateVerfuegbar.value = h.updateVerfuegbar === true;
+    zigbee.value = h.zigbee === true;
     if (h.standort !== standort.value) {
       standort.value = h.standort;
       // Browser-Tabs mehrerer Analyzer bleiben so unterscheidbar:
@@ -40,6 +42,9 @@ nutzeTakt(async () => {
       <RouterLink to="/home">Übersicht</RouterLink>
       <RouterLink to="/list">Telegramme</RouterLink>
       <RouterLink to="/verbund">Verbund</RouterLink>
+      <!-- Nur wenn eingeschaltet: Vier von fünf Analyzern haben keinen
+           Mithörer, und ein toter Menüpunkt ist schlechter als keiner. -->
+      <RouterLink v-if="zigbee" to="/zigbee">Zigbee</RouterLink>
       <RouterLink to="/settings">Einstellungen</RouterLink>
       <RouterLink to="/wartung">Wartung</RouterLink>
       <RouterLink to="/info">Info</RouterLink>

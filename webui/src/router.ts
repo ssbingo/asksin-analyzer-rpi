@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import HomeView from './views/HomeView.vue';
 import ListeView from './views/ListeView.vue';
 import VerbundView from './views/VerbundView.vue';
+import ZigbeeView from './views/ZigbeeView.vue';
 import EinstellungenView from './views/EinstellungenView.vue';
 import WartungView from './views/WartungView.vue';
 import InfoView from './views/InfoView.vue';
@@ -16,6 +17,7 @@ export const router = createRouter({
     { path: '/home', component: HomeView },
     { path: '/list', component: ListeView },
     { path: '/verbund', component: VerbundView },
+    { path: '/zigbee', component: ZigbeeView },
     { path: '/settings', component: EinstellungenView },
     { path: '/wartung', component: WartungView },
     { path: '/info', component: InfoView },

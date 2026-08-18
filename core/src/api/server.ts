@@ -56,6 +56,53 @@ export interface ApiConfig {
   standort?: string;
 }
 
+/**
+ * Was die Oberfläche über den Zigbee-Mithörer wissen und einstellen kann.
+ *
+ * `zustand()` beantwortet drei Fragen auf einmal, weil die Seite sie
+ * zusammen stellt: Ist er eingeschaltet? Hört er gerade? Und was kommt an?
+ * Ein Analyzer ohne Stick soll daran erkennbar sein, dass `verbunden` false
+ * ist — nicht daran, dass die Zahlen fehlen.
+ */
+/**
+ * Obergrenze fuer die Paketliste. Bei rund 13 Paketen je Sekunde sind 5000
+ * gut sechs Minuten — mehr braucht eine Live-Ansicht nicht, und mehr will
+ * ein Browser auf einem Tablet auch nicht geliefert bekommen.
+ */
+const MAX_ZIGBEE_PAKETE = 5000;
+
+/**
+ * Zahl aus der Abfragezeichenkette, auf einen Bereich begrenzt.
+ *
+ * Begrenzt statt abgewiesen: Wer `?minuten=99999` schickt, bekommt das
+ * Zulaessige und keine Fehlermeldung. Eine Ansicht, die wegen einer zu
+ * grossen Zahl gar nichts zeigt, ist unbrauchbarer als eine gekuerzte.
+ */
+function zahlAusUrl(url: URL, name: string, vorgabe: number,
+                    min: number, max: number): number {
+  const roh = url.searchParams.get(name);
+  if (roh === null) return vorgabe;
+  const n = Number(roh);
+  if (!Number.isFinite(n)) return vorgabe;
+  return Math.min(max, Math.max(min, Math.trunc(n)));
+}
+
+export interface ZigbeeHooks {
+  zustand(): Record<string, unknown>;
+  /** Geräte der letzten `stunden` Stunden, aus den Stundensummen. */
+  geraete(stunden: number): unknown[];
+  /** Pakete der letzten `minuten` Minuten, höchstens `grenze` Stück. */
+  pakete(minuten: number, grenze: number): { pakete: unknown[]; gekuerzt: boolean };
+  /**
+   * Einschalten, ausschalten, Kanal wechseln. Wirft bei ungültigen Angaben.
+   *
+   * Ein Kanalwechsel wirkt sofort; das Ein- und Ausschalten schreibt die
+   * Konfiguration und verlangt einen Neustart des Dienstes — das sagt die
+   * Antwort im Feld `neustartNoetig`, statt es zu verschweigen.
+   */
+  setzen(auftrag: Record<string, unknown>): Promise<Record<string, unknown>>;
+}
+
 export interface ApiServerOptions {
   analyzer: Analyzer;
   db: DatabaseSync;
@@ -101,6 +148,15 @@ export interface ApiServerOptions {
     starteFlottenUpdate?(): boolean;
     flottenStatus?(): unknown;
   };
+  /**
+   * Zigbee-Mithörer (M16). Ohne Hooks: 501 auf /api/zigbee*.
+   *
+   * Bewusst eigene Zweige und nicht in `/api/snapshot` hineingemischt: Der
+   * Schnappschuss ist die Live-Sicht auf den BidCoS-Empfang, und die wird von
+   * der Übersichtsseite im Sekundentakt geholt. Zigbee dort einzuhängen hiesse,
+   * jedem Analyzer ohne Stick bei jedem Abruf leere Felder zuzumuten.
+   */
+  zigbee?: ZigbeeHooks;
   /** Netzwerkeinstellungen (M7.6). Ohne Hooks: 501 auf /api/netzwerk*. */
   netzwerk?: NetzwerkHooks;
   /** Status-LED/OLED (M11): Zustand fürs WebUI, Konfiguration zur Laufzeit,
@@ -431,6 +487,24 @@ export class ApiServer {
           if (hooks === undefined) return this.#text(res, 501, 'Keine Statusanzeige');
           return this.#json(res, 200, hooks.zustand());
         }
+        case '/api/zigbee': {
+          const hooks = this.#opts.zigbee;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          return this.#json(res, 200, hooks.zustand());
+        }
+        case '/api/zigbee/geraete': {
+          const hooks = this.#opts.zigbee;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          const stunden = zahlAusUrl(url, 'stunden', 24, 1, 24 * 90);
+          return this.#json(res, 200, { stunden, geraete: hooks.geraete(stunden) });
+        }
+        case '/api/zigbee/pakete': {
+          const hooks = this.#opts.zigbee;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          const minuten = zahlAusUrl(url, 'minuten', 10, 1, 60 * 24);
+          const grenze = zahlAusUrl(url, 'max', 500, 1, MAX_ZIGBEE_PAKETE);
+          return this.#json(res, 200, { minuten, ...hooks.pakete(minuten, grenze) });
+        }
         case '/api/influx': {
           // Mit Token geschuetzt wie /api/alarmziel: Hier steht der
           // Influx-Zugangstoken drin. Er wird bewusst zurueckgegeben, damit er
@@ -563,6 +637,22 @@ export class ApiServer {
           res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('Auftrag angenommen — Probezeit läuft, Status unter /api/netzwerk/status');
           return;
+        }
+        case '/api/zigbee': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.zigbee;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          let auftrag: Record<string, unknown>;
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            return this.#text(res, 400, 'Ungültiges JSON');
+          }
+          try {
+            return this.#json(res, 200, await hooks.setzen(auftrag));
+          } catch (err) {
+            return this.#text(res, 400, err instanceof Error ? err.message : String(err));
+          }
         }
         case '/api/statusanzeige': {
           if (!this.#autorisiert(req, res)) return;
@@ -1036,6 +1126,11 @@ export class ApiServer {
         ),
         folge: s.ingest.folge,
       },
+      // Nur ein Ja/Nein: Die Kopfzeile blendet den Menuepunkt danach ein oder
+      // aus und braucht dafuer keine zweite Abfrage im Sekundentakt. Ein
+      // Analyzer ohne Mithoerer soll den Punkt gar nicht erst sehen.
+      zigbee: this.#opts.zigbee !== undefined
+        && this.#opts.zigbee.zustand()['aktiv'] === true,
     };
   }
 
