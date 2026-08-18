@@ -275,15 +275,16 @@
   </div>
 
   <div class="stand">
-    <b>Entwurf 1 — dieses Buch wird noch gebaut.</b><br>
-    Es begleitet die Zigbee-Erweiterung, solange sie entsteht, und wird danach
-    ein Kapitel im großen Handbuch. Alles, was noch nicht am Gerät bestätigt
-    wurde, ist im Text ausdrücklich als <b>ungeprüft</b> gekennzeichnet.
+    <b>Entwurf 2 — die Erweiterung läuft, das Buch wird noch gepflegt.</b><br>
+    Es begleitet die Zigbee-Erweiterung und wird danach ein Kapitel im großen
+    Handbuch. Alles, was noch nicht am Gerät bestätigt wurde, ist im Text
+    ausdrücklich als <b>ungeprüft</b> gekennzeichnet — alles Übrige ist an
+    einem laufenden Analyzer nachgemessen.
   </div>
 
   <div class="fuss">
-    <span>Handbuch zum Vorhaben M16 · Entwurf 1</span>
-    <span>17. August 2026</span>
+    <span>Handbuch zum Vorhaben M16 · Entwurf 2</span>
+    <span>18. August 2026</span>
   </div>
 </section>
 
@@ -296,15 +297,15 @@
     <li><a class="zeile" href="#k3"><span class="nr">3</span><span class="txt">Auspacken</span><span class="bei">Was in der Schachtel liegt</span></a></li>
     <li><a class="zeile" href="#k4"><span class="nr">4</span><span class="txt">Zum ersten Mal anstecken</span><span class="bei">Erkennt der Rechner ihn?</span></a></li>
     <li><a class="zeile" href="#k5"><span class="nr">5</span><span class="txt">Die Kennung festhalten</span><span class="bei">Fünf Minuten, die später Ärger sparen</span></a></li>
-    <li><a class="zeile" href="#k6"><span class="nr">6</span><span class="txt">Firmware aufspielen</span><span class="bei">Der eine unumkehrbare Schritt</span></a></li>
+    <li><a class="zeile" href="#k6"><span class="nr">6</span><span class="txt">Firmware aufspielen</span><span class="bei">der Analyzer macht es selbst</span></a></li>
     <li><a class="zeile" href="#k7"><span class="nr">7</span><span class="txt">Das erste Funkpaket</span><span class="bei">Zuhören und verstehen</span></a></li>
     <li><a class="zeile" href="#k8"><span class="nr">8</span><span class="txt">Was die Zahlen bedeuten</span></a></li>
     <li><a class="zeile" href="#k9"><span class="nr">9</span><span class="txt">Den richtigen Kanal finden</span></a></li>
     <li><a class="zeile" href="#k10"><span class="nr">10</span><span class="txt">Mit Wireshark ansehen</span><span class="bei">freiwillig</span></a></li>
     <li><a class="zeile" href="#k11"><span class="nr">11</span><span class="txt">Wenn etwas nicht klappt</span></a></li>
-    <li><a class="zeile" href="#k12"><span class="nr">12</span><span class="txt">Der Rückweg</span><span class="bei">Aus dem Mithörer wieder ein Koordinator</span></a></li>
+    <li><a class="zeile" href="#k12"><span class="nr">12</span><span class="txt">Der Rückweg</span><span class="bei">ungeprüft — Notfall</span></a></li>
     <li><a class="zeile" href="#k13"><span class="nr">13</span><span class="txt">Wörterbuch</span></a></li>
-    <li><a class="zeile" href="#k14"><span class="nr">14</span><span class="txt">Im Analyzer: einschalten, ablesen, benennen</span></a></li>
+    <li><a class="zeile" href="#k14"><span class="nr">14</span><span class="txt">Im Analyzer: einschalten, ablesen, benennen</span><span class="bei">das eigentliche Ziel</span></a></li>
     <li><a class="zeile" href="#k15"><span class="nr">15</span><span class="txt">Was noch fehlt</span><span class="bei">die künftigen Kapitel</span></a></li>
   </ol>
 
@@ -313,7 +314,8 @@
     <p>
       Die Kapitel 3 bis 7 sind eine <strong>durchgehende Anleitung</strong>. Arbeite sie
       der Reihe nach ab, ohne zu springen — jedes baut auf dem vorherigen auf.
-      Kapitel 8 bis 13 sind zum Nachschlagen.
+      Kapitel 8 bis 13 sind zum Nachschlagen, <strong>Kapitel 14 ist das
+      eigentliche Ziel</strong>: der Stick als Teil des Analyzers.
     </p>
     <p>
       <span class="ungeprueft">ungeprüft</span> heißt: So steht es in den Unterlagen
@@ -422,8 +424,12 @@
         <strong>Kein Luxus, sondern Teil des Messaufbaus.</strong></td>
     </tr>
     <tr>
-      <td><strong>Ein Rechner mit Chrome oder Edge</strong></td>
-      <td>Zum Aufspielen der Software im Browser (Kapitel 6). Firefox kann das nicht.</td>
+      <td><span style="color:#64748b">(entfällt)</span><br>
+        <strong>Ein Rechner mit Chrome oder Edge</strong></td>
+      <td><strong>Brauchst du nicht mehr.</strong> Der Analyzer spielt die
+        Software selbst auf (Kapitel 6). Nur wenn du den Umweg über den
+        Browser gehen willst, brauchst du Chrome oder Edge — Firefox kann es
+        nicht.</td>
     </tr>
     <tr>
       <td><strong>Der Raspberry Pi mit dem Analyzer</strong></td>
@@ -487,9 +493,12 @@
       zwischen einer Messung und einem Zufallswert.
     </li>
     <li>
-      <span class="was">Noch nicht in den Pi stecken.</span>
-      Das Aufspielen der Software machen wir am Rechner mit dem Browser.
-      Erst danach zieht der Stick an seinen endgültigen Platz.
+      <span class="was">In den Raspberry Pi mit dem Analyzer stecken —
+        über das Verlängerungskabel.</span>
+      Dort bleibt er. Das Aufspielen der Software erledigt der Analyzer
+      selbst (Kapitel 6.1); ein zweiter Rechner ist dafür nicht mehr nötig.
+      Nur wenn du den Umweg über den Browser gehen willst, steckst du ihn
+      zunächst an einen Windows-Rechner.
     </li>
   </ol>
 
@@ -513,6 +522,11 @@
     Ziel dieses Kapitels: <strong>festzustellen, dass der Rechner den Stick sieht.</strong>
     Mehr nicht. Wir spielen noch nichts auf.
   </p>
+  <p>
+    Lies <strong>4.1</strong>, wenn der Stick — wie vorgesehen — am Raspberry Pi
+    steckt. <strong>4.2</strong> brauchst du nur, wenn du den Umweg über einen
+    Windows-Rechner und den Browser gehen willst.
+  </p>
 
   <h3>4.1 Am Raspberry Pi</h3>
   <p>Öffne ein Befehlsfenster auf dem Pi und tippe <em>vor</em> dem Anstecken:</p>
@@ -523,24 +537,37 @@ sudo dmesg -w</pre>
     Interessant ist die mit <code>ttyUSB</code> oder <code>ttyACM</code> darin,
     zum Beispiel:
   </p>
-<pre class="aus">usb 1-1.2: new full-speed USB device number 5 using xhci_hcd
-usb 1-1.2: New USB device found, idVendor=1a86, idProduct=55d4
-usb 1-1.2: Product: USB Single Serial
-ch34x 1-1.2:1.0: ch343 converter detected
-usb 1-1.2: ch343 converter now attached to ttyACM0</pre>
+<pre class="aus">usb 1-1.3: New USB device found, idVendor=10c4, idProduct=ea60, bcdDevice= 1.00
+usbcore: registered new interface driver cp210x
+usbserial: USB Serial support registered for cp210x
+cp210x 1-1.3:1.0: cp210x converter detected
+usb 1-1.3: cp210x converter now attached to ttyUSB0</pre>
   <p>
-    Die letzte Zeile ist die wichtige: <strong>Der Stick heißt bei diesem Rechner
-    gerade <code>ttyACM0</code>.</strong> Bei dir kann dort auch
-    <code>ttyUSB0</code> stehen. Beenden mit <code>Strg</code>+<code>C</code>.
+    Die letzte Zeile ist die wichtige: <strong>Der Stick heißt bei diesem
+    Rechner gerade <code>ttyUSB0</code>.</strong> Beenden mit
+    <code>Strg</code>+<code>C</code>.
   </p>
+  <div class="kasten gut">
+    <div class="titel">Am Gerät abgeschrieben</div>
+    <p style="margin-bottom:0">
+      Diese Ausgabe stammt von einem laufenden Analyzer (Raspberry Pi 3), nicht
+      aus einer Anleitung. Die Zahlen <code>10c4:ea60</code> und der Treibername
+      <code>cp210x</code> gehören zum ZBDongle-E; siehst du sie, ist es der
+      richtige Stick. Bei anderen Zigbee-Sticks stehen dort andere Werte —
+      etwa <code>1a86</code> für einen CH34x-Baustein. <strong>Die Nummer
+      hinter <code>usb</code> (hier <code>1-1.3</code>) ist der Anschluss und
+      bei dir eine andere</strong>; darauf kommt es nicht an.
+    </p>
+  </div>
 
   <div class="kasten">
     <div class="titel">Warum „gerade"?</div>
     <p>
       Diese Namen werden in der Reihenfolge vergeben, in der der Rechner die Geräte
-      findet. Steckt morgen noch etwas anderes daran, kann aus <code>ttyACM0</code>
-      eine <code>ttyACM1</code> werden. Deshalb bekommt der Stick später einen festen
-      eigenen Namen — dafür brauchen wir Kapitel 5.
+      findet. Steckt morgen noch etwas anderes daran, kann aus <code>ttyUSB0</code>
+      eine <code>ttyUSB1</code> werden — und dann zeigt jeder Befehl, den du dir
+      notiert hast, auf das falsche Gerät. Deshalb bekommt der Stick einen
+      festen eigenen Namen; dafür brauchen wir Kapitel 5.
     </p>
   </div>
 
@@ -551,9 +578,10 @@ usb 1-1.2: ch343 converter now attached to ttyACM0</pre>
     neuer Eintrag auf, etwa <code>COM4</code>. Diese Nummer brauchst du in Kapitel 6.
   </p>
   <p>
-    Erscheint nichts, fehlt der Treiber für den USB-Baustein. Windows lädt ihn
-    meist von selbst nach; wenn nicht, hilft der Treiber des Bausteinherstellers
-    (CH34x beziehungsweise CP210x — welcher es ist, sagt dir Kapitel 5).
+    Erscheint nichts, fehlt der Treiber für den USB-Baustein. Im ZBDongle-E
+    sitzt ein <strong>CP2102N von Silicon Labs</strong>; der passende Treiber
+    heißt daher <strong>CP210x</strong>. Windows lädt ihn meist von selbst
+    nach; wenn nicht, gibt es ihn bei Silicon Labs.
   </p>
 </section>
 
@@ -571,50 +599,66 @@ usb 1-1.2: ch343 converter now attached to ttyACM0</pre>
     <li>
       <span class="was">Hersteller- und Modellnummer auslesen</span>
 <pre>lsusb</pre>
-      <p>Eine der Zeilen gehört zum Stick, zum Beispiel:</p>
-<pre class="aus">Bus 001 Device 005: ID 1a86:55d4 QinHeng Electronics USB Single Serial</pre>
+      <p>Eine der Zeilen gehört zum Stick. Beim ZBDongle-E steht dort:</p>
+<pre class="aus">Bus 001 Device 004: ID 10c4:ea60 Silicon Labs CP210x UART Bridge</pre>
       <p>
-        Der erste Wert ist der Hersteller des USB-Bausteins, der zweite das
-        Modell. Notiere beides.
+        Der erste Wert (<code>10c4</code>) ist der Hersteller des USB-Bausteins,
+        der zweite (<code>ea60</code>) das Modell. Notiere beides.
       </p>
       <div class="kasten">
-        <div class="titel">Am Gerät gemessen</div>
+        <div class="titel">Warum der Stick eine eigene Namensregel bekommt</div>
         <p style="margin-bottom:0">
-          Der ZBDongle-E meldet sich als <code>10c4:ea60</code> — ein CP2102N
-          von Silicon Labs, mit von Itead programmierten Zeichenketten
+          <code>10c4:ea60</code> ist ein CP2102N von Silicon Labs — und
+          <strong>derselbe Baustein wie auf der USB-Variante der
+          Analyzer-Platine.</strong> An diesen Nummern allein sind die beiden
+          also nicht zu unterscheiden. Unterscheidbar macht sie erst der Text,
+          den Itead hineinprogrammiert hat
           (<code>Itead</code> / <code>Sonoff Zigbee 3.0 USB Dongle Plus V2</code>).
-          <strong>Das ist derselbe Baustein wie auf der USB-Variante der
-          Analyzer-Platine.</strong> Deshalb bekommt der Stick eine eigene
-          udev-Regel — ohne sie trüge er den Namen des Sniffers.
+          Genau darauf stützt sich die udev-Regel des Analyzers — ohne sie
+          trüge der Stick den Namen des Sniffers.
       </p>
     </li>
     <li>
       <span class="was">Den sprechenden Namen auslesen</span>
 <pre>ls -l /dev/serial/by-id/</pre>
-      <p>Ausgabe zum Beispiel:</p>
-<pre class="aus">usb-1a86_USB_Single_Serial_54D3016586-if00 -&gt; ../../ttyACM0</pre>
+      <p>Ausgabe an einem laufenden Analyzer:</p>
+<pre class="aus">usb-Itead_Sonoff_Zigbee_3.0_USB_Dongle_Plus_V2_<span style="color:#a5b4fc">1a2b3c4d5e6f</span>-if00-port0 -&gt; ../../ttyUSB0</pre>
       <p>
-        Das ist ein <strong>Name, der bleibt</strong> — er enthält die Seriennummer
-        des Sticks. Notiere die ganze Zeile. Ab jetzt kannst du überall diesen langen
-        Namen benutzen statt <code>ttyACM0</code>:
+        Der blaue Teil ist die <strong>Seriennummer deines</strong> Sticks und
+        bei dir eine andere. Alles davor ist bei jedem ZBDongle-E gleich —
+        und genau das machen wir uns gleich zunutze. Das ist ein
+        <strong>Name, der bleibt</strong>: Er hängt nicht daran, in welchem
+        Anschluss der Stick steckt.
+      </p>
+      <p>
+        Ab jetzt benutzen wir überall <code>$STICK</code> statt
+        <code>ttyUSB0</code>. Diesen Befehl kannst du unverändert übernehmen:
       </p>
 <pre><span class="kom"># Nicht abtippen — ermitteln lassen. Der Name ist lang, und ein</span>
 <span class="kom"># Tippfehler darin sieht aus wie ein defekter Stick.</span>
-STICK="/dev/serial/by-id/$(ls -1 /dev/serial/by-id/ | head -1)"
+STICK="$(ls -1 /dev/serial/by-id/*Sonoff_Zigbee* 2>/dev/null | head -1)"
 echo "$STICK"</pre>
-<p>
-  Steht dort mehr als ein Eintrag, hängt noch ein zweites serielles Gerät am
-  Rechner — dann nimm aus der Liste oben den richtigen und setze ihn von Hand
-  ein. <code>$STICK</code> benutzen wir ab jetzt in jedem Befehl.
-</p>
+      <div class="kasten achtung">
+        <div class="titel">Warum hier nach dem Namen gesucht wird und nicht
+          einfach der erste Eintrag genommen</div>
+        <p style="margin-bottom:0">
+          Am Analyzer hängt in aller Regel <strong>mehr als ein serielles
+          Gerät</strong>. Wer blind den ersten Eintrag nimmt, erwischt
+          irgendwann die Analyzer-Platine — und sucht den Fehler danach an der
+          falschen Stelle. Der Filter <code>*Sonoff_Zigbee*</code> trifft den
+          Stick und sonst nichts. Bleibt die Ausgabe leer, steckt er nicht
+          oder wird nicht erkannt: zurück zu Kapitel 4.
+        </p>
+      </div>
     </li>
     <li>
       <span class="was">Alles auf einmal, zum Abheften</span>
-<pre>udevadm info -a -n /dev/ttyACM0 | grep -m5 -E 'idVendor|idProduct|serial|product'</pre>
+<pre>udevadm info -a -n "$STICK" | grep -m5 -E 'idVendor|idProduct|serial|product'</pre>
       <p>
-        Ersetze <code>ttyACM0</code> durch den Namen aus Kapitel 4. Diese Ausgabe
-        ist die Grundlage für die feste Namensregel, die der Analyzer später bekommt.
-        Schreib sie in deine Notizdatei.
+        Hier steht <code>"$STICK"</code> — der Wert aus dem Schritt davor; du
+        musst nichts ersetzen. Diese Ausgabe ist die Grundlage für die feste
+        Namensregel, die der Analyzer mitbringt. Schreib sie in deine
+        Notizdatei.
       </p>
     </li>
   </ol>
@@ -622,10 +666,27 @@ echo "$STICK"</pre>
   <div class="kasten gut">
     <div class="titel">Merksatz</div>
     <p>
-      <code>ttyACM0</code> ist wie „das Auto auf dem dritten Parkplatz" —
+      <code>ttyUSB0</code> ist wie „das Auto auf dem dritten Parkplatz" —
       der Name aus <code>by-id</code> ist das Kennzeichen. Für alles, was dauerhaft
       funktionieren soll, nimm das Kennzeichen.
     </p>
+  </div>
+
+  <div class="kasten">
+    <div class="titel">Der Analyzer hat dafür einen eigenen, kurzen Namen</div>
+    <p>
+      Im laufenden Betrieb benutzt der Analyzer weder <code>ttyUSB0</code> noch
+      den langen <code>by-id</code>-Namen, sondern
+      <strong><code>/dev/asksin-zigbee</code></strong>. Diesen Namen legt eine
+      Regel des Betriebssystems an, die mit dem Analyzer ausgeliefert wird —
+      du musst dafür nichts tun. Nach einem Update ist sie da.
+    </p>
+    <p style="margin-bottom:0">
+      Nachsehen kannst du so — die Ausgabe zeigt, worauf der kurze Name zeigt:
+    </p>
+<pre>ls -l /dev/asksin-*</pre>
+<pre class="aus">/dev/asksin-hat    -&gt; ttyAMA0    <span class="kom"># die Analyzer-Platine</span>
+/dev/asksin-zigbee -&gt; ttyUSB0    <span class="kom"># der Zigbee-Stick</span></pre>
   </div>
 </section>
 
@@ -636,6 +697,12 @@ echo "$STICK"</pre>
   <p>
     Jetzt tauschen wir die Software auf dem Stick aus. Bis hierher war alles
     umkehrbar; dieser Schritt ist es nur über den Umweg aus Kapitel 12.
+  </p>
+  <p>
+    <strong>Der kurze Weg steht in 6.1: Der Analyzer macht es selbst.</strong>
+    Lies trotzdem den Kasten hier darunter — er gilt für jeden Weg. Die
+    Abschnitte 6.2 bis 6.5 erklären, was dabei geschieht, und beschreiben die
+    beiden Wege von Hand; die brauchst du nur, wenn 6.1 nicht durchkommt.
   </p>
 
   <div class="kasten warnung">
@@ -648,7 +715,58 @@ echo "$STICK"</pre>
     <p>Dreimal ja? Dann weiter.</p>
   </div>
 
-  <h3>6.1 Was aufgespielt wird</h3>
+  <h3>6.1 Der einfachste Weg: der Analyzer macht es selbst</h3>
+  <p>
+    Seit dem 18.08.2026 musst du für diesen Schritt <strong>weder einen
+    Browser noch einen zweiten Rechner noch die Konsole</strong> bemühen. Der
+    Analyzer holt die Software beim Urheber und spielt sie selbst auf. Es gibt
+    zwei Stellen, an denen er das anbietet:
+  </p>
+  <ul>
+    <li>
+      <strong>Beim Einrichten.</strong> Wer im Einrichtungsassistenten Zigbee
+      auswählt und den Stick schon stecken hat, wird gefragt:
+      <em>„Auf dem Stick sitzt noch die Koordinator-Firmware — jetzt
+      aufspielen?"</em>
+    </li>
+    <li>
+      <strong>Später, in der Weboberfläche.</strong>
+      <em>Einstellungen · Zigbee → Firmware auf dem Stick →
+      „Sniffer-Firmware aufspielen …"</em>
+    </li>
+  </ul>
+  <p>
+    Beides fragt vorher nach, beides dauert wenige Minuten, und beides tut
+    nichts, wenn die richtige Firmware schon drauf ist. Der Analyzer-Dienst
+    startet dabei einmal neu — die Weboberfläche verliert also kurz die
+    Verbindung. Das ist erwartet.
+  </p>
+
+  <div class="kasten warnung">
+    <div class="titel">Zwei Sticks? Dann verweigert der Analyzer die Arbeit</div>
+    <p style="margin-bottom:0">
+      Stecken <strong>mehrere</strong> SONOFF-Sticks an demselben Rechner,
+      spielt er auf keinen davon etwas auf, und der Knopf bleibt gesperrt.
+      Von außen ist nicht entscheidbar, welcher der Mithörer werden soll — und
+      einer der beiden ist womöglich dein Koordinator. Zieh den anderen ab,
+      dann geht es weiter. <strong>Das ist Absicht und kein Fehler.</strong>
+    </p>
+  </div>
+
+  <div class="kasten achtung">
+    <div class="titel">Was noch nicht am Gerät bewiesen ist</div>
+    <p style="margin-bottom:0">
+      Geprüft ist: Der Analyzer erkennt den Stick, erkennt eine bereits
+      aufgespielte Mithörer-Firmware, richtet das Flash-Werkzeug ein und lädt
+      die Firmware herunter (41 008 Byte). <span class="ungeprueft">ungeprüft</span>
+      ist bislang <strong>der Schreibvorgang selbst</strong> — dafür braucht es
+      einen Stick, auf dem noch die Koordinator-Firmware sitzt, und der zweite
+      war zum Zeitpunkt dieser Fassung noch unterwegs. Die Wege in 6.4 und 6.5
+      bleiben deshalb vollständig beschrieben.
+    </p>
+  </div>
+
+  <h3>6.2 Was aufgespielt wird</h3>
   <p>
     Eine Datei mit der Endung <code>.gbl</code> aus dem Projekt
     <em>Sniffer 802.15.4 SONOFF USB Dongle Plus E</em>. Sie macht aus dem Stick
@@ -665,8 +783,10 @@ echo "$STICK"</pre>
 curl -fL -o sniffer.gbl \
   https://raw.githubusercontent.com/ErkSponge/Sniffer_802.15.4_SONOFF_USB_Dongle_Plus_E/main/Output/Sniffer_802.15.4_SONOFF_USB_Dongle_Plus_E/Sniffer_802.15.4_SONOFF_USB_Dongle_Plus_E.gbl
 
-<span class="kom"># Kontrolle: ein paar hundert kB. Sind es 9 Byte oder steht dort</span>
-<span class="kom"># "Not Found", hat sich der Pfad im Projekt geändert.</span>
+<span class="kom"># Kontrolle: rund 40 kB (am 18.08.2026: 41008 Byte). Sind es nur</span>
+<span class="kom"># ein paar hundert Byte oder steht "Not Found" darin, hat sich der</span>
+<span class="kom"># Pfad im Projekt geändert — dann ist es eine Fehlerseite, keine</span>
+<span class="kom"># Firmware.</span>
 ls -l sniffer.gbl</pre>
   <p>
   </p>
@@ -680,7 +800,7 @@ ls -l sniffer.gbl</pre>
     </p>
   </div>
 
-  <h3>6.2 Erst in den Bootloader — sonst wird das nichts</h3>
+  <h3>6.3 Erst in den Bootloader — sonst wird das nichts</h3>
   <p>
     Im Stick stecken zwei Programme: die eigentliche Firmware und darunter ein
     kleines <strong>Startprogramm (Bootloader)</strong>, das allein neue Firmware
@@ -709,7 +829,7 @@ ls -l sniffer.gbl</pre>
     </p>
   </div>
 
-  <h3>6.3 Der Weg, der funktioniert: Befehlszeile am Pi</h3>
+  <h3>6.4 Von Hand auf der Befehlszeile des Pi</h3>
   <p>
     Das Werkzeug heißt <code>universal-silabs-flasher</code>. Es kann den Stick
     über die Steuerleitungen der seriellen Schnittstelle <strong>zwingen</strong>,
@@ -741,7 +861,7 @@ python3 -m venv ~/flasher
     </p>
   </div>
 
-  <h3>6.4 Der Weg im Browser — mit dem BOOT-Knopf</h3>
+  <h3>6.5 Der Weg im Browser — mit dem BOOT-Knopf</h3>
   <p>
     Wenn du am Windows-Rechner bleiben willst: Bring den Stick <strong>von
     Hand</strong> in den Bootloader. Dann ist das Erkennen der laufenden
@@ -759,13 +879,16 @@ python3 -m venv ~/flasher
     <li><span class="was">Nach der Erfolgsmeldung: abziehen und wieder anstecken.</span> Erst dadurch startet die neue Software.</li>
   </ol>
 
-  <div class="kasten achtung">
-    <div class="titel">Der Gerätename kann sich geändert haben</div>
+  <div class="kasten gut">
+    <div class="titel">Der Gerätename bleibt — und das hat einen Grund</div>
     <p style="margin-bottom:0">
-      Mit der neuen Firmware meldet sich der Stick unter Umständen anders am
-      Rechner. Ermittle <code>$STICK</code> deshalb nach dem Aufspielen
-      <strong>neu</strong> — mit demselben Befehl aus Kapitel 5. Wer den alten
-      Wert weiterbenutzt, sucht den Fehler danach an der falschen Stelle.
+      Der Name <code>usb-Itead_Sonoff_Zigbee_3.0_…</code> stammt vom
+      <strong>USB-Baustein</strong> (dem CP2102N), nicht von der Funk-Software,
+      die wir gerade ausgetauscht haben. Deshalb heißt der Stick nach dem
+      Aufspielen genauso wie vorher — am Gerät nachgesehen. Ermittle
+      <code>$STICK</code> nach dem Wiederanstecken trotzdem neu: Es kostet
+      nichts, und die Zuordnung zu <code>ttyUSB0</code> oder
+      <code>ttyUSB1</code> kann sich sehr wohl verschieben.
     </p>
   </div>
 
@@ -929,13 +1052,32 @@ wc -l ~/zigbee-mitschnitt-*.jsonl</pre>
     Angegeben in <strong>dBm</strong>, immer negativ. <strong>Näher an null ist besser.</strong>
     −40 ist ein Gerät im selben Raum, −90 ist ein Gerät am Rand der Reichweite.
   </p>
+  <p>
+    Die folgende Einteilung ist nicht aus einem Lehrbuch abgeschrieben, sondern
+    <strong>an 38 Geräten über 24 Stunden gemessen</strong> — an einem
+    Analyzer, der genau das tut, was dieses Buch beschreibt. Daneben steht die
+    Verbindungsgüte, die sich bei diesen Werten tatsächlich einstellte:
+  </p>
   <table>
-    <tr><th style="width:22%">Wert</th><th>Bedeutung</th></tr>
-    <tr><td><strong>−30 bis −55</strong></td><td>Sehr kräftig. Gerät ist nah.</td></tr>
-    <tr><td><strong>−56 bis −75</strong></td><td>Gut. So sieht der Normalfall aus.</td></tr>
-    <tr><td><strong>−76 bis −87</strong></td><td>Schwach, aber brauchbar. Reserve wird knapp.</td></tr>
-    <tr><td><strong>unter −88</strong></td><td>Grenzbereich. Hier gehen Pakete verloren, sobald jemand anders funkt.</td></tr>
+    <tr><th style="width:20%">Wert</th><th style="width:22%">gemessenes Q</th><th>Bedeutung</th></tr>
+    <tr><td><strong>−26 bis −62</strong></td><td>255 (voll)</td><td>Sehr kräftig. Gerät ist nah.</td></tr>
+    <tr><td><strong>−63 bis −79</strong></td><td>237 bis 254</td><td>Gut. So sieht der Normalfall aus.</td></tr>
+    <tr><td><strong>−80 bis −86</strong></td><td>149 bis 237</td><td>Schwächer, aber tragfähig.</td></tr>
+    <tr><td><strong>−87</strong></td><td><strong>108</strong></td><td><strong>Die Kante.</strong> Ab hier bricht die Güte weg.</td></tr>
+    <tr><td><strong>−88 und −89</strong></td><td>8 bis 60</td><td>Grenzbereich. Pakete gehen verloren, sobald jemand anders funkt.</td></tr>
+    <tr><td><strong>−90 und darunter</strong></td><td>0 bis 10</td><td>Praktisch nichts mehr. Das Gerät ist noch zu hören, aber nicht mehr zuverlässig.</td></tr>
   </table>
+  <div class="kasten gut">
+    <div class="titel">Die Kante bei −87 dBm ist das Bemerkenswerte daran</div>
+    <p style="margin-bottom:0">
+      Zwischen −86 und −90 dBm liegen vier Dezibel — die Verbindungsgüte fällt
+      dabei von 149 auf 0. <strong>Es gibt also keinen sanften Übergang</strong>,
+      sondern eine Kante, und ein Gerät kann sie mit einem verschobenen Möbel
+      überschreiten. Genau deshalb genügt „erreichbar" als Auskunft nicht:
+      Ein Gerät bei −85 dBm und eines bei −89 dBm sind beide „erreichbar" und
+      trotzdem in völlig verschiedener Lage.
+    </p>
+  </div>
   <p>
     <strong>Genau diese Zahl ist der Grund für das ganze Vorhaben.</strong> Dein
     Koordinator sagt dir „Gerät erreichbar" — er sagt dir nicht, ob es mit −52 oder
@@ -954,7 +1096,11 @@ wc -l ~/zigbee-mitschnitt-*.jsonl</pre>
   <h3>8.3 C, L und S</h3>
   <ul>
     <li><strong>C</strong> — der Kanal, auf dem empfangen wurde. Praktisch zur Kontrolle, dass die Einstellung angekommen ist.</li>
-    <li><strong>L</strong> — Länge des Pakets in Byte. Kurze Pakete (unter 15) sind meist Empfangsbestätigungen.</li>
+    <li><strong>L</strong> — Länge des Pakets in Byte. <strong>Genau 5</strong>
+      heißt: Empfangsbestätigung. Mehr passt in eine solche auch gar nicht
+      hinein — zwei Byte Kopf, eine laufende Nummer, zwei Byte Prüfsumme. Sie
+      machen einen erheblichen Teil des Verkehrs aus; der Analyzer zählt sie
+      deshalb, speichert sie aber nicht einzeln.</li>
     <li><strong>S</strong> — das Paket selbst in Hexadezimalschreibweise. Darin stecken Absender und Empfänger; die eigentliche Nachricht ist verschlüsselt und bleibt es.</li>
   </ul>
 
@@ -992,15 +1138,32 @@ wc -l ~/zigbee-mitschnitt-*.jsonl</pre>
     Der Stick kann jeden Kanal. Also probierst du sie durch — je zwanzig Sekunden,
     und wo Zeilen kommen, ist dein Netz:
   </p>
-<pre>for K in 11 15 20 25 12 13 14 16 17 18 19 21 22 23 24 26; do
-  printf '{"C":%d}\n' "$K" &gt; "$STICK"
-  N=$(timeout 20 cat "$STICK" | wc -l)
+<pre><span class="kom"># Einmal vorher, wie in 7.1:</span>
+stty -F "$STICK" 1000000 raw -echo -hupcl
+
+<span class="kom"># EINE offene Verbindung für den ganzen Durchlauf — wie in 7.2.</span>
+<span class="kom"># Würde man je Kanal neu öffnen und schließen, startete der Stick</span>
+<span class="kom"># zwischendurch neu und die Zählung wäre wertlos.</span>
+exec 3&lt;&gt;"$STICK"
+for K in 11 15 20 25 12 13 14 16 17 18 19 21 22 23 24 26; do
+  printf '{"C":%d}\n' "$K" &gt;&amp;3
+  N=$(timeout 20 cat &lt;&amp;3 | wc -l)
   printf 'Kanal %2d: %4d Pakete\n' "$K" "$N"
-done</pre>
+done
+exec 3&gt;&amp;-</pre>
   <p>
     Die vier zuerst genannten Kanäle sind die verbreitetsten — deshalb stehen sie
     vorn. Ein Durchlauf über alle sechzehn dauert gut fünf Minuten.
   </p>
+  <div class="kasten achtung">
+    <div class="titel">Ein hoher Wert heißt nicht „mein Netz"</div>
+    <p style="margin-bottom:0">
+      Auf einem Kanal können auch die Zigbee-Geräte der Nachbarn funken —
+      und WLAN stört obendrein. Der Durchlauf zeigt dir, <em>wo etwas los
+      ist</em>, nicht, wo <em>dein</em> Netz ist. Diesen Beweis liefert erst
+      9.3.
+    </p>
+  </div>
 
   <h3>9.3 Ein Gerät zum Wiedererkennen</h3>
   <p>
@@ -1065,14 +1228,17 @@ done</pre>
       <td><strong>Der häufigste Fall — und kein Defekt.</strong> Das Werkzeug bekommt die
         laufende Firmware nicht erkannt und kommt deshalb nicht in den Bootloader.
         Steht im Protokoll irgendwo <code>RSTACK</code>, hat dein Stick sogar
-        geantwortet. Abhilfe: Befehlszeile mit <code>--bootloader-reset</code>
-        (Kapitel 6.3) oder BOOT-Knopf (Kapitel 6.4).</td>
+        geantwortet. Abhilfe: <strong>den Analyzer aufspielen lassen
+        (Kapitel 6.1)</strong> — er umgeht das Problem vollständig. Sonst
+        Befehlszeile mit <code>--bootloader-reset</code> (Kapitel 6.4) oder
+        BOOT-Knopf (Kapitel 6.5).</td>
     </tr>
     <tr>
       <td><strong>Windows: Anschluss da, aber unzuverlässig</strong></td>
       <td>Bei neueren Ausführungen mit CP2102-Baustein macht der <em>aktuelle</em>
         CP210x-Treiber Ärger; berichtet wird von der älteren Fassung 6.7.0.0 als
-        Abhilfe. Erst probieren, wenn 6.3 und 6.4 nichts gebracht haben.</td>
+        Abhilfe. Betrifft nur den Weg über Windows — am Pi (6.1 und 6.4) stellt
+        sich die Frage nicht.</td>
     </tr>
     <tr>
       <td><strong>Der Browser findet den Stick nicht</strong></td>
@@ -1122,6 +1288,14 @@ done</pre>
   <p>
     Aus dem Mithörer wird wieder ein ganz normaler Zigbee-Koordinator. Nötig, wenn
     du den falschen Stick erwischt hast oder das Vorhaben beendest.
+  </p>
+  <p>
+    <span class="ungeprueft">ungeprüft</span> — dieser Weg ist nachvollziehbar
+    beschrieben, wir mussten ihn aber nie gehen und haben ihn deshalb nicht
+    selbst durchgespielt. Er benutzt dieselben Werkzeuge wie Kapitel 6; was
+    dort funktioniert, sollte auch hier funktionieren. <strong>Verlass dich
+    trotzdem nicht darauf, sondern vermeide den Fall</strong> — die Warnung in
+    Kapitel 6 steht genau dafür da.
   </p>
 
   <ol class="schritte">
@@ -1204,19 +1378,78 @@ done</pre>
 
   <h3>14.1 Einschalten</h3>
   <p>
-    <em>Einstellungen · Zigbee → Zigbee einschalten.</em> Das wirkt
-    nach einem Neustart des Dienstes; danach erscheinen oben die neuen
-    Menüpunkte <strong>Meldungen · Zigbee</strong> und —
-    auf dem Master des Verbunds — <strong>Verbund · Zigbee</strong>.
+    Die Reiter oben in der Oberfläche sind <strong>zweizeilig</strong>: oben
+    steht, worum es geht, darunter, für welches Funknetz. Für Zigbee gibt es
+    drei davon.
   </p>
+  <figure>
+    <svg width="470" height="86" viewBox="0 0 470 86" role="img" aria-label="Die Reiter der Weboberfläche">
+      <g font-family="sans-serif" font-size="9.5" text-anchor="middle">
+        <rect x="6" y="12" width="58" height="34" rx="5" fill="#f1f5f9" stroke="#cbd5e1"/>
+        <text x="35" y="33" fill="#334155">Übersicht</text>
+
+        <rect x="70" y="12" width="66" height="34" rx="5" fill="#f1f5f9" stroke="#cbd5e1"/>
+        <text x="103" y="27" fill="#334155">Telegramme</text>
+        <text x="103" y="39" fill="#64748b" font-size="8.5">BidCoS</text>
+
+        <rect x="142" y="12" width="66" height="34" rx="5" fill="#e0e7ff" stroke="#6366f1"/>
+        <text x="175" y="27" fill="#3730a3" font-weight="bold">Meldungen</text>
+        <text x="175" y="39" fill="#4f46e5" font-size="8.5">Zigbee</text>
+
+        <rect x="214" y="12" width="58" height="34" rx="5" fill="#f1f5f9" stroke="#cbd5e1"/>
+        <text x="243" y="27" fill="#334155">Verbund</text>
+        <text x="243" y="39" fill="#64748b" font-size="8.5">BidCoS</text>
+
+        <rect x="278" y="12" width="58" height="34" rx="5" fill="#e0e7ff" stroke="#6366f1"/>
+        <text x="307" y="27" fill="#3730a3" font-weight="bold">Verbund</text>
+        <text x="307" y="39" fill="#4f46e5" font-size="8.5">Zigbee</text>
+
+        <rect x="342" y="12" width="60" height="34" rx="5" fill="#f1f5f9" stroke="#cbd5e1"/>
+        <text x="372" y="27" fill="#334155">Einstell.</text>
+        <text x="372" y="39" fill="#64748b" font-size="8.5">BidCoS</text>
+
+        <rect x="408" y="12" width="56" height="34" rx="5" fill="#e0e7ff" stroke="#6366f1"/>
+        <text x="436" y="27" fill="#3730a3" font-weight="bold">Einstell.</text>
+        <text x="436" y="39" fill="#4f46e5" font-size="8.5">Zigbee</text>
+
+        <text x="235" y="70" fill="#64748b" font-size="9">blau = die drei Zigbee-Reiter</text>
+      </g>
+    </svg>
+    <figcaption>Zweizeilige Reiter: oben die Sache, darunter das Funknetz.</figcaption>
+  </figure>
+  <p>
+    Zum Einschalten: <em>Einstellungen · Zigbee → „Zigbee einschalten …"</em>.
+    Das wirkt <strong>nach einem Neustart des Dienstes</strong> — Ein- und
+    Ausschalten heißt, die serielle Schnittstelle zu öffnen oder zu schließen,
+    und das im laufenden Betrieb zu verdrahten wäre mehr Zustand als Nutzen.
+    Ein Kanalwechsel dagegen wirkt sofort.
+  </p>
+  <table>
+    <tr><th style="width:32%">Reiter</th><th>erscheint</th></tr>
+    <tr><td><strong>Einstellungen · Zigbee</strong></td>
+      <td><strong>immer.</strong> Hier sitzt der Schalter, mit dem Zigbee
+        überhaupt erst eingeschaltet wird — hinge der Reiter selbst daran,
+        käme man nach dem Ausschalten nicht mehr an ihn heran.</td></tr>
+    <tr><td><strong>Meldungen · Zigbee</strong></td>
+      <td>sobald der Mithörer dieses Analyzers eingeschaltet ist</td></tr>
+    <tr><td><strong>Verbund · Zigbee</strong></td>
+      <td>nur auf dem <strong>Master</strong>, und nur wenn <strong>er
+        selbst</strong> einen Mithörer betreibt</td></tr>
+  </table>
   <div class="kasten">
-    <div class="titel">Warum der Schalter in den Einstellungen sitzt</div>
+    <div class="titel">Warum der Master selbst mithören muss</div>
+    <p>
+      Wer zusammenführt, soll selbst messen. Ein Master, der nur fremde Zahlen
+      weiterreicht, hätte keine eigene Zeile in der Übersicht — und dann könnte
+      niemand sagen, ob ein „nirgends gehört" an den Standorten liegt oder
+      daran, dass der Master gar nicht hinhört.
+    </p>
     <p style="margin-bottom:0">
-      Die Zigbee-Menüpunkte erscheinen nur, wenn der Mithörer eingeschaltet
-      ist — ein Analyzer ohne Stick soll keine toten Einträge zeigen. Läge der
-      Schalter dort, käme man nach dem Ausschalten nicht mehr an ihn heran.
-      Deshalb steht er unter <strong>Einstellungen · Zigbee</strong>, und dieser
-      Reiter bleibt sichtbar.
+      <strong>Auf den Clients darfst du Zigbee trotzdem betreiben</strong>, ganz
+      unabhängig davon. Sie zeigen ihre eigenen Zahlen unter
+      <em>Meldungen · Zigbee</em>. Ob sie in der gemeinsamen Übersicht
+      auftauchen, entscheidet der Master über seine Gegenstellenliste — dieselbe
+      wie bei BidCoS, keine zweite.
     </p>
   </div>
 
@@ -1225,7 +1458,7 @@ done</pre>
     <tr><th style="width:32%">Abschnitt</th><th>Antwortet auf</th></tr>
     <tr><td><strong>Zustand</strong></td><td>Hört er? Auf welchem Kanal? Seit wann? Wie viele Pakete, wie viele verworfen?</td></tr>
     <tr><td><strong>Geräte</strong></td><td>Wer sendet, wie stark, wie sauber — und was davon <strong>grenzwertig</strong> ist</td></tr>
-    <tr><td><strong>Fremde Netze</strong></td><td>Nachbarn auf demselben Kanal. Nicht deine Geräte, aber sie belegen deinen Empfang mit</td></tr>
+    <tr><td><strong>Fremde Netze in Hörweite</strong></td><td>Nachbarn auf demselben Kanal. Nicht deine Geräte, aber sie belegen deinen Empfang mit</td></tr>
     <tr><td><strong>Nicht gehört</strong></td><td>Geräte aus deCONZ, die dieser Standort nie gehört hat — mit einem Standort noch kein Beweis für einen Defekt</td></tr>
     <tr><td><strong>Pakete</strong></td><td>die laufende Liste der letzten zehn Minuten</td></tr>
   </table>
@@ -1236,7 +1469,7 @@ done</pre>
     und nichts über das Gerät. Die Spanne steht daneben, entscheidet aber nicht.
   </p>
 
-  <h3>14.3 Aus <code>0x837E</code> wird „LED Garten Weg 06"</h3>
+  <h3>14.3 Aus <code>0x837E</code> wird „Deckenlampe Flur oben"</h3>
   <p>
     Der Mithörer sieht nur Kurzadressen. Deine Zigbee-Steuerung
     (deCONZ/Phoscon) kennt die Namen — aber zu <strong>IEEE-Adressen</strong>,
@@ -1280,19 +1513,35 @@ done</pre>
 
   <h3>14.4 Was du davon hast</h3>
   <p>
-    An einem einzigen Standort gemessen: <strong>34 von 35 Geräten der
-    deCONZ-Liste in einer Stunde gehört</strong>, alle mit Namen. Und statt
-    einer Liste von Hexzahlen steht da:
+    An einem einzigen Standort über 24 Stunden gemessen: <strong>42 Geräte
+    gehört, 34 davon mit Namen</strong>, und aus der deCONZ-Liste blieben nur
+    zwei übrig, die dieser Standort nie gehört hat. Statt einer Liste von
+    Hexzahlen steht dann so etwas da:
   </p>
-<pre class="aus">Router - Zwischenstecker Garage   -61 dBm  LQI 255  gut
-LED - Garten Weg 06               -73 dBm  LQI 254  gut
-LED - Terrasse oben 02            -88 dBm  LQI  45  GRENZWERTIG
-LED - Terrasse oben 04            -89 dBm  LQI   6  GRENZWERTIG</pre>
+<pre class="aus">Zwischenstecker Werkstatt    -61 dBm  LQI 255  gut
+Deckenlampe Flur oben        -73 dBm  LQI 254  gut
+Aussenleuchte Nord 02        -88 dBm  LQI  45  GRENZWERTIG
+Aussenleuchte Nord 04        -89 dBm  LQI   6  GRENZWERTIG</pre>
+  <p style="color:#64748b;font-size:.9em">
+    (Erfundene Namen. Wie deine Geräte heißen, bestimmst du in deiner
+    Zigbee-Steuerung — der Analyzer übernimmt sie nur.)
+  </p>
   <p>
-    Drei grenzwertige Geräte, alle auf der Terrasse — das ist eine Aussage, mit
-    der man etwas anfangen kann. Mit <code>0xD92F</code> und <code>0xE108</code>
-    wäre es keine gewesen.
+    Zwei grenzwertige Geräte, beide an derselben Außenwand — das ist eine
+    Aussage, mit der man etwas anfangen kann. Mit <code>0xD92F</code> und
+    <code>0xE108</code> wäre es keine gewesen.
   </p>
+  <div class="kasten">
+    <div class="titel">Warum nicht alle Geräte einen Namen bekommen</div>
+    <p style="margin-bottom:0">
+      Die Brücke zum Namen ist die IEEE-Adresse, und die steht nur in einem
+      Teil der Funkpakete. Ein Gerät, das gerade wenig sendet, kann deshalb
+      eine Weile ohne Namen dastehen — es wird nachgetragen, sobald ein
+      passendes Paket vorbeikommt. Der Koordinator selbst (Kurzadresse
+      <code>0000</code>) bleibt namenlos: Er steht in der deCONZ-Geräteliste
+      nicht, weil er sie führt.
+    </p>
+  </div>
 </section>
 
 <!-- ================= 15 ================= -->
@@ -1300,21 +1549,34 @@ LED - Terrasse oben 04            -89 dBm  LQI   6  GRENZWERTIG</pre>
   <h2 id="k15">15 Was noch fehlt</h2>
 
   <p>
-    Dieses Buch endet dort, wo die Zeilen aus dem Stick kommen. Der Weg von dort
-    in die Oberfläche des Analyzers wird gerade gebaut. Die folgenden Kapitel
-    kommen dazu, sobald der jeweilige Teil fertig <em>und geprüft</em> ist:
+    Der Weg vom Stick bis in die Oberfläche des Analyzers ist gebaut und läuft.
+    Was noch fehlt, steht in der letzten Zeile dieser Aufstellung — und es ist
+    weniger, als beim ersten Entwurf dieses Buches offen war:
   </p>
 
   <table>
     <tr><th style="width:38%">Thema</th><th>Inhalt</th><th style="width:16%">Zustand</th></tr>
-    <tr><td>Fester Gerätename</td><td>Der Stick heißt nach jedem Neustart gleich</td><td class="gut">fertig</td></tr>
-    <tr><td>Zigbee einschalten</td><td>Im Einrichtungsassistenten und in der Weboberfläche</td><td class="gut">fertig</td></tr>
+    <tr><td>Fester Gerätename</td><td><code>/dev/asksin-zigbee</code>, nach jedem Neustart gleich (Kapitel 5)</td><td class="gut">fertig</td></tr>
+    <tr><td>Firmware aufspielen</td><td>durch den Analyzer selbst, im Setup und in der Weboberfläche (Kapitel 6.1)</td><td class="gut">fertig</td></tr>
+    <tr><td>Zigbee einschalten</td><td>im Einrichtungsassistenten und in der Weboberfläche</td><td class="gut">fertig</td></tr>
     <tr><td>Die Zigbee-Seite</td><td>Zustand, Geräte, Pakete (Kapitel 14)</td><td class="gut">fertig</td></tr>
     <tr><td>Gerätenamen</td><td>aus deCONZ, über die IEEE-Adresse (Kapitel 14.3)</td><td class="gut">fertig</td></tr>
-    <tr><td>Mehrere Standorte</td><td>Welcher Analyzer hört welches Gerät am besten — dafür braucht ein zweiter Analyzer einen Stick</td><td>offen</td></tr>
-    <tr><td>Langzeitdaten</td><td>Auswertungen über Wochen und Monate, Grafana</td><td>offen</td></tr>
+    <tr><td>Mehrere Standorte</td><td>Empfangsmatrix unter <em>Verbund · Zigbee</em>: welcher Analyzer hört welches Gerät am besten, und was hört niemand</td><td class="gut">fertig</td></tr>
+    <tr><td>Langzeitdaten</td><td>InfluxDB und eine eigene Grafana-Ansicht für den Mithörer</td><td class="gut">fertig</td></tr>
+    <tr><td>ioBroker</td><td>Zigbee-Werte als States im Adapter <code>asksinanalyzer-rpi</code></td><td class="gut">fertig</td></tr>
     <tr><td>Grundrauschen</td><td>gibt es für Zigbee bewusst noch nicht — die Firmware liefert RSSI nur je Paket, nicht zwischen den Paketen</td><td>offen</td></tr>
   </table>
+
+  <div class="kasten achtung">
+    <div class="titel">Was zwar gebaut, aber noch nicht vollständig erprobt ist</div>
+    <p style="margin-bottom:0">
+      Die <strong>Empfangsmatrix</strong> zeigt ihren eigentlichen Wert erst mit
+      einem zweiten mithörenden Standort — bis dahin hat sie eine einzige
+      Spalte. Und das <strong>Aufspielen der Firmware durch den Analyzer</strong>
+      ist in allen Schritten geprüft <em>außer</em> dem Schreibvorgang selbst
+      (siehe Kapitel 6.1). Beides hängt am zweiten Stick.
+    </p>
+  </div>
 
   <div class="kasten">
     <div class="titel">Wie dieses Buch gepflegt wird</div>

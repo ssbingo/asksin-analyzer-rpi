@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **0.20.1** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **0.20.1** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.1** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.1** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,22 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.0.1 — 18.08.2026
+
+**Zigbee ist fertig — und der Stick wird auf dem Pi bespielt.**
+
+- Der Analyzer spielt die Sniffer-Firmware **selbst** auf: im Einrichtungsassistenten
+  und unter *Einstellungen · Zigbee*. Kein Browser, kein zweiter Rechner, keine
+  Konsole. Er verweigert die Arbeit, wenn mehrere SONOFF-Sticks stecken.
+- **Verbund · Zigbee**: Empfangsmatrix über alle Standorte, samt „von niemandem
+  gehört". Setzt einen Mithörer **auf dem Master** voraus.
+- Zehnte Grafana-Ansicht, Zigbee-States im ioBroker-Adapter.
+- Behoben: Der Reiter *Einstellungen · Zigbee* hing an `zigbeeAktiv` — bei
+  ausgeschaltetem Zigbee gab es damit keinen Weg mehr zum Einschalten.
+- Behoben: Ein Analyzer ohne Mithörer meldete auf `/api/zigbee/geraete` eine
+  leere Liste mit 200 statt 501 — „ich höre nichts" statt „hier hört niemand mit".
+- Das Zigbee-Handbuch ist Kapitel für Kapitel am Gerät nachgeprüft worden.
 
 ### v0.20.1 — 17.08.2026
 
