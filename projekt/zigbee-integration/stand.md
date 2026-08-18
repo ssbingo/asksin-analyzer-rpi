@@ -15,6 +15,41 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — Handbuch auf den Stand gebracht (M16.8)
+
+Von 23 auf **25 Seiten**. Neues Kapitel 14 „Im Analyzer: einschalten,
+ablesen, benennen" — der Teil, der bisher fehlte, weil es ihn noch nicht gab.
+
+Ersetzt wurde außerdem alles, was inzwischen gemessen ist:
+
+| war | ist |
+| --- | --- |
+| „ungeprüft — welcher USB-Baustein" | CP2102N, `10c4:ea60`, Itead-Zeichenketten |
+| „ungeprüft — Antenne abnehmbar?" | steht, weil der Stick läuft |
+| „ungeprüft — Schreibweise der Flasher-Schalter" | belegt, der Weg funktioniert |
+| „der zuverlässige Weg" | „**der Weg, der funktioniert**" |
+
+Übrig bleibt **ein** Vermerk `ungeprüft`: Wireshark. Den Weg haben wir nicht
+gebraucht und deshalb auch nicht durchgespielt — das steht jetzt so da,
+statt eine Prüfung vorzutäuschen.
+
+Zwei Dinge stehen im Handbuch, weil sie einen halben Nachmittag gekostet
+haben:
+
+* **Warum der Schalter in den Einstellungen sitzt** und nicht auf der
+  Zigbee-Seite — sonst käme man nach dem Ausschalten nicht mehr an ihn heran.
+* **Die Falle mit `/config`**: Ob ein deCONZ-Schlüssel noch gilt, lässt sich
+  damit nicht prüfen; der Zweig antwortet ohne Anmeldung. Ein geschützter
+  Zweig wie `/lights` sagt die Wahrheit.
+
+Die Ausblickstabelle ist ehrlich nachgezogen: vier Zeilen „fertig", drei
+offen — darunter das Grundrauschen, das es für Zigbee **bewusst** nicht gibt,
+weil die Firmware RSSI nur je Paket liefert.
+
+25 Seiten, 118 interne Verweise, Rücksprung auf allen Seiten.
+
+---
+
 ## 18.08.2026 — deCONZ-Schlüssel: zwei Fehler von mir, einer davon eine Fehldiagnose
 
 ### Der Schlüssel wird angefordert, nicht abgetippt

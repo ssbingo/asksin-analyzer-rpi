@@ -304,7 +304,8 @@
     <li><a class="zeile" href="#k11"><span class="nr">11</span><span class="txt">Wenn etwas nicht klappt</span></a></li>
     <li><a class="zeile" href="#k12"><span class="nr">12</span><span class="txt">Der Rückweg</span><span class="bei">Aus dem Mithörer wieder ein Koordinator</span></a></li>
     <li><a class="zeile" href="#k13"><span class="nr">13</span><span class="txt">Wörterbuch</span></a></li>
-    <li><a class="zeile" href="#k14"><span class="nr">14</span><span class="txt">Was noch fehlt</span><span class="bei">die künftigen Kapitel</span></a></li>
+    <li><a class="zeile" href="#k14"><span class="nr">14</span><span class="txt">Im Analyzer: einschalten, ablesen, benennen</span></a></li>
+    <li><a class="zeile" href="#k15"><span class="nr">15</span><span class="txt">Was noch fehlt</span><span class="bei">die künftigen Kapitel</span></a></li>
   </ol>
 
   <div class="kasten">
@@ -464,9 +465,8 @@
   <h2 id="k3">3 Auspacken</h2>
 
   <p>
-    In der Schachtel liegen üblicherweise der Stick, eine Antenne zum Aufschrauben
-    und ein Zettel. <span class="ungeprueft">ungeprüft</span> — ob bei dieser
-    Ausführung die Antenne wirklich abnehmbar ist, sehen wir beim Auspacken.
+    In der Schachtel liegen der Stick, eine Antenne zum Aufschrauben und ein
+    Zettel.
   </p>
 
   <ol class="schritte">
@@ -574,9 +574,18 @@ usb 1-1.2: ch343 converter now attached to ttyACM0</pre>
       <p>Eine der Zeilen gehört zum Stick, zum Beispiel:</p>
 <pre class="aus">Bus 001 Device 005: ID 1a86:55d4 QinHeng Electronics USB Single Serial</pre>
       <p>
-        <code>1a86</code> ist der Hersteller des USB-Bausteins, <code>55d4</code>
-        das Modell. Notiere beides. <span class="ungeprueft">ungeprüft</span> —
-        es kann auch <code>10c4:ea60</code> (Silicon Labs) sein; beides ist üblich.
+        Der erste Wert ist der Hersteller des USB-Bausteins, der zweite das
+        Modell. Notiere beides.
+      </p>
+      <div class="kasten">
+        <div class="titel">Am Gerät gemessen</div>
+        <p style="margin-bottom:0">
+          Der ZBDongle-E meldet sich als <code>10c4:ea60</code> — ein CP2102N
+          von Silicon Labs, mit von Itead programmierten Zeichenketten
+          (<code>Itead</code> / <code>Sonoff Zigbee 3.0 USB Dongle Plus V2</code>).
+          <strong>Das ist derselbe Baustein wie auf der USB-Variante der
+          Analyzer-Platine.</strong> Deshalb bekommt der Stick eine eigene
+          udev-Regel — ohne sie trüge er den Namen des Sniffers.
       </p>
     </li>
     <li>
@@ -700,7 +709,7 @@ ls -l sniffer.gbl</pre>
     </p>
   </div>
 
-  <h3>6.3 Der zuverlässige Weg: Befehlszeile am Pi</h3>
+  <h3>6.3 Der Weg, der funktioniert: Befehlszeile am Pi</h3>
   <p>
     Das Werkzeug heißt <code>universal-silabs-flasher</code>. Es kann den Stick
     über die Steuerleitungen der seriellen Schnittstelle <strong>zwingen</strong>,
@@ -1028,7 +1037,9 @@ done</pre>
     <li><span class="was">In den Ordner „extcap" kopieren</span> — wo der liegt, verrät Wireshark unter <em>Hilfe → Über Wireshark → Ordner</em>.</li>
     <li><span class="was">Wireshark neu starten</span> — der Stick erscheint jetzt in der Liste der Aufnahmequellen.</li>
   </ol>
-  <p><span class="ungeprueft">ungeprüft</span> — den genauen Ablauf tragen wir nach dem ersten Durchgang hier ein.</p>
+  <p><span class="ungeprueft">ungeprüft</span> — diesen Weg haben wir nicht
+    gebraucht und deshalb auch nicht durchgespielt. Der Analyzer wertet die
+    Zeilen selbst aus; Wireshark ist nur für den Blick ins einzelne Paket.</p>
 </section>
 
 <!-- ================= 11 ================= -->
@@ -1181,9 +1192,109 @@ done</pre>
   </dl>
 </section>
 
-<!-- ================= 14 ================= -->
+<!-- ================= 13a ================= -->
 <section>
-  <h2 id="k14">14 Was noch fehlt</h2>
+  <h2 id="k14">14 Im Analyzer: einschalten, ablesen, benennen</h2>
+
+  <p>
+    Ab hier ist der Stick kein Werkzeug mehr, sondern Teil des Analyzers.
+    Drei Handgriffe, alle über die Weboberfläche — <strong>keine Konsole
+    nötig.</strong>
+  </p>
+
+  <h3>14.1 Einschalten</h3>
+  <p>
+    <em>Einstellungen → Zigbee-Mithörer → Zigbee einschalten.</em> Das wirkt
+    nach einem Neustart des Dienstes; danach erscheint oben der neue
+    Menüpunkt <strong>Zigbee</strong>.
+  </p>
+  <div class="kasten">
+    <div class="titel">Warum der Schalter in den Einstellungen sitzt</div>
+    <p style="margin-bottom:0">
+      Der Menüpunkt <strong>Zigbee</strong> erscheint nur, wenn der Mithörer
+      eingeschaltet ist — ein Analyzer ohne Stick soll keinen toten Eintrag
+      zeigen. Läge der Schalter auf dieser Seite, käme man nach dem
+      Ausschalten nicht mehr an ihn heran.
+    </p>
+  </div>
+
+  <h3>14.2 Was die Zigbee-Seite zeigt</h3>
+  <table>
+    <tr><th style="width:32%">Abschnitt</th><th>Antwortet auf</th></tr>
+    <tr><td><strong>Zustand</strong></td><td>Hört er? Auf welchem Kanal? Seit wann? Wie viele Pakete, wie viele verworfen?</td></tr>
+    <tr><td><strong>Geräte</strong></td><td>Wer sendet, wie stark, wie sauber — und was davon <strong>grenzwertig</strong> ist</td></tr>
+    <tr><td><strong>Fremde Netze</strong></td><td>Nachbarn auf demselben Kanal. Nicht deine Geräte, aber sie belegen deinen Empfang mit</td></tr>
+    <tr><td><strong>Pakete</strong></td><td>die laufende Liste der letzten zehn Minuten</td></tr>
+  </table>
+  <p>
+    Die Bewertung stützt sich auf den <strong>Mittelwert</strong>, nicht auf
+    das schwächste je empfangene Paket. Wer eine Stunde misst, sieht bei jedem
+    Gerät irgendwann einen Ausreißer; das sagt etwas über die Messdauer aus
+    und nichts über das Gerät. Die Spanne steht daneben, entscheidet aber nicht.
+  </p>
+
+  <h3>14.3 Aus <code>0x837E</code> wird „LED Garten Weg 06"</h3>
+  <p>
+    Der Mithörer sieht nur Kurzadressen. Deine Zigbee-Steuerung
+    (deCONZ/Phoscon) kennt die Namen — aber zu <strong>IEEE-Adressen</strong>,
+    und die Kurzadresse kennt sie nicht. Die Brücke baut der Analyzer selbst:
+    Zigbee überträgt die IEEE-Adresse des Absenders im Paketkopf
+    <strong>unverschlüsselt</strong> mit, in rund der Hälfte aller Datenrahmen.
+  </p>
+  <p>Zwei Schritte, beide in <em>Einstellungen → Zigbee-Mithörer</em>:</p>
+  <ol class="schritte">
+    <li><span class="was">deCONZ-Rechner eintragen</span> — IP oder Hostname, bei Bedarf mit <code>:Port</code>.</li>
+    <li>
+      <span class="was">Schlüssel anfordern</span>
+      <p>In Phoscon zuerst <em>Einstellungen → Gateway → Erweitert →
+        „App verbinden"</em> anklicken — das öffnet ein Fenster von 60 Sekunden.
+        Dann hier auf <strong>Schlüssel anfordern</strong>.</p>
+    </li>
+  </ol>
+  <div class="kasten gut">
+    <div class="titel">Warum es kein Eingabefeld für den Schlüssel gibt</div>
+    <p>
+      deCONZ <strong>zeigt bestehende Schlüssel nie an</strong>. Es vergibt nur
+      neue, und nur während dieses Fensters. Wer einen von Hand besorgt, trägt
+      ein Zugangstoken durch Zwischenablage und Bildschirm.
+    </p>
+    <p style="margin-bottom:0">
+      Holt der Analyzer ihn selbst, sieht ihn niemand: Er steht in keiner
+      Antwort, keinem Protokoll und keiner Fehlermeldung. Ein neuer Schlüssel
+      widerruft den alten automatisch.
+    </p>
+  </div>
+  <div class="kasten achtung">
+    <div class="titel">Eine Falle bei der Fehlersuche</div>
+    <p style="margin-bottom:0">
+      Ob ein Schlüssel noch gilt, lässt sich <strong>nicht</strong> mit
+      <code>GET /api/&lt;schlüssel&gt;/config</code> prüfen: Diesen Zweig
+      beantwortet deCONZ <strong>ohne jede Anmeldung</strong>, auch für einen
+      frei erfundenen Schlüssel. Nimm einen geschützten Zweig, etwa
+      <code>/lights</code> — dort steht dann <code>unauthorized user</code>.
+    </p>
+  </div>
+
+  <h3>14.4 Was du davon hast</h3>
+  <p>
+    An einem einzigen Standort gemessen: <strong>34 von 35 Geräten der
+    deCONZ-Liste in einer Stunde gehört</strong>, alle mit Namen. Und statt
+    einer Liste von Hexzahlen steht da:
+  </p>
+<pre class="aus">Router - Zwischenstecker Garage   -61 dBm  LQI 255  gut
+LED - Garten Weg 06               -73 dBm  LQI 254  gut
+LED - Terrasse oben 02            -88 dBm  LQI  45  GRENZWERTIG
+LED - Terrasse oben 04            -89 dBm  LQI   6  GRENZWERTIG</pre>
+  <p>
+    Drei grenzwertige Geräte, alle auf der Terrasse — das ist eine Aussage, mit
+    der man etwas anfangen kann. Mit <code>0xD92F</code> und <code>0xE108</code>
+    wäre es keine gewesen.
+  </p>
+</section>
+
+<!-- ================= 15 ================= -->
+<section>
+  <h2 id="k15">15 Was noch fehlt</h2>
 
   <p>
     Dieses Buch endet dort, wo die Zeilen aus dem Stick kommen. Der Weg von dort
@@ -1192,12 +1303,14 @@ done</pre>
   </p>
 
   <table>
-    <tr><th style="width:38%">Künftiges Kapitel</th><th>Inhalt</th><th style="width:16%">Zustand</th></tr>
-    <tr><td>Fester Gerätename</td><td>Damit der Stick nach jedem Neustart gleich heißt</td><td>in Arbeit</td></tr>
-    <tr><td>Zigbee einschalten</td><td>Im Einrichtungsassistenten und in der Weboberfläche</td><td>geplant</td></tr>
-    <tr><td>Die Zigbee-Seite</td><td>Zustand, Geräte, Pakete — die eigene Seite im Analyzer</td><td>geplant</td></tr>
-    <tr><td>Mehrere Standorte</td><td>Welcher Analyzer hört welches Gerät am besten</td><td>geplant</td></tr>
-    <tr><td>Langzeitdaten</td><td>Auswertungen über Wochen und Monate</td><td>geplant</td></tr>
+    <tr><th style="width:38%">Thema</th><th>Inhalt</th><th style="width:16%">Zustand</th></tr>
+    <tr><td>Fester Gerätename</td><td>Der Stick heißt nach jedem Neustart gleich</td><td class="gut">fertig</td></tr>
+    <tr><td>Zigbee einschalten</td><td>Im Einrichtungsassistenten und in der Weboberfläche</td><td class="gut">fertig</td></tr>
+    <tr><td>Die Zigbee-Seite</td><td>Zustand, Geräte, Pakete (Kapitel 14)</td><td class="gut">fertig</td></tr>
+    <tr><td>Gerätenamen</td><td>aus deCONZ, über die IEEE-Adresse (Kapitel 14.3)</td><td class="gut">fertig</td></tr>
+    <tr><td>Mehrere Standorte</td><td>Welcher Analyzer hört welches Gerät am besten — dafür braucht ein zweiter Analyzer einen Stick</td><td>offen</td></tr>
+    <tr><td>Langzeitdaten</td><td>Auswertungen über Wochen und Monate, Grafana</td><td>offen</td></tr>
+    <tr><td>Grundrauschen</td><td>gibt es für Zigbee bewusst noch nicht — die Firmware liefert RSSI nur je Paket, nicht zwischen den Paketen</td><td>offen</td></tr>
   </table>
 
   <div class="kasten">
