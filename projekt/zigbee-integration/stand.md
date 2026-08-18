@@ -15,6 +15,28 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — Berichtigung: Es war ein Stromausfall, nicht das Werkzeug
+
+Analyzer-04 war nach dem Einrichten der Python-Umgebung fuer den Flasher vom
+Netz. Ich habe den zeitlichen Zusammenhang gemeldet und die Installation in
+Verdacht gestellt — ein Pi 3 mit 1 GB, ein `pip install`, und danach kein
+Ping mehr.
+
+**Der Betreiber hat aufgeklaert: Es war ein Stromausfall.**
+
+Der Verdacht war naheliegend und trotzdem falsch. Festgehalten, weil die
+Begruendung sonst als Erfahrungswert stehen bliebe: „pip auf dem Pi 3 legt
+das Geraet lahm" wuerde beim naechsten Mal in die Irre fuehren.
+
+`--no-cache-dir` bleibt — es spart Platz auf der Karte und der
+Zwischenspeicher wird hier nie ein zweites Mal gebraucht. Nur die Begruendung
+im Skript ist berichtigt.
+
+Gemessen ist damit: Das Einrichten laeuft auf einem Pi 3 **durch**. Es dauert
+spuerbar, mehr nicht.
+
+---
+
 ## 18.08.2026 — Zwei Seiten, eine Annahme: Ein Analyzer ohne Stick log auf der Leitung
 
 Ausgerollt, dann nachgesehen. Und dabei genau den Fehler gefunden, den die

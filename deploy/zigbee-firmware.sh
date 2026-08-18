@@ -216,7 +216,8 @@ if [ ! -x "$WERKZEUG" ]; then
     c_info 'Flash-Werkzeug einrichten (einmalig)...'
     # Auf einem knapp bemessenen Geraet ist dieser Schritt der teuerste des
     # ganzen Vorgangs — teurer als das Aufspielen selbst. Wer wenig Speicher
-    # hat, soll wenigstens wissen, woran es liegt, wenn es lange dauert.
+    # hat, soll wissen, woran es liegt, wenn es lange dauert. Gemessen auf
+    # einem Pi 3: laeuft durch, dauert aber spuerbar.
     SPEICHER_MB="$(awk '/MemTotal/ {print int($2/1024)}' /proc/meminfo 2>/dev/null || echo 0)"
     if [ "$SPEICHER_MB" -gt 0 ] && [ "$SPEICHER_MB" -lt 1536 ]; then
         c_warn "Dieses Geraet hat nur ${SPEICHER_MB} MB Arbeitsspeicher."
@@ -225,10 +226,16 @@ if [ ! -x "$WERKZEUG" ]; then
     fi
     python3 -m venv "$FLASHER_DIR" \
         || abbruch "werkzeug" "Python-Umgebung liess sich nicht anlegen (python3-venv installiert?)"
-    # --no-cache-dir ist auf einem Pi 3 kein Feinschliff, sondern noetig: Der
-    # Zwischenspeicher von pip legt jedes Rad zusaetzlich ab, und auf einem
-    # Geraet mit 1 GB Arbeitsspeicher, das nebenher mitschreibt, ist das der
-    # Unterschied zwischen "dauert lange" und "der Rechner ist weg".
+    # --no-cache-dir: Der Zwischenspeicher von pip legt jedes Rad zusaetzlich
+    # auf der Platte ab. Auf einem Pi 3 mit 1 GB, der nebenher mitschreibt und
+    # von einer SD-Karte oder SSD lebt, ist das vermeidbarer Ballast — gebraucht
+    # wird der Zwischenspeicher nur, wenn man oefter installiert, und das tut
+    # hier niemand.
+    #
+    # (Diese Zeile entstand am 18.08.2026 aus einem falschen Verdacht: Ein
+    # Analyzer war nach dem Einrichten vom Netz, und ich hielt die Installation
+    # fuer die Ursache. Es war ein Stromausfall. Die Massnahme ist trotzdem
+    # richtig, die Begruendung war es nicht.)
     "$FLASHER_DIR/bin/pip" install --quiet --no-cache-dir --upgrade pip \
         || c_warn 'pip liess sich nicht aktualisieren — weiter mit der vorhandenen Fassung.'
     "$FLASHER_DIR/bin/pip" install --quiet --no-cache-dir universal-silabs-flasher \
