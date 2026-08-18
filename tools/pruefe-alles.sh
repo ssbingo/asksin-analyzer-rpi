@@ -35,12 +35,12 @@ lauf() {  # lauf <Beschreibung> <Befehl...>
 # Prüfungen, die zusätzliche Software brauchen, werden übersprungen statt zu
 # scheitern — sonst bleibt bei fehlendem WeasyPrint der ganze Durchlauf rot
 # und man gewöhnt sich an ein rotes Ergebnis. Daran gewöhnt man sich schnell.
-optional() {  # optional <Beschreibung> <Bedingung> <Befehl...>
-    local titel="$1" pruefung="$2"; shift 2
+optional() {  # optional <Beschreibung> <Bedingung> <Hinweis> <Befehl...>
+    local titel="$1" pruefung="$2" hinweis="$3"; shift 3
     if ! eval "$pruefung" >/dev/null 2>&1; then
-        uebersprungen+=("$titel — PDF bauen mit: bash docs/handbuch/build.sh")
-        printf '\n%s== %s ==%s\n  übersprungen (PDF oder pdftotext fehlt)\n' \
-            "$blau" "$titel" "$aus"
+        uebersprungen+=("$titel — $hinweis")
+        printf '\n%s== %s ==%s\n  übersprungen — %s\n' \
+            "$blau" "$titel" "$aus" "$hinweis"
         return 0
     fi
     lauf "$titel" "$@"
@@ -48,6 +48,9 @@ optional() {  # optional <Beschreibung> <Bedingung> <Befehl...>
 
 lauf "systemd-Units und Grafana-Vorlagen werden ausgerollt" \
     bash tools/pruefe-units.sh
+
+lauf "udev: kein Gerät bekommt zwei Namen" \
+    python3 tools/pruefe-udev.py
 
 lauf "Austauschdateien: Core und Helfer meinen denselben Ort" \
     python3 tools/pruefe-austauschdateien.py
@@ -77,7 +80,17 @@ done
 
 optional "Handbuch: Fußsteg verdeckt keinen Text" \
     "[ -f docs/handbuch/AskSin-Analyzer-Handbuch.pdf ] && command -v pdftotext" \
+    "PDF bauen mit: bash docs/handbuch/build.sh" \
     python3 docs/handbuch/pruefe_fusssteg.py
+
+# Anklickbar oder gar nicht. Ein Handbuch, dessen Inhaltsverzeichnis nicht
+# springt und dessen Fußzeile nicht zum Inhalt zurückführt, ist beim Benutzen
+# unbrauchbar — und beim Ansehen fällt genau das nicht auf. Gilt für JEDES
+# Handbuch des Projekts, auch für die der laufenden Vorhaben unter projekt/.
+optional "Handbücher: Inhaltsverzeichnis und Rücksprung sind anklickbar" \
+    "python3 -c 'import pypdf'" \
+    "pypdf fehlt (pip install pypdf) — beim Bauen eines Handbuchs läuft die Prüfung ohnehin" \
+    python3 tools/pruefe-sprungmarken.py
 
 lauf "Handbuch: Nummerierung und Sprungmarken" \
     python3 docs/handbuch/pruefe_nummerierung.py

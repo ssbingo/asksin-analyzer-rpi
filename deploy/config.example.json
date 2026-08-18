@@ -20,5 +20,6 @@
   },
   "verbund": {
     "peers": []
-  }
+  },
+  "zigbee": { "aktiv": false, "device": "/dev/asksin-zigbee", "kanal": 11 }
 }

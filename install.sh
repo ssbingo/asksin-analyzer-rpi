@@ -271,6 +271,11 @@ schreibe_konfig() {
   },
   "verbund": {
     "rolle": "$(if [ "$VERBUND_MASTER" -eq 1 ]; then echo master; else echo client; fi)"
+  },
+  "zigbee": {
+    "aktiv": $(if [ "${ZIGBEE_AKTIV:-0}" -eq 1 ]; then echo true; else echo false; fi),
+    "device": "/dev/asksin-zigbee",
+    "kanal": ${ZIGBEE_KANAL:-11}
   }
 }
 EOF
@@ -353,6 +358,45 @@ if [ "$KONFIGURIEREN" -eq 1 ]; then
         c_warn "Kein Terminal - schreibe Vorgabe-Konfiguration (nur 127.0.0.1, ohne CCU)."
         CCU=""; PORT=8080; HOST="127.0.0.1"; TOKEN=""; STANDORT="$(hostname)"
     fi
+# --- Zigbee-Mithoerer (M16) ---------------------------------------------------
+    #
+    # Standardmaessig AUS. Die Vorgabe der Frage haengt davon ab, ob ueberhaupt
+    # ein Stick steckt: Wer keinen hat, soll nicht ueberlegen muessen, und wer
+    # einen angesteckt hat, meint es vermutlich so.
+    ZIGBEE_AKTIV=0
+    ZIGBEE_KANAL=11
+    
+    zigbee_gefunden() {
+        # Der udev-Name existiert erst nach der Regel weiter unten; deshalb hier
+        # ueber die stabile by-id-Kennung suchen.
+        ls /dev/serial/by-id/ 2>/dev/null | grep -qi "Sonoff_Zigbee"
+    }
+    
+    if zigbee_gefunden; then
+        c_ok "Zigbee-Stick erkannt (SONOFF ZBDongle)."
+        a="$(ask_tty 'Zigbee-Mithoerer einrichten? (J/n): ')"
+        case "${a,,}" in n|nein|no) ZIGBEE_AKTIV=0 ;; *) ZIGBEE_AKTIV=1 ;; esac
+    else
+        c_info "Kein Zigbee-Stick gefunden — der Mithoerer braucht einen eigenen"
+        c_info "USB-Stick (SONOFF ZBDongle-E mit Sniffer-Firmware, siehe Handbuch)."
+        a="$(ask_tty 'Zigbee trotzdem schon aktivieren? (j/N): ')"
+        case "${a,,}" in j|ja|y|yes) ZIGBEE_AKTIV=1 ;; *) ZIGBEE_AKTIV=0 ;; esac
+    fi
+    
+    if [ "$ZIGBEE_AKTIV" -eq 1 ]; then
+        c_info "Zigbee benutzt die Kanaele 11 bis 26. Welchen Kanal Dein Netz"
+        c_info "benutzt, steht in Phoscon/zigbee2mqtt/ZHA unter Netzwerk."
+        a="$(ask_tty 'Kanal [11]: ')"
+        if [ -n "$a" ] && [ "$a" -ge 11 ] 2>/dev/null && [ "$a" -le 26 ] 2>/dev/null; then
+            ZIGBEE_KANAL="$a"
+        elif [ -n "$a" ]; then
+            c_warn "\"$a\" ist kein Kanal zwischen 11 und 26 — es bleibt bei 11."
+        fi
+        c_ok "Zigbee-Mithoerer aktiv auf Kanal $ZIGBEE_KANAL."
+    else
+        c_info "Zigbee bleibt aus (spaeter in der Weboberflaeche einschaltbar)."
+    fi
+
     schreibe_konfig "$CCU" "$PORT" "$HOST" "$TOKEN" "$STANDORT" "$STATUSANZEIGE"
     c_ok "Konfiguration geschrieben: $CONFIG_FILE"
 else

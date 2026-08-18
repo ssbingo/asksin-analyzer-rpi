@@ -40,9 +40,16 @@ test('openDatabase: WAL, synchronous=NORMAL, Migration auf Version 1', () => {
     const tabellen = db2
       .prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name`)
       .all() as Array<{ name: string }>;
+    // Vollstaendig verglichen, nicht nur "enthaelt": Eine Tabelle, die
+    // unbemerkt dazukommt, ist ein Schemawechsel — und der gehoert in eine
+    // Migration und in diese Zeile, nicht in einen Zufallsfund im Betrieb.
     assert.deepEqual(
       tabellen.map((t) => t.name),
-      ['device_hours', 'noise_minutes', 'telegrams'],
+      [
+        'device_hours', 'noise_minutes', 'telegrams',
+        // Schema 2 (M16): Zigbee, bewusst getrennt von den BidCoS-Tabellen.
+        'zigbee_device_hours', 'zigbee_packets',
+      ],
     );
     db2.close();
   } finally {

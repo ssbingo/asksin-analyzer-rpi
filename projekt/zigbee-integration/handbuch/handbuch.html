@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Zigbee-Mithörer — Handbuch</title>
+<style>
+  /* ---------------------------------------------------------------------
+     Zigbee-Handbuch — eigenständiges Buch, solange die Zigbee-Erweiterung
+     gebaut wird. Es wird später als Kapitel ins Hauptbuch übernommen.
+
+     Farbe: Indigo statt Petrol. Das Hauptbuch gehört zu 868 MHz, dieses hier
+     zu 2,4 GHz — zwei Bücher, die man nebeneinander liegen hat, dürfen sich
+     nicht ähnlich sehen. Aufbau, Randmaße und Kastenformen bleiben gleich,
+     damit die spätere Zusammenführung eine Farbänderung ist und kein Umbau.
+
+     Gebaut mit WeasyPrint. Anders als das Hauptbuch benutzt dieses Buch
+     echte CSS-Seitenrandbereiche (@bottom-*) statt eines fest
+     positionierten Stegs — das Hauptbuch stammt noch aus der Chromium-Zeit,
+     wo es die nicht gab. Seitenrandbereiche können nicht in den Text
+     hineinragen; die Prüfung auf verdeckten Text erübrigt sich damit.
+     --------------------------------------------------------------------- */
+  :root {
+    --indigo: #4f46e5; --indigo-dunkel: #3730a3; --indigo-hell: #eef2ff;
+    --tinte: #1f2937; --grau: #64748b; --linie: #e2e8f0; --linie-satt: #cbd5e1;
+    --gruen: #15803d; --gruen-hell: #f0fdf4;
+    --amber: #b45309; --amber-hell: #fffbeb;
+    --rot: #b91c1c;   --rot-hell: #fef2f2;
+    --code-bg: #111827; --code-fg: #e5e7eb; --code-akzent: #a5b4fc;
+  }
+  * { box-sizing: border-box; print-color-adjust: exact; }
+
+  @page {
+    size: A4;
+    margin: 18mm 16mm 20mm 16mm;
+    @bottom-left {
+      content: "Zigbee-Mithörer · Handbuch";
+      font-size: 7.6pt; color: #64748b; padding-bottom: 4mm;
+    }
+    /* Die Mitte bleibt frei — dort sitzt der Rücksprung zum Inhalt, und der
+       muss anklickbar sein. Seitenrandbereiche (@bottom-*) erzeugen in
+       WeasyPrint KEINE Verweis-Annotationen; ein Verweis darin wäre gedruckte
+       Zierde ohne Funktion. Deshalb steht dort ein fest positioniertes
+       Element (.rueckverweis) — derselbe Weg, den das große Handbuch geht. */
+    @bottom-right {
+      content: counter(page) " / " counter(pages);
+      font-size: 7.6pt; color: #64748b; padding-bottom: 4mm;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+  /* Auf dem Deckblatt kein Steg: Rand 0 schiebt den fest positionierten
+     Rücksprung unter die Blattkante, wo er nicht mehr gezeichnet wird. */
+  @page deckblatt { margin: 0; @bottom-left { content: none } @bottom-right { content: none } }
+
+  .rueckverweis {
+    position: fixed; bottom: -9.8mm; left: 0; right: 0; z-index: 5;
+    text-align: center; font-size: 7.6pt;
+  }
+  .rueckverweis a {
+    color: var(--indigo); font-weight: 700; text-decoration: none;
+    letter-spacing: 0.02em;
+  }
+
+  h1 { bookmark-level: 1; bookmark-label: content(); }
+  h2 { bookmark-level: 2; bookmark-label: content(); }
+  h3 { bookmark-level: 3; bookmark-label: content(); }
+  .deckblatt h1, .deckblatt h2 { bookmark-level: none; }
+
+  body {
+    font-family: "Source Sans 3", "Noto Sans", "DejaVu Sans", sans-serif;
+    font-size: 10.2pt; line-height: 1.52; color: var(--tinte); margin: 0;
+    hyphens: auto;
+  }
+
+  /* ---- Deckblatt ---------------------------------------------------- */
+  /* Titelblock oben, Standhinweis unten — dazwischen darf Ruhe sein, aber
+     kein handbreites Loch. Der Standhinweis wird deshalb absolut gesetzt.
+     „margin-top: auto" in einer Flex-Spalte tut es nicht: WeasyPrint setzt
+     das nicht um, der Kasten rutschte statt nach unten nach oben. Erst am
+     gedruckten Blatt gesehen. */
+  .deckblatt {
+    page: deckblatt; break-after: page;
+    height: 297mm; background: var(--indigo-dunkel); color: #fff;
+    padding: 34mm 20mm 34mm; position: relative; overflow: hidden;
+  }
+  .deckblatt .band {
+    position: absolute; left: 0; right: 0; top: 0; height: 10mm;
+    background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 45%, #22d3ee 100%);
+  }
+  .deckblatt .welle { position: absolute; right: -46mm; top: 88mm; opacity: 0.2; }
+  .deckblatt .kicker {
+    font-size: 10pt; letter-spacing: 0.22em; text-transform: uppercase;
+    color: #c7d2fe; margin-bottom: 6mm;
+  }
+  .deckblatt h1 {
+    font-size: 34pt; line-height: 1.1; margin: 0 0 5mm; font-weight: 800;
+    max-width: 130mm;
+  }
+  .deckblatt .unter {
+    font-size: 13pt; color: #e0e7ff; max-width: 120mm; line-height: 1.45;
+    font-weight: 300;
+  }
+  .deckblatt .fuss {
+    position: absolute; left: 20mm; right: 20mm; bottom: 18mm;
+    border-top: 0.8pt solid rgba(255,255,255,0.28); padding-top: 4mm;
+    display: flex; justify-content: space-between; font-size: 9pt; color: #c7d2fe;
+  }
+  /* Die drei Schritte auf dem Deckblatt. Sie stehen dort nicht als Schmuck,
+     sondern weil man einem Handbuch ansehen soll, wohin es führt. */
+  .deckblatt .wegweiser { margin-top: 16mm; max-width: 120mm; }
+  .deckblatt .wegweiser div {
+    display: flex; align-items: center; gap: 5mm;
+    padding: 3mm 0; border-top: 0.7pt solid rgba(199,210,254,0.28);
+    font-size: 12pt; color: #e0e7ff; font-weight: 300;
+  }
+  .deckblatt .wegweiser div:last-child { border-bottom: 0.7pt solid rgba(199,210,254,0.28); }
+  .deckblatt .wegweiser span {
+    display: inline-block; width: 8mm; font-size: 15pt; font-weight: 800;
+    color: #22d3ee; font-variant-numeric: tabular-nums;
+  }
+
+  .deckblatt .stand {
+    position: absolute; left: 20mm; bottom: 42mm;
+    background: rgba(255,255,255,0.1);
+    border: 0.8pt solid rgba(199,210,254,0.5); border-radius: 8px;
+    padding: 5mm 6mm; max-width: 125mm; font-size: 9.6pt; color: #e0e7ff;
+  }
+  .deckblatt .stand b { color: #fff; }
+
+  /* ---- Überschriften ------------------------------------------------ */
+  h2 {
+    font-size: 17pt; color: var(--indigo-dunkel); margin: 0 0 4mm;
+    padding-bottom: 2mm; border-bottom: 2.2pt solid var(--indigo);
+    break-after: avoid; break-before: page; text-wrap: balance;
+  }
+  h2.weiter { break-before: auto; }
+  h3 {
+    font-size: 12.4pt; color: var(--indigo-dunkel); margin: 7mm 0 2.5mm;
+    break-after: avoid; text-wrap: balance;
+  }
+  h4 {
+    font-size: 10.6pt; color: var(--tinte); margin: 5mm 0 1.5mm;
+    break-after: avoid;
+  }
+  p { margin: 0 0 3mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+  li { margin-bottom: 1.4mm; }
+  a { color: var(--indigo); text-decoration: none; }
+  code {
+    font-family: "DejaVu Sans Mono", monospace; font-size: 9pt;
+    background: var(--indigo-hell); color: var(--indigo-dunkel);
+    padding: 0.3mm 1.2mm; border-radius: 3px;
+  }
+  strong { font-weight: 700; }
+
+  /* ---- Inhalt -------------------------------------------------------- */
+  .toc { break-after: page; }
+  .toc h2 { break-before: auto; }
+  .toc ol { list-style: none; padding: 0; margin: 4mm 0 0; }
+  .toc > ol > li { border-bottom: 0.5pt solid var(--linie); }
+  /* Die ganze Zeile ist der Verweis, nicht nur das Wort. Ein Inhalts-
+     verzeichnis, in dem man die Kapitelnummer treffen muss, ist keins. */
+  .toc a.zeile {
+    display: flex; gap: 3mm; padding: 1.6mm 0;
+    color: var(--tinte); text-decoration: none;
+  }
+  .toc .nr {
+    color: var(--indigo); font-weight: 700; min-width: 8mm;
+    font-variant-numeric: tabular-nums;
+  }
+  .toc .txt { flex: 1; }
+  .toc .bei { color: var(--grau); font-size: 9pt; }
+
+  /* ---- Kästen -------------------------------------------------------- */
+  .kasten {
+    border-radius: 8px; padding: 3.6mm 4.5mm; margin: 4mm 0;
+    border-left: 3.5pt solid var(--indigo); background: var(--indigo-hell);
+    break-inside: avoid;
+  }
+  .kasten .titel {
+    font-weight: 700; font-size: 9.6pt; letter-spacing: 0.03em;
+    text-transform: uppercase; margin-bottom: 1.6mm; color: var(--indigo-dunkel);
+  }
+  .kasten p:last-child, .kasten ul:last-child { margin-bottom: 0; }
+  .warnung { border-left-color: var(--rot); background: var(--rot-hell); }
+  .warnung .titel { color: var(--rot); }
+  .achtung { border-left-color: var(--amber); background: var(--amber-hell); }
+  .achtung .titel { color: var(--amber); }
+  .gut { border-left-color: var(--gruen); background: var(--gruen-hell); }
+  .gut .titel { color: var(--gruen); }
+
+  .ungeprueft {
+    display: inline-block; background: var(--amber-hell); color: var(--amber);
+    border: 0.6pt solid var(--amber); border-radius: 4px;
+    font-size: 7.4pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; padding: 0.2mm 1.4mm; vertical-align: 0.6mm;
+    white-space: nowrap;
+  }
+
+  /* ---- Code ---------------------------------------------------------- */
+  pre {
+    background: var(--code-bg); color: var(--code-fg); border-radius: 7px;
+    padding: 3.2mm 4mm; font-family: "DejaVu Sans Mono", monospace;
+    font-size: 8.4pt; line-height: 1.45; overflow-x: auto; margin: 3mm 0;
+    break-inside: avoid; white-space: pre-wrap; word-break: break-word;
+  }
+  pre .k { color: var(--code-akzent); }
+  pre .kom { color: #94a3b8; font-style: italic; }
+  pre.aus { background: #f8fafc; color: #334155; border: 0.7pt solid var(--linie-satt); }
+
+  /* ---- Tabellen ------------------------------------------------------ */
+  table { width: 100%; border-collapse: collapse; margin: 3mm 0; font-size: 9.4pt; break-inside: avoid; }
+  th {
+    background: var(--indigo-hell); color: var(--indigo-dunkel);
+    text-align: left; padding: 2mm 2.5mm; font-size: 9pt;
+    border-bottom: 1.2pt solid var(--indigo);
+  }
+  td { padding: 1.9mm 2.5mm; border-bottom: 0.5pt solid var(--linie); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td code { font-size: 8.4pt; }
+
+  /* ---- Schrittfolgen -------------------------------------------------- */
+  ol.schritte { list-style: none; padding: 0; counter-reset: s; margin: 4mm 0; }
+  ol.schritte > li {
+    counter-increment: s; position: relative; padding-left: 11mm;
+    margin-bottom: 4.5mm; break-inside: avoid;
+  }
+  ol.schritte > li::before {
+    content: counter(s); position: absolute; left: 0; top: -0.4mm;
+    width: 7.4mm; height: 7.4mm; border-radius: 50%;
+    background: var(--indigo); color: #fff; font-weight: 700; font-size: 10pt;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.schritte > li > .was { font-weight: 700; display: block; margin-bottom: 1mm; }
+
+  /* ---- Abbildungen ---------------------------------------------------- */
+  figure { margin: 5mm 0; break-inside: avoid; text-align: center; }
+  figure svg { max-width: 100%; }
+  figcaption {
+    font-size: 8.6pt; color: var(--grau); margin-top: 1.8mm; text-align: center;
+  }
+  .glossar dt { font-weight: 700; color: var(--indigo-dunkel); margin-top: 3mm; }
+  .glossar dd { margin: 0.6mm 0 0; }
+</style>
+</head>
+<body>
+
+<!-- Auf jeder Seite, anklickbar. Steht bewusst vor dem Inhalt: WeasyPrint
+     zeichnet fest positionierte Elemente auf jeder Seite, unabhaengig davon,
+     wo sie im Quelltext stehen. -->
+<div class="rueckverweis"><a href="#inhalt">↑ Inhaltsverzeichnis</a></div>
+
+<!-- ================= DECKBLATT ================= -->
+<section class="deckblatt">
+  <div class="band"></div>
+  <svg class="welle" width="340" height="340" viewBox="0 0 340 340" aria-hidden="true">
+    <g fill="none" stroke="#c7d2fe" stroke-width="2.6">
+      <circle cx="170" cy="170" r="34"/><circle cx="170" cy="170" r="68"/>
+      <circle cx="170" cy="170" r="102"/><circle cx="170" cy="170" r="136"/>
+      <circle cx="170" cy="170" r="168"/>
+    </g>
+    <circle cx="170" cy="170" r="11" fill="#22d3ee"/>
+  </svg>
+
+  <div class="kicker">AskSin-Analyzer · Erweiterung</div>
+  <h1>Zigbee-Mithörer</h1>
+  <div class="unter">
+    Vom Auspacken des USB-Sticks bis zum ersten mitgeschnittenen Funkpaket.
+    Ein Handbuch für Menschen, die so etwas zum ersten Mal machen.
+  </div>
+
+  <div class="wegweiser">
+    <div><span>1</span> Auspacken und anstecken</div>
+    <div><span>2</span> Firmware aufspielen</div>
+    <div><span>3</span> Das erste Funkpaket lesen</div>
+  </div>
+
+  <div class="stand">
+    <b>Entwurf 1 — dieses Buch wird noch gebaut.</b><br>
+    Es begleitet die Zigbee-Erweiterung, solange sie entsteht, und wird danach
+    ein Kapitel im großen Handbuch. Alles, was noch nicht am Gerät bestätigt
+    wurde, ist im Text ausdrücklich als <b>ungeprüft</b> gekennzeichnet.
+  </div>
+
+  <div class="fuss">
+    <span>Handbuch zum Vorhaben M16 · Entwurf 1</span>
+    <span>17. August 2026</span>
+  </div>
+</section>
+
+<!-- ================= INHALT ================= -->
+<section class="toc">
+  <h2 id="inhalt">Inhalt</h2>
+  <ol>
+    <li><a class="zeile" href="#k1"><span class="nr">1</span><span class="txt">Wozu das gut ist — und was es nicht tut</span></a></li>
+    <li><a class="zeile" href="#k2"><span class="nr">2</span><span class="txt">Was du brauchst</span><span class="bei">Einkaufs- und Prüfliste</span></a></li>
+    <li><a class="zeile" href="#k3"><span class="nr">3</span><span class="txt">Auspacken</span><span class="bei">Was in der Schachtel liegt</span></a></li>
+    <li><a class="zeile" href="#k4"><span class="nr">4</span><span class="txt">Zum ersten Mal anstecken</span><span class="bei">Erkennt der Rechner ihn?</span></a></li>
+    <li><a class="zeile" href="#k5"><span class="nr">5</span><span class="txt">Die Kennung festhalten</span><span class="bei">Fünf Minuten, die später Ärger sparen</span></a></li>
+    <li><a class="zeile" href="#k6"><span class="nr">6</span><span class="txt">Firmware aufspielen</span><span class="bei">Der eine unumkehrbare Schritt</span></a></li>
+    <li><a class="zeile" href="#k7"><span class="nr">7</span><span class="txt">Das erste Funkpaket</span><span class="bei">Zuhören und verstehen</span></a></li>
+    <li><a class="zeile" href="#k8"><span class="nr">8</span><span class="txt">Was die Zahlen bedeuten</span></a></li>
+    <li><a class="zeile" href="#k9"><span class="nr">9</span><span class="txt">Den richtigen Kanal finden</span></a></li>
+    <li><a class="zeile" href="#k10"><span class="nr">10</span><span class="txt">Mit Wireshark ansehen</span><span class="bei">freiwillig</span></a></li>
+    <li><a class="zeile" href="#k11"><span class="nr">11</span><span class="txt">Wenn etwas nicht klappt</span></a></li>
+    <li><a class="zeile" href="#k12"><span class="nr">12</span><span class="txt">Der Rückweg</span><span class="bei">Aus dem Mithörer wieder ein Koordinator</span></a></li>
+    <li><a class="zeile" href="#k13"><span class="nr">13</span><span class="txt">Wörterbuch</span></a></li>
+    <li><a class="zeile" href="#k14"><span class="nr">14</span><span class="txt">Was noch fehlt</span><span class="bei">die künftigen Kapitel</span></a></li>
+  </ol>
+
+  <div class="kasten">
+    <div class="titel">So liest du dieses Buch</div>
+    <p>
+      Die Kapitel 3 bis 7 sind eine <strong>durchgehende Anleitung</strong>. Arbeite sie
+      der Reihe nach ab, ohne zu springen — jedes baut auf dem vorherigen auf.
+      Kapitel 8 bis 13 sind zum Nachschlagen.
+    </p>
+    <p>
+      <span class="ungeprueft">ungeprüft</span> heißt: So steht es in den Unterlagen
+      des Herstellers oder des Firmware-Projekts, wir haben es aber noch nicht
+      selbst am Gerät gesehen. Weicht die Wirklichkeit ab, gilt die Wirklichkeit —
+      und dieses Buch wird korrigiert.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 1 ================= -->
+<section>
+  <h2 id="k1">1 Wozu das gut ist — und was es nicht tut</h2>
+
+  <p>
+    Dein Haus funkt auf zwei Bändern. Auf <strong>868 MHz</strong> reden die
+    Homematic-Geräte miteinander; die hört der AskSin-Analyzer bereits mit und
+    verrät dir, welches Gerät wie gut ankommt und wo es Funklöcher gibt. Auf
+    <strong>2,4 GHz</strong> läuft dein Zigbee-Netz — Leuchten, Sensoren,
+    Steckdosen. Dort hört der Analyzer bisher nichts.
+  </p>
+
+  <p>
+    Der USB-Stick, um den es in diesem Buch geht, ist das zweite Ohr. Er wird
+    <strong>kein Teil deines Zigbee-Netzes</strong>. Er meldet sich nirgends an,
+    er schaltet nichts, er antwortet nicht. Er sitzt daneben und schreibt mit,
+    was durch die Luft geht — so wie ein Messgerät, das man an eine Leitung hält.
+  </p>
+
+  <figure>
+    <svg width="470" height="150" viewBox="0 0 470 150" role="img" aria-label="Der Mithörer sitzt neben dem Netz, nicht darin">
+      <defs>
+        <marker id="pf" markerWidth="9" markerHeight="9" refX="8" refY="3" orient="auto">
+          <path d="M0,0 L8,3 L0,6 z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+      <rect x="12" y="16" width="250" height="76" rx="9" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1.2" stroke-dasharray="5 3"/>
+      <text x="24" y="34" font-size="10.5" fill="#64748b" font-family="sans-serif">Dein Zigbee-Netz (unverändert)</text>
+      <rect x="26" y="44" width="86" height="34" rx="7" fill="#e0e7ff" stroke="#6366f1" stroke-width="1.4"/>
+      <text x="69" y="65" font-size="10.5" fill="#3730a3" text-anchor="middle" font-family="sans-serif">Koordinator</text>
+      <rect x="146" y="44" width="100" height="34" rx="7" fill="#fff" stroke="#cbd5e1" stroke-width="1.2"/>
+      <text x="196" y="59" font-size="10" fill="#334155" text-anchor="middle" font-family="sans-serif">Leuchten,</text>
+      <text x="196" y="71" font-size="10" fill="#334155" text-anchor="middle" font-family="sans-serif">Sensoren</text>
+      <line x1="114" y1="61" x2="142" y2="61" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#pf)"/>
+      <line x1="142" y1="52" x2="116" y2="52" stroke="#94a3b8" stroke-width="1.4" marker-end="url(#pf)"/>
+
+      <g stroke="#22d3ee" stroke-width="1.6" fill="none" opacity="0.85">
+        <path d="M300 62 q -14 -12 -28 -12"/><path d="M300 74 q -22 -18 -44 -18"/><path d="M300 86 q -30 -24 -60 -24"/>
+      </g>
+      <rect x="304" y="40" width="150" height="44" rx="8" fill="#4f46e5"/>
+      <text x="379" y="59" font-size="11" fill="#fff" text-anchor="middle" font-family="sans-serif" font-weight="bold">Mithörer</text>
+      <text x="379" y="73" font-size="9" fill="#c7d2fe" text-anchor="middle" font-family="sans-serif">hört nur zu</text>
+      <text x="379" y="104" font-size="9.5" fill="#64748b" text-anchor="middle" font-family="sans-serif">↓ USB</text>
+      <rect x="316" y="112" width="126" height="26" rx="6" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.2"/>
+      <text x="379" y="129" font-size="10" fill="#334155" text-anchor="middle" font-family="sans-serif">AskSin-Analyzer</text>
+    </svg>
+    <figcaption>Der Mithörer steht neben dem Netz, nicht darin. Nichts an deiner Zigbee-Installation ändert sich.</figcaption>
+  </figure>
+
+  <h3>Was du am Ende davon hast</h3>
+  <ul>
+    <li><strong>Empfangsstärke je Gerät</strong> — nicht nur „erreichbar", sondern
+      <em>mit wie viel Reserve</em>. Das kann dir dein Koordinator prinzipiell nicht sagen.</li>
+    <li><strong>Ein Bild vom Störgeschehen</strong> auf dem Kanal, auf dem dein Netz läuft.</li>
+    <li><strong>Standortvergleich</strong>, sobald mehrere Analyzer mithören: Welcher hört
+      welches Gerät am besten, und welches Gerät hört überhaupt niemand.</li>
+  </ul>
+
+  <h3>Was es ausdrücklich nicht tut</h3>
+  <table>
+    <tr><th style="width:46%">Nicht</th><th>Warum</th></tr>
+    <tr><td>Geräte schalten oder anlernen</td><td>Der Analyzer ist ein Messgerät und bleibt passiv.</td></tr>
+    <tr><td>Inhalte von Nachrichten zeigen</td><td>Die Nutzdaten sind verschlüsselt. Sichtbar sind Absender, Empfänger, Art und Empfangsstärke — mehr brauchen wir nicht, und den Netzschlüssel wollen wir gar nicht haben.</td></tr>
+    <tr><td>Deinen vorhandenen Koordinator ersetzen</td><td>Der bleibt unangetastet. Ein Gerät kann nicht gleichzeitig Koordinator und Mithörer sein.</td></tr>
+    <tr><td>Mehrere Kanäle gleichzeitig hören</td><td>Ein Empfänger, ein Kanal. Wer springt, verpasst überall das meiste.</td></tr>
+  </table>
+
+  <div class="kasten warnung">
+    <div class="titel">Das Wichtigste vorweg</div>
+    <p>
+      Du wirst in Kapitel 6 die Software auf dem Stick austauschen. <strong>Danach ist er
+      kein Zigbee-Koordinator mehr.</strong> Nimm deshalb einen <em>neuen, zusätzlichen</em>
+      Stick — <strong>niemals den, an dem dein Zigbee-Netz hängt.</strong> Steckst du den
+      falschen um, steht dein ganzes Netz still.
+    </p>
+    <p>Der Weg zurück steht in Kapitel 12. Er funktioniert — aber es ist ein Umweg, den man sich sparen kann.</p>
+  </div>
+</section>
+
+<!-- ================= 2 ================= -->
+<section>
+  <h2 id="k2">2 Was du brauchst</h2>
+
+  <h3>2.1 Hardware</h3>
+  <table>
+    <tr><th style="width:34%">Teil</th><th>Wozu</th></tr>
+    <tr>
+      <td><strong>SONOFF ZBDongle-E</strong><br><span style="color:#64748b">(Chip: EFR32MG21)</span></td>
+      <td>Der Mithörer. <strong>Achte auf das „E" am Ende</strong> — die Variante „P" hat einen
+        anderen Chip, für den es keine fertige Mithör-Software gibt.</td>
+    </tr>
+    <tr>
+      <td><strong>USB-Verlängerung, 0,5 bis 1 m</strong></td>
+      <td>Bringt die Antenne weg vom Rechner. Ein Raspberry Pi ist selbst eine
+        Störquelle auf 2,4 GHz — direkt am Gehäuse misst du zum Teil ihn statt deiner Geräte.
+        <strong>Kein Luxus, sondern Teil des Messaufbaus.</strong></td>
+    </tr>
+    <tr>
+      <td><strong>Ein Rechner mit Chrome oder Edge</strong></td>
+      <td>Zum Aufspielen der Software im Browser (Kapitel 6). Firefox kann das nicht.</td>
+    </tr>
+    <tr>
+      <td><strong>Der Raspberry Pi mit dem Analyzer</strong></td>
+      <td>Dort hängt der Stick später dauerhaft. Pi 3, 4 oder 5 — alle drei gehen.</td>
+    </tr>
+  </table>
+
+  <h3>2.2 Was du wissen musst</h3>
+  <p>
+    Nichts über Funktechnik. Aber du solltest ein Fenster mit einer Befehlszeile
+    öffnen können — auf dem Pi zum Beispiel über SSH — und einen Befehl abtippen.
+    Jeder Befehl in diesem Buch steht vollständig da und wird erklärt.
+  </p>
+
+  <h3>2.3 Was du dir vorher notieren solltest</h3>
+  <p>
+    Ein Blatt Papier oder eine Textdatei. Du trägst im Lauf der Anleitung ein:
+  </p>
+  <table>
+    <tr><th style="width:52%">Angabe</th><th>Wo sie herkommt</th></tr>
+    <tr><td>Der Funkkanal deines Zigbee-Netzes</td><td>Kapitel 9 — bei den meisten ist es die 11, 15, 20 oder 25</td></tr>
+    <tr><td>Die Kennung des Sticks (Hersteller, Modell, Seriennummer)</td><td>Kapitel 5</td></tr>
+    <tr><td>Der Name, unter dem der Stick am Pi erscheint</td><td>Kapitel 5</td></tr>
+    <tr><td>Die Kurzadresse einer Lampe, die du zum Prüfen benutzt</td><td>Kapitel 9</td></tr>
+  </table>
+
+  <div class="kasten gut">
+    <div class="titel">Zeitbedarf</div>
+    <p>
+      Kapitel 3 bis 7 in einem Zug: <strong>etwa eine Stunde</strong>, wenn nichts klemmt.
+      Der eigentliche Vorgang dauert Minuten — die Zeit geht für Nachsehen und
+      Notieren drauf, und das ist gut angelegt.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 3 ================= -->
+<section>
+  <h2 id="k3">3 Auspacken</h2>
+
+  <p>
+    In der Schachtel liegen üblicherweise der Stick, eine Antenne zum Aufschrauben
+    und ein Zettel. <span class="ungeprueft">ungeprüft</span> — ob bei dieser
+    Ausführung die Antenne wirklich abnehmbar ist, sehen wir beim Auspacken.
+  </p>
+
+  <ol class="schritte">
+    <li>
+      <span class="was">Antenne aufschrauben, falls eine dabei ist.</span>
+      Handfest, nicht mit Werkzeug. Der Anschluss ist klein und verträgt keine Gewalt.
+      Ohne Antenne empfängt der Stick nur wenige Meter weit.
+    </li>
+    <li>
+      <span class="was">Antenne aufrecht stellen.</span>
+      Zigbee-Antennen strahlen quer zu ihrer Achse. Steht die Antenne senkrecht,
+      hört sie in der Fläche am besten — also genau dort, wo deine Geräte sind.
+      Liegt sie waagerecht, hörst du vor allem die Decke und den Boden.
+    </li>
+    <li>
+      <span class="was">Verlängerungskabel anstecken, Stick daran.</span>
+      Nicht direkt in den Pi. Siehe Kapitel 2.1 — das ist wirklich der Unterschied
+      zwischen einer Messung und einem Zufallswert.
+    </li>
+    <li>
+      <span class="was">Noch nicht in den Pi stecken.</span>
+      Das Aufspielen der Software machen wir am Rechner mit dem Browser.
+      Erst danach zieht der Stick an seinen endgültigen Platz.
+    </li>
+  </ol>
+
+  <div class="kasten achtung">
+    <div class="titel">Zwei Sticks, die sich zum Verwechseln ähnlich sehen</div>
+    <p>
+      Falls bei dir bereits ein Zigbee-Stick am Koordinator-Rechner steckt: Kleb dem
+      neuen <strong>jetzt sofort</strong> ein Etikett auf. „Mithörer" reicht.
+      Nach dem Aufspielen der Software sehen die beiden gleich aus, verhalten sich
+      aber völlig verschieden — und die Verwechslung merkst du erst, wenn dein
+      Licht nicht mehr schaltet.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 4 ================= -->
+<section>
+  <h2 id="k4">4 Zum ersten Mal anstecken</h2>
+
+  <p>
+    Ziel dieses Kapitels: <strong>festzustellen, dass der Rechner den Stick sieht.</strong>
+    Mehr nicht. Wir spielen noch nichts auf.
+  </p>
+
+  <h3>4.1 Am Raspberry Pi</h3>
+  <p>Öffne ein Befehlsfenster auf dem Pi und tippe <em>vor</em> dem Anstecken:</p>
+<pre><span class="kom"># Zeigt fortlaufend an, was der Rechner an seinen Anschlüssen bemerkt.</span>
+sudo dmesg -w</pre>
+  <p>
+    Jetzt den Stick anstecken. Es sollten sofort mehrere Zeilen erscheinen.
+    Interessant ist die mit <code>ttyUSB</code> oder <code>ttyACM</code> darin,
+    zum Beispiel:
+  </p>
+<pre class="aus">usb 1-1.2: new full-speed USB device number 5 using xhci_hcd
+usb 1-1.2: New USB device found, idVendor=1a86, idProduct=55d4
+usb 1-1.2: Product: USB Single Serial
+ch34x 1-1.2:1.0: ch343 converter detected
+usb 1-1.2: ch343 converter now attached to ttyACM0</pre>
+  <p>
+    Die letzte Zeile ist die wichtige: <strong>Der Stick heißt bei diesem Rechner
+    gerade <code>ttyACM0</code>.</strong> Bei dir kann dort auch
+    <code>ttyUSB0</code> stehen. Beenden mit <code>Strg</code>+<code>C</code>.
+  </p>
+
+  <div class="kasten">
+    <div class="titel">Warum „gerade"?</div>
+    <p>
+      Diese Namen werden in der Reihenfolge vergeben, in der der Rechner die Geräte
+      findet. Steckt morgen noch etwas anderes daran, kann aus <code>ttyACM0</code>
+      eine <code>ttyACM1</code> werden. Deshalb bekommt der Stick später einen festen
+      eigenen Namen — dafür brauchen wir Kapitel 5.
+    </p>
+  </div>
+
+  <h3>4.2 Am Windows-Rechner</h3>
+  <p>
+    Rechtsklick auf das Startmenü → <strong>Geräte-Manager</strong> → Abschnitt
+    <strong>Anschlüsse (COM &amp; LPT)</strong>. Dort taucht beim Anstecken ein
+    neuer Eintrag auf, etwa <code>COM4</code>. Diese Nummer brauchst du in Kapitel 6.
+  </p>
+  <p>
+    Erscheint nichts, fehlt der Treiber für den USB-Baustein. Windows lädt ihn
+    meist von selbst nach; wenn nicht, hilft der Treiber des Bausteinherstellers
+    (CH34x beziehungsweise CP210x — welcher es ist, sagt dir Kapitel 5).
+  </p>
+</section>
+
+<!-- ================= 5 ================= -->
+<section>
+  <h2 id="k5">5 Die Kennung festhalten</h2>
+
+  <p>
+    Fünf Minuten, die dir später viel Sucherei ersparen. Wir notieren, <em>woran</em>
+    der Rechner diesen einen Stick zweifelsfrei erkennt — unabhängig davon, in
+    welchem Anschluss er steckt.
+  </p>
+
+  <ol class="schritte">
+    <li>
+      <span class="was">Hersteller- und Modellnummer auslesen</span>
+<pre>lsusb</pre>
+      <p>Eine der Zeilen gehört zum Stick, zum Beispiel:</p>
+<pre class="aus">Bus 001 Device 005: ID 1a86:55d4 QinHeng Electronics USB Single Serial</pre>
+      <p>
+        <code>1a86</code> ist der Hersteller des USB-Bausteins, <code>55d4</code>
+        das Modell. Notiere beides. <span class="ungeprueft">ungeprüft</span> —
+        es kann auch <code>10c4:ea60</code> (Silicon Labs) sein; beides ist üblich.
+      </p>
+    </li>
+    <li>
+      <span class="was">Den sprechenden Namen auslesen</span>
+<pre>ls -l /dev/serial/by-id/</pre>
+      <p>Ausgabe zum Beispiel:</p>
+<pre class="aus">usb-1a86_USB_Single_Serial_54D3016586-if00 -&gt; ../../ttyACM0</pre>
+      <p>
+        Das ist ein <strong>Name, der bleibt</strong> — er enthält die Seriennummer
+        des Sticks. Notiere die ganze Zeile. Ab jetzt kannst du überall diesen langen
+        Namen benutzen statt <code>ttyACM0</code>:
+      </p>
+<pre><span class="kom"># Nicht abtippen — ermitteln lassen. Der Name ist lang, und ein</span>
+<span class="kom"># Tippfehler darin sieht aus wie ein defekter Stick.</span>
+STICK="/dev/serial/by-id/$(ls -1 /dev/serial/by-id/ | head -1)"
+echo "$STICK"</pre>
+<p>
+  Steht dort mehr als ein Eintrag, hängt noch ein zweites serielles Gerät am
+  Rechner — dann nimm aus der Liste oben den richtigen und setze ihn von Hand
+  ein. <code>$STICK</code> benutzen wir ab jetzt in jedem Befehl.
+</p>
+    </li>
+    <li>
+      <span class="was">Alles auf einmal, zum Abheften</span>
+<pre>udevadm info -a -n /dev/ttyACM0 | grep -m5 -E 'idVendor|idProduct|serial|product'</pre>
+      <p>
+        Ersetze <code>ttyACM0</code> durch den Namen aus Kapitel 4. Diese Ausgabe
+        ist die Grundlage für die feste Namensregel, die der Analyzer später bekommt.
+        Schreib sie in deine Notizdatei.
+      </p>
+    </li>
+  </ol>
+
+  <div class="kasten gut">
+    <div class="titel">Merksatz</div>
+    <p>
+      <code>ttyACM0</code> ist wie „das Auto auf dem dritten Parkplatz" —
+      der Name aus <code>by-id</code> ist das Kennzeichen. Für alles, was dauerhaft
+      funktionieren soll, nimm das Kennzeichen.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 6 ================= -->
+<section>
+  <h2 id="k6">6 Firmware aufspielen</h2>
+
+  <p>
+    Jetzt tauschen wir die Software auf dem Stick aus. Bis hierher war alles
+    umkehrbar; dieser Schritt ist es nur über den Umweg aus Kapitel 12.
+  </p>
+
+  <div class="kasten warnung">
+    <div class="titel">Letzte Kontrolle vor dem Punkt ohne einfache Umkehr</div>
+    <ul>
+      <li>Ist das der <strong>neue, zusätzliche</strong> Stick — nicht der, an dem dein Zigbee-Netz hängt?</li>
+      <li>Ist der Koordinator-Rechner gerade <strong>nicht</strong> mit einem Stick verbunden, den du gleich verwechseln könntest?</li>
+      <li>Klebt das Etikett „Mithörer" drauf?</li>
+    </ul>
+    <p>Dreimal ja? Dann weiter.</p>
+  </div>
+
+  <h3>6.1 Was aufgespielt wird</h3>
+  <p>
+    Eine Datei mit der Endung <code>.gbl</code> aus dem Projekt
+    <em>Sniffer 802.15.4 SONOFF USB Dongle Plus E</em>. Sie macht aus dem Stick
+    einen reinen Mithörer, der jedes empfangene Funkpaket als eine Zeile Text
+    über den USB-Anschluss ausgibt.
+  </p>
+  <p>
+    Bezugsquelle:
+    <a href="https://github.com/ErkSponge/Sniffer_802.15.4_SONOFF_USB_Dongle_Plus_E">github.com/ErkSponge/Sniffer_802.15.4_SONOFF_USB_Dongle_Plus_E</a>,
+    Ordner <code>Output/Sniffer_802.15.4_SONOFF_USB_Dongle_Plus_E/</code>.
+    Am Pi holst du sie direkt:
+  </p>
+<pre>cd ~
+curl -fL -o sniffer.gbl \
+  https://raw.githubusercontent.com/ErkSponge/Sniffer_802.15.4_SONOFF_USB_Dongle_Plus_E/main/Output/Sniffer_802.15.4_SONOFF_USB_Dongle_Plus_E/Sniffer_802.15.4_SONOFF_USB_Dongle_Plus_E.gbl
+
+<span class="kom"># Kontrolle: ein paar hundert kB. Sind es 9 Byte oder steht dort</span>
+<span class="kom"># "Not Found", hat sich der Pfad im Projekt geändert.</span>
+ls -l sniffer.gbl</pre>
+  <p>
+  </p>
+
+  <div class="kasten achtung">
+    <div class="titel">Warum wir diese Datei nicht mitliefern</div>
+    <p>
+      Fremde Software hat eigene Nutzungsbedingungen. Wir verweisen darauf, statt
+      sie in unser Projekt zu kopieren — so bekommst du immer die Fassung des
+      Urhebers und nicht eine womöglich veraltete Kopie von uns.
+    </p>
+  </div>
+
+  <h3>6.2 Erst in den Bootloader — sonst wird das nichts</h3>
+  <p>
+    Im Stick stecken zwei Programme: die eigentliche Firmware und darunter ein
+    kleines <strong>Startprogramm (Bootloader)</strong>, das allein neue Firmware
+    schreiben kann. Ein Flashwerkzeug muss den Stick also erst dorthin bringen.
+  </p>
+  <p>
+    Der bequeme Weg ist, die laufende Firmware höflich zu bitten, in den
+    Bootloader neu zu starten. Dazu muss das Werkzeug sie aber erst erkennen —
+    und <strong>genau daran scheitert der Web-Flasher beim ZBDongle-E
+    regelmäßig.</strong>
+  </p>
+
+  <div class="kasten achtung">
+    <div class="titel">So sieht dieses Scheitern aus</div>
+    <p>
+      Der Browser meldet am Ende <em>„Failed to probe running application type"</em>.
+      Im Protokoll steht davor eine lange Reihe von Versuchen — und mittendrin
+      diese Zeile:
+    </p>
+<pre class="aus">Received frame RStackFrame(version=2, reset_code=NcpResetCode.RESET_POWER_ON)</pre>
+    <p style="margin-bottom:0">
+      <strong>Das ist eine gültige Antwort deines Sticks.</strong> Sie beweist,
+      dass USB, Treiber, Anschluss und Firmware in Ordnung sind — der Stick redet.
+      Das Werkzeug kommt danach nur nicht weiter. <strong>Ein Stick, der so
+      antwortet, ist nicht defekt.</strong>
+    </p>
+  </div>
+
+  <h3>6.3 Der zuverlässige Weg: Befehlszeile am Pi</h3>
+  <p>
+    Das Werkzeug heißt <code>universal-silabs-flasher</code>. Es kann den Stick
+    über die Steuerleitungen der seriellen Schnittstelle <strong>zwingen</strong>,
+    in den Bootloader zu starten — dafür braucht es die laufende Firmware gar
+    nicht erst zu erkennen. Der Browser kann das nicht, weil er diese Leitungen
+    nicht in der Hand hat.
+  </p>
+<pre><span class="kom"># Einmalig einrichten, in einer eigenen Umgebung —</span>
+<span class="kom"># so bleibt das Betriebssystem des Pi unberührt.</span>
+python3 -m venv ~/flasher
+~/flasher/bin/pip install universal-silabs-flasher
+
+<span class="kom"># Was für Reset-Verfahren es gibt, sagt die Hilfe:</span>
+~/flasher/bin/universal-silabs-flasher --help
+
+<span class="kom"># Aufspielen.</span>
+<span class="kom"># --bootloader-reset rts_dtr ist das Verfahren für Sonoff-Sticks.</span>
+<span class="kom"># $STICK stammt aus Kapitel 5.</span>
+~/flasher/bin/universal-silabs-flasher \
+    --device "$STICK" \
+    --bootloader-reset rts_dtr \
+    flash --firmware ~/sniffer.gbl</pre>
+  <div class="kasten gut">
+    <div class="titel">Woran du siehst, dass der Bootloader greift</div>
+    <p style="margin-bottom:0">
+      Das Werkzeug meldet <code>Triggering rts_dtr bootloader</code>. Ab dieser
+      Zeile ist der Stick in den Bootloader gezwungen — das Erkennen der
+      laufenden Firmware, an dem der Browser scheitert, entfällt vollständig.
+    </p>
+  </div>
+
+  <h3>6.4 Der Weg im Browser — mit dem BOOT-Knopf</h3>
+  <p>
+    Wenn du am Windows-Rechner bleiben willst: Bring den Stick <strong>von
+    Hand</strong> in den Bootloader. Dann ist das Erkennen der laufenden
+    Firmware gar nicht nötig, und der Web-Flasher kommt sofort durch.
+  </p>
+
+  <ol class="schritte">
+    <li><span class="was">Gehäuse öffnen</span> — zwei kleine Kreuzschlitzschrauben auf der Seite des USB-Steckers, dann die Platine herausschieben. Neben dem USB-Stecker sitzen zwei winzige Knöpfe: <strong>BOOT</strong> und <strong>RESET</strong>.</li>
+    <li><span class="was">Stick abziehen</span> — er muss stromlos sein.</li>
+    <li><span class="was">BOOT gedrückt halten und dabei einstecken</span> — Knopf weiter halten.</li>
+    <li><span class="was">Im Browser „Connect" anklicken</span> und den Stick auswählen — er meldet sich jetzt als SiLabs-Gerät.</li>
+    <li><span class="was">Erst loslassen, wenn eine Bootloader-Version angezeigt wird.</span> Das ist der Beweis, dass es geklappt hat.</li>
+    <li><span class="was">Die <code>.gbl</code>-Datei auswählen und den Vorgang starten</span> — er dauert weniger als eine Minute.</li>
+    <li><span class="was">Nicht abziehen, solange etwas läuft.</span></li>
+    <li><span class="was">Nach der Erfolgsmeldung: abziehen und wieder anstecken.</span> Erst dadurch startet die neue Software.</li>
+  </ol>
+
+  <div class="kasten achtung">
+    <div class="titel">Der Gerätename kann sich geändert haben</div>
+    <p style="margin-bottom:0">
+      Mit der neuen Firmware meldet sich der Stick unter Umständen anders am
+      Rechner. Ermittle <code>$STICK</code> deshalb nach dem Aufspielen
+      <strong>neu</strong> — mit demselben Befehl aus Kapitel 5. Wer den alten
+      Wert weiterbenutzt, sucht den Fehler danach an der falschen Stelle.
+    </p>
+  </div>
+
+  <div class="kasten gut">
+    <div class="titel">Woran du merkst, dass es geklappt hat</div>
+    <p>
+      Der Stick meldet sich nach dem Wiederanstecken erneut am Rechner
+      (Kapitel 4 zeigt es dir). Der endgültige Beweis kommt aber erst im
+      nächsten Kapitel: <strong>Es kommen Textzeilen heraus.</strong>
+    </p>
+  </div>
+</section>
+
+<!-- ================= 7 ================= -->
+<section>
+  <h2 id="k7">7 Das erste Funkpaket</h2>
+
+  <p>
+    Der spannendste Teil. Wir öffnen den Anschluss, sagen dem Stick, auf welchem
+    Kanal er lauschen soll, und sehen zu.
+  </p>
+
+  <h3>7.1 Den Anschluss einstellen</h3>
+  <p>
+    Der Stick redet sehr schnell — <strong>1 000 000 Zeichen je Sekunde</strong>.
+    Das muss man dem Betriebssystem einmal sagen:
+  </p>
+<pre><span class="kom"># $STICK stammt aus Kapitel 5 — nach dem Aufspielen neu ermitteln!</span>
+<span class="kom"># raw    = nichts an den Zeichen verändern</span>
+<span class="kom"># -echo  = der Rechner plappert nicht zurück</span>
+<span class="kom"># -hupcl = der Stick startet NICHT neu, wenn der Anschluss</span>
+<span class="kom">#          geschlossen wird — sonst wäre der Kanal sofort wieder weg</span>
+stty -F "$STICK" 1000000 raw -echo -hupcl</pre>
+
+  <div class="kasten achtung">
+    <div class="titel">Warum <code>-hupcl</code> hier entscheidend ist</div>
+    <p style="margin-bottom:0">
+      Bei den meisten USB-Anschlüssen wird der Stick <strong>neu gestartet</strong>,
+      sobald das letzte Programm den Anschluss schließt. Wer den Kanal mit einem
+      Befehl setzt und mit einem zweiten zuhört, redet also mit einem Gerät, das
+      zwischendurch neu gestartet ist — und wundert sich, dass nichts kommt.
+      <code>-hupcl</code> verhindert das.
+    </p>
+  </div>
+
+  <h3>7.2 Kanal einstellen und zuhören</h3>
+  <p>
+    Zwei Befehle. Der erste sagt dem Stick den Kanal, der zweite zeigt, was
+    hereinkommt. Setze deinen eigenen Kanal ein — wie du ihn herausfindest,
+    steht in Kapitel 9.
+  </p>
+<pre><span class="kom"># EINE offene Verbindung für Senden und Empfangen.</span>
+<span class="kom"># exec 3&lt;&gt; hält den Anschluss offen, bis wir ihn selbst schließen.</span>
+exec 3&lt;&gt;"$STICK"
+
+<span class="kom"># Kanal einstellen</span>
+printf '{"C":11}\n' &gt;&amp;3
+
+<span class="kom"># Zuhören. Beenden mit Strg+C</span>
+cat &lt;&amp;3
+
+<span class="kom"># Wenn du fertig bist: Verbindung schließen</span>
+exec 3&gt;&amp;-</pre>
+
+  <p>Nach Sekunden bis wenigen Minuten sollte so etwas erscheinen:</p>
+<pre class="aus">{"L":50,"Q":255,"R":-94,"C":11,"S":"4188a31e48ffff00000912fcff000001cc0885da…"}
+{"L":28,"Q":248,"R":-61,"C":11,"S":"6188c41e48b4a2f1e30028…"}
+{"L":12,"Q":255,"R":-47,"C":11,"S":"0200a3…"}</pre>
+
+  <div class="kasten gut">
+    <div class="titel">Wenn du das siehst, ist der schwierige Teil geschafft</div>
+    <p>
+      Jede Zeile ist ein echtes Funkpaket aus deiner Wohnung, in dem Moment
+      empfangen, in dem es gesendet wurde. Ab hier geht es nur noch ums Auswerten.
+    </p>
+  </div>
+
+  <h3>7.3 Nichts zu sehen?</h3>
+  <p>
+    Ruhe bewahren — auf einem stillen Kanal kann eine Minute vergehen, ohne dass
+    irgendetwas funkt. Erzwinge Verkehr, indem du eine Zigbee-Lampe ein- und
+    ausschaltest. Bleibt es dann immer noch still, weiter zu Kapitel 11.
+  </p>
+
+  <h3>7.4 Einen Mitschnitt aufheben</h3>
+  <p>
+    Für die spätere Entwicklung ist ein echter Mitschnitt Gold wert — an ihm wird
+    der Decoder geprüft. Zehn Minuten reichen:
+  </p>
+<pre>exec 3&lt;&gt;"$STICK"
+printf '{"C":11}\n' &gt;&amp;3
+timeout 600 cat &lt;&amp;3 &gt; ~/zigbee-mitschnitt-$(date +%Y%m%d-%H%M).jsonl
+exec 3&gt;&amp;-
+
+wc -l ~/zigbee-mitschnitt-*.jsonl</pre>
+  <p>
+    Die letzte Zeile sagt dir, wie viele Pakete zusammengekommen sind.
+  </p>
+</section>
+
+<!-- ================= 8 ================= -->
+<section>
+  <h2 id="k8">8 Was die Zahlen bedeuten</h2>
+
+  <p>Jede Zeile hat fünf Felder. Sie sind kurz benannt, weil es sehr viele Zeilen werden.</p>
+
+  <figure>
+    <svg width="470" height="172" viewBox="0 0 470 172" role="img" aria-label="Aufbau einer Ausgabezeile">
+      <rect x="8" y="14" width="454" height="30" rx="6" fill="#111827"/>
+      <text x="20" y="34" font-family="monospace" font-size="12" fill="#e5e7eb">{</text>
+      <text x="30" y="34" font-family="monospace" font-size="12" fill="#a5b4fc">"L":50</text>
+      <text x="83" y="34" font-family="monospace" font-size="12" fill="#e5e7eb">,</text>
+      <text x="91" y="34" font-family="monospace" font-size="12" fill="#7dd3fc">"Q":255</text>
+      <text x="152" y="34" font-family="monospace" font-size="12" fill="#e5e7eb">,</text>
+      <text x="160" y="34" font-family="monospace" font-size="12" fill="#86efac">"R":-94</text>
+      <text x="221" y="34" font-family="monospace" font-size="12" fill="#e5e7eb">,</text>
+      <text x="229" y="34" font-family="monospace" font-size="12" fill="#fcd34d">"C":11</text>
+      <text x="282" y="34" font-family="monospace" font-size="12" fill="#e5e7eb">,</text>
+      <text x="290" y="34" font-family="monospace" font-size="12" fill="#f9a8d4">"S":"4188a31e…"</text>
+      <!-- Farbtupfer oben, gleiche Farben unten in der Legende. -->
+      <g stroke-width="2.2" stroke-linecap="round">
+        <line x1="30" y1="41" x2="82" y2="41" stroke="#a5b4fc"/>
+        <line x1="91" y1="41" x2="151" y2="41" stroke="#38bdf8"/>
+        <line x1="160" y1="41" x2="220" y2="41" stroke="#22c55e"/>
+        <line x1="229" y1="41" x2="281" y2="41" stroke="#f59e0b"/>
+        <line x1="290" y1="41" x2="404" y2="41" stroke="#ec4899"/>
+      </g>
+      <text x="410" y="34" font-family="monospace" font-size="12" fill="#e5e7eb">}</text>
+
+      <!-- Beschriftungen als Legende unter der Zeile, nicht als Fahnen daneben.
+           Die erste Fassung zog Linien nach links zu rechtsbuendigen Texten —
+           die liefen aus dem Bild heraus und waren abgeschnitten. Eine Legende
+           kann das baulich nicht: Sie beginnt links und laeuft nach rechts. -->
+      <g font-family="sans-serif" font-size="10.5">
+        <rect x="20" y="58" width="11" height="11" rx="2.5" fill="#a5b4fc"/>
+        <text x="39" y="67.5" font-family="monospace" font-weight="bold" fill="#3730a3">L</text>
+        <text x="60" y="67.5" fill="#334155">Länge des Pakets in Byte</text>
+
+        <rect x="20" y="80" width="11" height="11" rx="2.5" fill="#38bdf8"/>
+        <text x="39" y="89.5" font-family="monospace" font-weight="bold" fill="#3730a3">Q</text>
+        <text x="60" y="89.5" fill="#334155">Verbindungsgüte (LQI) — 0 bis 255, größer ist besser</text>
+
+        <rect x="20" y="102" width="11" height="11" rx="2.5" fill="#22c55e"/>
+        <text x="39" y="111.5" font-family="monospace" font-weight="bold" fill="#3730a3">R</text>
+        <text x="60" y="111.5" fill="#334155">Empfangsstärke (RSSI) in dBm — näher an null ist besser</text>
+
+        <rect x="20" y="124" width="11" height="11" rx="2.5" fill="#f59e0b"/>
+        <text x="39" y="133.5" font-family="monospace" font-weight="bold" fill="#3730a3">C</text>
+        <text x="60" y="133.5" fill="#334155">Kanal, auf dem empfangen wurde</text>
+
+        <rect x="20" y="146" width="11" height="11" rx="2.5" fill="#ec4899"/>
+        <text x="39" y="155.5" font-family="monospace" font-weight="bold" fill="#3730a3">S</text>
+        <text x="60" y="155.5" fill="#334155">das Paket selbst — Inhalt verschlüsselt, Adressen sichtbar</text>
+      </g>
+    </svg>
+    <figcaption>Eine Zeile, fünf Angaben. Nur zwei davon musst du wirklich verstehen.</figcaption>
+  </figure>
+
+  <h3>8.1 R — die Empfangsstärke</h3>
+  <p>
+    Angegeben in <strong>dBm</strong>, immer negativ. <strong>Näher an null ist besser.</strong>
+    −40 ist ein Gerät im selben Raum, −90 ist ein Gerät am Rand der Reichweite.
+  </p>
+  <table>
+    <tr><th style="width:22%">Wert</th><th>Bedeutung</th></tr>
+    <tr><td><strong>−30 bis −55</strong></td><td>Sehr kräftig. Gerät ist nah.</td></tr>
+    <tr><td><strong>−56 bis −75</strong></td><td>Gut. So sieht der Normalfall aus.</td></tr>
+    <tr><td><strong>−76 bis −87</strong></td><td>Schwach, aber brauchbar. Reserve wird knapp.</td></tr>
+    <tr><td><strong>unter −88</strong></td><td>Grenzbereich. Hier gehen Pakete verloren, sobald jemand anders funkt.</td></tr>
+  </table>
+  <p>
+    <strong>Genau diese Zahl ist der Grund für das ganze Vorhaben.</strong> Dein
+    Koordinator sagt dir „Gerät erreichbar" — er sagt dir nicht, ob es mit −52 oder
+    mit −89 hereinkommt. Der Unterschied entscheidet darüber, ob dein Licht im
+    nächsten Sommer noch zuverlässig schaltet.
+  </p>
+
+  <h3>8.2 Q — die Verbindungsgüte</h3>
+  <p>
+    Ein Wert von 0 bis 255, <strong>größer ist besser</strong>. Er beschreibt, wie
+    sauber das Signal ankam — nicht wie laut. Ein starkes, aber verzerrtes Signal
+    (etwa neben einem WLAN-Sender) hat hohes R und niedriges Q. Beide zusammen
+    ergeben erst das Bild.
+  </p>
+
+  <h3>8.3 C, L und S</h3>
+  <ul>
+    <li><strong>C</strong> — der Kanal, auf dem empfangen wurde. Praktisch zur Kontrolle, dass die Einstellung angekommen ist.</li>
+    <li><strong>L</strong> — Länge des Pakets in Byte. Kurze Pakete (unter 15) sind meist Empfangsbestätigungen.</li>
+    <li><strong>S</strong> — das Paket selbst in Hexadezimalschreibweise. Darin stecken Absender und Empfänger; die eigentliche Nachricht ist verschlüsselt und bleibt es.</li>
+  </ul>
+
+  <div class="kasten">
+    <div class="titel">Warum verschlüsselte Inhalte kein Verlust sind</div>
+    <p>
+      Wir wollen wissen, <em>ob</em> und <em>wie gut</em> Geräte gehört werden —
+      nicht, was sie sagen. Adressen und Empfangsstärke reichen dafür vollständig.
+      Den Netzschlüssel deines Zigbee-Netzes braucht der Analyzer nicht, und er
+      soll ihn auch gar nicht bekommen.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 9 ================= -->
+<section>
+  <h2 id="k9">9 Den richtigen Kanal finden</h2>
+
+  <p>
+    Zigbee benutzt die Kanäle 11 bis 26. Dein Netz läuft auf genau einem davon.
+    Hörst du auf dem falschen, bleibt es still — der häufigste Grund für
+    „es funktioniert nicht".
+  </p>
+
+  <h3>9.1 In der Verwaltungsoberfläche nachsehen</h3>
+  <p>
+    Bei <strong>Phoscon/deCONZ</strong>: <em>Einstellungen → Gateway → Erweitert</em>.
+    Dort steht der Kanal. Bei <strong>zigbee2mqtt</strong>: <em>Einstellungen →
+    Netzwerk</em>. Bei <strong>ZHA</strong> in Home Assistant:
+    <em>Einstellungen → Geräte → Zigbee Home Automation → Netzwerk</em>.
+  </p>
+
+  <h3>9.2 Wenn du gar nicht weiterweißt: alle absuchen</h3>
+  <p>
+    Der Stick kann jeden Kanal. Also probierst du sie durch — je zwanzig Sekunden,
+    und wo Zeilen kommen, ist dein Netz:
+  </p>
+<pre>for K in 11 15 20 25 12 13 14 16 17 18 19 21 22 23 24 26; do
+  printf '{"C":%d}\n' "$K" &gt; "$STICK"
+  N=$(timeout 20 cat "$STICK" | wc -l)
+  printf 'Kanal %2d: %4d Pakete\n' "$K" "$N"
+done</pre>
+  <p>
+    Die vier zuerst genannten Kanäle sind die verbreitetsten — deshalb stehen sie
+    vorn. Ein Durchlauf über alle sechzehn dauert gut fünf Minuten.
+  </p>
+
+  <h3>9.3 Ein Gerät zum Wiedererkennen</h3>
+  <p>
+    Für die Abnahme brauchst du ein Gerät, das du sicher zuordnen kannst. Nimm eine
+    Lampe, deren <strong>Kurzadresse</strong> du in der Verwaltungsoberfläche
+    nachsehen kannst (vier Hexadezimalzeichen, etwa <code>0x8f2a</code>).
+    Schalte sie ein und aus und sieh nach, ob in den mitgeschnittenen Zeilen
+    genau in diesen Sekunden Verkehr auftaucht.
+  </p>
+
+  <div class="kasten gut">
+    <div class="titel">Das ist die eigentliche Abnahme</div>
+    <p>
+      „Es kommen Zeilen" heißt nur, dass der Stick lebt. Erst
+      <strong>„ich schalte die Lampe im Flur, und genau dann tauchen Pakete auf"</strong>
+      beweist, dass du dein eigenes Netz hörst und nicht das des Nachbarn.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 10 ================= -->
+<section>
+  <h2 id="k10">10 Mit Wireshark ansehen <span style="font-weight:400;color:#64748b">(freiwillig)</span></h2>
+
+  <p>
+    Für den Analyzer nicht nötig — er liest die Zeilen selbst. Aber wenn du einmal
+    sehen willst, was in einem Paket steckt, ist Wireshark das Werkzeug dafür:
+    Es zeigt Absender, Empfänger und Pakettyp im Klartext statt als Hexadezimalkette.
+  </p>
+
+  <ol class="schritte">
+    <li><span class="was">Wireshark installieren</span> — auf dem Pi mit <code>sudo apt install wireshark</code>, unter Windows vom Hersteller.</li>
+    <li><span class="was">Das Zusatzprogramm aus dem Firmware-Projekt holen</span> — es übersetzt die Textzeilen des Sticks in das Format, das Wireshark erwartet. Im Ordner <code>Wireshark/</code> des Projekts: für Windows <code>Extcap_802.15.4_v1.0.2.exe</code>, für Linux <code>zigbee_dongle_json_sniffer</code>.</li>
+    <li><span class="was">In den Ordner „extcap" kopieren</span> — wo der liegt, verrät Wireshark unter <em>Hilfe → Über Wireshark → Ordner</em>.</li>
+    <li><span class="was">Wireshark neu starten</span> — der Stick erscheint jetzt in der Liste der Aufnahmequellen.</li>
+  </ol>
+  <p><span class="ungeprueft">ungeprüft</span> — den genauen Ablauf tragen wir nach dem ersten Durchgang hier ein.</p>
+</section>
+
+<!-- ================= 11 ================= -->
+<section>
+  <h2 id="k11">11 Wenn etwas nicht klappt</h2>
+
+  <table>
+    <tr><th style="width:34%">Beobachtung</th><th>Wahrscheinliche Ursache und was hilft</th></tr>
+    <tr>
+      <td><strong>Beim Anstecken passiert nichts</strong><br>(kein neues Gerät)</td>
+      <td>Anderen USB-Anschluss und anderes Kabel probieren — Ladekabel ohne Datenadern sind ein Klassiker. Am Pi: Verteiler ohne eigene Stromversorgung meiden.</td>
+    </tr>
+    <tr>
+      <td><strong><code>FileNotFoundError:<br>No such file or directory</code></strong></td>
+      <td>Der Gerätename stimmt nicht — meist wurde ein Platzhalter aus einer
+        Anleitung mitkopiert. <strong>Namen nie abtippen</strong>, sondern mit
+        dem Befehl aus Kapitel 5 ermitteln lassen. Kontrolle:
+        <code>echo "$STICK"</code> muss einen Pfad ausgeben, der wirklich
+        existiert (<code>ls -l "$STICK"</code>).</td>
+    </tr>
+    <tr>
+      <td><strong>Web-Flasher meldet<br>„Failed to probe running<br>application type"</strong></td>
+      <td><strong>Der häufigste Fall — und kein Defekt.</strong> Das Werkzeug bekommt die
+        laufende Firmware nicht erkannt und kommt deshalb nicht in den Bootloader.
+        Steht im Protokoll irgendwo <code>RSTACK</code>, hat dein Stick sogar
+        geantwortet. Abhilfe: Befehlszeile mit <code>--bootloader-reset</code>
+        (Kapitel 6.3) oder BOOT-Knopf (Kapitel 6.4).</td>
+    </tr>
+    <tr>
+      <td><strong>Windows: Anschluss da, aber unzuverlässig</strong></td>
+      <td>Bei neueren Ausführungen mit CP2102-Baustein macht der <em>aktuelle</em>
+        CP210x-Treiber Ärger; berichtet wird von der älteren Fassung 6.7.0.0 als
+        Abhilfe. Erst probieren, wenn 6.3 und 6.4 nichts gebracht haben.</td>
+    </tr>
+    <tr>
+      <td><strong>Der Browser findet den Stick nicht</strong></td>
+      <td>Firefox kann das nicht. Chrome oder Edge nehmen. Außerdem: Läuft nebenher noch ein Programm, das den Anschluss belegt (Wireshark, ein offenes <code>cat</code>)? Erst schließen.</td>
+    </tr>
+    <tr>
+      <td><strong>Nach dem Aufspielen kommen keine Zeilen</strong></td>
+      <td>Meist die Geschwindigkeit. Der <code>stty</code>-Befehl aus 7.1 muss <em>vor</em> dem Zuhören gelaufen sein, und zwar mit <code>1000000</code>.</td>
+    </tr>
+    <tr>
+      <td><strong>Es kommt wirres Zeug statt lesbarer Zeilen</strong></td>
+      <td>Ebenfalls die Geschwindigkeit — sie stimmt fast, aber nicht genau. <code>stty</code> wiederholen und darauf achten, dass keine anderen Einstellungen dazwischenfunken.</td>
+    </tr>
+    <tr>
+      <td><strong>Lesbare Zeilen, aber sehr wenige</strong></td>
+      <td>Falscher Kanal (Kapitel 9) oder die Antenne fehlt. Prüfen kannst du es, indem du eine Lampe schaltest.</td>
+    </tr>
+    <tr>
+      <td><strong>Alle Empfangswerte sind schlecht</strong> (unter −85)</td>
+      <td>Antenne liegt waagerecht, steckt direkt am Pi-Gehäuse oder hinter Metall. Verlängerung benutzen, Antenne aufrecht stellen, mindestens eine Handbreit Abstand zu allem Metallischen.</td>
+    </tr>
+    <tr>
+      <td><strong>Zeilen brechen mitten im Satz ab</strong></td>
+      <td>Der Rechner kommt bei 1 MBaud nicht mit. Auf einem Pi 3 möglich. Kein Beinbruch — der Analyzer zählt später verworfene Pakete und zeigt sie an, statt sie zu verschweigen.</td>
+    </tr>
+    <tr>
+      <td><strong>Dein Zigbee-Netz ist ausgefallen</strong></td>
+      <td>Dann hast du den falschen Stick umgespielt. Kapitel 12 führt zurück. Ärgerlich, aber reparabel.</td>
+    </tr>
+  </table>
+
+  <div class="kasten">
+    <div class="titel">Vorgehen, wenn nichts davon passt</div>
+    <p>
+      Ändere <strong>immer nur eine Sache</strong> und sieh dann nach. Zwei
+      Änderungen auf einmal — anderer Anschluss <em>und</em> anderer Kanal — und du
+      weißt hinterher nicht, welche geholfen hat. Notiere, was du probiert hast.
+      Diese Notizen sind später mehr wert, als du jetzt glaubst.
+    </p>
+  </div>
+</section>
+
+<!-- ================= 12 ================= -->
+<section>
+  <h2 id="k12">12 Der Rückweg</h2>
+
+  <p>
+    Aus dem Mithörer wird wieder ein ganz normaler Zigbee-Koordinator. Nötig, wenn
+    du den falschen Stick erwischt hast oder das Vorhaben beendest.
+  </p>
+
+  <ol class="schritte">
+    <li>
+      <span class="was">Koordinator-Software besorgen</span>
+      <p>Beim Hersteller:
+        <a href="https://github.com/itead/Sonoff_Zigbee_Dongle_Firmware">github.com/itead/Sonoff_Zigbee_Dongle_Firmware</a>,
+        Ordner <code>Dongle-E</code>. Nimm die Fassung, die zu deiner Steuerung passt —
+        deCONZ, zigbee2mqtt und ZHA erwarten teils verschiedene.</p>
+    </li>
+    <li>
+      <span class="was">Genauso aufspielen wie in Kapitel 6</span>
+      <p>Derselbe Weg, dieselben Werkzeuge, nur eine andere Datei.</p>
+    </li>
+    <li>
+      <span class="was">Netz wiederherstellen</span>
+      <p>Ist es der Stick deines echten Netzes gewesen, brauchst du zusätzlich die
+        Sicherung deiner Netzdaten — sonst müssen alle Geräte neu angelernt werden.
+        <strong>Genau deshalb steht die Warnung in Kapitel 6.</strong></p>
+    </li>
+  </ol>
+</section>
+
+<!-- ================= 13 ================= -->
+<section>
+  <h2 id="k13">13 Wörterbuch</h2>
+  <dl class="glossar">
+    <dt>Zigbee</dt>
+    <dd>Funkstandard für Hausautomation auf 2,4 GHz. Geräte reichen Nachrichten
+      untereinander weiter, sodass das Netz größer wird als die Reichweite eines
+      einzelnen Geräts.</dd>
+
+    <dt>Koordinator</dt>
+    <dd>Das eine Gerät, das ein Zigbee-Netz aufspannt und verwaltet — bei dir der
+      Stick am Steuerungsrechner. Es gibt genau einen je Netz.</dd>
+
+    <dt>Mithörer (Sniffer)</dt>
+    <dd>Ein Empfänger, der zu keinem Netz gehört und alles mitschreibt, was er
+      hört. Er sendet nie. Das ist der Stick aus diesem Buch.</dd>
+
+    <dt>Kanal</dt>
+    <dd>Ein Frequenzabschnitt. Zigbee hat sechzehn davon, nummeriert von 11 bis 26.
+      Ein Netz benutzt einen; ein Empfänger hört auf einem.</dd>
+
+    <dt>RSSI (Feld <code>R</code>)</dt>
+    <dd>Empfangsstärke in dBm, immer negativ. Näher an null ist besser.
+      Siehe Kapitel 8.1.</dd>
+
+    <dt>LQI (Feld <code>Q</code>)</dt>
+    <dd>Verbindungsgüte von 0 bis 255. Größer ist besser. Beschreibt die Sauberkeit
+      des Signals, nicht seine Lautstärke.</dd>
+
+    <dt>Kurzadresse</dt>
+    <dd>Vier Hexadezimalzeichen, mit denen ein Gerät in seinem Netz angesprochen
+      wird, etwa <code>0x8f2a</code>. Kann sich beim Neuanmelden ändern.</dd>
+
+    <dt>IEEE-Adresse</dt>
+    <dd>Die feste, weltweit eindeutige Nummer eines Geräts (sechzehn Zeichen).
+      Ändert sich nie.</dd>
+
+    <dt>Firmware</dt>
+    <dd>Die Software im Inneren des Sticks. Austauschbar — genau das tun wir in
+      Kapitel 6.</dd>
+
+    <dt>Baud</dt>
+    <dd>Wie schnell zwei Geräte über eine Leitung reden. Beide müssen dieselbe
+      Zahl benutzen, sonst kommt Unsinn an. Hier: 1 000 000.</dd>
+  </dl>
+</section>
+
+<!-- ================= 14 ================= -->
+<section>
+  <h2 id="k14">14 Was noch fehlt</h2>
+
+  <p>
+    Dieses Buch endet dort, wo die Zeilen aus dem Stick kommen. Der Weg von dort
+    in die Oberfläche des Analyzers wird gerade gebaut. Die folgenden Kapitel
+    kommen dazu, sobald der jeweilige Teil fertig <em>und geprüft</em> ist:
+  </p>
+
+  <table>
+    <tr><th style="width:38%">Künftiges Kapitel</th><th>Inhalt</th><th style="width:16%">Zustand</th></tr>
+    <tr><td>Fester Gerätename</td><td>Damit der Stick nach jedem Neustart gleich heißt</td><td>in Arbeit</td></tr>
+    <tr><td>Zigbee einschalten</td><td>Im Einrichtungsassistenten und in der Weboberfläche</td><td>geplant</td></tr>
+    <tr><td>Die Zigbee-Seite</td><td>Zustand, Geräte, Pakete — die eigene Seite im Analyzer</td><td>geplant</td></tr>
+    <tr><td>Mehrere Standorte</td><td>Welcher Analyzer hört welches Gerät am besten</td><td>geplant</td></tr>
+    <tr><td>Langzeitdaten</td><td>Auswertungen über Wochen und Monate</td><td>geplant</td></tr>
+  </table>
+
+  <div class="kasten">
+    <div class="titel">Wie dieses Buch gepflegt wird</div>
+    <p>
+      Solange die Erweiterung gebaut wird, lebt es hier für sich. Jede Angabe mit
+      dem Vermerk <span class="ungeprueft">ungeprüft</span> wird ersetzt, sobald wir
+      sie am Gerät gesehen haben. Erst wenn alles zufriedenstellend läuft, wandert
+      der Inhalt als neues Kapitel ins große Handbuch.
+    </p>
+    <p style="margin-top:2mm">
+      Der zugehörige Arbeitsplan mit allen Entscheidungen und offenen Fragen liegt
+      daneben: <code>projekt/zigbee-integration/README.md</code>, der laufende
+      Verlauf in <code>stand.md</code>.
+    </p>
+  </div>
+</section>
+
+</body>
+</html>

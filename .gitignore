@@ -17,6 +17,10 @@ hardware/kicad/board.ses
 fp-info-cache
 /adapter/
 docs/handbuch/.venv/
+# Handbuecher der laufenden Vorhaben bauen sich ihre eigene Umgebung. Python
+# legt darin zwar selbst eine .gitignore an — darauf verlassen wir uns nicht,
+# es sind 84 MB je Buch.
+projekt/*/handbuch/.venv/
 
 # Aus dem PDF extrahierte Seitenbilder. Sie sind Kopien der eingebetteten
 # Screenshots — sie verdoppelten jeden Fehler darin, auch einen versehentlich

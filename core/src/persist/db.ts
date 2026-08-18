@@ -16,7 +16,7 @@
 
 import { DatabaseSync } from 'node:sqlite';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const MIGRATIONEN: Record<number, string> = {
   1: `
@@ -58,6 +58,59 @@ const MIGRATIONEN: Record<number, string> = {
       max_rssi   INTEGER NOT NULL,
       sum_rssi   INTEGER NOT NULL,
       PRIMARY KEY (hour, addr)
+    ) STRICT;
+  `,
+  2: `
+    -- Zigbee (M16). Eigene Tabellen, nicht in die BidCoS-Tabellen gemischt:
+    -- Eine BidCoS-Adresse hat drei Byte, eine Zigbee-Kurzadresse zwei und
+    -- eine IEEE-Adresse acht. In einer Spalte saehen sie gleich aus und
+    -- waeren es nicht — der Fehler faellt erst auf, wenn eine Auswertung
+    -- still das Falsche zaehlt.
+    --
+    -- Adressen als TEXT (Hex, gross, ohne Praefix): 4 Stellen fuer eine
+    -- Kurzadresse, 16 fuer eine IEEE-Adresse. Als INTEGER waere eine
+    -- IEEE-Adresse ein Vorzeichenproblem, und die fuehrende Null einer
+    -- Kurzadresse ginge verloren.
+    CREATE TABLE zigbee_packets (
+      ts      INTEGER NOT NULL,   -- Empfangszeit, ms seit Epoch
+      kanal   INTEGER NOT NULL,   -- 11..26
+      rssi    INTEGER NOT NULL,   -- dBm, negativ
+      lqi     INTEGER NOT NULL,   -- 0..255
+      laenge  INTEGER NOT NULL,   -- Byte einschliesslich Pruefsumme
+      typ     INTEGER NOT NULL,   -- Rahmenart aus dem FCF: 0..3
+      seq     INTEGER NOT NULL,
+      pan     INTEGER,            -- NULL bei Bestaetigungen (tragen keine)
+      von     TEXT,               -- NULL bei Bestaetigungen
+      an      TEXT,
+      rundruf INTEGER NOT NULL    -- 0/1
+    ) STRICT;
+    CREATE INDEX idx_zigbee_packets_ts ON zigbee_packets (ts);
+    CREATE INDEX idx_zigbee_packets_von ON zigbee_packets (pan, von, ts);
+
+    -- Stundensummen je Geraet.
+    --
+    -- 'schwach' zaehlt Pakete mit LQI unter 50. Das ist keine willkuerliche
+    -- Grenze: Am 18.08.2026 wurden 47 827 Pakete einer Stunde ausgewertet,
+    -- und LQI bricht unterhalb von etwa -87 dBm als Kante ein — oberhalb
+    -- 77..255, unterhalb 0..20. Ein Mittelwert allein verdeckt genau das.
+    --
+    -- Warum nicht der Median: Der laesst sich aus Summen nicht bilden. Ueber
+    -- eine Stunde ist der Mittelwert unkritisch (anders als Minimum und
+    -- Maximum, die jeden Ausreisser zur Bewertung erheben) — und 'schwach'
+    -- liefert den Anteil, auf den es ankommt.
+    CREATE TABLE zigbee_device_hours (
+      hour     INTEGER NOT NULL,  -- Epoch-Stunde
+      pan      INTEGER NOT NULL,
+      addr     TEXT    NOT NULL,
+      pakete   INTEGER NOT NULL,
+      schwach  INTEGER NOT NULL,  -- davon mit LQI < 50
+      min_rssi INTEGER NOT NULL,
+      max_rssi INTEGER NOT NULL,
+      sum_rssi INTEGER NOT NULL,
+      min_lqi  INTEGER NOT NULL,
+      max_lqi  INTEGER NOT NULL,
+      sum_lqi  INTEGER NOT NULL,
+      PRIMARY KEY (hour, pan, addr)
     ) STRICT;
   `,
 };

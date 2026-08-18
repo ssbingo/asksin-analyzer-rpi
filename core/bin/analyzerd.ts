@@ -38,6 +38,13 @@ import type { PeerKonfig } from '../src/verbund/verbund.ts';
 import { demoDevListFetch, demoPortOpener } from '../src/demo/port.ts';
 import { DEFAULT_BAUD, DEFAULT_DEVICE, sttyPortOpener } from '../src/ingest/sttyPort.ts';
 import { openDatabase } from '../src/persist/db.ts';
+import {
+  ZIGBEE_BAUD,
+  ZIGBEE_DEVICE,
+  ZIGBEE_KANAL,
+  ZigbeeLeser,
+} from '../src/zigbee/leser.ts';
+import { ZigbeeSpeicher } from '../src/zigbee/speicher.ts';
 import { testeCcu } from '../src/resolve/ccuTest.ts';
 import { DevListService, httpFetchBytes } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
@@ -174,6 +181,33 @@ interface Konfiguration {
     pfad?: string;
     /** Obergrenze in MiB, danach wächst die Datei nicht weiter. Vorgabe 256. */
     maxMiB?: number;
+  };
+  /**
+   * Zigbee-Mithörer (M16) — das zweite Ohr auf 2,4 GHz.
+   *
+   * Standardmäßig **aus**, und zwar so, dass eine Konfiguration ohne diesen
+   * Block unverändert gültig bleibt. Vier von fünf Analyzern brauchen ihn
+   * vermutlich nie; eine Erweiterung, die sich bei allen bemerkbar macht,
+   * wäre keine Option, sondern eine Zumutung.
+   */
+  zigbee?: {
+    aktiv?: boolean;
+    /** Vorgabe: /dev/asksin-zigbee (udev-Regel, siehe hardware/). */
+    device?: string;
+    /** 11 bis 26. Vorgabe 11 — der verbreitetste Kanal. */
+    kanal?: number;
+    /**
+     * Bestätigungen einzeln speichern statt nur zählen.
+     *
+     * Vorgabe `zaehlen`. Eine Bestätigung trägt weder Absender noch Netz und
+     * ist keinem Gerät zuzuordnen; gemessen macht sie 41 % der Zeilen aus
+     * (85 statt 55 MB am Tag). Siehe src/zigbee/speicher.ts.
+     */
+    bestaetigungen?: 'speichern' | 'zaehlen';
+    /** Aufbewahrung der Einzelpakete in Tagen. Vorgabe 14. */
+    paketeTage?: number;
+    /** Aufbewahrung der Stundensummen in Tagen. Vorgabe 365. */
+    stundenTage?: number;
   };
 }
 
@@ -1919,6 +1953,70 @@ const api = new ApiServer({
   },
 });
 
+// ---- Zigbee-Mithörer (M16) ---------------------------------------------
+//
+// Eigener Leser, eigener Speicher, eigene Tabellen — der BidCoS-Pfad wird
+// nicht angefasst. Fehlt der Stick, versucht der Leser es weiter und der
+// Analyzer läuft davon unberührt: KEIN Startabbruch, keine Neustartschleife.
+//
+// Im Demo-Modus bleibt er aus. Erfundene Funktelegramme gibt es dort mit
+// Absicht; erfundene Zigbee-Pakete wären etwas anderes — sie sollen zeigen,
+// was wirklich in der Luft ist.
+const zigbeeKonfig = konfig.zigbee ?? {};
+let zigbeeLeser: ZigbeeLeser | null = null;
+let zigbeeSpeicher: ZigbeeSpeicher | null = null;
+
+if (zigbeeKonfig.aktiv === true && !demoAktiv) {
+  const geraet = zigbeeKonfig.device ?? ZIGBEE_DEVICE;
+  zigbeeSpeicher = new ZigbeeSpeicher(db, {
+    ...(zigbeeKonfig.bestaetigungen === undefined
+      ? {}
+      : { bestaetigungen: zigbeeKonfig.bestaetigungen }),
+  });
+  const speicher = zigbeeSpeicher;
+  zigbeeLeser = new ZigbeeLeser({
+    openPort: sttyPortOpener(geraet, ZIGBEE_BAUD, (text) =>
+      log(`Zigbee-Anschluss: ${text}`)),
+    kanal: zigbeeKonfig.kanal ?? ZIGBEE_KANAL,
+    onPaket: (paket) => speicher.aufnehmen(paket),
+  });
+  zigbeeLeser.start();
+  log(`Zigbee-Mithörer aktiv: ${geraet}, Kanal ${zigbeeLeser.kanal}`);
+
+  // Regelmäßig spülen, damit nach einem harten Abbruch höchstens ein paar
+  // Sekunden fehlen. Der Speicher schreibt zusätzlich bei vollem Puffer.
+  const spuelTakt = setInterval(() => {
+    try {
+      speicher.schreiben();
+    } catch (err) {
+      protokoll?.fehler('zigbee', `Zigbee-Schreiben fehlgeschlagen: ${String(err)}`);
+    }
+  }, 30_000);
+  spuelTakt.unref();
+
+  // Aufräumen einmal täglich — dieselbe Taktung wie beim BidCoS-Pfad.
+  const aufraeumTakt = setInterval(() => {
+    try {
+      const weg = speicher.aufraeumen({
+        ...(zigbeeKonfig.paketeTage === undefined
+          ? {}
+          : { paketeTage: zigbeeKonfig.paketeTage }),
+        ...(zigbeeKonfig.stundenTage === undefined
+          ? {}
+          : { stundenTage: zigbeeKonfig.stundenTage }),
+      });
+      if (weg.pakete > 0 || weg.stunden > 0) {
+        log(`Zigbee aufgeraeumt: ${weg.pakete} Pakete, ${weg.stunden} Stundenzeilen`);
+      }
+    } catch (err) {
+      protokoll?.fehler('zigbee', `Zigbee-Aufraeumen fehlgeschlagen: ${String(err)}`);
+    }
+  }, 86_400_000);
+  aufraeumTakt.unref();
+} else if (zigbeeKonfig.aktiv === true) {
+  log('Zigbee-Mithörer im Demo-Modus ausgelassen');
+}
+
 analyzer.start();
 await statusAnzeigeAufbauen();
 await influxAufbauen();
@@ -2123,6 +2221,15 @@ async function herunterfahren(code: number): Promise<void> {
     // Nach analyzer.stop(): Erst dann kommen keine Zeilen mehr nach, und der
     // letzte Puffer landet vollstaendig in der Datei.
     mitschnittStoppen();
+    // Reihenfolge zaehlt: erst den Leser anhalten, dann den letzten Schub
+    // schreiben. Umgekehrt landeten die Pakete der letzten Sekunden nicht
+    // mehr in der Datenbank.
+    await zigbeeLeser?.stop();
+    try {
+      zigbeeSpeicher?.schreiben();
+    } catch (err) {
+      log(`Zigbee: letzter Schub verloren (${String(err)})`);
+    }
     db.close();
     log('Sauber beendet');
   } catch (err) {

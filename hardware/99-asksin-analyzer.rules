@@ -24,8 +24,27 @@ SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", \
 # Ohne programmierte Seriennummer: erster gefundener CP2102N. Nur sinnvoll,
 # solange genau ein solcher Adapter am Rechner hängt — sonst die Regel oben
 # verwenden und die Seriennummer eintragen.
+#
+# Die Ausnahme für den Zigbee-Stick ist NICHT Kosmetik: Der SONOFF ZBDongle-E
+# benutzt denselben CP2102N (18.08.2026 nachgemessen, Itead programmiert nur
+# eigene Zeichenketten hinein). Ohne diese Zeile bekäme er zusätzlich den
+# Namen des Sniffers — und wer die USB-Variante der Platine betreibt, sucht
+# den Fehler danach im Funk statt in einer udev-Regel.
+# zweitname-erlaubt: asksin
 SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", \
+  ATTRS{product}!="Sonoff Zigbee 3.0 USB Dongle Plus*", \
   SYMLINK+="asksin-usb", GROUP="dialout", MODE="0660"
+
+# --- Zigbee-Mithörer (M16) ---------------------------------------------------
+# Fester Name unabhängig von der Aufzählungsreihenfolge: Der Stick heißt sonst
+# ttyUSB0 oder ttyUSB1, je nachdem was sonst noch steckt.
+#
+# Gematcht wird auf Hersteller und Produkt, nicht auf die Seriennummer — so
+# gilt die Regel für jeden Stick dieses Typs und muss beim Gerätetausch nicht
+# angefasst werden. Der Platzhalter am Ende deckt V1 und V2 ab.
+SUBSYSTEM=="tty", ATTRS{manufacturer}=="Itead", \
+  ATTRS{product}=="Sonoff Zigbee 3.0 USB Dongle Plus*", \
+  SYMLINK+="asksin-zigbee", GROUP="dialout", MODE="0660"
 
 # --- HAT-Betrieb über den GPIO-Header ----------------------------------------
 # Der SoC-eigene UART. Voraussetzung ist die Konfiguration aus

@@ -44,6 +44,12 @@ export const DEFAULT_BAUD = 58_824;
  */
 const GENORMTE_RATEN = [
   1200, 1800, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400, 460800,
+  // Die hohen Raten kamen mit dem Zigbee-Mithörer dazu (1 MBaud). Sie sind
+  // Kernkonstanten (B500000 … B1152000 in <asm-generic/termbits.h>), stty
+  // nimmt sie also entgegen — damit braucht dieser Pfad den Umweg über
+  // deploy/baudrate.py nicht. Nachgerechnet: Für die 58 824 des Sniffers
+  // bleibt die nächstliegende Rate unverändert 57 600.
+  500_000, 576_000, 921_600, 1_000_000, 1_152_000,
 ] as const;
 
 /** Die genormte Rate, die der gewünschten am nächsten kommt. */
