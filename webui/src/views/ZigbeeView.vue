@@ -34,6 +34,15 @@ nutzeTakt(async () => {
     }
     throw err;
   }
+  // Ist der Mithoerer aus, antworten Geraete- und Paketliste mit 501 —
+  // absichtlich, damit ein Analyzer ohne Stick im Verbund nicht wie einer
+  // aussieht, der nichts gehoert hat. Hier heisst das: gar nicht erst
+  // fragen. Der Hinweis darunter sagt ohnehin, was zu tun ist.
+  if (!zustand.value.aktiv) {
+    geraete.value = []; vermisst.value = []; pakete.value = [];
+    gekuerzt.value = false;
+    return;
+  }
   const [g, p] = await Promise.all([
     holeZigbeeGeraete(stunden.value),
     holeZigbeePakete(10, 300),

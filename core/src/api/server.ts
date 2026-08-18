@@ -89,6 +89,17 @@ function zahlAusUrl(url: URL, name: string, vorgabe: number,
 
 export interface ZigbeeHooks {
   zustand(): Record<string, unknown>;
+  /**
+   * Läuft hier ein Mithörer?
+   *
+   * Muss sein, weil die Hooks **immer** hängen — auch ohne Stick, sonst gäbe
+   * es keine Einstellungsseite, auf der man Zigbee einschalten könnte. Ohne
+   * diese Frage antwortet ein Analyzer ohne Stick auf `/api/zigbee/geraete`
+   * mit einer leeren Liste und 200, und das heißt auf der Leitung dasselbe
+   * wie „ich höre mit und habe nichts gehört". Genau diese beiden Fälle
+   * auseinanderzuhalten ist der Zweck der ganzen Matrix.
+   */
+  aktiv(): boolean;
   /** Geräte der letzten `stunden` Stunden, aus den Stundensummen. */
   geraete(stunden: number): unknown[];
   /**
@@ -546,7 +557,9 @@ export class ApiServer {
         }
         case '/api/zigbee/geraete': {
           const hooks = this.#opts.zigbee;
-          if (hooks === undefined) return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          if (hooks === undefined || !hooks.aktiv()) {
+            return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          }
           const stunden = zahlAusUrl(url, 'stunden', 24, 1, 24 * 90);
           return this.#json(res, 200, {
             stunden,
@@ -556,7 +569,9 @@ export class ApiServer {
         }
         case '/api/zigbee/pakete': {
           const hooks = this.#opts.zigbee;
-          if (hooks === undefined) return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          if (hooks === undefined || !hooks.aktiv()) {
+            return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          }
           const minuten = zahlAusUrl(url, 'minuten', 10, 1, 60 * 24);
           const grenze = zahlAusUrl(url, 'max', 500, 1, MAX_ZIGBEE_PAKETE);
           return this.#json(res, 200, { minuten, ...hooks.pakete(minuten, grenze) });

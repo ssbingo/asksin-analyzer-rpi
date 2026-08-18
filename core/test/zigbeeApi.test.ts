@@ -39,6 +39,7 @@ function pruefHooks(): ZigbeeHooks & { gesehen: Record<string, unknown> } {
   const gesehen: Record<string, unknown> = {};
   return {
     gesehen,
+    aktiv: () => true,
     zustand: () => ({ aktiv: true, verbunden: false, kanal: 11, pakete: 0 }),
     geraete: (stunden) => { gesehen['stunden'] = stunden; return []; },
     nieGehoert: (stunden) => {
@@ -70,6 +71,32 @@ test('ohne Hooks antworten die Zigbee-Zweige mit 501', async () => {
     }
   });
 });
+
+test('ohne Mithoerer ist die Geraeteliste 501 — nicht 200 mit leerer Liste',
+  async () => {
+    // Der Unterschied entscheidet die Verbund-Matrix: 501 heisst „hier hoert
+    // niemand mit" (dagegen hilft ein Stick), eine leere Liste mit 200 hiesse
+    // „ich hoere mit und habe nichts gehoert" (dagegen hilft Nachsehen).
+    //
+    // Am 18.08.2026 im Betrieb gefunden: Zwei Analyzer ohne Stick antworteten
+    // mit 200 und leerer Liste, weil die Hooks immer haengen — sie muessen ja
+    // haengen, sonst gaebe es keine Seite zum Einschalten.
+    const hooks = { ...pruefHooks(), aktiv: () => false };
+    await mitServer(hooks, async (basis) => {
+      for (const pfad of ['/api/zigbee/geraete', '/api/zigbee/pakete']) {
+        const r = await fetch(basis + pfad);
+        assert.equal(r.status, 501, pfad);
+        await r.text();
+      }
+
+      // Der Zustand bleibt abrufbar — sonst koennte die Einstellungsseite
+      // nicht zeigen, dass Zigbee aus ist, und man haette nichts zum
+      // Einschalten.
+      const z = await fetch(`${basis}/api/zigbee`);
+      assert.equal(z.status, 200);
+      await z.text();
+    });
+  });
 
 test('Zustand kommt als JSON heraus', async () => {
   await mitServer(pruefHooks(), async (basis) => {

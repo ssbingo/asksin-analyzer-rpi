@@ -15,6 +15,51 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — Zwei Seiten, eine Annahme: Ein Analyzer ohne Stick log auf der Leitung
+
+Ausgerollt, dann nachgesehen. Und dabei genau den Fehler gefunden, den die
+Änderung von vorhin verhindern sollte:
+
+```
+Gartenhaus (kein Stick)  /api/zigbee/geraete → 200 {"geraete":[],"nieGehoert":[]}
+```
+
+**200 mit leerer Liste.** Auf der Leitung heißt das „ich höre mit und habe
+nichts gehört". Gemeint war „hier hört niemand mit". Der Fan-out, der 501 vom
+echten Ausfall trennt, hätte diesen Standort als ganz normale Spalte in die
+Matrix genommen — die Unterscheidung, für die ich zwei Stunden vorher
+argumentiert hatte, wäre im Betrieb wirkungslos gewesen.
+
+Der Grund ist harmlos und deshalb heimtückisch: Die Zigbee-Hooks hängen
+**immer** am Server, auch ohne Stick — sie müssen es, sonst gäbe es keine
+Einstellungsseite, auf der man Zigbee einschalten könnte. Der 501-Zweig
+prüfte nur, ob die Hooks da sind. Sie waren immer da.
+
+Zwei Seiten, eine Annahme: Der Verbund nimmt an, 501 bedeute „kein
+Mithörer". Der Server sendet 501 nur, wenn die Hooks fehlen. Keine der beiden
+Seiten liegt falsch, gemeldet hat es keine, und von außen sieht es aus, als
+sei einfach nichts zu hören.
+
+**Behoben:** `ZigbeeHooks` beantwortet jetzt die Frage `aktiv()`;
+`/api/zigbee/geraete` und `/api/zigbee/pakete` antworten ohne Mithörer mit
+501. Der Zustand unter `/api/zigbee` bleibt bei 200 — sonst gäbe es nichts
+mehr zum Einschalten. Die Ansicht *Meldungen · Zigbee* fragt bei
+ausgeschaltetem Mithörer gar nicht erst nach.
+
+**Gegengeprüft:** Wache herausgenommen → der neue Test fällt durch, wieder
+hinein → er besteht. Ohne diese Probe wäre es ein Test gewesen, der immer
+grün ist.
+
+**Nachgezogen:** `/api/verbund/zigbee` verlangt jetzt auch über die Leitung
+die Rolle *Master*, nicht nur im Menü. Ein Client hätte sonst eine Matrix aus
+seiner eigenen Gegenstellenliste gebaut — wer dazugehört, entscheidet der
+Master.
+
+Stand der Geräte: alle drei laufen auf demselben Commit; Zigbee-Mithörer
+bisher nur am Dachboden. Der zweite Stick gehört an den Master.
+
+---
+
 ## 18.08.2026 — Festlegung: Ohne Mithörer auf dem Master kein Zigbee-Verbund
 
 Der User hat die Regel gesetzt, und sie dreht meine Änderung von vorhin

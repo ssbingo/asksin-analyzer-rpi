@@ -815,6 +815,12 @@ const verbundHooks = {
   matrix: () => verbund.matrix(),
   matrixCsv: () => verbund.matrixCsv(),
   zigbeeMatrix: async (stunden: number) => {
+    // Zusammenführen ist Sache des Masters — auch über die Leitung, nicht nur
+    // im Menü. Ein Client, der diese Antwort gäbe, würde eine Matrix aus
+    // seiner eigenen Gegenstellenliste bauen; wer dazugehört, entscheidet
+    // aber der Master.
+    verlangeMaster(aktuelleRolle().rolle);
+
     // Ohne eigenen Mithörer gibt es keine Zigbee-Auswertung im Verbund.
     //
     // Das ist eine ausdrückliche Festlegung, keine technische Not: Der Master
@@ -2165,6 +2171,11 @@ if (zigbeeKonfig.deconzHost !== '' && zigbeeKonfig.deconzSchluessel !== '') {
 
 /** Was die Oberfläche über Zigbee erfährt und einstellen darf. */
 const zigbeeHooks: ZigbeeHooks = {
+  // Was `zustand()` im Feld `aktiv` sagt, sagt diese Frage der Leitung: Die
+  // Einstellungsseite darf einen ausgeschalteten Mithörer sehen, die
+  // Verbund-Auswertung darf ihn nicht mit einem stillen verwechseln.
+  aktiv: (): boolean => zigbeeKonfig.aktiv,
+
   zustand: (): Record<string, unknown> => {
     const s = zigbeeLeser?.stats;
     return {
