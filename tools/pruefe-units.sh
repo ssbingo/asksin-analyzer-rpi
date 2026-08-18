@@ -56,6 +56,30 @@ for pfad in deploy/*.service deploy/*.path; do
 done
 
 # ---------------------------------------------------------------------------
+# Dieselbe Frage fuer die udev-Regeln.
+#
+# Am 18.08.2026 kam die Regel fuer den Zigbee-Stick dazu — und update.sh rollte
+# udev-Regeln ueberhaupt nicht aus. Auf jeder bestehenden Anlage waere sie nie
+# angekommen: /dev/asksin-zigbee gaebe es nicht, der Mithoerer faende sein
+# Geraet nicht, und die Suche begaenne beim Funk statt bei einer Datei, die nie
+# kopiert wurde. Gefunden wurde das nur, weil jemand vor dem Ausrollen
+# nachgesehen hat — nicht durch eine Pruefung. Jetzt durch eine.
+
+echo
+for pfad in hardware/*.rules; do
+    [ -e "$pfad" ] || continue
+    regel="$(basename "$pfad")"
+    gesamt=$((gesamt + 1))
+    for skript in install.sh update.sh; do
+        if grep -q "hardware/$regel" "$skript"; then
+            continue
+        fi
+        printf '  FEHLT  %-34s wird von %s nicht ausgerollt\n' "$regel" "$skript"
+        fehlt=$((fehlt + 1))
+    done
+done
+
+# ---------------------------------------------------------------------------
 # Dieselbe Frage fuer die Grafana-Vorlagen.
 #
 # Sie sind auf denselben Fehler hereingefallen wie die OLED-Unit: einmal beim

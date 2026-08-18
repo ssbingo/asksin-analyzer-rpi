@@ -84,6 +84,22 @@ installiere_dateien() {
     systemctl enable asksin-analyzer-langzeit.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-alarmziel.path >/dev/null 2>&1 || true
     install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
+    # udev-Regeln nachziehen. Sie fehlten hier bis zum 18.08.2026 — und damit
+    # waere die Regel fuer den Zigbee-Stick auf keiner bestehenden Anlage je
+    # angekommen: /dev/asksin-zigbee gaebe es nicht, der Mithoerer faende sein
+    # Geraet nicht, und die Suche begaenne beim Funk statt bei einer Datei, die
+    # nie kopiert wurde.
+    #
+    # Dieselbe Falle wie bei den Units weiter oben: Was der Installer anlegt,
+    # muss das Update nachziehen, sonst gilt es nur fuer Neuinstallationen.
+    if ! cmp -s "$INSTALL_DIR/hardware/99-asksin-analyzer.rules" \
+                /etc/udev/rules.d/99-asksin-analyzer.rules; then
+        install -m 0644 "$INSTALL_DIR/hardware/99-asksin-analyzer.rules" \
+            /etc/udev/rules.d/99-asksin-analyzer.rules
+        udevadm control --reload >/dev/null 2>&1 || true
+        udevadm trigger --subsystem-match=tty >/dev/null 2>&1 || true
+        echo "  udev-Regeln aktualisiert."
+    fi
     # Ausfuehrungsrecht der Root-Helfer sicherstellen. Fehlt es, scheitert die
     # Unit mit "Permission denied" und die Path-Unit feuert endlos nach.
     chmod +x "$INSTALL_DIR/deploy/netz-anwenden.sh" "$INSTALL_DIR/deploy/led-pwm.py" \
