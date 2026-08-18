@@ -8,7 +8,17 @@ import { join } from 'node:path';
 
 import { DeconzNamen } from '../src/zigbee/namen.ts';
 
-const IEEE = '00158d00046f77cd';
+/**
+ * Erfundene IEEE-Adresse aus dem Dokumentationsbereich (RFC 7042, 2.2:
+ * 00-00-5E-EF-10-00-00-00 bis -FF). Sie gehoert keinem Geraet.
+ *
+ * Die erste Fassung dieses Tests benutzte die echte Adresse eines
+ * Geraets aus dem Wohnzimmer — eine IEEE-Adresse ist weltweit
+ * eindeutig und traegt die Herstellerkennung. pruefe-keine-echtdaten.sh
+ * hat sie gefunden, weil sie an einer Stelle mit Doppelpunkten stand
+ * und damit wie eine MAC-Adresse aussah. Sie ist genau das.
+ */
+const IEEE = '00005eef10000001';
 
 /** Ein kleiner deCONZ-Ersatz — antwortet wie das Original. */
 function deconzErsatz(geraete: Record<string, unknown>): Promise<{
@@ -74,8 +84,8 @@ test('Namen werden geholt und zwischengespeichert', async () => {
 
       // Gross- und Kleinschreibung sowie Doppelpunkte duerfen egal sein:
       // deCONZ liefert 'a4:c1:38:…', der Funk liefert 'A4C138…'.
-      assert.equal(n.name('00158D00046F77CD'), 'LED - Garten Weg 06');
-      assert.equal(n.name('00:15:8d:00:04:6f:77:cd'), 'LED - Garten Weg 06');
+      assert.equal(n.name('00005EEF10000001'), 'LED - Garten Weg 06');
+      assert.equal(n.name('00:00:5e:ef:10:00:00:01'), 'LED - Garten Weg 06');
       assert.equal(n.geraet(IEEE)?.hersteller, 'LUMI');
 
       const roh = JSON.parse(readFileSync(cache, 'utf8')) as { geraete: unknown[] };

@@ -231,13 +231,13 @@ test('die Zuordnung Kurzadresse → IEEE wird mitgeführt', () => {
   const s = new ZigbeeSpeicher(db, { schub: 1000 });
   const t0 = 1_700_000_000_000;
   for (let i = 0; i < 3; i++) {
-    s.aufnehmen(paket({ ts: t0 + i, nwkVon: '837E', ieee: '00158D00046F77CD' }));
+    s.aufnehmen(paket({ ts: t0 + i, nwkVon: '837E', ieee: '00005EEF10000001' }));
   }
   s.schreiben();
   const z = db.prepare(
     "SELECT ieee, gesehen, zuerst, zuletzt FROM zigbee_adressen WHERE addr = '837E'",
   ).get() as { ieee: string; gesehen: number; zuerst: number; zuletzt: number };
-  assert.equal(z.ieee, '00158D00046F77CD');
+  assert.equal(z.ieee, '00005EEF10000001');
   assert.equal(z.gesehen, 3);
   assert.equal(z.zuerst, t0);
   assert.equal(z.zuletzt, t0 + 2);

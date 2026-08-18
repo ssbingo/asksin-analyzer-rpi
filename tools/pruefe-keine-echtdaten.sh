@@ -36,6 +36,17 @@ MUSTER_NETZ='10\.10\.[0-9]{1,3}\.[0-9]{1,3}'
 MUSTER_HOST='mh-[a-z0-9]+'
 MUSTER_MAC='([0-9a-f]{2}:){5}[0-9a-f]{2}'
 MUSTER_IFACE='\bens[0-9]{1,2}\b'
+# IEEE-Adressen (EUI-64) OHNE Doppelpunkte. Sie tauchen im Zigbee-Pfad als
+# blosse Hexkette auf und sind trotzdem weltweit eindeutig — mit
+# Herstellerkennung in den ersten drei Byte. Am 18.08.2026 stand genau so eine
+# in einer Testdatei; gefunden wurde sie nur, weil sie an EINER Stelle mit
+# Doppelpunkten geschrieben war.
+#
+# Gesucht wird nach bekannten Herstellerkennungen, nicht nach "16 Hexzeichen" —
+# sonst schluege die Pruefung bei jedem Pruefsummen-Beispiel an.
+#   00158D  LUMI/Aqara   A4C138  Telink      001788  Signify/Hue
+#   00212E  dresden el.  000D6F  Ember       D0CF5E, 680AE2  weitere
+MUSTER_IEEE='\b(00158D|A4C138|001788|00212E|000D6F|D0CF5E|680AE2)[0-9A-Fa-f]{10}\b'
 
 melde() {  # melde <wo> <was>
     printf '  %sFUND%s  %-52s %s\n' "$rot" "$aus" "$1" "$2"
@@ -46,7 +57,7 @@ melde() {  # melde <wo> <was>
 printf '\n%s== Text und Quelltext ==%s\n' "$blau" "$aus"
 while IFS= read -r datei; do
     [ -f "$datei" ] || continue
-    treffer="$(grep -ohEi "$MUSTER_NETZ|$MUSTER_HOST|$MUSTER_IFACE" "$datei" 2>/dev/null \
+    treffer="$(grep -ohEi "$MUSTER_NETZ|$MUSTER_HOST|$MUSTER_IFACE|$MUSTER_IEEE" "$datei" 2>/dev/null \
         | sort -u | tr '\n' ' ')"
     # MAC getrennt: kleingeschrieben mit Doppelpunkten, sonst zu viele
     # Fehlalarme durch Hex-Ketten in Telegrammbeispielen.
