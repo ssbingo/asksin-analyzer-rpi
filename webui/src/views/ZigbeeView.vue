@@ -176,6 +176,20 @@ function hex(n: number | null): string {
 
     <section class="karte">
       <h2>Geräte</h2>
+      <p v-if="zustand.namen && !zustand.namen.aktiv" class="hinweis">
+        <strong>Ohne Namen.</strong> Die Geräte erscheinen nur mit ihrer
+        Kurzadresse. Trage unter <em>Einstellungen</em> deinen deCONZ-Rechner
+        und einen API-Schlüssel ein, dann steht hier „LED Garten Weg 06"
+        statt <code>0x837E</code>.
+      </p>
+      <p v-else-if="zustand.namen" class="leise">
+        {{ zustand.namen.anzahl }} Namen von {{ zustand.namen.host }}
+        <template v-if="zustand.namen.quelle === 'cache'">
+          — aus dem Zwischenspeicher, deCONZ ist gerade nicht erreichbar
+        </template>
+        <span v-if="zustand.namen.fehler" class="schlecht">
+          ({{ zustand.namen.fehler }})</span>
+      </p>
       <p>
         <label>Zeitraum
           <select v-model.number="stunden">
@@ -195,14 +209,20 @@ function hex(n: number | null): string {
       <table class="daten">
         <thead>
           <tr>
-            <th>Adresse</th><th>Pakete</th><th>RSSI</th><th>LQI</th>
+            <th>Gerät</th><th>Adresse</th><th>Pakete</th><th>RSSI</th><th>LQI</th>
             <th>schwach</th><th>Spanne</th><th>Bewertung</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="g in eigene" :key="g.addr">
-            <td><code>0x{{ g.addr }}</code>
-              <span v-if="g.addr === '0000'" class="leise">Koordinator</span></td>
+            <td>
+              <template v-if="g.name">{{ g.name }}</template>
+              <span v-else-if="g.addr === '0000'" class="leise">Koordinator</span>
+              <span v-else-if="g.ieee" class="leise" :title="g.ieee">ohne Namen</span>
+              <span v-else class="leise" title="Kein Paket trug bisher die IEEE-Adresse">
+                noch nicht zugeordnet</span>
+            </td>
+            <td><code>0x{{ g.addr }}</code></td>
             <td>{{ g.pakete.toLocaleString('de') }}</td>
             <td>{{ dbm(mittel(g.sum_rssi, g.pakete)) }}</td>
             <td>{{ mittel(g.sum_lqi, g.pakete) }}</td>

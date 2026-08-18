@@ -37,6 +37,27 @@ export interface ZigbeePaket {
   ackErbeten: boolean;
   /** Sicherheitsbit im FCF gesetzt (Nutzdaten verschlüsselt). */
   gesichert: boolean;
+  /**
+   * Absender auf Netzebene, vier Hexstellen.
+   *
+   * Nicht dasselbe wie `von`: `von` ist der letzte Sender auf der Funkstrecke,
+   * `nwkVon` der Urheber. Bei einem weitergereichten Paket unterscheiden sie
+   * sich — und für die Frage „welches Gerät sendet" zählt der Urheber.
+   */
+  nwkVon?: string;
+  /** Empfänger auf Netzebene, vier Hexstellen. */
+  nwkAn?: string;
+  /**
+   * IEEE-Adresse des Absenders, sechzehn Hexstellen — wenn das Paket sie
+   * mitträgt.
+   *
+   * Zigbee überträgt sie im NWK-Kopf **unverschlüsselt**, in rund der Hälfte
+   * der Datenrahmen (gemessen: 13 936 von 28 017). Damit lernt der Mithörer
+   * die Zuordnung Kurzadresse → IEEE von selbst, ohne den Koordinator zu
+   * fragen. Und erst über die IEEE-Adresse lassen sich die Namen aus deCONZ
+   * anhängen: Kurzadressen kennt deCONZ nicht.
+   */
+  ieee?: string;
 }
 
 /**

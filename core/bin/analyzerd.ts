@@ -46,6 +46,7 @@ import {
   ZigbeeLeser,
 } from '../src/zigbee/leser.ts';
 import { ZigbeeSpeicher } from '../src/zigbee/speicher.ts';
+import { DeconzNamen } from '../src/zigbee/namen.ts';
 import { testeCcu } from '../src/resolve/ccuTest.ts';
 import { DevListService, httpFetchBytes } from '../src/resolve/fetcher.ts';
 import { Analyzer } from '../src/service/analyzer.ts';
@@ -209,6 +210,14 @@ interface Konfiguration {
     paketeTage?: number;
     /** Aufbewahrung der Stundensummen in Tagen. Vorgabe 365. */
     stundenTage?: number;
+    /**
+     * Gerätenamen von deCONZ (M16.7).
+     *
+     * Der Schlüssel steht NICHT hier, sondern in zigbee.json im
+     * Datenverzeichnis (Rechte 0600) — wie das SMTP-Passwort. config.json
+     * ist mit 0640 lesbar für die Dienstgruppe und wird herumgereicht.
+     */
+    deconz?: { host?: string; cachePath?: string };
   };
 }
 
@@ -1920,6 +1929,10 @@ interface ZigbeeKonfig {
   aktiv: boolean;
   device: string;
   kanal: number;
+  /** deCONZ-Anbindung für die Gerätenamen. Leer = keine Namen. */
+  deconzHost: string;
+  /** API-Schlüssel — nur hier im Speicher und in zigbee.json, sonst nirgends. */
+  deconzSchluessel: string;
 }
 
 function zigbeeKonfigLesen(): ZigbeeKonfig {
@@ -1927,6 +1940,8 @@ function zigbeeKonfigLesen(): ZigbeeKonfig {
     aktiv: konfig.zigbee?.aktiv === true,
     device: konfig.zigbee?.device ?? ZIGBEE_DEVICE,
     kanal: konfig.zigbee?.kanal ?? ZIGBEE_KANAL,
+    deconzHost: konfig.zigbee?.deconz?.host ?? '',
+    deconzSchluessel: '',
   };
   if (!existsSync(zigbeeKonfigDatei)) return ausConfig;
   try {
@@ -1937,8 +1952,13 @@ function zigbeeKonfigLesen(): ZigbeeKonfig {
         ? roh.device : ausConfig.device,
       kanal: Number.isInteger(roh.kanal) && (roh.kanal as number) >= 11
         && (roh.kanal as number) <= 26 ? (roh.kanal as number) : ausConfig.kanal,
+      deconzHost: typeof roh.deconzHost === 'string'
+        ? roh.deconzHost : ausConfig.deconzHost,
+      deconzSchluessel: typeof roh.deconzSchluessel === 'string'
+        ? roh.deconzSchluessel : ausConfig.deconzSchluessel,
     };
-    for (const feld of ['aktiv', 'device', 'kanal'] as const) {
+    // 'deconzSchluessel' fehlt hier mit Absicht: Der Wert gehoert in kein Protokoll.
+    for (const feld of ['aktiv', 'device', 'kanal', 'deconzHost'] as const) {
       if (zusammen[feld] !== ausConfig[feld]) {
         log(`Zigbee: ${feld} aus zigbee.json (${String(zusammen[feld])}) ` +
             `uebersteuert config.json (${String(ausConfig[feld])})`);
@@ -2014,6 +2034,23 @@ if (zigbeeKonfig.aktiv && !demoAktiv) {
   log('Zigbee-Mithörer im Demo-Modus ausgelassen');
 }
 
+// Gerätenamen von deCONZ. Läuft unabhängig vom Mithörer: Die Namen sind auch
+// dann nützlich, wenn gerade kein Stick steckt — dann zeigt die Liste, welche
+// Geräte es gibt, und der Vergleich „nie gehört" bleibt möglich.
+const zigbeeNamen = new DeconzNamen({
+  host: zigbeeKonfig.deconzHost,
+  schluessel: zigbeeKonfig.deconzSchluessel,
+  cachePfad: join(datenDir, 'zigbee-namen.json'),
+  onLog: (text) => log(text),
+});
+
+if (zigbeeKonfig.deconzHost !== '' && zigbeeKonfig.deconzSchluessel !== '') {
+  void zigbeeNamen.aktualisieren();
+  // Halbstündlich: Namen ändern sich selten, und jeder Abruf fragt deCONZ
+  // einmal je Gerät — bei 35 Geräten sind das 36 Anfragen.
+  setInterval(() => void zigbeeNamen.aktualisieren(), 1_800_000).unref();
+}
+
 /** Was die Oberfläche über Zigbee erfährt und einstellen darf. */
 const zigbeeHooks: ZigbeeHooks = {
   zustand: (): Record<string, unknown> => {
@@ -2036,12 +2073,13 @@ const zigbeeHooks: ZigbeeHooks = {
       gespeichert: zigbeeSpeicher?.stats.geschrieben ?? 0,
       bestaetigungen: zigbeeSpeicher?.stats.bestaetigungen ?? 0,
       schreibfehler: zigbeeSpeicher?.stats.fehler ?? 0,
+      namen: zigbeeNamen.zustand,
     };
   },
 
   geraete: (stunden: number): unknown[] => {
     const ab = Math.floor(Date.now() / 3_600_000) - stunden;
-    return db.prepare(
+    const zeilen = db.prepare(
       `SELECT pan, addr,
               SUM(pakete)  AS pakete,
               SUM(schwach) AS schwach,
@@ -2056,7 +2094,37 @@ const zigbeeHooks: ZigbeeHooks = {
         WHERE hour >= ?
         GROUP BY pan, addr
         ORDER BY pakete DESC`,
-    ).all(ab);
+    ).all(ab) as Array<Record<string, unknown>>;
+
+    // Kurzadresse -> IEEE -> Name. Die IEEE-Adresse kommt aus dem NWK-Kopf
+    // der mitgehörten Pakete, der Name von deCONZ. Keine der beiden Quellen
+    // allein reicht: deCONZ kennt keine Kurzadressen, der Funk keine Namen.
+    //
+    // Bei mehreren Zuordnungen zählt die zuletzt gesehene — eine Kurzadresse
+    // wird beim Neuanmelden neu vergeben.
+    const zuIeee = db.prepare(
+      `SELECT ieee FROM zigbee_adressen
+        WHERE pan = ? AND addr = ?
+        ORDER BY zuletzt DESC LIMIT 1`,
+    );
+    for (const z of zeilen) {
+      // Typen ausdruecklich pruefen statt durchzureichen: Die Abfrage liefert
+      // SQLOutputValue, und ein falscher Typ soll hier auffallen und nicht
+      // erst in der Datenbankschicht.
+      const pan = z['pan'];
+      const addr = z['addr'];
+      if (typeof pan !== 'number' || typeof addr !== 'string') continue;
+      const treffer = zuIeee.get(pan, addr) as { ieee: string } | undefined;
+      if (treffer === undefined) continue;
+      z['ieee'] = treffer.ieee;
+      const g = zigbeeNamen.geraet(treffer.ieee);
+      if (g !== undefined) {
+        z['name'] = g.name;
+        if (g.hersteller !== undefined) z['hersteller'] = g.hersteller;
+        if (g.modell !== undefined) z['modell'] = g.modell;
+      }
+    }
+    return zeilen;
   },
 
   pakete: (minuten: number, grenze: number): { pakete: unknown[]; gekuerzt: boolean } => {
@@ -2085,6 +2153,18 @@ const zigbeeHooks: ZigbeeHooks = {
       }
       neu.kanal = k;
     }
+    if ('deconzHost' in auftrag) {
+      const h = auftrag['deconzHost'];
+      if (typeof h !== 'string') throw new Error('deconzHost: Text erwartet');
+      neu.deconzHost = h.trim();
+    }
+    if ('deconzSchluessel' in auftrag) {
+      const s = auftrag['deconzSchluessel'];
+      if (typeof s !== 'string') throw new Error('deconzSchluessel: Text erwartet');
+      // Leer heisst „unveraendert lassen" — sonst loescht jedes Speichern der
+      // Seite den Schluessel, weil die Oberflaeche ihn nur maskiert anzeigt.
+      if (s !== '') neu.deconzSchluessel = s;
+    }
     if ('aktiv' in auftrag) {
       if (typeof auftrag['aktiv'] !== 'boolean') {
         throw new Error('aktiv: true oder false erwartet');
@@ -2096,10 +2176,13 @@ const zigbeeHooks: ZigbeeHooks = {
       if (neu.aktiv !== zigbeeKonfig.aktiv) neustartNoetig = true;
     }
 
-    writeFileSync(zigbeeKonfigDatei, JSON.stringify(neu, null, 2));
+    // 0600: Hier steht der deCONZ-Schluessel drin.
+    writeFileSync(zigbeeKonfigDatei, JSON.stringify(neu, null, 2), { mode: 0o600 });
     const kanalGewechselt = neu.kanal !== zigbeeKonfig.kanal;
     zigbeeKonfig.aktiv = neu.aktiv;
     zigbeeKonfig.kanal = neu.kanal;
+    zigbeeKonfig.deconzHost = neu.deconzHost;
+    zigbeeKonfig.deconzSchluessel = neu.deconzSchluessel;
 
     // Der Kanal wirkt sofort, wenn der Leser laeuft — dafuer braucht es
     // keinen Neustart, und die Oberflaeche soll das auch nicht behaupten.
@@ -2110,7 +2193,10 @@ const zigbeeHooks: ZigbeeHooks = {
     if (neustartNoetig) {
       log(`Zigbee ${neu.aktiv ? 'ein' : 'aus'}geschaltet — wirkt nach dem Neustart`);
     }
-    return { ...neu, neustartNoetig };
+    // Der Schluessel geht NICHT zurueck an die Oberflaeche.
+    const { deconzSchluessel, ...ohneGeheimnis } = neu;
+    return { ...ohneGeheimnis, neustartNoetig,
+             deconzSchluesselGesetzt: deconzSchluessel !== '' };
   },
 };
 

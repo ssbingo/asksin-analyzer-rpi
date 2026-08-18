@@ -33,6 +33,16 @@ export const LQI_SCHWACH = 50;
 
 const STUNDE_MS = 3_600_000;
 
+interface AdressDelta {
+  pan: number;
+  addr: string;
+  ieee: string;
+  gesehen: number;
+  /** Getrennt gefuehrt: Ein Zeitstempel fuer beides waere immer der neueste. */
+  zuerst: number;
+  zuletzt: number;
+}
+
 interface StundenDelta {
   hour: number;
   pan: number;
@@ -95,9 +105,11 @@ export class ZigbeeSpeicher {
   readonly #ackSpeichern: boolean;
   readonly #einPaket: StatementSync;
   readonly #eineStunde: StatementSync;
+  readonly #eineAdresse: StatementSync;
 
   #puffer: ZigbeePaket[] = [];
   #stunden = new Map<string, StundenDelta>();
+  #adressen = new Map<string, AdressDelta>();
   #geschrieben = 0;
   #bestaetigungen = 0;
   #schuebe = 0;
@@ -126,6 +138,14 @@ export class ZigbeeSpeicher {
          min_lqi  = MIN(min_lqi,  excluded.min_lqi),
          max_lqi  = MAX(max_lqi,  excluded.max_lqi),
          sum_lqi  = sum_lqi  + excluded.sum_lqi`,
+    );
+    this.#eineAdresse = db.prepare(
+      `INSERT INTO zigbee_adressen (pan, addr, ieee, gesehen, zuerst, zuletzt)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT(pan, addr, ieee) DO UPDATE SET
+         gesehen = gesehen + excluded.gesehen,
+         zuerst  = MIN(zuerst,  excluded.zuerst),
+         zuletzt = MAX(zuletzt, excluded.zuletzt)`,
     );
   }
 
@@ -174,6 +194,26 @@ export class ZigbeeSpeicher {
       }
     }
 
+    // Zuordnung Kurzadresse -> IEEE, wenn das Paket sie mitträgt.
+    // Bewusst der NWK-Absender und nicht der MAC-Absender: Bei einem
+    // weitergereichten Paket ist der MAC-Absender der Weiterleiter, die
+    // IEEE-Adresse im NWK-Kopf gehört aber zum Urheber.
+    if (p.pan !== undefined && p.ieee !== undefined && p.nwkVon !== undefined) {
+      const pan = Number.parseInt(p.pan, 16);
+      const schluessel = `${pan}|${p.nwkVon}|${p.ieee}`;
+      const vorhanden = this.#adressen.get(schluessel);
+      if (vorhanden === undefined) {
+        this.#adressen.set(schluessel, {
+          pan, addr: p.nwkVon, ieee: p.ieee, gesehen: 1,
+          zuerst: p.ts, zuletzt: p.ts,
+        });
+      } else {
+        vorhanden.gesehen++;
+        if (p.ts < vorhanden.zuerst) vorhanden.zuerst = p.ts;
+        if (p.ts > vorhanden.zuletzt) vorhanden.zuletzt = p.ts;
+      }
+    }
+
     if (this.#puffer.length >= this.#schub) this.schreiben();
   }
 
@@ -182,11 +222,14 @@ export class ZigbeeSpeicher {
    * ein Absturz mittendrin lässt beides zusammen weg statt halb.
    */
   schreiben(): void {
-    if (this.#puffer.length === 0 && this.#stunden.size === 0) return;
+    if (this.#puffer.length === 0 && this.#stunden.size === 0
+        && this.#adressen.size === 0) return;
     const pakete = this.#puffer;
     const stunden = [...this.#stunden.values()];
+    const adressen = [...this.#adressen.values()];
     this.#puffer = [];
     this.#stunden = new Map();
+    this.#adressen = new Map();
 
     this.#db.exec('BEGIN');
     try {
@@ -202,6 +245,9 @@ export class ZigbeeSpeicher {
           s.hour, s.pan, s.addr, s.pakete, s.schwach,
           s.minRssi, s.maxRssi, s.sumRssi, s.minLqi, s.maxLqi, s.sumLqi,
         );
+      }
+      for (const a of adressen) {
+        this.#eineAdresse.run(a.pan, a.addr, a.ieee, a.gesehen, a.zuerst, a.zuletzt);
       }
       this.#db.exec('COMMIT');
       this.#geschrieben += pakete.length;

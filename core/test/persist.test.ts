@@ -48,7 +48,8 @@ test('openDatabase: WAL, synchronous=NORMAL, Migration auf Version 1', () => {
       [
         'device_hours', 'noise_minutes', 'telegrams',
         // Schema 2 (M16): Zigbee, bewusst getrennt von den BidCoS-Tabellen.
-        'zigbee_device_hours', 'zigbee_packets',
+        // Schema 3: Zuordnung Kurzadresse -> IEEE.
+        'zigbee_adressen', 'zigbee_device_hours', 'zigbee_packets',
       ],
     );
     db2.close();

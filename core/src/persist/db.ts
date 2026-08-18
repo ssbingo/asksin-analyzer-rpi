@@ -16,7 +16,7 @@
 
 import { DatabaseSync } from 'node:sqlite';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const MIGRATIONEN: Record<number, string> = {
   1: `
@@ -112,6 +112,34 @@ const MIGRATIONEN: Record<number, string> = {
       sum_lqi  INTEGER NOT NULL,
       PRIMARY KEY (hour, pan, addr)
     ) STRICT;
+  `,
+  3: `
+    -- Kurzadresse -> IEEE-Adresse (M16.7).
+    --
+    -- Zigbee überträgt die IEEE-Adresse des Absenders im NWK-Kopf, und zwar
+    -- **unverschlüsselt**: gemessen in 13 936 von 28 017 Datenrahmen einer
+    -- Stunde. Der Mithörer lernt die Zuordnung damit von selbst — er muss
+    -- weder den Koordinator fragen noch einen Netzschlüssel kennen.
+    --
+    -- Erst über die IEEE-Adresse lassen sich Namen anhängen: deCONZ kennt
+    -- Kurzadressen gar nicht, nur IEEE-Adressen.
+    --
+    -- Die IEEE-Adresse gehört in den Primärschlüssel, nicht bloss in eine
+    -- Spalte. Eine Kurzadresse wird beim Neuanmelden neu vergeben und kann im
+    -- Lauf der Zeit auf verschiedene Geräte zeigen; mit ihr allein als
+    -- Schlüssel wäre die Historie stillschweigend überschrieben. So stehen
+    -- beide Zuordnungen da, und die Abfrage entscheidet anhand von 'zuletzt',
+    -- welche gilt.
+    CREATE TABLE zigbee_adressen (
+      pan     INTEGER NOT NULL,
+      addr    TEXT    NOT NULL,   -- Kurzadresse, vier Hexstellen
+      ieee    TEXT    NOT NULL,   -- sechzehn Hexstellen
+      gesehen INTEGER NOT NULL,
+      zuerst  INTEGER NOT NULL,
+      zuletzt INTEGER NOT NULL,
+      PRIMARY KEY (pan, addr, ieee)
+    ) STRICT;
+    CREATE INDEX idx_zigbee_adressen_ieee ON zigbee_adressen (ieee);
   `,
 };
 

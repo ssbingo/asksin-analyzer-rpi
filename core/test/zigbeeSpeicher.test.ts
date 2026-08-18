@@ -225,3 +225,48 @@ test('echte Fixtures durchlaufen Parser und Speicher unverändert', () => {
   assert.equal(s.stats.geschrieben, erwartet);
   db.close();
 });
+
+test('die Zuordnung Kurzadresse → IEEE wird mitgeführt', () => {
+  const db = frischeDb();
+  const s = new ZigbeeSpeicher(db, { schub: 1000 });
+  const t0 = 1_700_000_000_000;
+  for (let i = 0; i < 3; i++) {
+    s.aufnehmen(paket({ ts: t0 + i, nwkVon: '837E', ieee: '00158D00046F77CD' }));
+  }
+  s.schreiben();
+  const z = db.prepare(
+    "SELECT ieee, gesehen, zuerst, zuletzt FROM zigbee_adressen WHERE addr = '837E'",
+  ).get() as { ieee: string; gesehen: number; zuerst: number; zuletzt: number };
+  assert.equal(z.ieee, '00158D00046F77CD');
+  assert.equal(z.gesehen, 3);
+  assert.equal(z.zuerst, t0);
+  assert.equal(z.zuletzt, t0 + 2);
+  db.close();
+});
+
+test('wandert eine Kurzadresse zu einem anderen Gerät, bleiben beide stehen', () => {
+  // Beim Neuanmelden vergibt der Koordinator Kurzadressen neu. Wer hier
+  // überschreibt, verliert die Historie und merkt es nie.
+  const db = frischeDb();
+  const s = new ZigbeeSpeicher(db, { schub: 1000 });
+  const t0 = 1_700_000_000_000;
+  s.aufnehmen(paket({ ts: t0, nwkVon: '1234', ieee: 'AAAAAAAAAAAAAAAA' }));
+  s.aufnehmen(paket({ ts: t0 + 86_400_000, nwkVon: '1234', ieee: 'BBBBBBBBBBBBBBBB' }));
+  s.schreiben();
+  const zeilen = db.prepare(
+    "SELECT ieee, zuletzt FROM zigbee_adressen WHERE addr = '1234' ORDER BY zuletzt DESC",
+  ).all() as Array<{ ieee: string; zuletzt: number }>;
+  assert.equal(zeilen.length, 2, 'beide Zuordnungen bleiben erhalten');
+  assert.equal(zeilen[0]!.ieee, 'BBBBBBBBBBBBBBBB', 'die neuere steht vorn');
+  db.close();
+});
+
+test('Pakete ohne IEEE erzeugen keine Zuordnung', () => {
+  const db = frischeDb();
+  const s = new ZigbeeSpeicher(db, { schub: 1000 });
+  s.aufnehmen(paket({ nwkVon: '837E' }));   // ohne ieee
+  s.schreiben();
+  const n = db.prepare('SELECT COUNT(*) AS n FROM zigbee_adressen').get() as { n: number };
+  assert.equal(n.n, 0);
+  db.close();
+});

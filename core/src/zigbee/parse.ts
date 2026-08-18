@@ -72,6 +72,9 @@ const RSSI_MAX = 0;
 
 const RUNDRUF = 'FFFF';
 
+/** Rahmensteuerung, Ziel, Quelle, Reichweite, Folgenummer. */
+const NWK_KOPF_MIN = 8;
+
 function ignoriert(grund: ZigbeeIgnoreGrund, raw: string): ZigbeeErgebnis {
   return { kind: 'ignoriert', grund, raw };
 }
@@ -185,6 +188,37 @@ export function parseZigbeeZeile(raw: string, now: () => number): ZigbeeErgebnis
     }
     if (i + breite(quellModus) > ende) return ignoriert('mac-unlesbar', raw);
     paket.von = adresse(b, i, breite(quellModus)); i += breite(quellModus);
+  }
+
+  // --- Netzebene (NWK) -----------------------------------------------------
+  //
+  // Nur bei Datenrahmen, und nur so weit, wie es ohne Schlüssel geht. Der
+  // NWK-Kopf liegt unmittelbar hinter dem MAC-Kopf:
+  //
+  //   Offset  Länge  Feld
+  //        0      2  Rahmensteuerung
+  //        2      2  Ziel (kurz)
+  //        4      2  Quelle (kurz)
+  //        6      1  Reichweite
+  //        7      1  Folgenummer
+  //        8      8  Ziel-IEEE     nur wenn Bit 11 gesetzt
+  //        …      8  Quell-IEEE    nur wenn Bit 12 gesetzt
+  //
+  // Was danach kommt (Mehrfachsteuerung, Quellroute, Sicherheitskopf), wird
+  // nicht angefasst — dafür bräuchte es den Netzschlüssel, und den wollen
+  // wir nicht.
+  if (typ === 'daten' && i + NWK_KOPF_MIN <= ende) {
+    const nwkFcf = le16(b, i);
+    const zielIeeeDa = ((nwkFcf >> 11) & 1) === 1;
+    const quellIeeeDa = ((nwkFcf >> 12) & 1) === 1;
+    let j = i + 2;
+    paket.nwkAn = adresse(b, j, 2); j += 2;
+    paket.nwkVon = adresse(b, j, 2); j += 2;
+    j += 2;                                   // Reichweite + Folgenummer
+    if (zielIeeeDa) j += 8;
+    if (quellIeeeDa && j + 8 <= ende) {
+      paket.ieee = adresse(b, j, 8);
+    }
   }
 
   return { kind: 'paket', paket };

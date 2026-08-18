@@ -326,6 +326,11 @@ export interface ZigbeeZustand {
   neuverbindungen: number;
   letzteZeileAm: number | null;
   gespeichert: number;
+  /** Zustand der Namensanbindung — enthält NIE den Schlüssel. */
+  namen?: {
+    aktiv: boolean; host: string; anzahl: number;
+    quelle: 'deconz' | 'cache' | 'keine'; geholtAm: number | null; fehler: string;
+  };
   /** Bestätigungen — gezählt, nicht gespeichert (sie tragen keine Adressen). */
   bestaetigungen: number;
   schreibfehler: number;
@@ -334,6 +339,12 @@ export interface ZigbeeZustand {
 export interface ZigbeeGeraet {
   pan: number;
   addr: string;
+  /** IEEE-Adresse, aus dem NWK-Kopf gelernt — fehlt, solange kein Paket sie trug. */
+  ieee?: string;
+  /** Name aus deCONZ, über die IEEE-Adresse zugeordnet. */
+  name?: string;
+  hersteller?: string;
+  modell?: string;
   pakete: number;
   /** Davon mit LQI unter 50 — die gemessene Kante liegt bei etwa −87 dBm. */
   schwach: number;
@@ -375,7 +386,12 @@ export const holeZigbeePakete = (
 
 /** Ein- und Ausschalten oder Kanalwechsel. Antwort sagt, ob ein Neustart nötig ist. */
 export async function setzeZigbee(
-  auftrag: { aktiv?: boolean; kanal?: number },
+  auftrag: {
+    aktiv?: boolean; kanal?: number;
+    deconzHost?: string;
+    /** Leer lassen heißt „unverändert" — die Oberfläche zeigt ihn nur maskiert. */
+    deconzSchluessel?: string;
+  },
 ): Promise<{ aktiv: boolean; kanal: number; neustartNoetig: boolean }> {
   const res = await fetch('/api/zigbee', {
     method: 'POST',

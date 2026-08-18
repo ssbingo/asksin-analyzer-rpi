@@ -46,6 +46,8 @@ const standort = ref('');
 // Einschalten hierher und nicht dorthin.
 const zigbee = ref<ZigbeeZustand | null>(null);
 const zigbeeFehlt = ref(false);
+const deconzHost = ref('');
+const deconzSchluessel = ref('');
 const ccuip = ref('');
 
 // --- CCU-Verbindungstest ---------------------------------------------------
@@ -531,6 +533,7 @@ const demoUmschalten = (): Promise<void> | undefined => {
 async function zigbeeLaden(): Promise<void> {
   try {
     zigbee.value = await holeZigbee();
+    if (deconzHost.value === '') deconzHost.value = zigbee.value.namen?.host ?? '';
     zigbeeFehlt.value = false;
   } catch (err) {
     // 501 heisst: Dieser Core kennt Zigbee nicht (aeltere Fassung).
@@ -538,6 +541,19 @@ async function zigbeeLaden(): Promise<void> {
   }
 }
 void zigbeeLaden();
+
+async function deconzSpeichern(): Promise<void> {
+  await aktion('Namen-Anbindung gespeichert — Namen werden geholt', async () => {
+    await setzeZigbee({
+      deconzHost: deconzHost.value,
+      // Leer heißt „unverändert": Der Schlüssel wird nie zurückgeliefert,
+      // sonst würde jedes Speichern der Seite ihn löschen.
+      deconzSchluessel: deconzSchluessel.value,
+    });
+  });
+  deconzSchluessel.value = '';
+  await zigbeeLaden();
+}
 
 async function zigbeeUmschalten(): Promise<void> {
   const ziel = !(zigbee.value?.aktiv ?? false);
@@ -1191,6 +1207,29 @@ async function zigbeeUmschalten(): Promise<void> {
       Das Ein- und Ausschalten wirkt nach einem Neustart des Dienstes. Danach
       erscheint der Menüpunkt <strong>Zigbee</strong> mit Geräten, Empfangsgüte
       und laufenden Paketen.
+    </div>
+
+    <h4 style="margin-bottom: .3rem">Gerätenamen aus deCONZ</h4>
+    <p class="fussnote" style="margin-top: 0">
+      Der Mithörer sieht nur Kurzadressen wie <code>0x837E</code>. deCONZ kennt
+      die Namen — die Verbindung entsteht über die IEEE-Adresse, die der
+      Analyzer aus den Funkpaketen selbst lernt. Ohne diese Angaben bleibt
+      alles anonym, aber messbar.
+    </p>
+    <label class="feld">
+      <span class="name">deCONZ-Rechner (IP oder Hostname, ggf. mit :Port)</span>
+      <input type="text" v-model="deconzHost" placeholder="z. B. 192.168.1.60" />
+    </label>
+    <label class="feld">
+      <span class="name">
+        API-Schlüssel — in Phoscon unter Einstellungen → Gateway → Erweitert
+        „App authentifizieren", dann hier eintragen
+        <template v-if="zigbee?.namen?.aktiv"> (gesetzt; leer lassen heißt „unverändert")</template>
+      </span>
+      <input type="password" v-model="deconzSchluessel" placeholder="unverändert lassen" />
+    </label>
+    <div class="zeile">
+      <button :disabled="beschaeftigt" @click="deconzSpeichern">Namen-Anbindung speichern</button>
     </div>
   </div>
 

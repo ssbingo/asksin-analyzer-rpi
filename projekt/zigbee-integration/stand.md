@@ -15,6 +15,70 @@ Neuanmelden neu vergeben und sind ohne die PAN wertlos.
 
 ---
 
+## 18.08.2026 — Namen statt Kurzadressen. Die Brücke lag in den Funkdaten
+
+Aus `0x837E` wird „LED - Garten Weg 06". Der Weg dorthin war nicht der
+erwartete.
+
+### Warum deCONZ allein nicht reicht
+
+`/devices/<ieee>` liefert Name, Hersteller, Modell — **aber keine
+Kurzadresse.** Der Mithörer sieht nur Kurzadressen. Es fehlte das Bindeglied.
+
+### Wo es steckte
+
+Im **NWK-Kopf, unverschlüsselt.** Zigbee überträgt die IEEE-Adresse des
+Absenders optional mit. Am Stundenmitschnitt gemessen:
+
+| | |
+| --- | --- |
+| NWK-Datenrahmen | 28 017 |
+| davon mit Quell-IEEE | **13 936 (49 %)** |
+| zugeordnete Kurzadressen | **42**, davon 1 mehrdeutig |
+
+Der Mithörer lernt die Zuordnung also selbst — ohne den Koordinator zu
+fragen und ohne Netzschlüssel.
+
+**Der TypeScript-Decoder wurde wieder gegen die unabhängige Python-Fassung
+gehalten: 28017 / 13936 / 42 / 1, Zeichen für Zeichen gleich.**
+
+### Und die Namen passen
+
+**34 von 42 Kurzadressen** bekamen einen Namen. Umgekehrt: **deCONZ kennt
+35 Geräte, 34 davon hat ein einzelner Standort in einer Stunde gehört.**
+Die acht Namenlosen sind der ConBee selbst und Geräte aus Nachbarnetzen —
+`001788…` ist eine Philips-Hue-Kennung und gehört nicht hierher.
+
+### Was gebaut wurde
+
+* **Parser** liest den NWK-Kopf mit: `nwkVon`, `nwkAn`, `ieee`.
+* **Tabelle `zigbee_adressen`** (Schema 3). Die IEEE-Adresse steht im
+  Primärschlüssel, nicht bloss in einer Spalte: Eine Kurzadresse wird beim
+  Neuanmelden neu vergeben und kann im Lauf der Zeit auf verschiedene Geräte
+  zeigen. Mit ihr allein als Schlüssel wäre die Historie still überschrieben.
+* **`DeconzNamen`** nach dem Vorbild der CCU-Geräteliste: halbstündlich holen,
+  auf Platte zwischenspeichern, bei Ausfall den Zwischenspeicher benutzen.
+* **Der Schlüssel** liegt in `zigbee.json` mit Rechten 0600 — wie das
+  SMTP-Passwort, nicht in `config.json` (0640, wird herumgereicht). Er wird
+  nie zurückgeliefert, steht in keinem Zustand und wird aus Fehlermeldungen
+  herausgeschnitten (er steckt in der URL). Ein leeres Feld heisst
+  „unverändert", sonst löschte jedes Speichern der Seite den Schlüssel.
+
+### Zwei Fehler, beide von Tests gefunden
+
+**`zuerst` war immer falsch.** Ich schrieb denselben Zeitstempel in `zuerst`
+und `zuletzt`, und der Sammler führte nur den neuesten mit. „Zuerst gesehen"
+hätte dauerhaft gelogen.
+
+**Meine eigene Testhilfe war kaputt.** `mitVerzeichnis` löschte das
+Verzeichnis im `finally` — synchron, während die asynchrone Prüfung noch
+lief. Der Zwischenspeicher liess sich nicht schreiben, und der Test
+beschuldigte den Dienst eines Fehlers, den die Testhilfe verursacht hatte.
+
+`npm run check`: **359 Tests, 0 Fehler.**
+
+---
+
 ## 18.08.2026 — M16.6: API und Oberfläche
 
 Vier neue Zweige, eine eigene Seite, ein Schalter.
