@@ -79,9 +79,12 @@ installiere_dateien() {
     # kommen Aenderungen daran nie auf dem Geraet an.
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-langzeit.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-langzeit.service" /etc/systemd/system/ 2>/dev/null || true
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-zigbee-firmware.path" /etc/systemd/system/ 2>/dev/null || true
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-zigbee-firmware.service" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmziel.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmziel.service" /etc/systemd/system/ 2>/dev/null || true
     systemctl enable asksin-analyzer-langzeit.path >/dev/null 2>&1 || true
+    systemctl enable --now asksin-analyzer-zigbee-firmware.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-alarmziel.path >/dev/null 2>&1 || true
     install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
     # udev-Regeln nachziehen. Sie fehlten hier bis zum 18.08.2026 — und damit
@@ -104,6 +107,7 @@ installiere_dateien() {
     # Unit mit "Permission denied" und die Path-Unit feuert endlos nach.
     chmod +x "$INSTALL_DIR/deploy/netz-anwenden.sh" "$INSTALL_DIR/deploy/led-pwm.py" \
         "$INSTALL_DIR/deploy/oled.py" "$INSTALL_DIR/deploy/oled-einrichten.sh" \
+        "$INSTALL_DIR/deploy/zigbee-firmware.sh" \
         "$INSTALL_DIR/update.sh" 2>/dev/null || true
     # OLED-Anzeigedienst nachziehen, wenn er eingerichtet ist:
     # OLED-Unit MIT nachziehen, nicht nur neu starten. Genau das fehlte:

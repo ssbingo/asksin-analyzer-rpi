@@ -100,6 +100,17 @@ export interface ZigbeeHooks {
    * auseinanderzuhalten ist der Zweck der ganzen Matrix.
    */
   aktiv(): boolean;
+  /**
+   * Zustand des Sticks und der Firmware darauf, zusammen mit dem letzten
+   * Lauf des Aufspielhelfers.
+   *
+   * Getrennt von `zustand()`, weil es etwas anderes beantwortet: `zustand()`
+   * sagt, was der Mithörer gerade tut; das hier sagt, ob überhaupt ein Stick
+   * dasteht und ob die richtige Firmware darauf ist.
+   */
+  firmwareStand(): Promise<unknown>;
+  /** Aufspielen anstoßen. Wirft, wenn schon etwas läuft. */
+  firmwareAufspielen(): void;
   /** Geräte der letzten `stunden` Stunden, aus den Stundensummen. */
   geraete(stunden: number): unknown[];
   /**
@@ -567,6 +578,14 @@ export class ApiServer {
             nieGehoert: hooks.nieGehoert(stunden),
           });
         }
+        case '/api/zigbee/firmware': {
+          // Ohne Aktiv-Prüfung, anders als die beiden Zweige daneben: Der
+          // Sinn dieser Auskunft ist gerade der Analyzer, auf dem Zigbee noch
+          // NICHT läuft, weil die Firmware auf dem Stick fehlt.
+          const hooks = this.#opts.zigbee;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          return this.#json(res, 200, await hooks.firmwareStand());
+        }
         case '/api/zigbee/pakete': {
           const hooks = this.#opts.zigbee;
           if (hooks === undefined || !hooks.aktiv()) {
@@ -708,6 +727,22 @@ export class ApiServer {
           res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
           res.end('Auftrag angenommen — Probezeit läuft, Status unter /api/netzwerk/status');
           return;
+        }
+        case '/api/zigbee/firmware': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.zigbee;
+          if (hooks === undefined) return this.#text(res, 501, 'Kein Zigbee-Mithörer');
+          try {
+            hooks.firmwareAufspielen();
+          } catch (err) {
+            // 409 und nicht 400: Der Auftrag ist in Ordnung, nur der
+            // Zeitpunkt nicht — es läuft bereits einer.
+            return this.#text(res, 409, err instanceof Error ? err.message : String(err));
+          }
+          return this.#json(res, 202, {
+            angestossen: true,
+            meldung: 'Das Aufspielen läuft. Der Analyzer-Dienst startet dabei einmal neu.',
+          });
         }
         case '/api/zigbee/schluessel': {
           if (!this.#autorisiert(req, res)) return;

@@ -52,7 +52,13 @@ nutzeTakt(async () => {
       <RouterLink v-if="rolle === 'master'" to="/verbund"><span class="oben">Verbund</span><span class="unten">BidCoS</span></RouterLink>
       <RouterLink v-if="rolle === 'master' && zigbeeAktiv" to="/verbund-zigbee"><span class="oben">Verbund</span><span class="unten">Zigbee</span></RouterLink>
       <RouterLink to="/settings"><span class="oben">Einstellungen</span><span class="unten">BidCoS</span></RouterLink>
-      <RouterLink v-if="zigbeeAktiv" to="/settings-zigbee"><span class="oben">Einstellungen</span><span class="unten">Zigbee</span></RouterLink>
+      <!-- Bewusst OHNE Bedingung, anders als die drei Reiter darueber.
+           Hier sitzt der Schalter, mit dem Zigbee ueberhaupt erst
+           eingeschaltet wird. Haengt der Reiter an `zigbeeAktiv`, gibt es
+           bei ausgeschaltetem Zigbee keinen Weg mehr dorthin — man muesste
+           die Adresse von Hand eintippen oder an die config.json. Genau das
+           soll dem Anwender erspart bleiben. -->
+      <RouterLink to="/settings-zigbee"><span class="oben">Einstellungen</span><span class="unten">Zigbee</span></RouterLink>
       <RouterLink to="/wartung">Wartung</RouterLink>
       <RouterLink to="/info">Info</RouterLink>
     </nav>

@@ -1,0 +1,24 @@
+# Spielt die Mithoer-Firmware auf den Zigbee-Stick.
+#
+# Der Helfer haelt den Analyzer-Dienst waehrenddessen selbst an — der
+# Mithoerer haelt sonst den Anschluss offen — und startet ihn danach wieder.
+# Deshalb steht hier KEIN Requires/After auf asksin-analyzer.service: Wer den
+# Dienst anhaelt, von dem er abhaengt, haelt sich selbst an.
+#
+# Die Ausloeserdatei wird NICHT vorab entfernt: Die Weboberflaeche liest an
+# ihrem Vorhandensein ab, dass gerade etwas laeuft. Das Skript raeumt sie
+# selbst weg, auch im Fehlerfall.
+[Unit]
+Description=AskSin-Analyzer: Zigbee-Mithoer-Firmware aufspielen
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Einmaliges Einrichten der Python-Umgebung plus Herunterladen plus Aufspielen.
+# Auf einem Pi 3 ueber eine langsame Leitung sind fuenf Minuten realistisch.
+TimeoutStartSec=900
+ExecStart=/bin/bash /opt/asksin-analyzer/deploy/zigbee-firmware.sh --hintergrund
+# Netz darunter, falls das Skript unerwartet abgebrochen wird: Ohne das
+# feuert die Path-Unit endlos nach.
+ExecStopPost=/bin/rm -f /var/lib/asksin-analyzer/zigbee-firmware-anstoss

@@ -437,6 +437,44 @@ export async function zigbeeSchluesselAnfordern(
   return await res.json() as { ok: boolean; meldung: string; anzahl?: number };
 }
 
+/** Was sich über Stick und Firmware sagen lässt, ohne den Anschluss zu öffnen. */
+export interface ZigbeeFirmwareStand {
+  /** Wie viele SONOFF-Sticks stecken. 0, 1 — oder mehr, und dann ist unklar welcher. */
+  sticks: number;
+  geraet: string | null;
+  /** Läuft gerade ein Aufspielvorgang? */
+  laeuft: boolean;
+  /** Bekommt der eigene Mithörer Zeilen? Der endgültige Beweis. */
+  hoert: boolean;
+  aktiv: boolean;
+  letzterLauf: {
+    laeuft: boolean; schritt: string; ok: boolean | null; text: string; stand: number;
+  } | null;
+}
+
+export function holeZigbeeFirmware(): Promise<ZigbeeFirmwareStand> {
+  return hole('/api/zigbee/firmware');
+}
+
+/**
+ * Das Aufspielen der Mithörer-Firmware anstoßen.
+ *
+ * Antwortet mit 202: angenommen, aber noch nicht fertig. Der Vorgang dauert
+ * Minuten und startet den Analyzer-Dienst dabei einmal neu — die Oberfläche
+ * verliert also zwischendurch die Verbindung. Das ist erwartet.
+ */
+export async function zigbeeFirmwareAufspielen(): Promise<{ meldung: string }> {
+  const res = await fetch('/api/zigbee/firmware', {
+    method: 'POST',
+    headers: { ...authKopf() },
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+  return await res.json() as { meldung: string };
+}
+
 export interface ZigbeeMatrixGeraet {
   ieee: string | null;
   addr: string;

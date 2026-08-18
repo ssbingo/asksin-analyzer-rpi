@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { holeZigbee, setzeZigbee, zigbeeSchluesselAnfordern } from '../api.ts';
-import type { ZigbeeZustand } from '../api.ts';
+import {
+  holeZigbee, holeZigbeeFirmware, setzeZigbee,
+  zigbeeFirmwareAufspielen, zigbeeSchluesselAnfordern,
+} from '../api.ts';
+import type { ZigbeeFirmwareStand, ZigbeeZustand } from '../api.ts';
 import HandbuchFuss from '../components/HandbuchFuss.vue';
 
 const zustand = ref<ZigbeeZustand | null>(null);
+const firmware = ref<ZigbeeFirmwareStand | null>(null);
 const nichtVorhanden = ref(false);
 const deconzHost = ref('');
 const beschaeftigt = ref(false);
@@ -15,6 +19,7 @@ async function laden(): Promise<void> {
     zustand.value = await holeZigbee();
     if (deconzHost.value === '') deconzHost.value = zustand.value.namen?.host ?? '';
     nichtVorhanden.value = false;
+    firmware.value = await holeZigbeeFirmware();
   } catch (err) {
     if (err instanceof Error && err.message.includes('501')) nichtVorhanden.value = true;
   }
@@ -67,6 +72,28 @@ const rechnerSpeichern = (): Promise<void> => tun(async () => {
   await setzeZigbee({ deconzHost: deconzHost.value });
   return 'Rechner gespeichert.';
 });
+
+/**
+ * Aufspielen anstoßen — mit ausdrücklicher Rückfrage.
+ *
+ * Die einzige Stelle in dieser Oberfläche, die etwas unumkehrbar macht. Wer
+ * hier danebengreift, legt sein Zigbee-Netz still; eine Rückfrage ist dafür
+ * kein Misstrauen, sondern angemessen.
+ */
+async function firmwareAufspielen(): Promise<void> {
+  const ok = window.confirm(
+    'Die Sniffer-Firmware wird auf den Stick geschrieben.\n\n'
+    + 'Danach ist er KEIN Zigbee-Koordinator mehr. Ist das der zusätzliche '
+    + 'Stick — und nicht der, an dem dein Zigbee-Netz hängt?\n\n'
+    + 'Der Analyzer-Dienst startet dabei einmal neu.',
+  );
+  if (!ok) return;
+  await tun(async () => {
+    const a = await zigbeeFirmwareAufspielen();
+    return a.meldung;
+  });
+  await laden();
+}
 </script>
 
 <template>
@@ -118,6 +145,58 @@ const rechnerSpeichern = (): Promise<void> => tun(async () => {
       </div>
       <div class="fussnote">
         Das Ein- und Ausschalten wirkt nach einem Neustart des Dienstes.
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3 style="margin-top: 0">Firmware auf dem Stick</h3>
+      <p style="margin-top: 0">
+        Ein fabrikneuer SONOFF-Stick ist ein <em>Koordinator</em> und schweigt,
+        wenn man ihn mithören lässt. Erst die Sniffer-Firmware macht aus ihm
+        ein Ohr. Der Analyzer kann sie selbst aufspielen — kein Browser, keine
+        Konsole, kein zweiter Rechner.
+      </p>
+
+      <div class="meldung fehler" v-if="firmware && firmware.sticks > 1">
+        Es stecken <strong>{{ firmware.sticks }}</strong> SONOFF-Sticks an diesem
+        Analyzer. Welcher der Mithörer werden soll, lässt sich von hier aus nicht
+        entscheiden — bitte den anderen abziehen. Der Vorgang bleibt so lange
+        gesperrt: Ein umgespielter Koordinator legt das ganze Zigbee-Netz still.
+      </div>
+
+      <table class="daten" style="max-width: 32rem" v-if="firmware">
+        <tbody>
+          <tr><th>SONOFF-Stick</th><td>
+            <strong v-if="firmware.sticks === 0" class="fehler">steckt keiner</strong>
+            <strong v-else-if="firmware.sticks === 1" class="ok">einer, erkannt</strong>
+            <strong v-else class="fehler">{{ firmware.sticks }} Stück</strong>
+          </td></tr>
+          <tr v-if="firmware.geraet"><th>Name</th>
+            <td><code style="font-size: .82em">{{ firmware.geraet }}</code></td></tr>
+          <tr><th>Hört mit</th><td>
+            <strong :class="firmware.hoert ? 'ok' : 'gedimmt'">
+              {{ firmware.hoert ? 'ja — es kommen Zeilen' : 'noch nicht nachgewiesen' }}</strong>
+          </td></tr>
+          <tr v-if="firmware.letzterLauf"><th>Zuletzt</th><td>
+            <strong :class="firmware.letzterLauf.ok === false ? 'fehler' : 'ok'">
+              {{ firmware.letzterLauf.text }}</strong>
+          </td></tr>
+        </tbody>
+      </table>
+
+      <div class="zeile">
+        <button :disabled="beschaeftigt || !firmware || firmware.sticks !== 1 || firmware.laeuft"
+                @click="firmwareAufspielen">
+          Sniffer-Firmware aufspielen …
+        </button>
+      </div>
+      <div class="fussnote">
+        <strong>Das ist der eine unumkehrbare Schritt.</strong> Danach ist der
+        Stick kein Zigbee-Koordinator mehr. Nimm einen zusätzlichen Stick,
+        niemals den, an dem dein Zigbee-Netz hängt. Der Vorgang dauert wenige
+        Minuten, lädt die Firmware beim Urheber und startet den Analyzer-Dienst
+        dabei einmal neu — die Seite verliert dann kurz die Verbindung.
+        Steckt bereits die richtige Firmware, passiert nichts.
       </div>
     </div>
 

@@ -40,6 +40,8 @@ function pruefHooks(): ZigbeeHooks & { gesehen: Record<string, unknown> } {
   return {
     gesehen,
     aktiv: () => true,
+    firmwareStand: async () => ({ sticks: 1, hoert: true, laeuft: false }),
+    firmwareAufspielen: () => { gesehen['aufspielen'] = true; },
     zustand: () => ({ aktiv: true, verbunden: false, kanal: 11, pakete: 0 }),
     geraete: (stunden) => { gesehen['stunden'] = stunden; return []; },
     nieGehoert: (stunden) => {
@@ -97,6 +99,46 @@ test('ohne Mithoerer ist die Geraeteliste 501 — nicht 200 mit leerer Liste',
       await z.text();
     });
   });
+
+test('Firmware-Stand ist auch ohne laufenden Mithoerer abrufbar', async () => {
+  // Der Sinn dieser Auskunft ist gerade der Analyzer, auf dem Zigbee NICHT
+  // laeuft, weil auf dem Stick noch die Koordinator-Firmware sitzt. Haenge
+  // man sie an `aktiv()`, koennte man sie genau dann nicht abrufen, wenn man
+  // sie braucht.
+  const hooks = { ...pruefHooks(), aktiv: () => false };
+  await mitServer(hooks, async (basis) => {
+    const r = await fetch(`${basis}/api/zigbee/firmware`);
+    assert.equal(r.status, 200);
+    const j = await r.json() as Record<string, unknown>;
+    assert.equal(j['sticks'], 1);
+
+    // Die Geraeteliste bleibt derweil bei 501 — beides gilt gleichzeitig.
+    const g = await fetch(`${basis}/api/zigbee/geraete`);
+    assert.equal(g.status, 501);
+    await g.text();
+  });
+});
+
+test('Aufspielen laesst sich anstossen und nicht doppelt anstossen', async () => {
+  let laeuft = false;
+  const hooks: ZigbeeHooks = {
+    ...pruefHooks(),
+    firmwareAufspielen: () => {
+      if (laeuft) throw new Error('Es läuft bereits ein Aufspielvorgang');
+      laeuft = true;
+    },
+  };
+  await mitServer(hooks, async (basis) => {
+    const erste = await fetch(`${basis}/api/zigbee/firmware`, { method: 'POST' });
+    assert.equal(erste.status, 202, 'angenommen, aber noch nicht fertig');
+    await erste.text();
+
+    // 409 statt 400: Der Auftrag ist in Ordnung, nur der Zeitpunkt nicht.
+    const zweite = await fetch(`${basis}/api/zigbee/firmware`, { method: 'POST' });
+    assert.equal(zweite.status, 409);
+    assert.match(await zweite.text(), /bereits/);
+  });
+});
 
 test('Zustand kommt als JSON heraus', async () => {
   await mitServer(pruefHooks(), async (basis) => {

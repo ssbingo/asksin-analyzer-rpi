@@ -383,6 +383,39 @@ if [ "$KONFIGURIEREN" -eq 1 ]; then
         case "${a,,}" in j|ja|y|yes) ZIGBEE_AKTIV=1 ;; *) ZIGBEE_AKTIV=0 ;; esac
     fi
     
+    # Firmware: Ein fabrikneuer Stick ist ein Koordinator und schweigt, wenn
+    # man ihn mithoeren laesst. Das ist die haeufigste Ursache fuer "Zigbee
+    # eingeschaltet, aber es kommt nichts" — und der Anwender soll dafuer
+    # weder einen Browser noch einen zweiten Rechner brauchen.
+    if [ "$ZIGBEE_AKTIV" -eq 1 ] && zigbee_gefunden; then
+        ZUSTAND="$(bash "$INSTALL_DIR/deploy/zigbee-firmware.sh" --pruefen 2>/dev/null \
+                   | grep -o '"zustand":"[a-z-]*"' | cut -d'"' -f4 || true)"
+        case "$ZUSTAND" in
+            mithoerer)
+                c_ok "Auf dem Stick sitzt bereits die Mithoer-Firmware." ;;
+            fremde-firmware)
+                c_warn "Auf dem Stick sitzt noch die Koordinator-Firmware — so hoert er nichts mit."
+                c_info "Ich kann die Mithoer-Firmware jetzt aufspielen (dauert ein paar Minuten)."
+                c_warn "ACHTUNG: Danach ist dieser Stick KEIN Zigbee-Koordinator mehr."
+                c_warn "Nimm einen zusaetzlichen Stick, niemals den, an dem Dein Netz haengt."
+                a="$(ask_tty 'Firmware jetzt aufspielen? (j/N): ')"
+                case "${a,,}" in
+                    j|ja|y|yes)
+                        if bash "$INSTALL_DIR/deploy/zigbee-firmware.sh"; then
+                            c_ok "Firmware aufgespielt."
+                        else
+                            c_warn "Das Aufspielen hat nicht geklappt. Zigbee bleibt eingerichtet;"
+                            c_warn "spaeter erneut versuchen unter Einstellungen -> Zigbee."
+                        fi ;;
+                    *)  c_info "Uebersprungen. Spaeter jederzeit in der Weboberflaeche unter"
+                        c_info "Einstellungen -> Zigbee -> \"Sniffer-Firmware aufspielen\"." ;;
+                esac ;;
+            mehrdeutig)
+                c_warn "Es stecken mehrere SONOFF-Sticks. Welcher der Mithoerer werden soll,"
+                c_warn "ist von hier aus nicht entscheidbar — die Firmware bleibt unangetastet." ;;
+        esac
+    fi
+
     if [ "$ZIGBEE_AKTIV" -eq 1 ]; then
         c_info "Zigbee benutzt die Kanaele 11 bis 26. Welchen Kanal Dein Netz"
         c_info "benutzt, steht in Phoscon/zigbee2mqtt/ZHA unter Netzwerk."
@@ -596,6 +629,8 @@ install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-neustart.path" /etc/systemd
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-neustart.service" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-langzeit.path" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-langzeit.service" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-zigbee-firmware.path" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-zigbee-firmware.service" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmziel.path" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmziel.service" /etc/systemd/system/
 systemctl daemon-reload
@@ -603,6 +638,7 @@ systemctl enable asksin-analyzer.service >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-update.path >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-neustart.path >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-langzeit.path >/dev/null 2>&1 || true
+systemctl enable --now asksin-analyzer-zigbee-firmware.path >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-alarmziel.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-netz.path >/dev/null 2>&1 || true
 systemctl restart asksin-analyzer.service

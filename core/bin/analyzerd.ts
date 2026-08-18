@@ -27,6 +27,7 @@ import {
   statfsSync,
   writeFileSync,
 } from 'node:fs';
+import { readdir } from 'node:fs/promises';
 import { freemem, hostname, loadavg, networkInterfaces, totalmem } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { promisify } from 'node:util';
@@ -1587,6 +1588,10 @@ const influxHooks = {
 // Neustart per Taster.
 
 const rolleDatei = join(datenDir, 'verbund-rolle.json');
+/** Wo die stabilen Namen der seriellen Geräte stehen. */
+const BY_ID_DIR = '/dev/serial/by-id';
+const zigbeeFirmwareTrigger = join(datenDir, 'zigbee-firmware-anstoss');
+const zigbeeFirmwareStatus = join(datenDir, 'zigbee-firmware-status.json');
 const langzeitTrigger = join(datenDir, 'langzeit-anstoss');
 const langzeitStatusDatei = join(datenDir, 'langzeit-status.json');
 
@@ -2175,6 +2180,58 @@ const zigbeeHooks: ZigbeeHooks = {
   // Einstellungsseite darf einen ausgeschalteten Mithörer sehen, die
   // Verbund-Auswertung darf ihn nicht mit einem stillen verwechseln.
   aktiv: (): boolean => zigbeeKonfig.aktiv,
+
+  /**
+   * Was sich über Stick und Firmware sagen lässt, **ohne den Anschluss
+   * aufzumachen** — plus der letzte Lauf des Aufspielhelfers.
+   *
+   * Der Analyzer läuft unprivilegiert und ruft hier ausdrücklich keinen
+   * Root-Helfer über sudo auf: Das Trennmuster des ganzen Projekts ist
+   * „unprivilegierter Dienst schreibt eine Datei, eng begrenzter Root-Helfer
+   * führt aus". Eine sudo-Regel für eine blosse Auskunft würde es aufweichen.
+   *
+   * Auch nicht selbst gemessen wird, ob die Mithör-Firmware auf dem Stick
+   * sitzt. Dafür müsste der Anschluss geöffnet werden — und läuft der
+   * Mithörer, nähme das ihm die Bytes weg. Diese Frage beantwortet der
+   * Helfer beim Aufspielen, mit angehaltenem Dienst. Hier steht nur, was
+   * ohne Eingriff sichtbar ist:
+   *
+   *   sticks    wie viele SONOFF-Sticks stecken (0, 1 oder mehr)
+   *   laeuft    ob gerade aufgespielt wird
+   *   hoert     ob der eigene Mithörer Zeilen bekommt — das ist der
+   *             endgültige Beweis, dass die Firmware stimmt
+   */
+  firmwareStand: async (): Promise<Record<string, unknown>> => {
+    let sticks: string[] = [];
+    try {
+      sticks = (await readdir(BY_ID_DIR))
+        .filter((n) => /sonoff_zigbee/i.test(n))
+        .map((n) => join(BY_ID_DIR, n));
+    } catch { /* Verzeichnis fehlt, wenn gar kein serielles USB-Gerät steckt */ }
+
+    let letzterLauf: unknown = null;
+    try {
+      letzterLauf = JSON.parse(readFileSync(zigbeeFirmwareStatus, 'utf8')) as unknown;
+    } catch { /* noch nie gelaufen */ }
+
+    const s = zigbeeLeser?.stats;
+    return {
+      sticks: sticks.length,
+      geraet: sticks[0] ?? null,
+      laeuft: existsSync(zigbeeFirmwareTrigger),
+      hoert: (s?.verbunden ?? false) && (s?.pakete ?? 0) > 0,
+      aktiv: zigbeeKonfig.aktiv,
+      letzterLauf,
+    };
+  },
+
+  firmwareAufspielen: (): void => {
+    if (existsSync(zigbeeFirmwareTrigger)) {
+      throw new Error('Es läuft bereits ein Aufspielvorgang');
+    }
+    writeFileSync(zigbeeFirmwareTrigger, `${new Date().toISOString()}\n`);
+    log('Zigbee: Aufspielen der Mithörer-Firmware angestossen');
+  },
 
   zustand: (): Record<string, unknown> => {
     const s = zigbeeLeser?.stats;

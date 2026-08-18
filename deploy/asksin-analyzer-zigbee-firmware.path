@@ -1,0 +1,16 @@
+# Beobachtet die Datei, die die Weboberflaeche zum Aufspielen der
+# Zigbee-Mithoer-Firmware anlegt.
+#
+# Dasselbe Muster wie bei Update, Netzwerk, Alarmziel und Langzeitdaten: Der
+# Analyzer laeuft unprivilegiert und darf weder Pakete nachladen noch einen
+# USB-Stick beschreiben. Er schreibt eine Datei, ein eng begrenzter Root-Helfer
+# fuehrt aus.
+[Unit]
+Description=AskSin-Analyzer: Ausloeser fuer das Aufspielen der Zigbee-Firmware
+
+[Path]
+PathExists=/var/lib/asksin-analyzer/zigbee-firmware-anstoss
+Unit=asksin-analyzer-zigbee-firmware.service
+
+[Install]
+WantedBy=multi-user.target
