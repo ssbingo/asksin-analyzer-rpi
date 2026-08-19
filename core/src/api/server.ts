@@ -19,6 +19,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { balkenAusLqi, balkenAusStoerabstand, median } from '../analytics/balken.ts';
 import { createServer } from 'node:http';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -159,6 +160,14 @@ export interface ApiServerOptions {
    * im Sekundentakt, und ein zweiter Abruf nur für ein Wort wäre Verschwendung.
    */
   rolle?: () => 'master' | 'client';
+  /**
+   * Mittlere Zigbee-Verbindungsgüte des eigenen Netzes (LQI 0…255).
+   *
+   * Vom Aufrufer geliefert und dort zwischengespeichert: Der Wert entsteht
+   * aus einer Zusammenfassung über Stunden, und `/api/health` wird im
+   * Sekundentakt abgefragt. Ohne Mithörer oder ohne Messung: null.
+   */
+  zigbeeGuete?: () => number | null;
   config?: ApiConfig;
   /** Wenn gesetzt: Pflicht-Bearer-Token für alle verändernden Endpunkte. */
   authToken?: string;
@@ -1258,7 +1267,47 @@ export class ApiServer {
         && this.#opts.zigbee.zustand()['aktiv'] === true,
       zigbeeVerbunden: this.#opts.zigbee !== undefined
         && this.#opts.zigbee.zustand()['verbunden'] === true,
+      empfang: this.#empfang(s),
       rolle: this.#opts.rolle?.() ?? 'master',
+    };
+  }
+
+  /**
+   * Empfangsbalken für beide Funknetze — die Zahlen dahinter und die Stufe.
+   *
+   * Beides steht hier, nicht nur die Stufe: Die Balken sind die Anzeige, die
+   * dB und der LQI die Begründung. Wer wissen will, warum vier statt fünf,
+   * findet es im Tooltip, ohne die Seite zu wechseln.
+   *
+   * Für BidCoS wird der **Störabstand** gebildet und nicht der blosse Pegel:
+   * Der Versatz, mit dem die Firmware den Rohwert des CC1101 in dBm
+   * umrechnet, ist ein typischer Wert des Datenblatts und kein für dieses
+   * Bauteil gemessener. In der Differenz zum Grundrauschen — vom selben
+   * Modul gemessen — kürzt er sich weg.
+   */
+  #empfang(s: ReturnType<Analyzer['snapshot']>): Record<string, unknown> {
+    // Median über die GERÄTE, nicht über die Telegramme: Sonst bestimmte ein
+    // gesprächiges Gerät allein die Anzeige.
+    const pegel = median(
+      s.devices
+        .map((g) => g.rssi.ewma)
+        .filter((r): r is number => r !== null && Number.isFinite(r)),
+    );
+    const rauschen = s.noiseFloor.ewma;
+    const abstand = pegel !== null && rauschen !== null ? Math.round(pegel - rauschen) : null;
+
+    const zigbeeLqi = this.#opts.zigbeeGuete?.() ?? null;
+    return {
+      bidcos: {
+        rssiMedian: pegel === null ? null : Math.round(pegel),
+        rauschen: rauschen === null ? null : Math.round(rauschen),
+        stoerabstand: abstand,
+        balken: balkenAusStoerabstand(abstand),
+      },
+      zigbee: {
+        lqiMedian: zigbeeLqi === null ? null : Math.round(zigbeeLqi),
+        balken: balkenAusLqi(zigbeeLqi),
+      },
     };
   }
 

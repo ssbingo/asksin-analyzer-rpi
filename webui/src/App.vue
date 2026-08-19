@@ -2,10 +2,26 @@
 import { ref } from 'vue';
 import { holeHealth } from './api.ts';
 import { rolle, zigbeeAktiv } from './zustand.ts';
+import Empfangsbalken from './components/Empfangsbalken.vue';
+import type { Health } from './api.ts';
 import { nutzeTakt } from './takt.ts';
 
 const verbunden = ref(false);
 const zigbeeVerbunden = ref(false);
+const empfang = ref<Health['empfang'] | null>(null);
+
+/** Der Tooltip nennt die Zahlen, aus denen die Stufe entstanden ist. */
+function bidcosTitel(): string {
+  const e = empfang.value?.bidcos;
+  if (e === undefined || e.stoerabstand === null) return 'Empfang noch nicht gemessen';
+  return `Störabstand ${e.stoerabstand} dB `
+    + `(Median ${e.rssiMedian} dBm über dem Rauschen von ${e.rauschen} dBm)`;
+}
+function zigbeeTitel(): string {
+  const e = empfang.value?.zigbee;
+  if (e === undefined || e.lqiMedian === null) return 'Noch keine Zigbee-Messung';
+  return `Verbindungsgüte ${e.lqiMedian} von 255 (Median über die Geräte des eigenen Netzes)`;
+}
 const erreichbar = ref(false);
 const demo = ref(false);
 const updateVerfuegbar = ref(false);
@@ -21,6 +37,7 @@ nutzeTakt(async () => {
     updateVerfuegbar.value = h.updateVerfuegbar === true;
     zigbeeAktiv.value = h.zigbee === true;
     zigbeeVerbunden.value = h.zigbeeVerbunden === true;
+    empfang.value = h.empfang ?? null;
     rolle.value = h.rolle ?? 'master';
     if (h.standort !== standort.value) {
       standort.value = h.standort;
@@ -35,6 +52,7 @@ nutzeTakt(async () => {
     // würde sonst die Zigbee-Menüpunkte wegblinken lassen. Der Punkt in der
     // Kopfzeile sagt ohnehin schon, dass gerade nichts zu holen ist.
     zigbeeVerbunden.value = false;
+    empfang.value = null;
     throw new Error('Core nicht erreichbar');
   }
 }, 5000);
@@ -75,6 +93,11 @@ nutzeTakt(async () => {
          können soll. Beschriftet sind beide, weil ein Punkt allein nicht
          sagt, WELCHES Funknetz er meint. -->
     <span class="status-punkt" :class="{ verbunden }" title="BidCoS-Sniffer auf der Analyzer-Platine">
+      <Empfangsbalken
+        v-if="erreichbar && verbunden"
+        :balken="empfang?.bidcos.balken ?? 0"
+        :titel="bidcosTitel()"
+      />
       {{ !erreichbar ? 'Core nicht erreichbar'
          : verbunden ? 'BidCoS verbunden' : 'BidCoS getrennt' }}
     </span>
@@ -84,6 +107,11 @@ nutzeTakt(async () => {
       :class="{ verbunden: zigbeeVerbunden }"
       title="Zigbee-Mithörer am USB-Anschluss"
     >
+      <Empfangsbalken
+        v-if="zigbeeVerbunden"
+        :balken="empfang?.zigbee.balken ?? 0"
+        :titel="zigbeeTitel()"
+      />
       {{ zigbeeVerbunden ? 'Zigbee verbunden' : 'Zigbee getrennt' }}
     </span>
     <RouterLink

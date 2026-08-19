@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.0.2</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.0.3</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.0.2 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.0.3 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2589,6 +2589,42 @@ nicht mehr zu entziffern.</p>
 <tr><td>letzte Seite</td><td>Übersicht: IP, CPU, RAM, Sniffer — vier Zeilen wie im Vorbild</td></tr>
 </table>
 
+<h3 id="empfangsbalken-in-der-kopfzeile">Die Empfangsbalken in der Kopfzeile</h3>
+<p>Neben jedem der beiden Funknetze steht ein Balken mit fünf Stufen — wie am
+Mobiltelefon. Er zeigt nicht den blossen Pegel, sondern für BidCoS den
+<strong>Störabstand</strong>: Nutzsignal minus Grundrauschen.</p>
+<p>Das hat einen Grund, der im Datenblatt des Funkmoduls steht. Der CC1101
+liefert einen Rohwert, den die Firmware nach dieser Vorschrift in dBm
+umrechnet:</p>
+<pre>RSSI[dBm] = Rohwert / 2 − 74</pre>
+<p>Die <strong>74 dB sind ein typischer Wert des Datenblatts</strong>, kein für
+dieses eine Bauteil gemessener. Zwei Module derselben Bauart können denselben
+Sender deshalb mit leicht verschiedenen dBm ausweisen, ohne dass eines
+schlechter empfängt. Ein Balken am blossen dBm würde diese Bauteilstreuung
+anzeigen und als Empfangsunterschied ausgeben.</p>
+<p>In der Differenz zum Grundrauschen — <em>vom selben Modul gemessen</em> —
+steckt der Versatz in beiden Summanden und <strong>kürzt sich weg</strong>.
+Übrig bleibt die Grösse, die tatsächlich darüber entscheidet, ob ein
+Telegramm ankommt.</p>
+<table>
+<tr><th style="width:20%">Balken</th><th style="width:26%">Störabstand</th><th>heisst</th></tr>
+<tr><td>▂▄▆█ 5</td><td>ab 40 dB</td><td>sehr gut</td></tr>
+<tr><td>▂▄▆ 4</td><td>30 – 39 dB</td><td>gut — hier liegen die meisten Aufbauten</td></tr>
+<tr><td>▂▄ 3</td><td>20 – 29 dB</td><td>tragfähig</td></tr>
+<tr><td>▂ 2</td><td>12 – 19 dB</td><td>knapp</td></tr>
+<tr><td>▁ 1</td><td>unter 12 dB</td><td>am Rand — Aussetzer wahrscheinlich</td></tr>
+<tr><td>leer</td><td>keine Messung</td><td><strong>nicht dasselbe wie „schlecht"</strong></td></tr>
+</table>
+<p>Für <strong>Zigbee</strong> gibt es kein Grundrauschen — die Sniffer-Firmware
+liefert den Pegel nur je Paket, nicht dazwischen. Dort speist sich der Balken
+aus der <strong>Verbindungsgüte (LQI, 0 bis 255)</strong>, die ohnehin schon
+ein Qualitätsmass ist. Die Stufen liegen an der gemessenen Kante: Zwischen
+−86 und −90 dBm fällt der LQI von 149 auf 0.</p>
+<p class="klein">Gemittelt wird jeweils über die <strong>Geräte</strong>, nicht
+über die Telegramme. Sonst bestimmte ein einziges gesprächiges Gerät die
+Anzeige — beim Zigbee-Netz wäre das der Koordinator, der meist im selben Raum
+steht und die Anzeige dauerhaft auf fünf Balken hielte.</p>
+
 <h3 id="die-funkstatus-seite">Die Funkstatus-Seite</h3>
 <p>Seite 3 fällt aus der Reihe: Sie trägt keinen Wert, sondern
 <strong>zwei Sinnbilder</strong>, links BidCoS, rechts Zigbee, getrennt durch
@@ -3848,7 +3884,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.0.2 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.0.3 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

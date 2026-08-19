@@ -48,6 +48,7 @@ import {
 } from '../src/zigbee/leser.ts';
 import { ZigbeeSpeicher } from '../src/zigbee/speicher.ts';
 import { baueZigbeeMatrix } from '../src/verbund/zigbeeMatrix.ts';
+import { median } from '../src/analytics/balken.ts';
 import { DeconzNamen } from '../src/zigbee/namen.ts';
 import { testeCcu } from '../src/resolve/ccuTest.ts';
 import { DevListService, httpFetchBytes } from '../src/resolve/fetcher.ts';
@@ -2192,6 +2193,55 @@ if (zigbeeKonfig.deconzHost !== '' && zigbeeKonfig.deconzSchluessel !== '') {
   setInterval(() => void zigbeeNamen.aktualisieren(), 1_800_000).unref();
 }
 
+/**
+ * Mittlere Verbindungsgüte des eigenen Zigbee-Netzes, höchstens minütlich neu
+ * gerechnet.
+ *
+ * Median über die **Geräte**, nicht über die Pakete: Der Koordinator sitzt
+ * meist im selben Raum, sendet am meisten und liefert LQI 255. Über die
+ * Pakete gemittelt stünde der Balken dauerhaft auf fünf, ganz gleich wie der
+ * Rest des Hauses gehört wird.
+ *
+ * Fremde Netze bleiben draussen — dasselbe Verfahren wie in der Übersicht:
+ * Das eigene Netz ist das mit den meisten Paketen.
+ */
+let zigbeeGueteWert: number | null = null;
+let zigbeeGueteAm = 0;
+
+function zigbeeGueteGepuffert(): number | null {
+  const jetzt = Date.now();
+  if (jetzt - zigbeeGueteAm < 60_000) return zigbeeGueteWert;
+  zigbeeGueteAm = jetzt;
+  if (!zigbeeKonfig.aktiv) {
+    zigbeeGueteWert = null;
+    return null;
+  }
+  try {
+    const roh = zigbeeHooks.geraete(1) as Array<Record<string, unknown>>;
+    const jePan = new Map<number, number>();
+    for (const g of roh) {
+      const pan = g['pan'] as number;
+      jePan.set(pan, (jePan.get(pan) ?? 0) + (g['pakete'] as number));
+    }
+    let eigenes: number | null = null;
+    let max = -1;
+    for (const [pan, n] of jePan) if (n > max) { max = n; eigenes = pan; }
+
+    zigbeeGueteWert = median(
+      roh
+        .filter((g) => g['pan'] === eigenes)
+        .map((g) => {
+          const pakete = g['pakete'] as number;
+          return pakete > 0 ? (g['sum_lqi'] as number) / pakete : Number.NaN;
+        }),
+    );
+  } catch {
+    // Eine fehlgeschlagene Abfrage darf /api/health nicht mitreissen.
+    zigbeeGueteWert = null;
+  }
+  return zigbeeGueteWert;
+}
+
 /** Was die Oberfläche über Zigbee erfährt und einstellen darf. */
 const zigbeeHooks: ZigbeeHooks = {
   // Was `zustand()` im Feld `aktiv` sagt, sagt diese Frage der Leitung: Die
@@ -2465,6 +2515,7 @@ const api = new ApiServer({
   statusAnzeige: statusAnzeigeHooks,
   zigbee: zigbeeHooks,
   rolle: () => aktuelleRolle().rolle,
+  zigbeeGuete: () => zigbeeGueteGepuffert(),
   influx: influxHooks,
   langzeit: langzeitHooks,
   alarmziel: alarmzielHooks,

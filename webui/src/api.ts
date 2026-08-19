@@ -125,6 +125,18 @@ export interface Health {
    * BidCoS-Sniffer.
    */
   zigbeeVerbunden?: boolean;
+  /** Empfangsbalken für beide Funknetze, samt der Zahlen dahinter. */
+  empfang?: {
+    bidcos: {
+      /** Median über die Geräte, nicht über die Telegramme. */
+      rssiMedian: number | null;
+      rauschen: number | null;
+      /** Nutzsignal minus Rauschen — darin kürzt sich der Bauteilversatz weg. */
+      stoerabstand: number | null;
+      balken: number;
+    };
+    zigbee: { lqiMedian: number | null; balken: number };
+  };
   /** Rolle im Verbund — Verbund-Ansichten gibt es nur auf dem Master. */
   rolle?: 'master' | 'client';
 }
