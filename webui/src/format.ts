@@ -33,9 +33,27 @@ export function dauer(ms: number): string {
   return `${min} min`;
 }
 
+/**
+ * Die Schwellen der Empfangsbewertung — an EINER Stelle.
+ *
+ * Sie standen bisher nur in `rssiKlasse` und damit nur in der
+ * Telegrammliste. Seit die Punkte des Übersichtsdiagramms dieselbe Bewertung
+ * tragen, brauchen beide dieselben Zahlen; zwei Listen, die dasselbe meinen,
+ * laufen still auseinander.
+ *
+ * Es ist die Bewertung eines **einzelnen Pegels**, nicht die der
+ * Empfangslage. Die Empfangsbalken in der Kopfzeile rechnen mit dem
+ * Störabstand (`core/src/analytics/balken.ts`) — das beantwortet die andere
+ * Frage: nicht „wie laut kam dieses Telegramm", sondern „wie gut hört dieser
+ * Analyzer überhaupt".
+ */
+export const RSSI_STUFEN = [
+  { ab: -65, klasse: 'gut', farbe: '#3ddc84', text: 'gut (ab −65 dBm)' },
+  { ab: -85, klasse: 'mittel', farbe: '#ffb74d', text: 'mittel (−66 bis −85)' },
+  { ab: -Infinity, klasse: 'schwach', farbe: '#ff5c5c', text: 'schwach (unter −85)' },
+] as const;
+
 /** Farbklasse für einen Empfangspegel — grob wie eine Balkenanzeige. */
 export function rssiKlasse(rssi: number): string {
-  if (rssi >= -65) return 'gut';
-  if (rssi >= -85) return 'mittel';
-  return 'schwach';
+  return (RSSI_STUFEN.find((s) => rssi >= s.ab) ?? RSSI_STUFEN[2]).klasse;
 }

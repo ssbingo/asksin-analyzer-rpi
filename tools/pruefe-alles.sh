@@ -61,6 +61,9 @@ lauf "Kindprozesse: jeder benutzte Strom hat einen Fehler-Zuhörer" \
 lauf "HTTP: fetch nur über holen(), damit der Körper gelesen wird" \
     python3 tools/pruefe-fetch.py
 
+lauf "Empfang: Liste und Diagramm bewerten gleich" \
+    python3 tools/pruefe-rssi-stufen.py
+
 lauf "Grafana-Vorlagen: jede Ansicht ist im Handbuch erklärt" \
     python3 tools/pruefe-dashboards.py
 

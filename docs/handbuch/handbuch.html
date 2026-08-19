@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.0.3</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.0.4</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.0.3 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.0.4 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2589,6 +2589,26 @@ nicht mehr zu entziffern.</p>
 <tr><td>letzte Seite</td><td>Übersicht: IP, CPU, RAM, Sniffer — vier Zeilen wie im Vorbild</td></tr>
 </table>
 
+<h3 id="zwei-bewertungen-die-verschiedenes-sagen">Zwei Bewertungen, die Verschiedenes sagen</h3>
+<p>In der Oberfläche stehen zwei Einfärbungen nebeneinander, und sie meinen
+absichtlich nicht dasselbe:</p>
+<table>
+<tr><th style="width:30%">Wo</th><th style="width:26%">bewertet</th><th>beantwortet</th></tr>
+<tr><td>RSSI-Spalte der Telegrammliste<br>und die <strong>Punkte im
+  Übersichtsdiagramm</strong></td><td>den einzelnen Pegel in dBm</td>
+  <td>„Wie laut kam <em>dieses</em> Telegramm an?"</td></tr>
+<tr><td>Empfangsbalken in der Kopfzeile</td><td>den Störabstand</td>
+  <td>„Wie gut hört dieser Analyzer <em>überhaupt</em>?"</td></tr>
+</table>
+<p>Die Punkte des Diagramms tragen seit Fassung 1.0.4 dieselben drei Stufen wie
+die Liste — <strong>gut</strong> ab −65 dBm, <strong>mittel</strong> bis −85,
+darunter <strong>schwach</strong>. Beide holen die Schwellen aus derselben
+Tabelle; eine maschinelle Prüfung schlägt an, wenn eine der beiden Stellen
+eigene Zahlen bekommt.</p>
+<p>Über den Punkten liegt die Linie des Grundrauschens. Der <em>Abstand</em>
+eines Punktes zu dieser Linie ist genau der Störabstand, aus dem sich der
+Balken speist — beide Bewertungen sind also im selben Bild zu sehen.</p>
+
 <h3 id="empfangsbalken-in-der-kopfzeile">Die Empfangsbalken in der Kopfzeile</h3>
 <p>Neben jedem der beiden Funknetze steht ein Balken mit fünf Stufen — wie am
 Mobiltelefon. Er zeigt nicht den blossen Pegel, sondern für BidCoS den
@@ -3884,7 +3904,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.0.3 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.0.4 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

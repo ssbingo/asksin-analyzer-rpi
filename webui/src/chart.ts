@@ -10,7 +10,9 @@ import {
   GridComponent,
   LegendComponent,
   TooltipComponent,
+  VisualMapComponent,
 } from 'echarts/components';
+import { RSSI_STUFEN } from './format.ts';
 import { CanvasRenderer } from 'echarts/renderers';
 import type { EChartsCoreOption } from 'echarts/core';
 
@@ -21,6 +23,7 @@ echarts.use([
   GridComponent,
   LegendComponent,
   TooltipComponent,
+  VisualMapComponent,
   CanvasRenderer,
 ]);
 
@@ -135,6 +138,39 @@ export function zeitChartOption(
       data: ['Grundrauschen', 'Telegramme'],
       textStyle: { color: '#8899ad' },
       top: 0,
+      left: 0,
+    },
+    /**
+     * Die Punkte tragen dieselbe Bewertung wie die RSSI-Spalte der
+     * Telegrammliste — dieselben Schwellen aus `RSSI_STUFEN`, damit ein
+     * Telegramm nicht in der Liste „mittel" und im Diagramm etwas anderes
+     * ist.
+     *
+     * Als `visualMap` und nicht als Farbfunktion je Punkt: Damit steht die
+     * Legende von selbst da, sie ist anklickbar (eine Stufe ausblenden, um
+     * die schwachen allein zu sehen) — und die Zuordnung Farbe→Bereich muss
+     * niemand raten.
+     */
+    visualMap: {
+      type: 'piecewise',
+      // Nur die Punkte einfärben; die Rauschlinie behält ihr Grau.
+      seriesIndex: 1,
+      dimension: 1,
+      orient: 'horizontal',
+      right: 0,
+      top: 0,
+      itemWidth: 10,
+      itemHeight: 10,
+      itemGap: 6,
+      textStyle: { color: '#8899ad', fontSize: 11 },
+      pieces: [
+        { gte: RSSI_STUFEN[0].ab, color: RSSI_STUFEN[0].farbe, label: 'gut' },
+        {
+          gte: RSSI_STUFEN[1].ab, lt: RSSI_STUFEN[0].ab,
+          color: RSSI_STUFEN[1].farbe, label: 'mittel',
+        },
+        { lt: RSSI_STUFEN[1].ab, color: RSSI_STUFEN[2].farbe, label: 'schwach' },
+      ],
     },
     tooltip: {
       trigger: 'axis',
@@ -143,7 +179,7 @@ export function zeitChartOption(
       textStyle: { color: '#dce5ef' },
       valueFormatter: (v: unknown) => `${String(v)} dBm`,
     },
-    grid: { left: 48, right: 16, top: 32, bottom: 28 },
+    grid: { left: 48, right: 16, top: 40, bottom: 28 },
     xAxis: {
       type: 'time',
       axisLine: { lineStyle: { color: '#27313f' } },
@@ -170,6 +206,8 @@ export function zeitChartOption(
         type: 'scatter',
         data: telegramme,
         symbolSize: 5,
+        // Die Farbe kommt aus der visualMap oben; dieser Wert greift nur,
+        // solange sie noch nicht angewandt ist.
         itemStyle: { color: '#4cc2ff' },
       },
     ],

@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.3** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.3** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.4** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.4** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,17 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.0.4 — 19.08.2026
+
+**Die Punkte im Übersichtsdiagramm tragen jetzt die Bewertung der Telegrammliste.**
+
+- Grün ab −65 dBm, orange bis −85, rot darunter — dieselben drei Stufen wie in
+  der RSSI-Spalte der Liste, aus derselben Tabelle.
+- Die Legende ist anklickbar: eine Stufe ausblenden, um die schwachen
+  Telegramme allein zu sehen.
+- Neue maschinelle Prüfung (`tools/pruefe-rssi-stufen.py`): Sie schlägt an,
+  wenn Liste oder Diagramm eigene Schwellen bekommen.
 
 ### v1.0.3 — 19.08.2026
 
