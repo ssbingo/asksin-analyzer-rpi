@@ -1,6 +1,6 @@
 {
   "name": "@asksin-analyzer/core",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Core-Dienst des AskSin-Analyzers: Serial-Ingest, BidCoS-Decoder, Analytics, API",
   "license": "CC-BY-NC-SA-4.0",
   "type": "module",

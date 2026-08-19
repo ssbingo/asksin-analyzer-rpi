@@ -114,6 +114,11 @@ nutzeTakt(async () => {
       <RouterLink to="/info">Info</RouterLink>
     </nav>
     <span v-if="demo" class="demo-badge">DEMO</span>
+    <!-- Vor den Anzeigen und nicht dahinter: Die Punkte sagen, wie es dem
+         Gerät geht, und sollen am rechten Rand zusammenstehen. Der Weg nach
+         Grafana ist ein Absprung und kein Zustand — er gehört daneben, nicht
+         dazwischen. -->
+    <GrafanaKnopf v-if="grafanaUrl !== ''" :url="grafanaUrl" />
     <!-- Zwei Punkte, wo zwei Funknetze mitgehört werden. Der Zigbee-Punkt
          erscheint nur bei eingeschaltetem Mithörer: Ein Analyzer ohne Stick
          soll keine dauerhaft rote Anzeige tragen für etwas, das er gar nicht
@@ -141,7 +146,6 @@ nutzeTakt(async () => {
       />
       {{ zigbeeVerbunden ? 'Zigbee verbunden' : 'Zigbee getrennt' }}
     </span>
-    <GrafanaKnopf v-if="grafanaUrl !== ''" :url="grafanaUrl" />
     <RouterLink
       v-if="updateVerfuegbar"
       to="/info"
