@@ -115,8 +115,16 @@ export interface Health {
    * Zustand der Sniffer-Firmware. Fehlt bei älteren Core-Fassungen.
    */
   sniffer?: SnifferZustand;
-  /** Läuft ein Zigbee-Mithörer? Steuert den Menüpunkt. */
+  /** Ist der Zigbee-Mithörer eingeschaltet? Steuert die Menüpunkte. */
   zigbee?: boolean;
+  /**
+   * Antwortet der Zigbee-Stick auch?
+   *
+   * Getrennt von `zigbee`, weil „eingeschaltet und stumm" genau der Fall ist,
+   * den man in der Kopfzeile sehen will — das Gegenstück zu `connected` beim
+   * BidCoS-Sniffer.
+   */
+  zigbeeVerbunden?: boolean;
   /** Rolle im Verbund — Verbund-Ansichten gibt es nur auf dem Master. */
   rolle?: 'master' | 'client';
 }

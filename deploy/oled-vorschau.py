@@ -30,6 +30,11 @@ BEISPIEL = {
     "deviceCount": 16,
     "maxDutyCycle": {"name": "Defekt_BWM Carport (klemmt)", "percent": 96.4},
     "dutyAlarme": [{"name": "Defekt_BWM Carport (klemmt)", "percent": 96.4}],
+    # Die Funkstatus-Seite. Absichtlich EIN Haken und EIN Kreuz: So zeigt das
+    # Handbuchbild beide Sinnbilder in beiden Zustaenden, statt zweimal
+    # dasselbe.
+    "bidcos": True,
+    "zigbee": False,
 }
 
 

@@ -37,6 +37,14 @@ export interface StatusDaten {
    * ist.
    */
   dutyAlarme: Array<{ name: string; percent: number }>;
+  /**
+   * Hört dieser Analyzer Zigbee mit, und antwortet der Stick auch?
+   *
+   * Optional, weil ein Analyzer ohne Mithörer die Angabe nicht liefern muss
+   * und ältere Aufrufer sie nicht kennen. Fehlt sie, zeigt die Anzeige „aus" —
+   * das ist die richtige Auskunft und keine Notlüge.
+   */
+  zigbee?: boolean;
   system: {
     cpuLast: number;        // Loadavg 1 min
     tempC: number | null;

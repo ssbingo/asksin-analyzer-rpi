@@ -5,6 +5,7 @@ import { rolle, zigbeeAktiv } from './zustand.ts';
 import { nutzeTakt } from './takt.ts';
 
 const verbunden = ref(false);
+const zigbeeVerbunden = ref(false);
 const erreichbar = ref(false);
 const demo = ref(false);
 const updateVerfuegbar = ref(false);
@@ -19,6 +20,7 @@ nutzeTakt(async () => {
     demo.value = h.demo;
     updateVerfuegbar.value = h.updateVerfuegbar === true;
     zigbeeAktiv.value = h.zigbee === true;
+    zigbeeVerbunden.value = h.zigbeeVerbunden === true;
     rolle.value = h.rolle ?? 'master';
     if (h.standort !== standort.value) {
       standort.value = h.standort;
@@ -29,6 +31,10 @@ nutzeTakt(async () => {
   } catch {
     erreichbar.value = false;
     verbunden.value = false;
+    // Nicht auch `zigbeeAktiv` zurücksetzen: Ein kurzer Aussetzer des Cores
+    // würde sonst die Zigbee-Menüpunkte wegblinken lassen. Der Punkt in der
+    // Kopfzeile sagt ohnehin schon, dass gerade nichts zu holen ist.
+    zigbeeVerbunden.value = false;
     throw new Error('Core nicht erreichbar');
   }
 }, 5000);
@@ -63,8 +69,22 @@ nutzeTakt(async () => {
       <RouterLink to="/info">Info</RouterLink>
     </nav>
     <span v-if="demo" class="demo-badge">DEMO</span>
-    <span class="status-punkt" :class="{ verbunden }">
-      {{ !erreichbar ? 'Core nicht erreichbar' : verbunden ? 'Sniffer verbunden' : 'Sniffer getrennt' }}
+    <!-- Zwei Punkte, wo zwei Funknetze mitgehört werden. Der Zigbee-Punkt
+         erscheint nur bei eingeschaltetem Mithörer: Ein Analyzer ohne Stick
+         soll keine dauerhaft rote Anzeige tragen für etwas, das er gar nicht
+         können soll. Beschriftet sind beide, weil ein Punkt allein nicht
+         sagt, WELCHES Funknetz er meint. -->
+    <span class="status-punkt" :class="{ verbunden }" title="BidCoS-Sniffer auf der Analyzer-Platine">
+      {{ !erreichbar ? 'Core nicht erreichbar'
+         : verbunden ? 'BidCoS verbunden' : 'BidCoS getrennt' }}
+    </span>
+    <span
+      v-if="erreichbar && zigbeeAktiv"
+      class="status-punkt"
+      :class="{ verbunden: zigbeeVerbunden }"
+      title="Zigbee-Mithörer am USB-Anschluss"
+    >
+      {{ zigbeeVerbunden ? 'Zigbee verbunden' : 'Zigbee getrennt' }}
     </span>
     <RouterLink
       v-if="updateVerfuegbar"

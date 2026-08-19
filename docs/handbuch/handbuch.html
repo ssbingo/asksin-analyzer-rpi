@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.0.1</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.0.2</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.0.1 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.0.2 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2576,17 +2576,35 @@ nicht mehr zu entziffern.</p>
 <tr><th>Seite</th><th>zeigt</th></tr>
 <tr><td><strong>1</strong> Standort</td><td>der Anzeigename dieses Analyzers</td></tr>
 <tr><td><strong>2</strong> Sniffer</td><td>BEREIT / GETRENNT / DEMO</td></tr>
-<tr><td><strong>3</strong> Telegramme</td><td>je Minute</td></tr>
-<tr><td><strong>4</strong> Rauschen</td><td>Grundrauschen in dBm</td></tr>
-<tr><td><strong>5</strong> Geräte</td><td>aktive Funkgeräte</td></tr>
-<tr><td><strong>6</strong> Duty-Cycle</td><td>Spitzenwert in Prozent</td></tr>
-<tr><td><strong>7 …</strong> ! Gerätename</td><td><strong>je Dauersender eine eigene Seite</strong> — siehe unten</td></tr>
+<tr><td><strong>3</strong> Funkstatus</td><td><strong>BidCoS und Zigbee als Sinnbilder</strong>, je mit Haken oder Kreuz — siehe unten</td></tr>
+<tr><td><strong>4</strong> Telegramme</td><td>je Minute</td></tr>
+<tr><td><strong>5</strong> Rauschen</td><td>Grundrauschen in dBm</td></tr>
+<tr><td><strong>6</strong> Geräte</td><td>aktive Funkgeräte</td></tr>
+<tr><td><strong>7</strong> Duty-Cycle</td><td>Spitzenwert in Prozent</td></tr>
+<tr><td><strong>8 …</strong> ! Gerätename</td><td><strong>je Dauersender eine eigene Seite</strong> — siehe unten</td></tr>
 <tr><td>Version</td><td>Softwarestand</td></tr>
 <tr><td>IP · MAC · Host</td><td>Netzwerk</td></tr>
 <tr><td>CPU · RAM · Up</td><td>Temperatur und Last, Speicher, Laufzeit</td></tr>
 <tr><td>Disk · Fan</td><td>freier Platz, Lüfterdrehzahl — nur wenn vorhanden</td></tr>
 <tr><td>letzte Seite</td><td>Übersicht: IP, CPU, RAM, Sniffer — vier Zeilen wie im Vorbild</td></tr>
 </table>
+
+<h3 id="die-funkstatus-seite">Die Funkstatus-Seite</h3>
+<p>Seite 3 fällt aus der Reihe: Sie trägt keinen Wert, sondern
+<strong>zwei Sinnbilder</strong>, links BidCoS, rechts Zigbee, getrennt durch
+einen senkrechten Strich. Daneben steht je ein <strong>Haken</strong> („hört
+mit") oder ein <strong>Kreuz</strong> („hört nicht").</p>
+<p>Warum keine Wörter: Diese Seite wird im Vorbeigehen gelesen, oft aus zwei
+Metern und schräg. Haken und Kreuz erfasst man in einem Blick; „ja" und
+„nein" unterscheiden sich bei dieser Größe kaum voneinander.</p>
+<table>
+<tr><th style="width:26%">Zeichen</th><th>bedeutet</th></tr>
+<tr><td><strong>Scheibe mit Z</strong></td><td>Zigbee — nachempfunden dem Logo; auf einem einfarbigen Panel bleibt davon Fläche und Aussparung</td></tr>
+<tr><td><strong>Sender mit Bögen</strong></td><td>BidCoS — eigener Entwurf. Die Bögen gehen nach <em>beiden</em> Seiten, denn BidCoS ist bidirektional</td></tr>
+</table>
+<p>Der Haken bei Zigbee erscheint nur, wenn der Mithörer eingeschaltet ist
+<strong>und</strong> der Stick antwortet. Eingeschaltet und stumm ergibt ein
+Kreuz — ein Haken neben einem stummen Stick wäre schlimmer als kein Haken.</p>
 
 <h3 class="umbruch" id="wenn-ein-gera-t-den-duty-cycle-ausreizt">Wenn ein Gerät den Duty-Cycle ausreizt</h3>
 <p>Ein einziges defektes Funkgerät kann das ganze Netz zustopfen — im
@@ -3830,7 +3848,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.0.1 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.0.2 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

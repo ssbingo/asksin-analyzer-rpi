@@ -140,6 +140,22 @@ test('Aufspielen laesst sich anstossen und nicht doppelt anstossen', async () =>
   });
 });
 
+test('/api/health trennt "eingeschaltet" von "der Stick antwortet"',
+  async () => {
+    // Die Kopfzeile zeigt zwei Punkte. Eingeschaltet UND stumm ist genau der
+    // Fall, den man dort sehen will — mit einer einzigen Angabe waere er
+    // nicht darstellbar.
+    const hooks: ZigbeeHooks = {
+      ...pruefHooks(),
+      zustand: () => ({ aktiv: true, verbunden: false, kanal: 11, pakete: 0 }),
+    };
+    await mitServer(hooks, async (basis) => {
+      const h = await (await fetch(`${basis}/api/health`)).json() as Record<string, unknown>;
+      assert.equal(h['zigbee'], true, 'eingeschaltet');
+      assert.equal(h['zigbeeVerbunden'], false, 'aber stumm');
+    });
+  });
+
 test('Zustand kommt als JSON heraus', async () => {
   await mitServer(pruefHooks(), async (basis) => {
     const r = await fetch(`${basis}/api/zigbee`);

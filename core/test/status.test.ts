@@ -474,6 +474,74 @@ test('Dauersender landen in den Anzeigedaten', async () => {
   await anzeige.stop();
 });
 
+test('Funkstatus: BidCoS und Zigbee stehen getrennt in den Anzeigedaten',
+  async () => {
+    // Die Seite zeigt zwei Sinnbilder mit Haken oder Kreuz. Beide Angaben
+    // muessen einzeln ankommen — eine gemeinsame ("Funk laeuft") koennte den
+    // Fall nicht ausdruecken, der am haeufigsten vorkommt: Der eine hoert,
+    // der andere nicht.
+    const faelle: Array<[boolean, boolean]> = [
+      [true, true], [true, false], [false, true], [false, false],
+    ];
+    for (const [bidcos, zigbee] of faelle) {
+      const time = new FakeTime();
+      const geschrieben: Array<[string, Uint8Array]> = [];
+      const anzeige = new StatusAnzeige({
+        led: 'aus',
+        oled: true,
+        daten: () => ({ ...DATEN, connected: bidcos, zigbee }),
+        time,
+        runner: () => Promise.resolve({ code: 0, output: '' }),
+        schreibeGeraet: (pfad, bytes) => {
+          geschrieben.push([pfad, bytes]);
+          return Promise.resolve();
+        },
+        bildVorhanden: () => true,
+      });
+      await anzeige.start();
+      await time.advance(600);
+      const zustand = JSON.parse(
+        new TextDecoder().decode(
+          geschrieben.filter(([p]) => p.endsWith('oled-state.json')).at(-1)![1],
+        ),
+      ) as { bidcos?: boolean; zigbee?: boolean };
+      assert.equal(zustand.bidcos, bidcos, `bidcos bei ${bidcos}/${zigbee}`);
+      assert.equal(zustand.zigbee, zigbee, `zigbee bei ${bidcos}/${zigbee}`);
+      await anzeige.stop();
+    }
+  });
+
+test('ein Analyzer ohne Zigbee-Angabe meldet "aus", nicht "unbekannt"',
+  async () => {
+    // Aeltere Aufrufer liefern das Feld nicht. Die Anzeige soll dann ein
+    // Kreuz zeigen — das ist die richtige Auskunft. `undefined` im JSON
+    // waere keine, und die Python-Seite laese es als "aus", ohne dass es
+    // hier jemand festgehalten haette.
+    const time = new FakeTime();
+    const geschrieben: Array<[string, Uint8Array]> = [];
+    const anzeige = new StatusAnzeige({
+      led: 'aus',
+      oled: true,
+      daten: () => ({ ...DATEN }),          // ohne `zigbee`
+      time,
+      runner: () => Promise.resolve({ code: 0, output: '' }),
+      schreibeGeraet: (pfad, bytes) => {
+        geschrieben.push([pfad, bytes]);
+        return Promise.resolve();
+      },
+      bildVorhanden: () => true,
+    });
+    await anzeige.start();
+    await time.advance(600);
+    const zustand = JSON.parse(
+      new TextDecoder().decode(
+        geschrieben.filter(([p]) => p.endsWith('oled-state.json')).at(-1)![1],
+      ),
+    ) as Record<string, unknown>;
+    assert.equal(zustand['zigbee'], false, 'ausdrücklich false, nicht undefined');
+    await anzeige.stop();
+  });
+
 test('Anzeige springt nach 60 s ohne Tastendruck auf Seite 1 zurück', async () => {
   // Wer im Vorbeigehen blättert, soll nicht dauerhaft eine Systemseite stehen
   // lassen. Das Vorbild macht das nach 30 s; hier sind es 60 (Vorgabe).

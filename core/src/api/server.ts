@@ -1247,11 +1247,17 @@ export class ApiServer {
         ),
         folge: s.ingest.folge,
       },
-      // Nur ein Ja/Nein: Die Kopfzeile blendet den Menuepunkt danach ein oder
-      // aus und braucht dafuer keine zweite Abfrage im Sekundentakt. Ein
-      // Analyzer ohne Mithoerer soll den Punkt gar nicht erst sehen.
+      // Zwei Ja/Nein, und sie bedeuten Verschiedenes.
+      //
+      // `zigbee` heisst „eingeschaltet" — daran haengen die Menuepunkte.
+      // `zigbeeVerbunden` heisst „der Stick antwortet auch" — das ist die
+      // Anzeige in der Kopfzeile, das Gegenstueck zu `connected` beim
+      // BidCoS-Sniffer. Eingeschaltet und stumm ist genau der Fall, den man
+      // sehen will; eine einzige Angabe koennte ihn nicht ausdruecken.
       zigbee: this.#opts.zigbee !== undefined
         && this.#opts.zigbee.zustand()['aktiv'] === true,
+      zigbeeVerbunden: this.#opts.zigbee !== undefined
+        && this.#opts.zigbee.zustand()['verbunden'] === true,
       rolle: this.#opts.rolle?.() ?? 'master',
     };
   }

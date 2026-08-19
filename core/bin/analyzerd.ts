@@ -1147,6 +1147,10 @@ function statusDaten(): StatusDaten {
     deviceCount: s.devices.length,
     maxDutyCycle: maxDuty,
     dutyAlarme,
+    // Fuer die Funkstatus-Seite des Displays: eingeschaltet UND der Stick
+    // antwortet. Nur „eingeschaltet" waere dort irrefuehrend — ein Haken
+    // neben einem stummen Stick ist schlimmer als kein Haken.
+    zigbee: zigbeeKonfig.aktiv && (zigbeeLeser?.stats.verbunden ?? false),
     system: {
       cpuLast: loadavg()[0] ?? 0,
       tempC,

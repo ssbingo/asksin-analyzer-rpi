@@ -236,6 +236,102 @@ def lies_zustand(pfad: str) -> dict:
         return {}
 
 
+# Kennung der Funkstatus-Seite. Sie ist die einzige Seite, die nicht aus
+# Beschriftung und Wert besteht, sondern aus zwei Sinnbildern — deshalb wird
+# sie an ihrem Label erkannt und getrennt gezeichnet. Ein Label, das kein
+# Anwender je zu sehen bekommt, darf dafuer ruhig technisch aussehen.
+STATUS_SEITE = "\x00funkstatus"
+
+
+def zeichne_zigbee(d, x: int, y: int, groesse: int) -> None:
+    """
+    Das Zigbee-Zeichen: eine gefuellte Scheibe mit ausgespartem Z.
+
+    Nachempfunden dem Logo aus der Vorlage — dort eine rote Kugel mit weissem
+    Z. Auf einem einfarbigen Panel bleibt davon Flaeche und Aussparung: Die
+    Scheibe traegt, das Z steht als Loch darin. Umgekehrt (Z als Strich auf
+    leerem Grund) waere es bei dieser Groesse ein Gekritzel.
+    """
+    r = groesse // 2
+    cx, cy = x + r, y + r
+    d.ellipse((cx - r, cy - r, cx + r, cy + r), fill=255)
+
+    # Das Z als Aussparung. Die Balken sind bewusst dick: Ein Ein-Pixel-Loch
+    # in einer gefuellten Flaeche verschwindet auf dem Panel vollstaendig.
+    dick = max(2, groesse // 7)
+    rand = max(3, groesse // 4)
+    o = y + rand                      # Oberkante des Z
+    u = y + groesse - rand - dick     # Unterkante
+    li = x + rand
+    re = x + groesse - rand
+    d.rectangle((li, o, re, o + dick - 1), fill=0)
+    d.rectangle((li, u, re, u + dick - 1), fill=0)
+    # Die Schraege von rechts oben nach links unten.
+    d.line((re - dick // 2, o + dick, li + dick // 2, u - 1), fill=0,
+           width=dick)
+
+
+def zeichne_bidcos(d, x: int, y: int, groesse: int) -> None:
+    """
+    Das BidCoS-Zeichen: ein Sender, der nach beiden Seiten funkt.
+
+    Eigener Entwurf — fuer BidCoS gibt es kein Zeichen, das man verwenden
+    duerfte oder das jemand wiedererkennen wuerde. Gewaehlt ist das, was das
+    Netz ausmacht und es zugleich vom Zigbee-Zeichen abhebt: **beidseitige**
+    Bogen, denn BidCoS ist bidirektional — das steckt im Namen. Flaeche gegen
+    Linie, Scheibe gegen Bogen: Die beiden Zeichen sind auch aus zwei Metern
+    nicht zu verwechseln.
+
+    Der erste Entwurf hatte ausgestellte Mastbeine und sah dadurch aus wie ein
+    Strichmaennchen. Jetzt steht der Mast auf einem geraden Fuss, und die
+    Bogen sind so gross, dass sie die Bildbreite tragen.
+    """
+    cx = x + groesse // 2
+    fuss = y + groesse - 1
+    # Der Sendepunkt sitzt knapp oberhalb der Mitte. Im ersten Entwurf lag er
+    # im oberen Drittel — dann ragten die aeusseren Bogen ueber die Oberkante
+    # hinaus und wurden abgeschnitten. Ueber dem Punkt muss so viel Platz
+    # bleiben, wie der aeussere Bogen weit ist.
+    punkt = y + (groesse * 45) // 100
+    dick = max(1, groesse // 12)
+
+    # Mast und Fuss.
+    d.line((cx, punkt, cx, fuss), fill=255, width=max(2, dick + 1))
+    d.line((cx - groesse // 4, fuss, cx + groesse // 4, fuss),
+           fill=255, width=max(2, dick + 1))
+
+    # Zwei Bogenpaare nach links und rechts. Die Weiten sind Anteile der
+    # Zeichengroesse, damit das Zeichen auf 32er- und 64er-Panels gleich
+    # aussieht statt einmal verloren und einmal abgeschnitten.
+    for weite in (groesse // 4, (groesse * 2) // 5):
+        if weite < 3:
+            continue
+        kasten = (cx - weite, punkt - weite, cx + weite, punkt + weite)
+        d.arc(kasten, 195, 255, fill=255, width=max(2, dick + 1))   # links
+        d.arc(kasten, 285, 345, fill=255, width=max(2, dick + 1))   # rechts
+
+    # Der Sendepunkt selbst — voll, damit klar ist, wo die Bogen herkommen.
+    r = max(1, groesse // 12)
+    d.ellipse((cx - r, punkt - r, cx + r, punkt + r), fill=255)
+
+
+def zeichne_haken(d, x: int, y: int, groesse: int) -> None:
+    """Haken — „laeuft". Zwei Striche, dick genug fuer ein 128er-Panel."""
+    dick = max(2, groesse // 6)
+    d.line((x, y + groesse * 3 // 5, x + groesse * 2 // 5, y + groesse - 1),
+           fill=255, width=dick)
+    d.line((x + groesse * 2 // 5, y + groesse - 1, x + groesse - 1, y),
+           fill=255, width=dick)
+
+
+def zeichne_kreuz(d, x: int, y: int, groesse: int) -> None:
+    """Kreuz — „aus". Bewusst gleich gross wie der Haken, damit die beiden
+    Seiten der Anzeige optisch gleich schwer wiegen."""
+    dick = max(2, groesse // 6)
+    d.line((x, y, x + groesse - 1, y + groesse - 1), fill=255, width=dick)
+    d.line((x + groesse - 1, y, x, y + groesse - 1), fill=255, width=dick)
+
+
 def oled_fields(z: dict) -> list[tuple[str, str]]:
     """
     Geordnete (Label, Wert)-Paare — die großen Einzelseiten.
@@ -253,6 +349,9 @@ def oled_fields(z: dict) -> list[tuple[str, str]]:
         ("Standort", str(z.get("standort", "n/a"))),
         # --- Analyzer --------------------------------------------------------
         ("Sniffer", str(z.get("status", "n/a"))),
+        # Dritte Seite: Was hoert dieses Geraet ueberhaupt mit? Zwei Haelften,
+        # links BidCoS, rechts Zigbee — die Reihenfolge des Analyzers selbst.
+        (STATUS_SEITE, ""),
         ("Telegramme", f"{z.get('telegramsPerMinute', 0)}/min"),
         ("Rauschen", "n/a" if rauschen is None else f"{rauschen}dBm"),
         ("Geräte", str(z.get("deviceCount", 0))),
@@ -438,6 +537,10 @@ class OledAnzeige:
             return
 
         label, wert = felder[seite]
+        if label == STATUS_SEITE:
+            self._zeichne_funkstatus(z)
+            self._zeigen()
+            return
         # Beschriftung oben, Wert darunter — die Grenze wird **gemessen**,
         # nicht geraten. Vorher stand das Label auf y = -2 und der Wert fest
         # auf y = 20; je nach Schrifthöhe ragte eines ins andere.
@@ -451,6 +554,63 @@ class OledAnzeige:
         d.text((self._w // 2, oben + rest // 2), wert, font=gross,
                fill=255, anchor="mm")
         self._zeigen()
+
+    def _zeichne_funkstatus(self, z: dict) -> None:
+        """
+        Die Funkstatus-Seite: links BidCoS, rechts Zigbee, dazwischen ein
+        Trennstrich.
+
+        Warum Sinnbilder und kein „ja/nein": Diese Seite wird im Vorbeigehen
+        gelesen, oft aus zwei Metern und schraeg. Ein Haken und ein Kreuz sind
+        dabei in einem Blick zu erfassen; zwei kurze Woerter muss man lesen,
+        und „ja" und „nein" unterscheiden sich bei dieser Groesse kaum.
+        """
+        d = self._draw
+        mitte = self._w // 2
+
+        # Der Trennstrich. Auf einem 32er-Panel bleibt oben und unten je ein
+        # Pixel Luft, damit er nicht wie ein Rahmen wirkt.
+        d.line((mitte, 1, mitte, self._h - 2), fill=255)
+
+        # Groessen aus der Bauhoehe, nicht geraten: Ein PiOLED hat 32 Zeilen,
+        # ein 0,96-Zoll-Modul 64. Fest verdrahtete Werte sahen auf dem einen
+        # verloren und auf dem anderen abgeschnitten aus.
+        beschriftung = self._klein(max(8, min(14, self._h // 4)))
+        text_h = self._hoehe(beschriftung)
+        # Die Obergrenze richtet sich nach der halben Blattbreite: Sinnbild
+        # und Haken stehen nebeneinander und muessen zusammen hineinpassen.
+        # Beim ersten Entwurf stand hier eine feste 26 — auf dem 64er-Panel
+        # klebten die Zeichen dann oben und darunter gaehnte eine Luecke.
+        platz_h = self._h - text_h - 4
+        # -12: je Haelfte drei Pixel Luft nach aussen und zum Trennstrich.
+        # Mit weniger stiess der Haken der linken Haelfte an den Strich.
+        platz_b = (self._w // 2 - 12) // 2
+        sinnbild = max(12, min(platz_h, platz_b))
+        zeichen = sinnbild
+
+        for i, (name, an, zeichner) in enumerate((
+            ("BidCoS", bool(z.get("bidcos", False)), zeichne_bidcos),
+            ("Zigbee", bool(z.get("zigbee", False)), zeichne_zigbee),
+        )):
+            # Jede Haelfte fuer sich zentriert — nicht am Blattrand
+            # ausgerichtet, sonst stuende das rechte Paar am Trennstrich
+            # geklebt und das linke am Blattrand.
+            links = i * mitte
+            breite = mitte
+            luecke = max(3, sinnbild // 6)
+            paar = sinnbild + luecke + zeichen
+            x0 = links + max(0, (breite - paar) // 2)
+            # Senkrecht mittig im Raum ueber der Beschriftung, nicht am
+            # oberen Rand geklebt.
+            y0 = max(1, (self._h - text_h - 2 - sinnbild) // 2)
+
+            zeichner(d, x0, y0, sinnbild)
+            (zeichne_haken if an else zeichne_kreuz)(
+                d, x0 + sinnbild + luecke, y0 + (sinnbild - zeichen) // 2, zeichen)
+
+            d.text((links + breite // 2, self._h - 1),
+                   self._kuerzen(name, beschriftung, breite - 2),
+                   font=beschriftung, fill=255, anchor="mb")
 
     def _zeigen(self) -> None:
         self._disp.image(self._img)

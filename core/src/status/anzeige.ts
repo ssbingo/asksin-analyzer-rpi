@@ -542,6 +542,16 @@ export class StatusAnzeige {
       deviceCount: d.deviceCount,
       maxDutyCycle: d.maxDutyCycle,
       dutyAlarme: d.dutyAlarme,
+      // Die Funkstatus-Seite des Displays. Zwei Ja/Nein statt eines Textes:
+      // Sie wird im Vorbeigehen gelesen, oft aus zwei Metern und schräg, und
+      // zeigt deshalb Sinnbilder mit Haken oder Kreuz.
+      //
+      // `bidcos` ist dasselbe `connected` wie oben in `status` — im Demo-Modus
+      // hört der Analyzer trotzdem nichts Echtes, aber er hört: Die Seite
+      // beantwortet „läuft der Empfang", nicht „sind die Daten echt". Dafür
+      // steht das DEMO-Schild eine Seite davor.
+      bidcos: d.connected,
+      zigbee: d.zigbee === true,
       // Solange gesetzt, zeigt der Anzeigedienst nur diese Meldung.
       ...(this.#neustartMeldung ? { meldung: 'Neustart…' } : {}),
     };
