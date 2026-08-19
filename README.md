@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.4** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.4** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.5** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.5** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,17 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.0.5 — 19.08.2026
+
+**Grafana-Knopf in der Kopfzeile des Masters.**
+
+- Öffnet die Grafana-Oberfläche in einem neuen Tab. Nur auf dem Master, und
+  nur wenn Grafana dort installiert ist.
+- Das Zeichen ist **selbst gezeichnet**: Das Grafana-Logo ist eine Marke von
+  Grafana Labs und wird hier nicht mitverteilt. Wer es einsetzen möchte, legt
+  `webui/public/grafana-logo.svg` ab — es wird dann bevorzugt, ohne
+  Codeänderung.
 
 ### v1.0.4 — 19.08.2026
 

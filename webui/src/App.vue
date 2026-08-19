@@ -1,14 +1,23 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { holeHealth } from './api.ts';
+import { holeHealth, holeLangzeit } from './api.ts';
 import { rolle, zigbeeAktiv } from './zustand.ts';
 import Empfangsbalken from './components/Empfangsbalken.vue';
+import GrafanaKnopf from './components/GrafanaKnopf.vue';
 import type { Health } from './api.ts';
 import { nutzeTakt } from './takt.ts';
 
 const verbunden = ref(false);
 const zigbeeVerbunden = ref(false);
 const empfang = ref<Health['empfang'] | null>(null);
+/**
+ * Weg zur Grafana-Oberfläche — leer, solange es keinen gibt.
+ *
+ * Der Knopf steht nur da, wo Grafana auch läuft: auf dem Master, und nur
+ * wenn es dort installiert ist. Ein Knopf, der auf eine Seite führt, die es
+ * nicht gibt, ist schlechter als keiner.
+ */
+const grafanaUrl = ref('');
 
 /** Der Tooltip nennt die Zahlen, aus denen die Stufe entstanden ist. */
 function bidcosTitel(): string {
@@ -56,6 +65,24 @@ nutzeTakt(async () => {
     throw new Error('Core nicht erreichbar');
   }
 }, 5000);
+
+/**
+ * Eigener, sehr langsamer Takt: Ob Grafana installiert ist, ändert sich beim
+ * Einrichten und sonst nie. Diese Auskunft im Fünfsekundentakt zu holen wäre
+ * Verschwendung — sie liest Verzeichnisse und fragt die Datenbank nach den
+ * Standorten.
+ */
+nutzeTakt(async () => {
+  if (rolle.value !== 'master') { grafanaUrl.value = ''; return; }
+  try {
+    const l = await holeLangzeit();
+    grafanaUrl.value = l.installiert.grafana ? l.grafanaUrl : '';
+  } catch {
+    // Ältere Core-Fassung oder gerade nicht erreichbar — dann eben kein
+    // Knopf. Das ist kein Fehler, der jemanden zu interessieren hätte.
+    grafanaUrl.value = '';
+  }
+}, 60000);
 </script>
 
 <template>
@@ -114,6 +141,7 @@ nutzeTakt(async () => {
       />
       {{ zigbeeVerbunden ? 'Zigbee verbunden' : 'Zigbee getrennt' }}
     </span>
+    <GrafanaKnopf v-if="grafanaUrl !== ''" :url="grafanaUrl" />
     <RouterLink
       v-if="updateVerfuegbar"
       to="/info"
