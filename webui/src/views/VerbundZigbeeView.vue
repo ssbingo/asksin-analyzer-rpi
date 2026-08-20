@@ -88,7 +88,7 @@ const auffaellig = computed(() => matrix.value?.geraete.filter(
           <thead>
             <tr>
               <th>Gerät</th>
-              <th v-for="s in matrix.standorte" :key="s">{{ s }}</th>
+              <th class="num" v-for="s in matrix.standorte" :key="s">{{ s }}</th>
               <th>bester Standort</th>
             </tr>
           </thead>
@@ -101,7 +101,7 @@ const auffaellig = computed(() => matrix.value?.geraete.filter(
                       title="Noch kein Paket trug die IEEE-Adresse — diese Zeile lässt sich nicht standortübergreifend zusammenführen">
                   (nicht zusammenführbar)</span>
               </td>
-              <td v-for="s in matrix.standorte" :key="s">
+              <td class="num" v-for="s in matrix.standorte" :key="s">
                 <span v-if="matrix.nichtErreichbar.includes(s)" class="gedimmt"
                       title="Dieser Standort antwortet gerade nicht — unbekannt, nicht null">?</span>
                 <span v-else-if="matrix.ohneMithoerer.includes(s)" class="gedimmt"

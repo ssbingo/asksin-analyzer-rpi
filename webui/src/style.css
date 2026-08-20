@@ -192,7 +192,17 @@ table.daten td {
   white-space: nowrap;
 }
 table.daten tr:hover td { background: var(--panel2); }
-td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+/* Zahlenspalten: Wert UND Kopf rechtsbündig.
+   `table.daten th` weiter oben setzt text-align:left und wiegt schwerer als
+   ein blosses `th.num` — ein Klassenname plus ZWEI Elemente schlaegt einen
+   Klassennamen plus eines. Die Werte standen dadurch rechtsbuendig, die
+   Ueberschriften darueber linksbuendig, und die Spalten sahen versetzt aus.
+   Deshalb steht der Tabellenname hier ausdruecklich mit davor. */
+td.num,
+table.daten th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
 
 .gut { color: var(--gut); }
 .mittel { color: var(--warn); }

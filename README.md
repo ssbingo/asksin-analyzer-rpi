@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.9** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.9** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.10** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.10** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,11 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.0.10 — 20.08.2026
+
+* (ssbingo) Zahlenspalten: Überschrift und Werte stehen wieder untereinander. `table.daten th` (Klasse + zwei Elemente) wog schwerer als `th.num` (Klasse + ein Element) — die Werte standen rechtsbündig, die Überschriften darüber linksbündig. Betraf Telegrammliste, Übersicht und die Verbund-Matrix.
+* (ssbingo) Die Zigbee-Matrix richtet ihre Zahlen jetzt wie die BidCoS-Matrix aus.
 
 ### v1.0.9 — 20.08.2026
 
