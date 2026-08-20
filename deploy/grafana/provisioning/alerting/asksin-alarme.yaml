@@ -14,11 +14,20 @@
 # vorzubelegen hiesse, Zugangsdaten ins Repo zu schreiben.
 #
 # Zu "DatasourceError": Scheitert die ABFRAGE selbst (Datenbank weg, Token
-# falsch, Bucket leer), meldet Grafana das als eigenen Alarm mit der Kennung
-# DatasourceError — mit den Annotationen der Regel, aber ohne Daten. Jeder
-# Platzhalter faellt dann auf "[no value]" zurueck. Deshalb beginnt jede
-# summary hier mit KLARTEXT und ergaenzt Einzelheiten nur, wenn es sie gibt.
-# So sagt selbst eine gescheiterte Abfrage noch, welche Regel betroffen ist.
+# falsch, kein auswertbares Ergebnis), meldet Grafana das als eigenen Alarm mit
+# der Kennung DatasourceError — mit den Annotationen der Regel, aber OHNE
+# Daten. Es gibt dann keinen Standort, kein Geraet, keine Zahl.
+#
+# Genau das hat am 19./20.08.2026 zu einer Meldung gefuehrt, aus der niemand
+# ablesen konnte, WELCHER der drei Analyzer betroffen ist. Die richtige
+# Antwort war: keiner. Deshalb sagt jede summary das jetzt ausdruecklich,
+# sobald das Etikett `rulename` gesetzt ist — Grafana setzt es nur bei genau
+# diesen Fehlalarmen. Ein Text, der offenlaesst, ob eine Anlage ausgefallen
+# ist oder eine Abfrage, ist schlimmer als gar keiner.
+#
+# Wiederholt wird eine stehende Meldung uebrigens alle 12 Stunden
+# (repeat_interval der Benachrichtigungsregel) — zwei Meldungen im Abstand von
+# genau zwoelf Stunden sind deshalb EIN Zustand und nicht zwei Ereignisse.
 #
 # Jede Regel folgt demselben Aufbau:
 #
@@ -55,7 +64,7 @@ groups:
           # faellt jeder Platzhalter auf "[no value]" zurueck und die Meldung
           # sagt gar nichts mehr. Der Standort kommt nur dazu, wenn es ihn gibt.
           summary: >-
-            Analyzer offline{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}
+            {{ if $labels.rulename }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ else }}Analyzer offline{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}{{ end }}
           description: >-
             Der Analyzer am Standort {{ $labels.standort }} meldet seit über
             zehn Minuten keine gültige Verbindung zum Funkmodul. Prüfen:
@@ -110,7 +119,7 @@ groups:
         execErrState: KeepLast
         annotations:
           summary: >-
-            Duty-Cycle über 80 %{{ if $labels.name }} — {{ $labels.name }}{{ end }}
+            {{ if $labels.rulename }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ else }}Duty-Cycle über 80 %{{ if $labels.name }} — {{ $labels.name }}{{ end }}{{ end }}
           description: >-
             Das Gerät {{ $labels.name }} liegt seit einer Viertelstunde über
             80 % Sendezeit. Ein einziges defektes Gerät kann das ganze
@@ -162,7 +171,7 @@ groups:
         execErrState: KeepLast
         annotations:
           summary: >-
-            Gerät seit über 24 Stunden stumm{{ if $labels.name }} — {{ $labels.name }}{{ end }}
+            {{ if $labels.rulename }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ else }}Gerät seit über 24 Stunden stumm{{ if $labels.name }} — {{ $labels.name }}{{ end }}{{ end }}
           description: >-
             Von {{ $labels.name }} kam seit mehr als einem Tag kein Telegramm
             mehr — an keinem Standort. Bei batteriebetriebenen Homematic-Geräten
@@ -212,7 +221,7 @@ groups:
         execErrState: KeepLast
         annotations:
           summary: >-
-            Grundrauschen erhöht{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}
+            {{ if $labels.rulename }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ else }}Grundrauschen erhöht{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}{{ end }}
           description: >-
             Am Standort {{ $labels.standort }} liegt das Grundrauschen seit
             einer halben Stunde über −80 dBm. In dieser Höhe gehen schwache
@@ -233,6 +242,15 @@ groups:
                   |> filter(fn: (r) => r._field == "grundrauschen")
                   |> group(columns: ["standort"])
                   |> mean()
+                  # mean() ist eine ECHTE Zusammenfassung und laesst die
+                  # Zeitspalte fallen — anders als last(), max() und min(),
+                  # die eine Zeile AUSWAEHLEN und ihren Zeitstempel behalten.
+                  # Ohne _time haelt Grafana das Ergebnis fuer keine Zeitreihe,
+                  # verwirft es ("Ignoring InfluxDB data frame due to missing
+                  # numeric fields") und die Regel geht in DatasourceError.
+                  # Am 20.08.2026 am laufenden Geraet nachgewiesen: alle fuenf
+                  # Minuten drei verworfene Reihen, eine je Standort.
+                  |> duplicate(column: "_stop", as: "_time")
           - refId: B
             datasourceUid: __expr__
             model: { refId: B, type: reduce, expression: A, reducer: last }

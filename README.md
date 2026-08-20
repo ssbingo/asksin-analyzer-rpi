@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.6** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.6** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.7** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.7** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,19 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.0.7 — 20.08.2026
+
+**Der Alarm „DatasourceError" hörte auf, und er sagt jetzt, was er meint.**
+
+- Ursache: In der Regel *Grundrauschen dauerhaft erhöht* wirft `mean()` die
+  Zeitspalte weg — anders als `last()`, `max()` und `min()`, die eine Zeile
+  auswählen und deren Zeitstempel behalten. Ohne `_time` hält Grafana das
+  Ergebnis für keine Zeitreihe, verwirft es und meldet DatasourceError.
+  Behoben mit `duplicate(column: "_stop", as: "_time")`.
+- Eine gescheiterte Abfrage schreibt jetzt ausdrücklich, dass **kein Analyzer
+  ausgefallen** ist — vorher stand dort derselbe Text wie bei einem echten
+  Ausfall, ohne Standort, und niemand konnte die beiden unterscheiden.
 
 ### v1.0.6 — 19.08.2026
 
