@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.8** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.8** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.9** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.9** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,20 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.0.9 — 20.08.2026
+
+**Getrennte InfluxDB-Tokens: Grafana liest, die Analyzer schreiben.**
+
+- Bisher bediente **ein** Allzweck-Token mit vollen Rechten drei Analyzer und
+  Grafana. Zusammen mit dem Protokollier-Fehler aus 1.0.8 lag damit ein Token,
+  der alles darf, tausendfach lesbar im Journal.
+- Neue Installationen erzeugen jetzt zwei eng geschnittene Tokens: einen
+  **Lese**-Token für Grafana und einen **Schreib**-Token für die Analyzer,
+  beide nur auf den Bucket `asksin`. Der Allzweck-Token bleibt der Verwaltung
+  vorbehalten.
+- Klappt das Erzeugen nicht, wird gewarnt und wie bisher verfahren — eine
+  Einrichtung soll daran nicht scheitern.
 
 ### v1.0.8 — 20.08.2026
 

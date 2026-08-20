@@ -198,7 +198,43 @@ Organisation: $ORG
 Bucket     : $BUCKET
 Token      : $token
 Aufbewahrung: $AUFBEWAHRUNG
+
+# Der Token oben ist der ALLZWECK-Token aus der Ersteinrichtung. Er kann
+# alles und wird deshalb nur noch fuer die Verwaltung gebraucht — nicht im
+# Betrieb. Analyzer und Grafana bekommen eigene, eng geschnittene Tokens
+# (siehe unten), und die stehen absichtlich nicht hier: Sie liegen dort, wo
+# sie gebraucht werden, und nirgends sonst.
 EOF
+}
+
+# Zwei eng geschnittene Tokens statt eines, der alles darf.
+#
+# Anlass, 20.08.2026: Ein einziger Allzweck-Token bediente drei Analyzer UND
+# Grafana. Das Grafana-Plugin protokolliert ihn bei jeder Abfrage ins Journal
+# (siehe deploy/grafana/systemd/asksin-kein-token-im-log.conf) — damit lag ein
+# Token mit vollen Rechten tausendfach lesbar herum.
+#
+# Getrennt ist der Schaden begrenzt: Grafana LIEST nur, die Analyzer SCHREIBEN
+# nur. Keiner der beiden kann Daten loeschen oder Buckets anlegen.
+#
+# Ausgabe: der erzeugte Token, oder leer bei Fehlschlag.
+erzeuge_token() {  # erzeuge_token <beschreibung> <read|write>
+    local besch="$1" aktion="$2" op org_id bucket_id
+    op="$(influx_token)"
+    org_id="$(curl -s "http://127.0.0.1:8086/api/v2/orgs?org=$ORG" \
+        -H "Authorization: Token $op" \
+        | sed -nE 's/.*"orgs":\[\{"links".*?"id":"([0-9a-f]+)".*/\1/p' | head -1)"
+    [ -n "$org_id" ] || org_id="$(curl -s "http://127.0.0.1:8086/api/v2/orgs?org=$ORG" \
+        -H "Authorization: Token $op" | python3 -c \
+        'import sys,json;print(json.load(sys.stdin)["orgs"][0]["id"])' 2>/dev/null)"
+    bucket_id="$(curl -s "http://127.0.0.1:8086/api/v2/buckets?name=$BUCKET" \
+        -H "Authorization: Token $op" | python3 -c \
+        'import sys,json;print(json.load(sys.stdin)["buckets"][0]["id"])' 2>/dev/null)"
+    [ -n "$org_id" ] && [ -n "$bucket_id" ] || return 1
+    curl -s -XPOST "http://127.0.0.1:8086/api/v2/authorizations" \
+        -H "Authorization: Token $op" -H "Content-Type: application/json" \
+        -d "{\"orgID\":\"$org_id\",\"description\":\"$besch\",\"permissions\":[{\"action\":\"$aktion\",\"resource\":{\"type\":\"buckets\",\"id\":\"$bucket_id\",\"orgID\":\"$org_id\"}}]}" \
+        | python3 -c 'import sys,json;print(json.load(sys.stdin).get("token",""))' 2>/dev/null
 }
 
 influx_token() {
@@ -213,8 +249,16 @@ richte_grafana_ein() {
             || scheitern "Grafana liess sich nicht installieren."
     fi
 
+    # Grafana bekommt einen Token, der NUR LESEN darf. Es fragt ab, es
+    # schreibt nie — und was es nicht kann, kann auch niemand missbrauchen,
+    # der den Token aus einem Protokoll fischt.
     local token
-    token="$(influx_token)"
+    token="$(erzeuge_token 'AskSin: Grafana (nur lesen)' read)"
+    if [ -z "$token" ]; then
+        c_warn "Lese-Token liess sich nicht erzeugen — nehme den Allzweck-Token."
+        c_warn "Bitte spaeter unter InfluxDB > API Tokens nachholen."
+        token="$(influx_token)"
+    fi
     [ -n "$token" ] || scheitern "Kein InfluxDB-Token gefunden — $ZUGANG unvollständig?"
 
     # Datenquelle aus der Vorlage: Der Token darf nicht im Repo stehen.
@@ -262,7 +306,13 @@ richte_grafana_ein() {
 
 schalte_analyzer_um() {
     local konf="$DATEN_DIR/influx.json" token
-    token="$(influx_token)"
+    # Der Analyzer SCHREIBT nur. Ein Token, der auch lesen und loeschen darf,
+    # ist dafuer zu viel — und er liegt auf jedem Client des Verbunds.
+    token="$(erzeuge_token 'AskSin: Analyzer (nur schreiben)' write)"
+    if [ -z "$token" ]; then
+        c_warn "Schreib-Token liess sich nicht erzeugen — nehme den Allzweck-Token."
+        token="$(influx_token)"
+    fi
 
     # Eine bestehende EXTERNE Anbindung wird nicht angetastet. Sie war
     # ausdruecklich gewuenscht, und sie hier stillschweigend zu ersetzen
