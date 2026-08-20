@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.7** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.7** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.8** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.8** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,22 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.0.8 — 20.08.2026
+
+**Der InfluxDB-Token steht nicht mehr im Systemjournal.**
+
+- Das InfluxDB-Plugin von Grafana protokolliert bei jeder Abfrage die
+  entschlüsselten Datenquellen-Einstellungen. Auf Analyzer 01 gemessen:
+  **2393 Kopien des Tokens in 48 Stunden**, das Journal reichte zehn Tage
+  zurück.
+- Grafanas `[log] level` und `[log] filters` helfen nicht — die Zeilen gehen
+  an Grafanas Protokoll vorbei. Beides ausprobiert und gemessen.
+- Behoben mit `LogFilterPatterns` in einem systemd-Drop-in: von sechs
+  Vorkommen je fünf Minuten auf **null**, während Grafanas eigene Zeilen und
+  die Alarmauswertung unverändert weiterlaufen.
+- **Wer das nachträglich einspielt, sollte den Token neu erzeugen** — was
+  schon im Journal steht, holt der Filter nicht zurück.
 
 ### v1.0.7 — 20.08.2026
 

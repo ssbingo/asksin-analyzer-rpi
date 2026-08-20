@@ -238,6 +238,13 @@ richte_grafana_ein() {
     install -m 0644 "$INSTALL_DIR"/deploy/grafana/dashboards/*.json "$GRAFANA_DASHBOARDS/"
     chown -R grafana:grafana "$GRAFANA_DASHBOARDS" 2>/dev/null || true
 
+    # Bevor Grafana zum ersten Mal startet: Das InfluxDB-Plugin schriebe
+    # sonst ab der ersten Abfrage den entschluesselten Token ins Journal.
+    install -d -m 0755 /etc/systemd/system/grafana-server.service.d
+    install -m 0644 "$INSTALL_DIR/deploy/grafana/systemd/asksin-kein-token-im-log.conf" \
+        /etc/systemd/system/grafana-server.service.d/asksin-kein-token-im-log.conf
+    systemctl daemon-reload >/dev/null 2>&1 || true
+
     systemctl enable grafana-server >/dev/null 2>&1 || true
     # Neustart statt Start: Bei einer Wiederholung muessen die geaenderten
     # Provisionierungsdateien neu eingelesen werden.

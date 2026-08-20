@@ -197,6 +197,11 @@ installiere_dateien() {
         install -m 0644 "$INSTALL_DIR"/deploy/grafana/dashboards/*.json \
             /var/lib/grafana/dashboards/asksin/
         chown -R grafana:grafana /var/lib/grafana/dashboards/asksin 2>/dev/null || true
+        # Haelt den InfluxDB-Token aus dem Journal — Begruendung in der Datei.
+        install -d -m 0755 /etc/systemd/system/grafana-server.service.d
+        install -m 0644 "$INSTALL_DIR/deploy/grafana/systemd/asksin-kein-token-im-log.conf" \
+            /etc/systemd/system/grafana-server.service.d/asksin-kein-token-im-log.conf
+        systemctl daemon-reload 2>/dev/null || true
         systemctl restart grafana-server 2>/dev/null || true
         echo "  ok Grafana-Vorlagen und Alarmregeln aktualisiert."
     fi
