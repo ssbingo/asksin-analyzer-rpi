@@ -83,41 +83,48 @@ const auffaellig = computed(() => matrix.value?.geraete.filter(
         auf <em>—</em>.
       </div>
 
-      <div class="tabelle-scroll">
-        <table>
+      <!-- Aufbau wie die BidCoS-Matrix: dieselbe Tabellenklasse, dieselbe
+           Spaltenfolge, derselbe Stern. Zwei Matrizen, die dasselbe zeigen,
+           sollen auch gleich aussehen — sonst muss man sich in jeder neu
+           zurechtfinden. Die eigene Spalte „bester Standort" ist deshalb
+           entfallen: Der Stern sagt es am Wert selbst und spart eine Spalte,
+           die bei drei Standorten schon breiter war als die Werte. -->
+      <div class="scrollbar" style="margin-top: 0.8rem">
+        <table class="daten">
           <thead>
             <tr>
-              <th>Gerät</th>
+              <th>Gerät</th><th>Adresse</th>
               <th class="num" v-for="s in matrix.standorte" :key="s">{{ s }}</th>
-              <th>bester Standort</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="g in matrix.geraete" :key="g.ieee ?? `${g.pan}-${g.addr}`">
               <td>
                 {{ g.name || '—' }}
-                <span class="gedimmt" v-if="g.addr">0x{{ g.addr }}</span>
                 <span class="gedimmt" v-if="!g.ieee"
                       title="Noch kein Paket trug die IEEE-Adresse — diese Zeile lässt sich nicht standortübergreifend zusammenführen">
                   (nicht zusammenführbar)</span>
               </td>
+              <td class="gedimmt">{{ g.addr ? `0x${g.addr}` : '—' }}</td>
               <td class="num" v-for="s in matrix.standorte" :key="s">
                 <span v-if="matrix.nichtErreichbar.includes(s)" class="gedimmt"
                       title="Dieser Standort antwortet gerade nicht — unbekannt, nicht null">?</span>
                 <span v-else-if="matrix.ohneMithoerer.includes(s)" class="gedimmt"
                       title="Dieser Standort hört Zigbee nicht mit">kein Stick</span>
-                <span v-else-if="g.empfang[s]" :class="rssiKlasse(g.empfang[s]!.rssi)">
-                  {{ dbm(g.empfang[s]!.rssi) }}
-                </span>
+                <template v-else-if="g.empfang[s]">
+                  <span :class="rssiKlasse(g.empfang[s]!.rssi)">{{ dbm(g.empfang[s]!.rssi) }}</span><span
+                    v-if="g.beste === s" title="bester Empfang"> ★</span>
+                </template>
                 <span v-else class="gedimmt">—</span>
-              </td>
-              <td>
-                <strong v-if="g.beste">{{ g.beste }}</strong>
-                <span v-else class="fehler">niemand</span>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+      <div class="fussnote">
+        ★ = bester Empfang. „—" heißt: an diesem Standort im Zeitraum nicht
+        gehört. Eine Zeile ganz ohne Stern wurde <strong>nirgends</strong>
+        gehört — das ist der Befund, für den der Verbund gebaut ist.
       </div>
     </div>
 

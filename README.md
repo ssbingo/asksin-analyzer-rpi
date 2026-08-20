@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.1.0** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.1.0** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.1.1** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.1.1** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,12 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.1.1 — 20.08.2026
+
+* (ssbingo) Die Zigbee-Matrix im Verbund sieht jetzt aus wie die BidCoS-Matrix: Ihre Tabelle stand ohne `class="daten"` da und hatte deshalb weder Zellabstände noch Trennlinien noch waagerechten Rollbalken — die Spaltenköpfe klebten aneinander.
+* (ssbingo) Die eigene Spalte „bester Standort" ist entfallen; der beste Empfang wird wie bei BidCoS mit **★** am Wert markiert. Bei drei Standorten war die Spalte breiter als die Werte, die sie erklärte.
+* (ssbingo) Eigene Spalte für die Kurzadresse, wie bei BidCoS.
 
 ### v1.1.0 — 20.08.2026
 
