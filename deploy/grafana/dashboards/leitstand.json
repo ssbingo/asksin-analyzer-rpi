@@ -10,7 +10,7 @@
   "editable": true,
   "schemaVersion": 39,
   "version": 1,
-  "refresh": "30s",
+  "refresh": "1m",
   "time": {
     "from": "now-6h",
     "to": "now"
@@ -389,7 +389,8 @@
           "mode": "multi",
           "sort": "desc"
         }
-      }
+      },
+      "maxDataPoints": 300
     },
     {
       "type": "timeseries",
@@ -436,7 +437,8 @@
           "mode": "multi",
           "sort": "desc"
         }
-      }
+      },
+      "maxDataPoints": 300
     },
     {
       "type": "timeseries",
@@ -483,7 +485,8 @@
           "mode": "multi",
           "sort": "desc"
         }
-      }
+      },
+      "maxDataPoints": 300
     },
     {
       "type": "timeseries",
@@ -530,7 +533,8 @@
           "mode": "multi",
           "sort": "desc"
         }
-      }
+      },
+      "maxDataPoints": 300
     }
   ]
 }

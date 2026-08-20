@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.10** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.10** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.11** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.11** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,26 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.0.11 — 20.08.2026
+
+**Ein Grafana-Dashboard konnte den Master lahmlegen.**
+
+Reproduzierbar durch Aufrufen von *Funkqualität*: Ping ging, alle Ports waren
+offen, aber kein Prozess antwortete mehr; die Last stieg binnen sieben Minuten
+von 0,1 auf 16,3.
+
+- Gemessen: **eine** der Abfragen lieferte **447 352 Zeilen** (rund 200 Reihen
+  × 1440 Minutenfenster über 24 h), eine einzige `stddev`-Abfrage trieb die
+  Last allein auf 10 — und das Dashboard führte **alle 30 Sekunden drei
+  davon** aus. Die Abfrage brauchte länger als der Takt, in dem sie wiederholt
+  wurde; InfluxDB protokollierte reihenweise `context canceled`.
+- Behoben: Aktualisierungstakt passend zum Zeitbereich (24 h → 5 min statt
+  30 s) und `maxDataPoints` auf allen Zeitreihen-Panels. Neun Vorlagen
+  betroffen, nicht nur die eine.
+- Neue maschinelle Prüfung `tools/pruefe-dashboard-last.py`: Sie schlägt an,
+  wenn ein Dashboard schneller taktet, als seine Abfrage fertig wird, oder ein
+  Zeitreihen-Panel keine Obergrenze hat.
 
 ### v1.0.10 — 20.08.2026
 

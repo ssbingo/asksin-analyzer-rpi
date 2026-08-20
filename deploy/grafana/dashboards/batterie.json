@@ -10,7 +10,7 @@
   "editable": true,
   "schemaVersion": 39,
   "version": 1,
-  "refresh": "5m",
+  "refresh": "15m",
   "time": {
     "from": "now-7d",
     "to": "now"
@@ -343,7 +343,8 @@
           "mode": "multi",
           "sort": "desc"
         }
-      }
+      },
+      "maxDataPoints": 300
     }
   ]
 }

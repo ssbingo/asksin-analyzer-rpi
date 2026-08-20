@@ -67,6 +67,9 @@ lauf "Empfang: Liste und Diagramm bewerten gleich" \
 lauf "Grafana-Vorlagen: jede Ansicht ist im Handbuch erklärt" \
     python3 tools/pruefe-dashboards.py
 
+lauf "Grafana-Vorlagen: kein Dashboard ueberfaehrt die Datenbank" \
+    python3 tools/pruefe-dashboard-last.py
+
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 
