@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.0.11</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.1.0</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.0.11 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.1.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2953,24 +2953,24 @@ der fertige Verweis; ein Klick genügt.</p>
 </ol>
 
 <figure>
-  <img src="img/grafana/uebersicht.svg" alt="Der Ordner AskSin-Analyzer mit zehn Ansichten">
-  <figcaption>So sieht der Ordner aus. Die zehn Ansichten sind bereits
+  <img src="img/grafana/uebersicht.svg" alt="Der Ordner AskSin-Analyzer mit elf Ansichten">
+  <figcaption>So sieht der Ordner aus. Die elf Ansichten sind bereits
   eingerichtet — es muss nichts konfiguriert, verbunden oder importiert
   werden.</figcaption>
 </figure>
 
 <p><strong>Warum dort schon etwas steht:</strong> Normalerweise beginnt man in
 Grafana mit einer leeren Seite und baut jede Kurve selbst. Genau daran
-scheitern die meisten. Deshalb bringt der Analyzer die zehn Ansichten fertig
+scheitern die meisten. Deshalb bringt der Analyzer die elf Ansichten fertig
 mit, samt Verbindung zur Datenbank.</p>
 
-<p class="klein">Diese zehn Ansichten werden bei jedem Grafana-Start neu
+<p class="klein">Diese elf Ansichten werden bei jedem Grafana-Start neu
 eingelesen. Ändert man eine im Browser und speichert, ist die Änderung beim
 nächsten Neustart wieder weg — sonst liessen sie sich nicht mit dem Projekt
 aktualisieren. Für Eigenes legt man ein neues Dashboard
 <strong>ausserhalb</strong> dieses Ordners an; das bleibt unangetastet.</p>
 
-<h2 id="k19-8">19.8 Die zehn Ansichten im Einzelnen</h2>
+<h2 id="k19-8">19.8 Die elf Ansichten im Einzelnen</h2>
 
 <p>Jede Ansicht beantwortet eine bestimmte Frage. Wer weiß, welche Frage er
 hat, findet damit sofort die richtige Seite. Die Zahlen in den Bildern
@@ -3000,12 +3000,25 @@ Bildschirmabzug. So bleiben sie lesbar, auch wenn Grafana sein Aussehen
 <tr><td>8</td><td>Die Zahl der bekannten Geräte über die Zeit. Fällt sie, ist etwas verstummt.</td></tr>
 </table>
 
-<h3 id="funkqualita-t-wer-wird-wie-gut-geho-rt">Funkqualität — wer wird wie gut gehört?</h3>
+<h3 id="funkqualita-t-wer-wird-wie-gut-geho-rt">Funkqualität (Auswahl) — wer wird wie gut gehört?</h3>
 
 <figure>
-  <img src="img/grafana/funkqualitaet.svg" alt="Ansicht Funkqualität">
+  <img src="img/grafana/funkqualitaet.svg" alt="Ansicht Funkqualität (Auswahl)">
   <figcaption>Die Seite, nach der man entscheidet, wo ein Repeater hin muss.</figcaption>
 </figure>
+
+<div class="hinweis">
+<p><strong>Feld 1 ist neu und der eigentliche Kniff.</strong> Bis August 2026
+zeichnete diese Ansicht <em>alle</em> Geräte übereinander — bei drei Standorten
+und rund 65 Geräten je Standort sind das zweihundert Linien. Das ist kein
+Diagramm mehr, sondern eine Fläche, und es hat den Master zweimal lahmgelegt
+(Kapitel 19.9).</p>
+<p style="margin-bottom:0">Jetzt steht oben ein Auswahlfeld, und die
+<strong>Vorgabe sind die schwächsten Geräte</strong> — voreingestellt zwanzig,
+umstellbar auf zehn oder fünfzig. Wer ein bestimmtes Gerät sucht, wählt es dort
+aus oder benutzt die Ansicht <em>Gerätedetail</em>. Wer den Überblick über das
+ganze Haus will, nimmt <em>Funkqualität je Standort</em>.</p>
+</div>
 
 <p>Der Empfangspegel heißt <strong>RSSI</strong> und wird in <strong>dBm</strong>
 angegeben — als negative Zahl. Das verwirrt anfangs: <em>−58 ist besser als
@@ -3018,10 +3031,35 @@ angegeben — als negative Zahl. Das verwirrt anfangs: <em>−58 ist besser als
 <tr><td>unter −95 dBm</td><td>grenzwertig — einzelne Telegramme gehen verloren</td></tr>
 </table>
 
-<p>Feld 1 zeigt alle Geräte übereinander mit der Linie bei −95 dBm. Feld 2
-listet die schwächsten zuerst, farbig hinterlegt — <strong>das ist die
-Arbeitsliste</strong>. Feld 3 zeigt, wie stark der Pegel schwankt; große Werte
+<p>Feld 2 zeigt die ausgewählten Geräte übereinander mit der Linie bei −95 dBm.
+Feld 3 listet die schwächsten zuerst, farbig hinterlegt — <strong>das ist die
+Arbeitsliste</strong>. Feld 4 zeigt, wie stark der Pegel schwankt; große Werte
 deuten auf Reflexionen oder ein Gerät hin, das bewegt wird.</p>
+
+<h3 id="funkqualita-t-je-standort">Funkqualität je Standort — wo im Haus ist der Empfang gut?</h3>
+
+<figure>
+  <img src="img/grafana/funkqualitaet-standorte.svg" alt="Ansicht Funkqualität je Standort">
+  <figcaption>Dieselben Messwerte, aber je Standort verdichtet: drei Linien
+  statt zweihundert.</figcaption>
+</figure>
+
+<p>Diese Ansicht beantwortet die Frage, die man <em>zuerst</em> stellt — nicht
+„wie geht es Gerät 47", sondern <strong>„wo im Haus ist der Empfang gut und wo
+nicht"</strong>. Je Standort eine Linie, gebildet über alle Geräte, die dieser
+Standort hört.</p>
+
+<table>
+<tr><th style="width:34%">Feld</th><th>zeigt</th></tr>
+<tr><td>1 Mittlere Empfangsstärke</td><td>der Durchschnitt über alle Geräte des Standorts. Bewegt sich die Linie, hat sich am <em>Standort</em> etwas geändert — nicht an einem einzelnen Gerät.</td></tr>
+<tr><td>2 Schwächster Empfang</td><td>das jeweils schlechteste Gerät im Zeitfenster. Diese Linie reagiert <strong>früher</strong> als der Mittelwert: Ein Gerät rutscht ab, lange bevor sich der Durchschnitt bewegt.</td></tr>
+<tr><td>3 Schwankung</td><td>wie unterschiedlich gut die Geräte eines Standorts gehört werden. Hohe Werte heißen meist: Entfernung oder eine Wand.</td></tr>
+</table>
+
+<p class="klein">Warum getrennt und nicht in einem Bild: Ein Diagramm
+beantwortet genau eine Frage gut. „Welches Gerät?" und „welcher Ort?" sind
+verschiedene Fragen, und der Versuch, beide zugleich zu beantworten, hat weder
+das eine noch das andere geliefert — nur zweihundert Linien.</p>
 
 <h3 id="duty-cycle-wa-chter-wer-sendet-zu-viel">Duty-Cycle-Wächter — wer sendet zu viel?</h3>
 
@@ -3923,7 +3961,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.0.11 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.1.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

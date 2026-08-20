@@ -1,0 +1,201 @@
+{
+  "uid": "asksin-funkqualitaet-standorte",
+  "title": "AskSin — Funkqualität je Standort",
+  "description": "Dieselben Messwerte wie „Funkqualität (Auswahl)“, aber je STANDORT verdichtet statt je Gerät. Beantwortet die Frage, die man zuerst stellt: Wo im Haus ist der Empfang gut und wo nicht. Die Sicht auf einzelne Geräte steht in „Gerätedetail“ und in „Funkqualität (Auswahl)“.",
+  "tags": [
+    "asksin"
+  ],
+  "timezone": "browser",
+  "editable": true,
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "templating": {
+    "list": [
+      {
+        "name": "bucket",
+        "type": "constant",
+        "query": "asksin",
+        "current": {
+          "text": "asksin",
+          "value": "asksin"
+        },
+        "hide": 2
+      },
+      {
+        "name": "standort",
+        "label": "Standort",
+        "type": "query",
+        "datasource": {
+          "type": "influxdb",
+          "uid": "asksin-influx"
+        },
+        "multi": true,
+        "includeAll": true,
+        "refresh": 1,
+        "query": {
+          "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"asksin\", tag: \"standort\")"
+        },
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ],
+          "selected": true
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Mittlere Empfangsstärke je Standort",
+      "description": "Der Mittelwert über alle Geräte, die dieser Standort hört. Steigt oder fällt die Linie, hat sich am Standort etwas geändert — nicht an einem einzelnen Gerät.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 9
+      },
+      "maxDataPoints": 300,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dBm",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "asksin-influx"
+          },
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"rssi\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> group(columns: [\"standort\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Schwächster Empfang je Standort",
+      "description": "Das jeweils schlechteste Gerät im Zeitfenster. Diese Linie reagiert früher als der Mittelwert: Ein einzelnes Gerät rutscht ab, lange bevor sich der Durchschnitt bewegt.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "maxDataPoints": 300,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dBm",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "asksin-influx"
+          },
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"rssi\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: min, createEmpty: false)\n  |> group(columns: [\"standort\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: min, createEmpty: false)\n"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Schwankung je Standort",
+      "description": "Streuung der Empfangswerte ZWISCHEN den Geräten eines Standorts: erst wird jedes Gerät im Zeitfenster gemittelt, dann die Streuung darüber gebildet. Hohe Werte heißen, dass die Geräte sehr unterschiedlich gut gehört werden — meist eine Frage der Entfernung oder einer Wand.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "asksin-influx"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 9,
+        "w": 12,
+        "h": 8
+      },
+      "maxDataPoints": 300,
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dB",
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 8
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "asksin-influx"
+          },
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"geraet\")\n  |> filter(fn: (r) => r._field == \"rssi\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> group(columns: [\"standort\"])\n  |> aggregateWindow(every: v.windowPeriod, fn: stddev, createEmpty: false)\n"
+        }
+      ]
+    }
+  ]
+}

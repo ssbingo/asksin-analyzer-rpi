@@ -127,7 +127,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"telegrammeProMinute\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group(columns: [\"standort\"])\n  |> last()\n  |> group()\n  |> sum()"
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"telegrammeProMinute\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> group(columns: [\"standort\"])\n  |> last()\n  |> group()\n  |> sum()"
         }
       ],
       "fieldConfig": {
@@ -178,7 +178,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"geraete\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group(columns: [\"standort\"])\n  |> last()\n  |> group()\n  |> max()"
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"geraete\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> group(columns: [\"standort\"])\n  |> last()\n  |> group()\n  |> max()"
         }
       ],
       "fieldConfig": {
@@ -229,7 +229,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"maxDutyCycle\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> group()\n  |> last()"
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"maxDutyCycle\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> group()\n  |> last()"
         }
       ],
       "fieldConfig": {
@@ -288,7 +288,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"connected\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"connected\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
         }
       ],
       "fieldConfig": {
@@ -361,7 +361,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"telegrammeProMinute\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"telegrammeProMinute\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
         }
       ],
       "fieldConfig": {
@@ -409,7 +409,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"grundrauschen\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"grundrauschen\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
         }
       ],
       "fieldConfig": {
@@ -457,7 +457,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"geraete\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"geraete\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: max, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
         }
       ],
       "fieldConfig": {
@@ -505,7 +505,7 @@
       "targets": [
         {
           "refId": "A",
-          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"laufzeitSekunden\")\n  |> filter(fn: (r) => contains(value: r.standort, set: ${standort:json}))\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
+          "query": "from(bucket: v.bucket)\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"analyzer\")\n  |> filter(fn: (r) => r._field == \"laufzeitSekunden\")\n  |> filter(fn: (r) => r.standort =~ /^(${standort:regex})$/)\n  |> aggregateWindow(every: v.windowPeriod, fn: last, createEmpty: false)\n  |> keep(columns: [\"_time\", \"_value\", \"standort\"])"
         }
       ],
       "fieldConfig": {

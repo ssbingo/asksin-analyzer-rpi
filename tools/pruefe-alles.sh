@@ -70,6 +70,9 @@ lauf "Grafana-Vorlagen: jede Ansicht ist im Handbuch erklärt" \
 lauf "Grafana-Vorlagen: kein Dashboard ueberfaehrt die Datenbank" \
     python3 tools/pruefe-dashboard-last.py
 
+lauf "Grafana-Abfragen: hineinschiebbar statt contains()" \
+    python3 tools/pruefe-flux-pushdown.py
+
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 

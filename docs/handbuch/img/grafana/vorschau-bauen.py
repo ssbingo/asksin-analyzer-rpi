@@ -173,17 +173,26 @@ def leitstand() -> None:
 
 
 def funkqualitaet() -> None:
-    i = kopf("AskSin — Funkqualität")
-    i += rahmen(16, 60, 968, 240, "Empfangsstärke je Gerät (dBm)", 1)
+    i = kopf("AskSin — Funkqualität (Auswahl)")
+    # Die Auswahlfelder sind der eigentliche Unterschied zur alten Fassung:
+    # Vorgabe sind die schwaechsten Geraete, nicht alle zweihundert.
+    i += (f'<rect x="16" y="52" width="300" height="26" rx="5" fill="{PANEL}" '
+          f'stroke="{RAHMEN}"/>'
+          f'<text x="28" y="70" font-family="DejaVu Sans, sans-serif" font-size="12" '
+          f'fill="{MATT}">Geräte:</text>'
+          f'<text x="86" y="70" font-family="DejaVu Sans, sans-serif" font-size="12" '
+          f'fill="{TEXT}">die 20 schwächsten ▾</text>')
+    i += marke(1, 300, 65)
+    i += rahmen(16, 88, 968, 212, "Empfangsstärke je Gerät (dBm)", 2)
     for k in range(6):
-        i += kurve(32, 96, 936, 180, k * 1.7,
+        i += kurve(32, 124, 936, 152, k * 1.7,
                    [PETROL, GRUEN, GELB, "#7f6bb5", "#c07a4e", "#4e9bc0"][k], False)
     i += (f'<line x1="32" y1="240" x2="968" y2="240" stroke="{ROT}" '
           f'stroke-width="1.5" stroke-dasharray="6 4"/>'
           f'<text x="960" y="235" text-anchor="end" font-size="11" fill="{ROT}" '
           f'font-family="DejaVu Sans, sans-serif">−95 dBm — darunter unzuverlässig</text>')
 
-    i += rahmen(16, 312, 476, 292, "Die schwächsten Empfänge", 2)
+    i += rahmen(16, 312, 476, 292, "Die schwächsten Empfänge", 3)
     i += zeilen(32, 348, 444, [
         ("Fenster_Gartenhaus_Nord", "−98 dBm", ROT),
         ("Bewegung_Carport", "−96 dBm", ROT),
@@ -193,10 +202,30 @@ def funkqualitaet() -> None:
         ("Fenster_Küche", "−61 dBm", GRUEN),
         ("Schalter_Wohnzimmer", "−58 dBm", GRUEN),
     ])
-    i += rahmen(508, 312, 476, 292, "Schwankung der Empfangsstärke", 3)
+    i += rahmen(508, 312, 476, 292, "Schwankung der Empfangsstärke", 4)
     for k in range(3):
         i += kurve(524, 356, 444, 220, 3 + k * 2.5, [PETROL, GELB, GRUEN][k], k == 0)
     schreibe("funkqualitaet", i)
+
+
+def funkqualitaet_standorte() -> None:
+    """Dieselben Messwerte, aber je Standort verdichtet — drei Linien statt
+    zweihundert. Beantwortet die Frage, die man zuerst stellt: Wo im Haus ist
+    der Empfang gut?"""
+    i = kopf("AskSin — Funkqualität je Standort")
+    i += rahmen(16, 60, 968, 268, "Mittlere Empfangsstärke je Standort (dBm)", 1)
+    for k in range(3):
+        i += kurve(32, 96, 936, 212, 1 + k * 3.1, [PETROL, GRUEN, GELB][k], k == 0)
+    i += (f'<text x="960" y="112" text-anchor="end" font-size="11" fill="{MATT}" '
+          f'font-family="DejaVu Sans, sans-serif">Keller · Dachboden · Gartenhaus</text>')
+
+    i += rahmen(16, 340, 476, 264, "Schwächster Empfang je Standort", 2)
+    for k in range(3):
+        i += kurve(32, 376, 444, 200, 7 + k * 2.2, [PETROL, GRUEN, GELB][k], False)
+    i += rahmen(508, 340, 476, 264, "Schwankung je Standort", 3)
+    for k in range(3):
+        i += kurve(524, 376, 444, 200, 11 + k * 1.9, [PETROL, GRUEN, GELB][k], False)
+    schreibe("funkqualitaet-standorte", i)
 
 
 def dutycycle() -> None:
@@ -460,7 +489,8 @@ def uebersicht() -> None:
           f'fill="{PETROL}" font-weight="bold">📁 AskSin-Analyzer</text>')
     eintraege = [
         ("Leitstand", "Läuft alles?"),
-        ("Funkqualität", "Wer wird wie gut gehört?"),
+        ("Funkqualität (Auswahl)", "Wer wird wie gut gehört?"),
+        ("Funkqualität je Standort", "Wo im Haus ist der Empfang gut?"),
         ("Duty-Cycle-Wächter", "Wer sendet zu viel?"),
         ("Gerätedetail", "Ein Gerät über alle Standorte"),
         ("Störungssuche", "Wann stört was?"),
@@ -487,8 +517,11 @@ def uebersicht() -> None:
 
 
 if __name__ == "__main__":
-    for bauen in (uebersicht, leitstand, funkqualitaet, dutycycle, geraetedetail,
-                  stoerungen, batterie, verbund, geraetezustand, nie_gehoert,
-                zigbee):
+    ansichten = (uebersicht, leitstand, funkqualitaet, funkqualitaet_standorte,
+                 dutycycle, geraetedetail, stoerungen, batterie, verbund,
+                 geraetezustand, nie_gehoert, zigbee)
+    for bauen in ansichten:
         bauen()
-    print(f"\n10 Vorschauen in {HIER}")
+    # Die Zahl wird gezaehlt und nicht abgetippt: Beim neunten Eintrag stand
+    # hier einmal monatelang eine falsche.
+    print(f"\n{len(ansichten) - 1} Vorschauen in {HIER}")

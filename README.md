@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.0.11** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.0.11** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.1.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.1.0** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,25 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.1.0 — 20.08.2026
+
+**Die eigentliche Ursache der Überlast — und zwei Ansichten statt einer.**
+
+- `contains(value: r.standort, set: …)` stand **39-mal** in acht Vorlagen.
+  InfluxDB kann das nicht in die Speicherschicht hineinschieben: Es liest
+  zuerst alles und wirft danach weg. Als regulärer Ausdruck geschrieben,
+  dieselbe Abfrage, dasselbe Ergebnis (89 111 Zeilen): **12 731 ms → 236 ms**.
+  Bei einem einzelnen Gerät sogar 11 418 ms → 21 ms.
+- **Funkqualität (Auswahl)**: Auswahlfeld für Geräte, Vorgabe die zwanzig
+  schwächsten (umstellbar auf 10 oder 50). Ein Diagramm mit zweihundert Linien
+  ist keines, das man lesen kann. Gemessen: Variable 153 ms, Panel 35 ms.
+- **Funkqualität je Standort** (neu): dieselben Messwerte je Standort
+  verdichtet — Mittel, schwächstes Gerät, Schwankung. Drei Linien statt
+  zweihundert. Zweistufig gerechnet (erst je Gerät, dann je Standort):
+  5620 ms → 841 ms.
+- Neue Prüfung `tools/pruefe-flux-pushdown.py`: kein `contains()` mehr in
+  einer Dashboard-Abfrage.
 
 ### v1.0.11 — 20.08.2026
 
