@@ -73,6 +73,9 @@ lauf "Grafana-Vorlagen: kein Dashboard ueberfaehrt die Datenbank" \
 lauf "Grafana-Abfragen: hineinschiebbar statt contains()" \
     python3 tools/pruefe-flux-pushdown.py
 
+lauf "Grafana-Abfragen: uebersetzbar (kein '#' in Flux)" \
+    python3 tools/pruefe-flux-syntax.py
+
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 

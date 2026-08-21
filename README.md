@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.1.1** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.1.1** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.1.2** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.1.2** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,23 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.1.2 — 21.08.2026
+
+**Die Alarmregel „Grundrauschen" ließ sich seit dem 20.08. gar nicht mehr übersetzen — durch meine eigene Korrektur.**
+
+- Beim Beheben des DatasourceError hatte ich die Begründung **in** die
+  Flux-Abfrage geschrieben, mit `#` am Zeilenanfang. **Flux kennt kein `#`**;
+  der Kommentar dort heißt `//`. Ergebnis:
+  `compilation failed: invalid statement: #` — **472-mal in zwanzig Stunden**,
+  gemeldet als derselbe DatasourceError wie zuvor.
+- Der Kommentar steht jetzt auf YAML-Ebene, außerhalb der Abfrage.
+- **Alle vier Alarmabfragen wurden diesmal im ausgelieferten Wortlaut gegen
+  die Datenbank geprüft** — 15 bis 148 ms, alle mit Daten. Genau das hatte
+  ich beim ersten Mal versäumt: geprüft war eine von Hand nachgebaute Fassung,
+  ausgeliefert eine andere.
+- Neue Prüfung `tools/pruefe-flux-syntax.py`: kein `#` in einer Flux-Abfrage,
+  ausgeglichene Klammern. 69 Abfragen werden geprüft.
 
 ### v1.1.1 — 20.08.2026
 

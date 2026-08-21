@@ -206,6 +206,22 @@ groups:
                 - evaluator: { type: gt, params: [86400] }
 
       # ------------------------------------------- 4. Grundrauschen hoch
+      #
+      # Zum `duplicate` in der Abfrage: mean() ist eine ECHTE Zusammenfassung
+      # und laesst die Zeitspalte fallen — anders als last(), max() und min(),
+      # die eine Zeile AUSWAEHLEN und deren Zeitstempel behalten. Ohne _time
+      # haelt Grafana das Ergebnis fuer keine Zeitreihe, verwirft es
+      # ("Ignoring InfluxDB data frame due to missing numeric fields") und die
+      # Regel geht in DatasourceError. Am 20.08.2026 am laufenden Geraet
+      # nachgewiesen: alle fuenf Minuten drei verworfene Reihen, eine je
+      # Standort.
+      #
+      # ACHTUNG, teuer gelernt: Diese Erklaerung stand einen Tag lang IN der
+      # Abfrage — und Flux kennt kein '#'. Die Regel liess sich dadurch gar
+      # nicht mehr uebersetzen ("invalid statement: #"), 472-mal in zwanzig
+      # Stunden. Aus einem stillen Fehler war ein lauterer geworden.
+      # Kommentare zu einer Flux-Abfrage gehoeren hierher, ausserhalb des
+      # Blocks; innerhalb ginge nur '//'.
       - uid: asksin-alarm-rauschen
         title: Grundrauschen dauerhaft erhöht
         condition: C
@@ -242,14 +258,6 @@ groups:
                   |> filter(fn: (r) => r._field == "grundrauschen")
                   |> group(columns: ["standort"])
                   |> mean()
-                  # mean() ist eine ECHTE Zusammenfassung und laesst die
-                  # Zeitspalte fallen — anders als last(), max() und min(),
-                  # die eine Zeile AUSWAEHLEN und ihren Zeitstempel behalten.
-                  # Ohne _time haelt Grafana das Ergebnis fuer keine Zeitreihe,
-                  # verwirft es ("Ignoring InfluxDB data frame due to missing
-                  # numeric fields") und die Regel geht in DatasourceError.
-                  # Am 20.08.2026 am laufenden Geraet nachgewiesen: alle fuenf
-                  # Minuten drei verworfene Reihen, eine je Standort.
                   |> duplicate(column: "_stop", as: "_time")
           - refId: B
             datasourceUid: __expr__
