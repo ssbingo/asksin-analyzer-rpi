@@ -128,6 +128,22 @@ export class DevListService {
     );
   }
 
+  /**
+   * Steht diese Adresse in der Geräteliste der Zentrale?
+   *
+   * Die Frage hinter der Frage lautet: „Ist das überhaupt eines meiner
+   * Geräte?" Im Funk liegen die Anlagen der Nachbarschaft mit auf dem Band,
+   * und ihre Telegramme sehen genauso aus wie die eigenen — nur der Name
+   * fehlt. Ohne Kennzeichnung sucht man irgendwann nach einem Gerät, das
+   * einem gar nicht gehört.
+   *
+   * `false`, solange gar keine Liste vorliegt: Dann ist nichts als fremd
+   * belegbar, und eine Kennzeichnung auf Verdacht wäre schlimmer als keine.
+   */
+  kennt(address: number): boolean {
+    return this.#resolver?.resolve(address) !== undefined;
+  }
+
   get stats(): DevListStats {
     return {
       source: this.#source,

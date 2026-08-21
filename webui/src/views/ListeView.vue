@@ -69,13 +69,22 @@ function leeren(): void {
           <tr v-for="t in gefiltert" :key="t.id">
             <td class="gedimmt">{{ uhrzeit(t.ts) }}</td>
             <td class="num" :class="rssiKlasse(t.rssi)">{{ t.rssi }}</td>
+            <!-- „fremd" heisst: Die Adresse steht nicht in der Geraeteliste
+                 der Zentrale. Im Funk liegen die Anlagen der Nachbarschaft mit
+                 auf dem Band, und ihre Telegramme sehen aus wie die eigenen —
+                 nur der Name fehlt. Ohne Kennzeichnung sucht man irgendwann
+                 nach einem Geraet, das einem gar nicht gehoert. -->
             <td>
               {{ t.fromName }}
               <span class="gedimmt" v-if="t.fromName !== t.fromHex"> ({{ t.fromHex }})</span>
+              <span v-if="t.fromFremd" class="fremd-marke"
+                    title="Diese Adresse steht nicht in der Geräteliste deiner Zentrale — vermutlich eine fremde Anlage in Funkreichweite">fremd</span>
             </td>
             <td>
               {{ t.toAddr === 0 ? 'Broadcast' : t.toName }}
               <span class="gedimmt" v-if="t.toAddr !== 0 && t.toName !== t.toHex"> ({{ t.toHex }})</span>
+              <span v-if="t.toFremd && t.toAddr !== 0" class="fremd-marke"
+                    title="Diese Adresse steht nicht in der Geräteliste deiner Zentrale — vermutlich eine fremde Anlage in Funkreichweite">fremd</span>
             </td>
             <td class="num">{{ t.len }}</td>
             <td class="num">{{ t.cnt }}</td>

@@ -167,6 +167,22 @@ h3 { font-size: 0.95rem; margin: 1.5rem 0 0.6rem; color: var(--muted); font-weig
 }
 .reihen-titel .gedimmt { font-weight: 400; font-size: 0.85rem; }
 
+/* Kennzeichen für Adressen, die die Zentrale nicht kennt.
+   Bewusst zurückhaltend: Es ist kein Fehler, sondern eine Einordnung — der
+   Nachbar darf funken. Laut genug, um beim Durchsehen aufzufallen, leise
+   genug, um die Zeile nicht zu beherrschen. */
+.fremd-marke {
+  margin-left: 0.4rem;
+  padding: 0.02rem 0.34rem;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, transparent);
+  color: var(--warn);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: 0.05rem;
+}
+
 /* ---- Panels und Tabellen ---- */
 
 .panel {

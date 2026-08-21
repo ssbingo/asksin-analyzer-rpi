@@ -1081,6 +1081,15 @@ export class ApiServer {
       addr.toString(16).toUpperCase().padStart(6, '0');
     const hex6 = (addr: number): string =>
       addr.toString(16).toUpperCase().padStart(6, '0');
+    /**
+     * Adresse, die die Zentrale nicht kennt — also kein eigenes Gerät.
+     *
+     * Ohne Geräteliste bleibt alles `false`: Dann ist nichts als fremd
+     * belegbar. Ein Verdacht ohne Grundlage waere schlimmer als keine
+     * Kennzeichnung, weil man ihm glaubt.
+     */
+    const fremd = (addr: number): boolean =>
+      this.#opts.devList !== undefined && !this.#opts.devList.kennt(addr);
     const telegrams = rows.map((r) => ({
       id: r.id,
       ts: r.ts,
@@ -1095,9 +1104,11 @@ export class ApiServer {
       fromAddr: r.from_addr,
       fromHex: hex6(r.from_addr),
       fromName: nameOf(r.from_addr),
+      fromFremd: fremd(r.from_addr),
       toAddr: r.to_addr,
       toHex: hex6(r.to_addr),
       toName: nameOf(r.to_addr),
+      toFremd: fremd(r.to_addr),
       payload: r.payload,
     }));
     this.#json(res, 200, {

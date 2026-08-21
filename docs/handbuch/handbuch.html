@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.1.5</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.2.0</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.1.5 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.2.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2259,6 +2259,40 @@ Gerätename ins Filterfeld, dann am Gerät eine Aktion auslösen (Fenster
 öffnen, Taste drücken) — du siehst live, ob und wie stark sein Telegramm
 ankommt. Das ist der schnellste Funktionstest für ein einzelnes Gerät.</div>
 
+<h3 id="fremde-adressen">Die Marke „fremd"</h3>
+<p>Steht neben einer Adresse ein kleines <strong>fremd</strong>, heißt das:
+<strong>Diese Adresse steht nicht in der Geräteliste deiner Zentrale.</strong>
+Im 868-MHz-Band liegen die Anlagen der Nachbarschaft mit auf demselben Kanal,
+und ihre Telegramme sehen aus wie die eigenen — nur der Name fehlt, weil die
+CCU sie nicht kennt.</p>
+<p>Ohne diese Marke sucht man irgendwann nach einem Gerät, das einem gar nicht
+gehört. Genau das war der Anlass: Am 21.08.2026 tauchte in der Liste die
+Adresse <code>AF09FE</code> auf, und die Frage lautete „was ist das für ein
+Gerät?". Die Antwort war: keins von deinen.</p>
+<div class="hinweis">
+<p><strong>Was sich über ein fremdes Gerät sagen lässt — und was nicht.</strong>
+Aus dem Funk allein ist das <em>Modell</em> nicht zu bestimmen. Bei HmIP sind
+die Nutzdaten verschlüsselt; es gibt keinen Klartext, aus dem sich ein Typ
+ablesen ließe, und die Adresse kodiert ihn nicht.</p>
+<p style="margin-bottom:0">Bei klassischem <strong>BidCoS</strong> ist das
+anders: Dort trägt das Anlern-Telegramm (Typ <code>0x00</code>) Firmware,
+Gerätetyp und die zehnstellige Seriennummer im Klartext. Wer ein unbekanntes
+BidCoS-Gerät bestimmen will, wartet auf dessen Anlern-Telegramm. Bei HmIP
+gibt es diesen Weg nicht.</p>
+</div>
+<p class="klein">Eingrenzen lässt sich trotzdem einiges: <strong>wo</strong> es
+gehört wird (im Verbund oft nur an einem Standort — dann steht es in dieser
+Richtung), <strong>mit wem</strong> es spricht (ist die Gegenstelle auch
+fremd, gehört das ganze Grüppchen dem Nachbarn) und <strong>wie</strong> es
+sendet (regelmäßig alle paar Minuten deutet auf einen Sensor, ununterbrochen
+auf einen Zugangspunkt oder Repeater). Ob es dich stört, zeigt das
+Grafana-Dashboard <em>Störungssuche</em>: Steigt dein Grundrauschen genau
+dann, wenn es viel sendet, ist es ein Störer — sonst nur ein Nachbar, den du
+mithörst.</p>
+<p class="klein">Liegt gar keine Geräteliste vor, wird <strong>nichts</strong>
+als fremd gekennzeichnet. Ein Verdacht ohne Grundlage wäre schlimmer als
+keine Kennzeichnung, weil man ihm glaubt.</p>
+
 <h2 id="k13-4">13.4 Einstellungen</h2>
 <figure class="rahmen"><img src="img/ui-einstellungen.png" alt="Die Einstellungen">
 <figcaption>Alle Verwaltung an einem Ort — Konsole nicht nötig.</figcaption></figure>
@@ -3961,7 +3995,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.1.5 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.2.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

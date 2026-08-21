@@ -81,9 +81,13 @@ export interface Telegramm {
   fromAddr: number;
   fromHex: string;
   fromName: string;
+  /** Adresse steht NICHT in der Geräteliste der Zentrale — fremde Anlage. */
+  fromFremd?: boolean;
   toAddr: number;
   toHex: string;
   toName: string;
+  /** Adresse steht NICHT in der Geräteliste der Zentrale — fremde Anlage. */
+  toFremd?: boolean;
   payload: string;
 }
 

@@ -973,6 +973,43 @@ test('Demo-Modus veraendert NICHTS ausser den Funktelegrammen', async (t) => {
   assert.equal(cfg['demo'], 1);
 });
 
+test('Telegramme kennzeichnen Adressen, die die Zentrale nicht kennt',
+  async (t: TestContext) => {
+    // Im Funk liegen die Anlagen der Nachbarschaft mit auf dem Band. Ihre
+    // Telegramme sehen aus wie die eigenen, nur der Name fehlt — und dann
+    // sucht man irgendwann nach einem Geraet, das einem gar nicht gehoert.
+    const a = await aufbau(t, { mitDevList: true });
+    await a.einspeisen(TELEGRAMM, BURST);
+    const j = await (await fetch(`${a.base}/api/telegrams?limit=5`)).json() as {
+      telegrams: Array<Record<string, unknown>>;
+    };
+    assert.ok(j.telegrams.length > 0, 'mindestens ein Telegramm');
+    for (const tg of j.telegrams) {
+      assert.equal(typeof tg['fromFremd'], 'boolean', 'fromFremd ist gesetzt');
+      assert.equal(typeof tg['toFremd'], 'boolean', 'toFremd ist gesetzt');
+      // Wer einen Namen aus der Liste hat, kann nicht fremd sein — sonst
+      // widersprechen sich Name und Kennzeichen in derselben Zeile.
+      if (tg['fromName'] !== tg['fromHex']) {
+        assert.equal(tg['fromFremd'], false,
+          `${String(tg['fromName'])} hat einen Namen, ist also nicht fremd`);
+      }
+    }
+  });
+
+test('ohne Geraeteliste wird nichts als fremd behauptet', async (t: TestContext) => {
+  // Ohne Liste ist NICHTS als fremd belegbar. Ein Verdacht ohne Grundlage
+  // waere schlimmer als keine Kennzeichnung, weil man ihm glaubt.
+  const a = await aufbau(t, {});
+  await a.einspeisen(TELEGRAMM);
+  const j = await (await fetch(`${a.base}/api/telegrams?limit=5`)).json() as {
+    telegrams: Array<Record<string, unknown>>;
+  };
+  for (const tg of j.telegrams) {
+    assert.equal(tg['fromFremd'], false, 'ohne Liste kein Verdacht');
+    assert.equal(tg['toFremd'], false);
+  }
+});
+
 test('beide Handbücher liegen unter eigenen Pfaden — und verwechseln sich nicht',
   async (t: TestContext) => {
     // Der eigentliche Anlass: Auf der Zigbee-Seite stand der Hinweis auf das

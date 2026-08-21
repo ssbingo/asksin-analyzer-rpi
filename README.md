@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.1.5** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.1.5** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.2.0** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.2.0** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,23 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.2.0 — 21.08.2026
+
+**Fremde Adressen sind in der Telegrammliste als solche gekennzeichnet.**
+
+Anlass: In der Liste tauchte `AF09FE` auf, und die Frage lautete „was ist das
+für ein Gerät?". Die Antwort war: keins von deinen — die Adresse steht nicht
+in der Geräteliste der Zentrale, es ist eine fremde Anlage in Funkreichweite.
+
+- Neben Absender und Empfänger steht jetzt eine kleine Marke **fremd**, wenn
+  die Zentrale die Adresse nicht kennt.
+- `/api/telegrams` liefert dafür `fromFremd` und `toFremd`.
+- **Ohne Geräteliste wird nichts als fremd behauptet** — ein Verdacht ohne
+  Grundlage wäre schlimmer als keine Kennzeichnung. Getestet.
+- Handbuch 13.3 erklärt die Marke und wo die Grenze liegt: Das *Modell* eines
+  fremden HmIP-Geräts ist aus dem Funk nicht bestimmbar (verschlüsselt); bei
+  klassischem BidCoS verrät es das Anlern-Telegramm.
 
 ### v1.1.5 — 21.08.2026
 
