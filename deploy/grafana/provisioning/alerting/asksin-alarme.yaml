@@ -36,6 +36,32 @@
 #   C  vergleicht diese Zahl mit der Schwelle (threshold) — das ist die
 #      Bedingung, die den Alarm auslöst
 
+# ## Warum jede Abfrage mit keep() endet
+#
+# Grafanas Ausdrucksauswertung (reduce, threshold) verlangt eine WIDE SERIES:
+# Zeitspalte, eine Zahlenspalte, Etiketten als Gruppenschluessel. Kommt ein
+# Ergebnis mit mehreren Textspalten, haelt Grafana es fuer eine LONG SERIES
+# und bricht ab:
+#
+#     [sse.readDataError] [A] got error: input data must be a wide series
+#     but got type long
+#
+# Ob das passiert, haengt an derselben Unterscheidung wie beim `duplicate` in
+# Regel 4 — nur mit umgekehrtem Vorzeichen:
+#
+#     last(), max(), min()   WAEHLEN eine Zeile aus und behalten ALLE Spalten,
+#                            also auch _field und _measurement -> long
+#     mean()                 fasst zusammen und laesst sie fallen -> wide
+#
+# Am 21.08.2026 gemessen:
+#
+#     offline    _start,_stop,_time,_value,_field,_measurement,standort   long
+#     rauschen   _start,_stop,standort,_value,_time                       wide
+#
+# Deshalb endet jede Abfrage mit einem keep(), das nur Zeit, Wert und den
+# Gruppenschluessel stehen laesst. Wer eine Regel ergaenzt, macht es genauso —
+# sonst meldet sie sich als DatasourceError, und im Protokoll steht nichts.
+
 apiVersion: 1
 
 groups:
@@ -85,6 +111,7 @@ groups:
                   |> group(columns: ["standort"])
                   |> last()
                   |> map(fn: (r) => ({ r with _value: if r._value then 1.0 else 0.0 }))
+                  |> keep(columns: ["_time", "_value", "standort"])
           - refId: B
             datasourceUid: __expr__
             model:
@@ -140,6 +167,7 @@ groups:
                   |> filter(fn: (r) => r._field == "dutyCycle")
                   |> group(columns: ["name"])
                   |> max()
+                  |> keep(columns: ["_time", "_value", "name"])
           - refId: B
             datasourceUid: __expr__
             model: { refId: B, type: reduce, expression: A, reducer: last }
@@ -193,6 +221,7 @@ groups:
                   |> last()
                   |> group(columns: ["name"])
                   |> min()
+                  |> keep(columns: ["_time", "_value", "name"])
           - refId: B
             datasourceUid: __expr__
             model: { refId: B, type: reduce, expression: A, reducer: last }

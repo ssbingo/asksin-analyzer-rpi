@@ -76,6 +76,9 @@ lauf "Grafana-Abfragen: hineinschiebbar statt contains()" \
 lauf "Grafana-Abfragen: uebersetzbar (kein '#' in Flux)" \
     python3 tools/pruefe-flux-syntax.py
 
+lauf "Alarmabfragen: wide series statt long" \
+    python3 tools/pruefe-alarm-form.py
+
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 

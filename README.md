@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.1.4** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.1.4** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.1.5** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.1.5** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,28 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.1.5 — 21.08.2026
+
+**Der DatasourceError ist gefunden — und es war nie ein Analyzer.**
+
+Grafanas Ausdrucksauswertung verlangt eine **wide series**; drei der vier
+Alarmabfragen lieferten eine **long series**:
+
+```
+[sse.readDataError] [A] got error: input data must be a wide series
+but got type long
+```
+
+Es ist dieselbe Unterscheidung wie beim `duplicate` einen Tag zuvor, nur mit
+umgekehrtem Vorzeichen: `last()`, `max()` und `min()` **wählen eine Zeile aus**
+und behalten dabei alle Spalten — auch `_field` und `_measurement`. Mehrere
+Textspalten heißen für Grafana „long". `mean()` fasst zusammen und lässt sie
+fallen; deshalb lief ausgerechnet die Grundrauschen-Regel als einzige.
+
+- Jede Abfrage endet jetzt mit `keep(columns: […])` und lässt nur Zeit, Wert
+  und den Gruppenschlüssel stehen. Nachgemessen: alle vier **wide**.
+- Neue Prüfung `tools/pruefe-alarm-form.py`.
 
 ### v1.1.4 — 21.08.2026
 
