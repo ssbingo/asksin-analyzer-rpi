@@ -64,7 +64,7 @@ groups:
           # faellt jeder Platzhalter auf "[no value]" zurueck und die Meldung
           # sagt gar nichts mehr. Der Standort kommt nur dazu, wenn es ihn gibt.
           summary: >-
-            {{ if $labels.rulename }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ else }}Analyzer offline{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}{{ end }}
+            {{ if $labels.rulename }}{{ if eq $labels.alertname "DatasourceNoData" }}KEINE DATEN fuer die Regel „{{ $labels.rulename }}" — die Abfrage lief, lieferte aber nichts zurueck. Kein Analyzer ist ausgefallen; es kommt nichts in der Datenbank an.{{ else }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ end }}{{ else }}Analyzer offline{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}{{ end }}
           description: >-
             Der Analyzer am Standort {{ $labels.standort }} meldet seit über
             zehn Minuten keine gültige Verbindung zum Funkmodul. Prüfen:
@@ -119,7 +119,7 @@ groups:
         execErrState: KeepLast
         annotations:
           summary: >-
-            {{ if $labels.rulename }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ else }}Duty-Cycle über 80 %{{ if $labels.name }} — {{ $labels.name }}{{ end }}{{ end }}
+            {{ if $labels.rulename }}{{ if eq $labels.alertname "DatasourceNoData" }}KEINE DATEN fuer die Regel „{{ $labels.rulename }}" — die Abfrage lief, lieferte aber nichts zurueck. Kein Analyzer ist ausgefallen; es kommt nichts in der Datenbank an.{{ else }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ end }}{{ else }}Duty-Cycle über 80 %{{ if $labels.name }} — {{ $labels.name }}{{ end }}{{ end }}
           description: >-
             Das Gerät {{ $labels.name }} liegt seit einer Viertelstunde über
             80 % Sendezeit. Ein einziges defektes Gerät kann das ganze
@@ -171,7 +171,7 @@ groups:
         execErrState: KeepLast
         annotations:
           summary: >-
-            {{ if $labels.rulename }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ else }}Gerät seit über 24 Stunden stumm{{ if $labels.name }} — {{ $labels.name }}{{ end }}{{ end }}
+            {{ if $labels.rulename }}{{ if eq $labels.alertname "DatasourceNoData" }}KEINE DATEN fuer die Regel „{{ $labels.rulename }}" — die Abfrage lief, lieferte aber nichts zurueck. Kein Analyzer ist ausgefallen; es kommt nichts in der Datenbank an.{{ else }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ end }}{{ else }}Gerät seit über 24 Stunden stumm{{ if $labels.name }} — {{ $labels.name }}{{ end }}{{ end }}
           description: >-
             Von {{ $labels.name }} kam seit mehr als einem Tag kein Telegramm
             mehr — an keinem Standort. Bei batteriebetriebenen Homematic-Geräten
@@ -237,7 +237,7 @@ groups:
         execErrState: KeepLast
         annotations:
           summary: >-
-            {{ if $labels.rulename }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ else }}Grundrauschen erhöht{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}{{ end }}
+            {{ if $labels.rulename }}{{ if eq $labels.alertname "DatasourceNoData" }}KEINE DATEN fuer die Regel „{{ $labels.rulename }}" — die Abfrage lief, lieferte aber nichts zurueck. Kein Analyzer ist ausgefallen; es kommt nichts in der Datenbank an.{{ else }}ABFRAGE FEHLGESCHLAGEN in der Regel „{{ $labels.rulename }}" — kein Analyzer ist ausgefallen, Grafana konnte die Datenbank nicht auswerten.{{ end }}{{ else }}Grundrauschen erhöht{{ if $labels.standort }} — {{ $labels.standort }}{{ end }}{{ end }}
           description: >-
             Am Standort {{ $labels.standort }} liegt das Grundrauschen seit
             einer halben Stunde über −80 dBm. In dieser Höhe gehen schwache

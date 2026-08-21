@@ -126,8 +126,8 @@ Ein Repository, drei unabhängige Zählungen über Tag-Präfixe:
 | Tag | versioniert | aktuell |
 | --- | --- | --- |
 | `hardware-vX.Y.Z` | die Platine (Schaltplan, Layout, Fertigungsdaten) | **0.2.0** — steht auch im Bestückungsdruck |
-| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.1.2** |
-| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.1.2** |
+| `core-vX.Y.Z` | die Pi-Software (`core/` + `webui/`, deren `package.json` führen dieselbe Nummer) | **1.1.3** |
+| `vX.Y.Z` | den Gesamtstand des Projekts (Doku, Handbuch, Zusammenspiel) | **1.1.3** |
 
 Die **Firmware hat ein eigenes Repository** mit eigener Versionierung:
 [ssbingo/asksin-sniffer-firmware](https://github.com/ssbingo/asksin-sniffer-firmware).
@@ -138,6 +138,10 @@ gepflegt — Lizenz unverändert CC BY-NC-SA 3.0. Der ioBroker-Adapter bekommt
 ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
+
+### v1.1.3 — 21.08.2026
+
+* (ssbingo) Die Alarmmeldungen unterscheiden jetzt **drei** Fälle statt zwei: echter Alarm (mit Standort), **„keine Daten"** (Abfrage lief, brachte nichts) und **„Abfrage fehlgeschlagen"**. Die beiden letzten fielen bisher in einen Topf — und genau das lässt offen, welche Arbeit ansteht: nachsehen, warum nichts ankommt, oder nachsehen, warum Grafana nicht abfragen kann.
 
 ### v1.1.2 — 21.08.2026
 
