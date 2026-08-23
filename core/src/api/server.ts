@@ -256,6 +256,19 @@ export interface ApiServerOptions {
     /** Schickt eine Testmail und liefert den Klartext für die Oberfläche. */
     testen(auftrag: Record<string, unknown>): Promise<string>;
   };
+  /**
+   * Einzelne Alarme ein- und ausschalten (M14.3).
+   *
+   * Getrennt von `alarmziel`, obwohl beide zu denselben vier Regeln gehören:
+   * Dort stehen Zugangsdaten, hier nur vier Wahrheitswerte. Zusammengelegt
+   * müsste das Lesen der Schalter denselben Token verlangen wie das Lesen des
+   * SMTP-Passworts — und die Oberfläche zeigte die Schalter erst nach einer
+   * Anmeldung, die sie für nichts anderes braucht.
+   */
+  alarmschalter?: {
+    zustand(): unknown;
+    einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
+  };
   /** Protokoll (M13): Stufe und Aufbewahrung einstellen, Dateien herunterladen. */
   protokoll?: {
     zustand(): unknown;
@@ -633,6 +646,14 @@ export class ApiServer {
           if (hooks === undefined) return this.#text(res, 501, 'Keine Alarmziele');
           return this.#json(res, 200, hooks.zustand());
         }
+        case '/api/alarme': {
+          // Ohne Token, anders als /api/alarmziel: Hier steht kein Geheimnis,
+          // nur welcher der vier Alarme laeuft. Die Oberflaeche zeigt die
+          // Schalter damit auch dem, der nur zusieht.
+          const hooks = this.#opts.alarmschalter;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Alarmschalter');
+          return this.#json(res, 200, hooks.zustand());
+        }
         case '/api/protokoll': {
           const hooks = this.#opts.protokoll;
           if (hooks === undefined) return this.#text(res, 501, 'Kein Protokoll');
@@ -880,11 +901,15 @@ export class ApiServer {
             return this.#text(res, 400, e instanceof Error ? e.message : String(e));
           }
         }
+        case '/api/alarme':
         case '/api/alarmziel':
         case '/api/langzeitdaten': {
           if (!this.#autorisiert(req, res)) return;
-          const hooks =
-            pfad === '/api/alarmziel' ? this.#opts.alarmziel : this.#opts.langzeit;
+          const hooks = pfad === '/api/alarmziel'
+            ? this.#opts.alarmziel
+            : pfad === '/api/alarme'
+              ? this.#opts.alarmschalter
+              : this.#opts.langzeit;
           if (hooks === undefined) return this.#text(res, 501, 'Nicht verfügbar');
           let auftrag: Record<string, unknown>;
           try {

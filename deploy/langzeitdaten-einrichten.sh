@@ -272,7 +272,10 @@ richte_grafana_ein() {
     chmod 0640 "$GRAFANA_PROV/datasources/asksin-influx.yaml"
     chown root:grafana "$GRAFANA_PROV/datasources/asksin-influx.yaml" 2>/dev/null || true
 
-    install -m 0644 "$INSTALL_DIR/deploy/grafana/provisioning/alerting/asksin-alarme.yaml" \
+    # Ueber den Renderer statt roh — Begruendung in core/bin/alarme-rendern.ts.
+    # Beim Ersteinrichten sind ohnehin alle Alarme an; der Weg ist derselbe,
+    # damit es spaeter keine zweite Stelle gibt, die es anders macht.
+    node "$INSTALL_DIR/core/bin/alarme-rendern.ts" \
         "$GRAFANA_PROV/alerting/asksin-alarme.yaml"
     install -d -m 0755 "$GRAFANA_PROV/dashboards"
     install -m 0644 "$INSTALL_DIR/deploy/grafana/provisioning/dashboards/asksin.yaml" \

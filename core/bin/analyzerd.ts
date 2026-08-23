@@ -75,6 +75,12 @@ import {
 } from '../src/langzeit/alarmziel.ts';
 import type { Alarmkanal, Alarmziel } from '../src/langzeit/alarmziel.ts';
 import {
+  ALARMREGELN,
+  mitSchaltern,
+  vollstaendig,
+} from '../src/langzeit/alarmschalter.ts';
+import type { Alarmschalter } from '../src/langzeit/alarmschalter.ts';
+import {
   ADAPTER_MINDESTVERSION,
   baueVersionsbefund,
 } from '../src/langzeit/kompatibilitaet.ts';
@@ -1792,9 +1798,11 @@ function leseAlarmziel(): Alarmziel {
  * Nach zehn Minuten ist das kein Laufen mehr, sondern ein Haenger, und der
  * gehoert benannt statt als Fortschritt getarnt.
  */
-function uebernahmeZustand(): { laeuft: boolean; haengtSeitMinuten: number | null } {
+function uebernahmeZustand(
+  anstoss: string = alarmzielTrigger,
+): { laeuft: boolean; haengtSeitMinuten: number | null } {
   try {
-    const alterMs = Date.now() - statSync(alarmzielTrigger).mtimeMs;
+    const alterMs = Date.now() - statSync(anstoss).mtimeMs;
     if (alterMs < 10 * 60_000) return { laeuft: true, haengtSeitMinuten: null };
     return { laeuft: false, haengtSeitMinuten: Math.round(alterMs / 60_000) };
   } catch {
@@ -1994,6 +2002,69 @@ const alarmzielHooks = {
     }
     log(`Testmail an ${e.empfaenger} verschickt`);
     return `Testmail an ${e.empfaenger} verschickt — der Server hat sie angenommen.`;
+  },
+};
+
+// ---- Einzelne Alarme ein- und ausschalten (M14.3) ------------------------
+//
+// Anlass (21.08.2026): "Die Meldung ueber 24 h nicht erreichbare Geraete war
+// gestern Abend sehr stoerend, zumal man ja auch nicht jeden Tag jeden
+// Schalter betaetigt oder jedes Fenster oeffnet." Ein Alarm, den man
+// gewohnheitsmaessig wegklickt, erzieht dazu, auch den zu ueberlesen, der
+// zaehlt — also muss er einzeln abschaltbar sein.
+//
+// Derselbe Weg wie beim Alarmziel: Der Core erzeugt die fertige Datei, ein
+// minimaler Root-Helfer legt sie nach /etc/grafana und startet Grafana neu.
+
+const alarmschalterDatei = join(datenDir, 'alarme.json');
+const alarmschalterTrigger = join(datenDir, 'alarmschalter-anstoss');
+const alarmschalterYaml = join(datenDir, 'grafana-alarme.yaml');
+/** Der Regeltext, wie er im Projekt liegt — einzige Quelle der Regeln. */
+const alarmschalterVorlage = join(
+  installDir, 'deploy/grafana/provisioning/alerting/asksin-alarme.yaml',
+);
+
+function leseAlarmschalter(): Alarmschalter {
+  try {
+    return vollstaendig(
+      JSON.parse(readFileSync(alarmschalterDatei, 'utf8')) as Partial<Alarmschalter>,
+    );
+  } catch {
+    return vollstaendig(undefined);
+  }
+}
+
+const alarmschalterHooks = {
+  zustand: (): unknown => {
+    const s = leseAlarmschalter();
+    return {
+      regeln: ALARMREGELN.map((r) => ({
+        uid: r.uid,
+        name: r.name,
+        zweck: r.zweck,
+        aktiv: s[r.uid] === true,
+      })),
+      angewendet: existsSync(alarmschalterYaml),
+      ...uebernahmeZustand(alarmschalterTrigger),
+    };
+  },
+  einstellen: (auftrag: Record<string, unknown>): void => {
+    verlangeMaster(aktuelleRolle().rolle);
+    // Nur der Master hat Grafana — und nur dort gibt es Regeln zu pausieren.
+    const teil = (auftrag['schalter'] ?? auftrag) as Partial<Alarmschalter>;
+    const neu = vollstaendig(teil);
+
+    // Die Vorlage kommt aus dem Projektverzeichnis. Fehlt sie, ist die
+    // Installation unvollstaendig — dann lieber laut abbrechen als eine
+    // halbe Datei nach /etc/grafana schicken.
+    const vorlage = readFileSync(alarmschalterVorlage, 'utf8');
+
+    writeFileSync(alarmschalterDatei, JSON.stringify(neu, null, 2) + '\n', { mode: 0o644 });
+    writeFileSync(alarmschalterYaml, mitSchaltern(vorlage, neu), { mode: 0o644 });
+    writeFileSync(alarmschalterTrigger, `${new Date().toISOString()}\n`);
+
+    const aus = ALARMREGELN.filter((r) => neu[r.uid] === false).map((r) => r.uid);
+    log(`Alarmschalter gesetzt — ausgeschaltet: ${aus.length === 0 ? 'keine' : aus.join(', ')}`);
   },
 };
 
@@ -2519,6 +2590,7 @@ const api = new ApiServer({
   influx: influxHooks,
   langzeit: langzeitHooks,
   alarmziel: alarmzielHooks,
+  alarmschalter: alarmschalterHooks,
   protokoll: protokollHooks,
   mitschnitt: mitschnittHooks,
   // Der Test läuft vom Analyzer aus, nicht aus dem Browser: Erreichen muss

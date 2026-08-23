@@ -953,6 +953,42 @@ export async function sendeAlarmziel(auftrag: Record<string, unknown>): Promise<
   if (!res.ok) throw new Error(await res.text());
 }
 
+// ---- Einzelne Alarme ein- und ausschalten (M14.3) ------------------------
+
+export interface Alarmschalter {
+  /** uid der Regel in Grafana — bleibt über Fassungen hinweg gleich. */
+  uid: string;
+  name: string;
+  zweck: string;
+  aktiv: boolean;
+}
+
+export interface AlarmschalterZustand {
+  regeln: Alarmschalter[];
+  /** Wurde schon einmal etwas nach Grafana übernommen? */
+  angewendet: boolean;
+  laeuft: boolean;
+  /** Liegt der Anstoß seit Minuten unbearbeitet herum? Dann fehlt der Helfer. */
+  haengtSeitMinuten: number | null;
+}
+
+export const holeAlarmschalter = (): Promise<AlarmschalterZustand> => hole('/api/alarme');
+
+/** Schickt alle Schalter auf einmal — Teilmengen führten zu halben Zuständen. */
+export async function sendeAlarmschalter(
+  schalter: Record<string, boolean>,
+): Promise<void> {
+  const res = await fetch('/api/alarme', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify({ schalter }),
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+}
+
 // --- CCU-Verbindungstest --------------------------------------------------
 
 export interface CcuTestErgebnis {

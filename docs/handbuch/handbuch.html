@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.2.0</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.3.0</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.2.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.3.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -3424,6 +3424,52 @@ häufigste Grund, warum Alarme bei einer Einrichtung von Hand nie ankommen:
 Der Kontaktpunkt steht da, Grafana markiert ihn als „Unused“, und die
 Standardrichtlinie zeigt weiterhin ins Leere.</p>
 
+<h3 class="umbruch" id="einzelne-alarme-abschalten">Einzelne Alarme abschalten</h3>
+
+<p>Nicht jeder der vier Alarme ist in jedem Haushalt gleich nützlich.
+<em>Analyzer offline</em> will man wissen, immer. <em>Gerät verstummt</em>
+dagegen meldet sich auch bei Geräten, die einfach niemand benutzt: ein Fenster,
+das den Winter über zu bleibt, ein Schalter im Gästezimmer, ein Handsender in
+der Schublade. Nach 24 Stunden gilt jedes davon als verstummt — zu Recht nach
+der Regel, und trotzdem kein Befund.</p>
+
+<div class="hinweis box"><span class="titel">Warum das mehr ist als eine
+Bequemlichkeit</span>
+Eine Meldung, die man jeden Abend wegwischt, bringt einem bei, Meldungen
+wegzuwischen. Wenn dann die eine kommt, die zählt — der Analyzer im Gartenhaus
+ist seit Stunden tot —, wandert sie mit derselben Handbewegung fort. Ein
+abgeschalteter Alarm ist deshalb nicht der Verzicht auf Wachsamkeit, sondern
+ihre Voraussetzung.</div>
+
+<p>Unter <em>Einstellungen → Alarme: wohin melden?</em> steht direkt unter dem
+Schalter <em>Alarme verschicken</em> für jeden Alarm ein eigener
+Schiebeschalter. Umlegen genügt; gespeichert wird von selbst, sobald man
+anderthalb Sekunden nichts mehr anfasst. Grafana startet dafür kurz neu, was
+die Oberfläche als <em>Wird übernommen …</em> anzeigt.</p>
+
+<table>
+<tr><th>Alarm</th><th>Abschalten sinnvoll, wenn …</th></tr>
+<tr><td>Analyzer offline</td><td>… eigentlich nie. Fällt ein Standort aus, merkt man es sonst erst an fehlenden Daten — womöglich Wochen später.</td></tr>
+<tr><td>Duty-Cycle über 80 %</td><td>… ein bekanntes Gerät dauerhaft am Anschlag läuft und man es nicht ändern kann oder will.</td></tr>
+<tr><td>Gerät verstummt</td><td>… im Haus viele selten benutzte Geräte hängen. Das ist der Alarm, den es am häufigsten trifft.</td></tr>
+<tr><td>Grundrauschen erhöht</td><td>… am Standort eine bekannte Störquelle steht, die sich nicht beseitigen lässt.</td></tr>
+</table>
+
+<p><strong>Was „aus“ technisch heißt.</strong> Grafana <em>pausiert</em> die
+Regel. Sie bleibt unter <em>Alerting → Alert rules</em> sichtbar und ist dort
+als pausiert gekennzeichnet, wird aber nicht mehr ausgewertet — keine Abfrage,
+keine Last, keine Meldung. Das ist mit Absicht so gewählt: Die Regel
+weiterlaufen zu lassen und ihre Meldung unterwegs zu verwerfen sähe von außen
+völlig normal aus, und niemand fände je den Grund für die ausbleibende
+Nachricht.</p>
+
+<p class="klein">Die Schalter überstehen eine Aktualisierung. Das ist nicht
+selbstverständlich: Die Regeln kommen aus dem Projekt und werden bei jeder
+Aktualisierung erneuert — die abgeschalteten Alarme gingen dabei ohne
+Vorkehrung wieder an. Der Analyzer legt die gespeicherten Schalter deshalb bei
+jeder Aktualisierung neu bei, sodass Regelverbesserungen ankommen, ohne die
+getroffene Wahl zu überfahren.</p>
+
 <h2 id="k19-10">19.10 Grenzen — was hier nicht geht</h2>
 
 <p>Damit niemand danach sucht:</p>
@@ -3995,7 +4041,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.2.0 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.3.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

@@ -1,0 +1,13 @@
+# Kopiert die Alarmregeln nach /etc/grafana und startet Grafana neu.
+#
+# Die Ausloeserdatei wird NICHT vorab entfernt: Die Weboberflaeche liest an
+# ihrem Vorhandensein ab, dass gerade etwas laeuft. Das Skript raeumt sie
+# selbst weg, auch im Fehlerfall.
+[Unit]
+Description=AskSin-Analyzer: Alarmschalter anwenden
+
+[Service]
+Type=oneshot
+TimeoutStartSec=180
+ExecStart=/bin/bash /opt/asksin-analyzer/deploy/alarmschalter-anwenden.sh
+ExecStopPost=/bin/rm -f /var/lib/asksin-analyzer/alarmschalter-anstoss

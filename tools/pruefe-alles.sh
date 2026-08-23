@@ -79,6 +79,9 @@ lauf "Grafana-Abfragen: uebersetzbar (kein '#' in Flux)" \
 lauf "Alarmabfragen: wide series statt long" \
     python3 tools/pruefe-alarm-form.py
 
+lauf "Alarmschalter: keine rohe Kopie der Regeldatei" \
+    python3 tools/pruefe-alarmschalter.py
+
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 

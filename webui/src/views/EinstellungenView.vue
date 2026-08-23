@@ -4,6 +4,7 @@ import { onBeforeUnmount, onMounted, onUnmounted, reactive, ref } from 'vue';
 import HandbuchFuss from '../components/HandbuchFuss.vue';
 
 import GeheimFeld from '../components/GeheimFeld.vue';
+import Schiebeschalter from '../components/Schiebeschalter.vue';
 import {
   aenderePeer,
   authToken,
@@ -13,12 +14,14 @@ import {
   holeNetzwerkStatus,
   holeInflux,
   holeAlarmziel,
+  holeAlarmschalter,
   holeLangzeit,
   holeStatusAnzeige,
   holeVerbundPeers,
   sende,
   sendeInflux,
   sendeAlarmziel,
+  sendeAlarmschalter,
   testeAlarmziel,
   sendeLangzeit,
   sendeNetzwerk,
@@ -29,6 +32,7 @@ import {
 import type {
   Alarmkanal,
   AlarmzielZustand,
+  AlarmschalterZustand,
   LangzeitZustand,
   LedMethode,
   NetzwerkStatus,
@@ -99,6 +103,7 @@ onMounted(async () => {
   void influxLaden();
   void langzeitLaden();
   void alarmLaden();
+  void schalterLaden();
 });
 
 async function aktion(name: string, fn: () => Promise<unknown>): Promise<void> {
@@ -310,6 +315,58 @@ const alarmSpeichern = (): Promise<void> =>
     await alarmLaden();
   });
 
+// ---- Einzelne Alarme ein- und ausschalten (M14.3) ------------------------
+//
+// Vier Schalter statt eines. Der eine oben entscheidet, OB gemeldet wird;
+// diese entscheiden, WAS gemeldet wird — und das ist die Frage, die sich im
+// Alltag stellt: „Geraet seit 24 Stunden stumm" ist im Winter an einem
+// Fenster, das zu bleibt, kein Befund, sondern Laerm.
+
+const schalterZustand = ref<AlarmschalterZustand | null>(null);
+/** Der Stand in der Maske — kann dem Server kurz vorauseilen. */
+const schalter = reactive<Record<string, boolean>>({});
+let schalterTakt: ReturnType<typeof setInterval> | null = null;
+let schalterWartet: ReturnType<typeof setTimeout> | null = null;
+
+async function schalterLaden(): Promise<void> {
+  try {
+    const z = await holeAlarmschalter();
+    schalterZustand.value = z;
+    // Nicht ueberschreiben, solange eine Aenderung noch aussteht — sonst
+    // springt ein gerade umgelegter Schalter zurueck, weil die Antwort des
+    // Servers noch den alten Stand traegt.
+    if (schalterWartet === null) {
+      for (const r of z.regeln) schalter[r.uid] = r.aktiv;
+    }
+    if (z.laeuft && schalterTakt === null) {
+      schalterTakt = setInterval(() => void schalterLaden(), 2000);
+    } else if (!z.laeuft && schalterTakt !== null) {
+      clearInterval(schalterTakt);
+      schalterTakt = null;
+    }
+  } catch {
+    /* aeltere Core-Version — dann bleibt der Abschnitt ausgeblendet */
+  }
+}
+
+/**
+ * Schickt die Schalter, aber erst kurz nach dem letzten Klick.
+ *
+ * Jede Uebernahme startet Grafana neu. Wer vier Schalter hintereinander
+ * umlegt, loeste sonst vier Neustarts aus und saehe zwischendurch Fehler, die
+ * keine sind. Anderthalb Sekunden Ruhe genuegen, um daraus einen zu machen.
+ */
+function schalterUmgelegt(): void {
+  if (schalterWartet !== null) clearTimeout(schalterWartet);
+  schalterWartet = setTimeout(() => {
+    schalterWartet = null;
+    void aktion('Alarme gespeichert — Grafana übernimmt es gleich', async () => {
+      await sendeAlarmschalter({ ...schalter });
+      await schalterLaden();
+    });
+  }, 1500);
+}
+
 // ---- Langzeitdaten vor Ort (M14) -----------------------------------------
 //
 // Der ganze Abschnitt erscheint nur auf dem Master. Beim Client wird er
@@ -338,6 +395,13 @@ async function langzeitLaden(): Promise<void> {
 onBeforeUnmount(() => {
   if (langzeitTakt !== null) clearInterval(langzeitTakt);
   if (alarmTakt !== null) clearInterval(alarmTakt);
+  if (schalterTakt !== null) clearInterval(schalterTakt);
+  // Eine ausstehende Aenderung noch abschicken: Wer einen Schalter umlegt und
+  // sofort die Seite wechselt, hat ihn umgelegt — nicht halb.
+  if (schalterWartet !== null) {
+    clearTimeout(schalterWartet);
+    void sendeAlarmschalter({ ...schalter });
+  }
 });
 
 const rolleSetzen = (rolle: 'master' | 'client'): Promise<void> =>
@@ -932,6 +996,41 @@ const demoUmschalten = (): Promise<void> | undefined => {
 
     <div class="zeile" style="margin-bottom: 0.6rem">
       <label><input type="checkbox" v-model="alarm.aktiv" /> Alarme verschicken</label>
+    </div>
+
+    <!-- Welche Alarme? Einzeln schaltbar, weil sie verschieden nuetzlich sind:
+         „Analyzer offline" will man immer wissen, „Geraet seit 24 Stunden
+         stumm" nicht unbedingt bei Geraeten, die man selten benutzt. -->
+    <fieldset class="alarmwahl" v-if="schalterZustand !== null">
+      <legend>Welche Alarme sollen melden?</legend>
+      <p class="fussnote" style="margin: 0 0 0.3rem">
+        Ein ausgeschalteter Alarm wird in Grafana <em>pausiert</em> — die Regel
+        bleibt sichtbar, wird aber nicht mehr ausgewertet. Nichts läuft im
+        Verborgenen weiter, und nichts geht verloren: Wieder einschalten
+        genügt.
+      </p>
+      <Schiebeschalter
+        v-for="r in schalterZustand.regeln"
+        :key="r.uid"
+        v-model="schalter[r.uid]"
+        :name="r.name"
+        :zweck="r.zweck"
+        :gesperrt="beschaeftigt || !alarm.aktiv"
+        @update:model-value="schalterUmgelegt"
+      />
+      <p class="fussnote" v-if="!alarm.aktiv" style="margin: 0.3rem 0 0">
+        Solange oben nichts verschickt wird, ändern diese Schalter nichts —
+        deshalb sind sie ausgegraut.
+      </p>
+      <p class="fussnote" v-else-if="schalterZustand.laeuft" style="margin: 0.3rem 0 0">
+        Wird übernommen … Grafana startet dafür kurz neu.
+      </p>
+    </fieldset>
+    <div class="meldung fehler" v-if="schalterZustand?.haengtSeitMinuten != null">
+      Die Alarmschalter liegen seit {{ schalterZustand.haengtSeitMinuten }}
+      Minuten unbearbeitet. Meist fehlt dem Gerät die Aktualisierung, mit der
+      der Hilfsdienst dafür kam — einmal <em>Wartung → Aktualisieren</em>
+      behebt das.
     </div>
 
     <div class="zeile">

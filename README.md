@@ -139,6 +139,35 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.3.0 — 23.08.2026
+
+**Jeder Alarm hat jetzt einen eigenen Schalter.**
+
+Anlass: „Die Meldung über 24 h nicht erreichbare Geräte war gestern Abend sehr
+störend, zumal man ja auch nicht jeden Tag jeden Schalter betätigt oder jedes
+Fenster öffnet." Ein Fenster, das den Winter über zu bleibt, ist kein Befund —
+und eine Meldung, die man jeden Abend wegwischt, bringt einem bei, Meldungen
+wegzuwischen.
+
+- Unter *Einstellungen → Alarme: wohin melden?* steht direkt unter *Alarme
+  verschicken* für jeden der vier Alarme ein Schiebeschalter. Gespeichert wird
+  von selbst, anderthalb Sekunden nach dem letzten Klick — sonst startete
+  Grafana bei vier Klicks viermal neu.
+- „Aus" heißt in Grafana **pausiert**: Die Regel bleibt sichtbar und ist als
+  pausiert gekennzeichnet, wird aber nicht mehr ausgewertet. Eine Regel
+  weiterlaufen zu lassen und ihre Meldung unterwegs zu verwerfen sähe von außen
+  normal aus — und niemand fände je den Grund für die ausbleibende Nachricht.
+- **Die Schalter überstehen eine Aktualisierung.** Das war die eigentliche
+  Arbeit: `update.sh` kopierte die Regeldatei bisher roh aus dem Projekt und
+  hätte jeden abgeschalteten Alarm stillschweigend wieder eingeschaltet. Alle
+  Skripte gehen jetzt durch `core/bin/alarme-rendern.ts`, das der frischen
+  Vorlage die gespeicherten Schalter beilegt. `tools/pruefe-alarmschalter.py`
+  hält das fest — gegengeprüft.
+- `/api/alarme` liefert und nimmt die Schalter; neu sind `Schiebeschalter.vue`,
+  der Root-Helfer `alarmschalter-anwenden.sh` und seine beiden Units.
+- Handbuch 19.9 erklärt, bei welchem Alarm ein Abschalten sinnvoll ist und bei
+  welchem nicht (bei *Analyzer offline*: eigentlich nie).
+
 ### v1.2.0 — 21.08.2026
 
 **Fremde Adressen sind in der Telegrammliste als solche gekennzeichnet.**

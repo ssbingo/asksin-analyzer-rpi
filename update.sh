@@ -81,10 +81,13 @@ installiere_dateien() {
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-langzeit.service" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-zigbee-firmware.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-zigbee-firmware.service" /etc/systemd/system/ 2>/dev/null || true
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmschalter.path" /etc/systemd/system/ 2>/dev/null || true
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmschalter.service" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmziel.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmziel.service" /etc/systemd/system/ 2>/dev/null || true
     systemctl enable asksin-analyzer-langzeit.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-zigbee-firmware.path >/dev/null 2>&1 || true
+    systemctl enable --now asksin-analyzer-alarmschalter.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-alarmziel.path >/dev/null 2>&1 || true
     install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
     # udev-Regeln nachziehen. Sie fehlten hier bis zum 18.08.2026 — und damit
@@ -190,8 +193,20 @@ installiere_dateien() {
         install -d -m 0755 /etc/grafana/provisioning/alerting \
                            /etc/grafana/provisioning/dashboards \
                            /var/lib/grafana/dashboards/asksin
-        install -m 0644 "$INSTALL_DIR/deploy/grafana/provisioning/alerting/asksin-alarme.yaml" \
-            /etc/grafana/provisioning/alerting/asksin-alarme.yaml
+        # Die Alarmregeln NICHT roh kopieren: Seit M14.3 lassen sich einzelne
+        # Alarme in der Weboberflaeche abschalten, und ein rohes Kopieren
+        # schaltete sie bei jeder Aktualisierung stillschweigend wieder ein.
+        # Der Renderer legt die gespeicherten Schalter der frischen Vorlage
+        # bei — so kommen Regelverbesserungen an, ohne die Wahl zu ueberfahren.
+        #
+        # Kein Rueckfall auf ein rohes Kopieren, auch nicht im Fehlerfall:
+        # Misslingt das Erzeugen, bleibt die alte Datei liegen. Veraltete
+        # Regeltexte sind aergerlich — Alarme, die von selbst wieder angehen,
+        # sind schlimmer, weil niemand nach ihrer Ursache suchen wuerde.
+        if ! node "$INSTALL_DIR/core/bin/alarme-rendern.ts" \
+                  /etc/grafana/provisioning/alerting/asksin-alarme.yaml; then
+            echo "  ACHTUNG Alarmregeln konnten nicht erzeugt werden — alte Fassung bleibt." >&2
+        fi
         install -m 0644 "$INSTALL_DIR/deploy/grafana/provisioning/dashboards/asksin.yaml" \
             /etc/grafana/provisioning/dashboards/asksin.yaml
         install -m 0644 "$INSTALL_DIR"/deploy/grafana/dashboards/*.json \

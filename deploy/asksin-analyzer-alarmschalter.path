@@ -1,0 +1,15 @@
+# Beobachtet die Datei, die die Weboberflaeche beim Umlegen eines
+# Alarmschalters anlegt.
+#
+# Dasselbe Muster wie beim Alarmziel: Der Analyzer laeuft unprivilegiert und
+# darf nicht nach /etc/grafana schreiben. Er legt die fertige Datei im
+# Datenverzeichnis ab, ein eng begrenzter Root-Helfer kopiert sie.
+[Unit]
+Description=AskSin-Analyzer: Ausloeser fuer die Alarmschalter
+
+[Path]
+PathExists=/var/lib/asksin-analyzer/alarmschalter-anstoss
+Unit=asksin-analyzer-alarmschalter.service
+
+[Install]
+WantedBy=multi-user.target
