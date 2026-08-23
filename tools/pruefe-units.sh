@@ -129,4 +129,16 @@ if [ "$fehlt" -gt 0 ]; then
     echo "seine Aenderungen kommen nie an, und nichts schlaegt fehl." >&2
     exit 1
 fi
-echo "$gesamt Dateien (Units und Grafana-Vorlagen), alle werden ausgerollt."
+# Reicht nicht: In der Liste stehen heisst noch nicht, beim ERSTEN Update
+# anzukommen. `installiere_dateien` wird nach dem Pull aufgerufen, ihr Rumpf
+# stammt aber aus der Fassung davor — ohne Neustart des Skripts kaeme jede neu
+# eingetragene Unit erst beim uebernaechsten Update an. Gemessen am 23.08.2026
+# an den Units der Alarmschalter.
+if ! grep -q 'exec bash "$INSTALL_DIR/update.sh"' update.sh; then
+    echo "update.sh startet sich nach dem Pull nicht mit der neuen Fassung neu." >&2
+    echo "Neue Units kaemen dann erst beim uebernaechsten Update an." >&2
+    exit 1
+fi
+
+echo "$gesamt Dateien (Units und Grafana-Vorlagen), alle werden ausgerollt;"
+echo "update.sh laeuft nach dem Pull mit der neuen Fassung weiter."

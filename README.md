@@ -139,6 +139,26 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.3.1 — 23.08.2026
+
+**Neue systemd-Units kamen erst beim übernächsten Update an.**
+
+Gefunden beim Ausrollen von v1.3.0: Auf dem Master fehlten hinterher beide
+Units der Alarmschalter. Die Schalter ließen sich umlegen, und nichts geschah —
+es sah aus wie ein Fehler in der neuen Funktion und war einer im
+Aktualisierungsweg.
+
+`update.sh` ruft `installiere_dateien` zwar nach dem Git-Pull auf, aber Bash
+hat den Rumpf der Funktion da längst gelesen — aus der Fassung *davor*. Alles,
+was eine neue Fassung dort zusätzlich tut, blieb deshalb liegen.
+
+- Nach dem Pull läuft das Skript mit der neuen Fassung weiter (`exec`, gegen
+  Schleifen abgesichert; der Ausgangsstand wird durchgereicht, damit die zweite
+  Fassung sich nicht für „bereits aktuell" hält).
+- `tools/pruefe-units.sh` prüft das mit — gegengeprüft.
+- Betrifft rückwirkend jede Unit seit dem ersten Update: Wer je eine Funktion
+  vermisst hat, für die eine Unit nötig war, hatte womöglich diesen Fall.
+
 ### v1.3.0 — 23.08.2026
 
 **Jeder Alarm hat jetzt einen eigenen Schalter.**

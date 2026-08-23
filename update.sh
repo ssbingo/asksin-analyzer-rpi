@@ -45,8 +45,10 @@ if [ "${1:-}" = "--hintergrund" ]; then
     echo "===== Update gestartet: $(date -Is) ====="
 fi
 
-START_MS="$(date +%s%3N)"
-VORHER="$(git -C "$INSTALL_DIR" rev-parse --short HEAD)"
+# Beide Werte ueberleben den Neustart des Skripts weiter unten — sonst hielte
+# sich die zweite Fassung fuer "bereits aktuell" und baute das Web-UI nicht.
+START_MS="${ASKSIN_UPDATE_START_MS:-$(date +%s%3N)}"
+VORHER="${ASKSIN_UPDATE_VORHER:-$(git -C "$INSTALL_DIR" rev-parse --short HEAD)}"
 NACHHER=""
 
 schreibe_status() {  # running step ok(null|true|false)
@@ -278,6 +280,28 @@ if [ "$VORHER" = "$NACHHER" ]; then
     exit 0
 fi
 c_ok "Aktualisiert: $VORHER -> $NACHHER"
+
+# --- 1b. Mit der NEUEN Fassung dieses Skripts weitermachen --------------------
+#
+# Ab hier liegt eine neue update.sh auf der Platte — die laufende stammt noch
+# von vorher. Bash hat seine Funktionen laengst aus der alten Datei gelesen,
+# `installiere_dateien` also auch. Alles, was die neue Fassung dort zusaetzlich
+# tut, bliebe liegen und kaeme erst beim UEBERNAECHSTEN Update an.
+#
+# Gemessen am 23.08.2026: Nach dem Update auf v1.3.0 fehlten beide Units der
+# Alarmschalter, obwohl sie in `installiere_dateien` stehen. Die Schalter in
+# der Oberflaeche liessen sich umlegen, und nichts geschah — es sah aus wie ein
+# Fehler in der neuen Funktion und war einer im Aktualisierungsweg.
+#
+# Genau der haeufigste Fehlertyp dieses Projekts: zwei Staende, eine Annahme,
+# keine Meldung. Deshalb ab hier mit der neuen Fassung weiter; die Umgebung
+# verhindert eine Schleife.
+if [ "${ASKSIN_UPDATE_NEUSTART:-}" != "1" ]; then
+    export ASKSIN_UPDATE_NEUSTART=1
+    export ASKSIN_UPDATE_VORHER="$VORHER"
+    export ASKSIN_UPDATE_START_MS="$START_MS"
+    exec bash "$INSTALL_DIR/update.sh" "$@"
+fi
 
 # --- 2. Web-UI bauen — in ein NEUES Verzeichnis, dann atomar tauschen ---------
 schreibe_status true "baue-ui" null
