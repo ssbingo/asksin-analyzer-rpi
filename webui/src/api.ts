@@ -1014,6 +1014,8 @@ export interface Zeitplan {
   stunde: number;
   minute: number;
   neustarten: boolean;
+  /** Nach jedem beendeten Lauf eine Nachricht schicken? */
+  melden: boolean;
 }
 
 export interface SystemupdateZustand {
@@ -1047,6 +1049,8 @@ export interface SystemupdateZustand {
   naechsterLaufLautSystemd: number | null;
   /** Welche Unit der Timer startet — muss die geplante sein. */
   timerStartet?: string | null;
+  /** Wohin eine Benachrichtigung ginge — ohne Zugangsdaten. */
+  meldeziel?: { aktiv: boolean; kanal: 'iobroker' | 'email' | 'telegram' };
 }
 
 export const holeSystemupdate = (): Promise<SystemupdateZustand> =>

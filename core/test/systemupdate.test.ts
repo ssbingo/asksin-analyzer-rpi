@@ -9,6 +9,7 @@ import {
   ZEITPLAN_VORGABE,
   ausfallmonate,
   baueTimer,
+  baueUpdateEreignis,
   bewerteAlter,
   kalenderAusdruck,
   laeuftNoch,
@@ -19,6 +20,7 @@ import {
   zaehleAufgeruestet,
 } from '../src/update/systemupdate.ts';
 import type { SystemupdateStatus } from '../src/update/systemupdate.ts';
+import { baueEreignisMeldung } from '../src/langzeit/alarmziel.ts';
 
 const TAG = 86_400_000;
 const JETZT = 1_800_000_000_000;
@@ -305,4 +307,82 @@ test('die Zweitmeinung liest NICHT das formatierte Feld von systemctl show', () 
     'die formatierte Auskunft ist als Zahlenquelle unbrauchbar',
   );
   assert.ok(daemon.includes('--output=json'), 'stattdessen die JSON-Ausgabe');
+});
+
+// ---- Benachrichtigung (M17.2) ---------------------------------------------
+
+const FERTIG: SystemupdateStatus = {
+  running: false, schritt: 'fertig', ok: true,
+  startedAt: JETZT - 59_000, updatedAt: JETZT,
+  pakete: 39, neustartNoetig: false, fehler: null,
+};
+
+test('Benachrichtigung: Erfolg nennt Standort, Anzahl und Dauer', () => {
+  const e = baueUpdateEreignis(FERTIG, 'Keller Büro');
+  assert.equal(e.schlecht, false);
+  assert.match(e.summary, /Keller Büro/);
+  assert.match(e.summary, /39 Pakete/);
+  assert.match(e.description, /59 Sekunden/);
+  assert.match(e.description, /nicht nötig/);
+});
+
+test('Benachrichtigung: null Pakete ist eine Aussage, keine Luecke', () => {
+  // "Es wurden 0 Pakete aufgeruestet" laesst den Empfaenger raten, ob die
+  // Meldung abgeschnitten ist. Der Satz muss sagen, was der Fall ist.
+  const e = baueUpdateEreignis({ ...FERTIG, pakete: 0 }, 'Dachboden');
+  assert.match(e.summary, /bereits aktuell/);
+  assert.equal(e.schlecht, false);
+  // Unbekannt ist wieder etwas anderes als null.
+  assert.match(baueUpdateEreignis({ ...FERTIG, pakete: null }, 'X').summary, /nicht auslesen/);
+});
+
+test('Benachrichtigung: Neustart und Fehlschlag stehen deutlich drin', () => {
+  const neu = baueUpdateEreignis({ ...FERTIG, neustartNoetig: true }, 'Gartenhaus');
+  assert.match(neu.description, /Neustart/);
+  assert.match(neu.description, /Kernel/);
+
+  const kaputt = baueUpdateEreignis(
+    { ...FERTIG, ok: false, fehler: 'apt-get update fehlgeschlagen (Code 100).' },
+    'Gartenhaus',
+  );
+  assert.equal(kaputt.schlecht, true);
+  assert.match(kaputt.name, /fehlgeschlagen/);
+  // Die Meldung von apt woertlich — sie ist die eigentliche Auskunft.
+  assert.match(kaputt.description, /Code 100/);
+});
+
+test('Benachrichtigung: lange Laeufe in Minuten', () => {
+  const lang = baueUpdateEreignis(
+    { ...FERTIG, startedAt: JETZT - 14 * 60_000 }, 'Keller Büro',
+  );
+  assert.match(lang.description, /14 Minuten/);
+});
+
+test('Ereignis geht im Grafana-Format an den Adapter', () => {
+  // Der Adapter liest genau diese Struktur (adapter/lib/alarm.js). Weicht sie
+  // ab, antwortet er mit "Keine Alarme in der Nutzlast" — und die Meldung
+  // waere weg, ohne dass der Analyzer davon erfuehre.
+  const e = baueUpdateEreignis(FERTIG, 'Keller Büro');
+  const roh = baueEreignisMeldung('Keller Büro', e, new Date(JETZT)) as {
+    status: string;
+    alerts: Array<{ status: string; labels: Record<string, string>;
+      annotations: Record<string, string>; startsAt: string }>;
+  };
+  assert.equal(roh.status, 'firing');
+  assert.equal(roh.alerts.length, 1);
+  assert.equal(roh.alerts[0]!.labels['alertname'], 'Systemaktualisierung durchgeführt');
+  assert.equal(roh.alerts[0]!.labels['standort'], 'Keller Büro');
+  assert.equal(roh.alerts[0]!.labels['bereich'], 'analyzer');
+  assert.equal(roh.alerts[0]!.annotations['summary'], e.summary);
+  assert.ok(roh.alerts[0]!.startsAt.endsWith('Z'));
+
+  // Die Entwarnung raeumt den Zustand auf: Ohne sie zeigte der Adapter
+  // dauerhaft einen aktiven Alarm, und wer daran eine Lampe haengt, haette
+  // sie fuer immer an.
+  const auf = baueEreignisMeldung('X', e, new Date(JETZT), 'resolved') as {
+    status: string; alerts: Array<{ status: string; endsAt?: string }>;
+  };
+  assert.equal(auf.status, 'resolved');
+  assert.equal(auf.alerts[0]!.status, 'resolved');
+  assert.ok(auf.alerts[0]!.endsAt !== undefined, 'Grafana setzt endsAt beim Abklingen');
 });

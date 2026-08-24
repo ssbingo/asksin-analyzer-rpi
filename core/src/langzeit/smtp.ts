@@ -49,6 +49,15 @@ export interface TestmailAuftrag {
   absender: string;
   empfaenger: string;
   standort: string;
+  /**
+   * Fertige RFC-822-Nachricht statt der Testmail.
+   *
+   * Damit geht derselbe, erprobte Weg — Begrüssung, STARTTLS, Anmeldung,
+   * Umschlag — auch für andere Nachrichten. Einen zweiten Versandweg
+   * danebenzustellen hiesse, die Verschlüsselungs- und Anmeldelogik ein
+   * zweites Mal richtig hinzubekommen.
+   */
+  nachricht?: string;
 }
 
 /** Fehler mit der wörtlichen Serverantwort — die ist die eigentliche Auskunft. */
@@ -112,6 +121,33 @@ export function baueTestmail(a: TestmailAuftrag, jetzt: Date): string {
     'Content-Transfer-Encoding: 8bit',
     '',
     rumpf,
+  ].join('\r\n');
+}
+
+/**
+ * Baut eine Nachricht mit eigenem Betreff und Text.
+ *
+ * Derselbe Kopfaufbau wie bei der Testmail, inklusive der Base64-Kodierung des
+ * Betreffs: Ohne sie kommt jedes Wort mit Umlaut als Buchstabensalat an, und
+ * „Systemaktualisierung durchgeführt" enthält gleich zwei.
+ */
+export function baueMail(
+  a: TestmailAuftrag,
+  betreff: string,
+  rumpf: string,
+  jetzt: Date = new Date(),
+): string {
+  const kodiert = `=?UTF-8?B?${Buffer.from(betreff, 'utf8').toString('base64')}?=`;
+  return [
+    `From: AskSin-Analyzer <${a.absender}>`,
+    `To: ${a.empfaenger}`,
+    `Subject: ${kodiert}`,
+    `Date: ${jetzt.toUTCString()}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=utf-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    rumpf.replace(/\n/g, '\r\n'),
   ].join('\r\n');
 }
 
@@ -180,7 +216,7 @@ export async function smtpTestlauf(
 
   await l.sende('DATA\r\n');
   await erwarte(l, 'DATA', 354);
-  await l.sende(`${punktSchutz(baueTestmail(a, jetzt))}\r\n.\r\n`);
+  await l.sende(`${punktSchutz(a.nachricht ?? baueTestmail(a, jetzt))}\r\n.\r\n`);
   await erwarte(l, 'Zustellung', 250);
 
   await l.sende('QUIT\r\n');

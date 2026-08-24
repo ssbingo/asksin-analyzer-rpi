@@ -358,3 +358,78 @@ export function deuteZustellfehler(
 
   return `Der Empfänger hat abgelehnt (HTTP ${status}).${anhang}`;
 }
+
+// ---- Ereignismeldungen (M17.2) --------------------------------------------
+//
+// Nicht jede Nachricht ist ein Alarm. Eine abgeschlossene Systemaktualisierung
+// ist ein Ereignis: Sie tritt ein, ist vorbei und hat keinen Zustand, der
+// andauert. Zugestellt wird sie trotzdem auf demselben Weg — ein zweiter
+// Versandweg neben diesem hiesse, SMTP, Token und Fehlerdeutung ein zweites
+// Mal richtig hinzubekommen.
+
+export interface Ereignis {
+  /** Kurzname; landet als `alertname` im Adapter. */
+  name: string;
+  /** Eine Zeile — die Kurzfassung. */
+  summary: string;
+  /** Die Einzelheiten. */
+  description: string;
+  /** Ist es eine schlechte Nachricht? Bestimmt nur das Zeichen im Fliesstext. */
+  schlecht: boolean;
+}
+
+/**
+ * Ein Ereignis im Grafana-Webhook-Format.
+ *
+ * Dieselbe Struktur wie bei den Alarmen — der Adapter kennt genau diese, und
+ * jeder andere Webhook-Empfänger ebenso. Eine eigene Struktur zu erfinden
+ * hiesse, den Adapter anzufassen und beide Seiten aneinander zu binden.
+ *
+ * @param status `firing` wird vom Adapter weitergeleitet; `resolved` räumt
+ *   danach den Zustand wieder auf — siehe `ereignisAufraeumen`.
+ */
+export function baueEreignisMeldung(
+  standort: string,
+  e: Ereignis,
+  jetzt: Date,
+  status: 'firing' | 'resolved' = 'firing',
+): unknown {
+  return {
+    status,
+    alerts: [
+      {
+        status,
+        labels: { alertname: e.name, standort, bereich: 'analyzer' },
+        annotations: { summary: e.summary, description: e.description },
+        startsAt: jetzt.toISOString(),
+        ...(status === 'resolved' ? { endsAt: jetzt.toISOString() } : {}),
+      },
+    ],
+  };
+}
+
+/**
+ * Warum unmittelbar ein `resolved` hinterhergeschickt wird.
+ *
+ * Der Adapter leitet nur weiter, was `firing` ist, und merkt sich in
+ * `alarm.aktiv`, dass etwas ansteht. Für einen Alarm ist das richtig. Ein
+ * abgeschlossenes Update steht aber nicht an — bliebe es bei `firing`, zeigte
+ * der Adapter dauerhaft einen aktiven Alarm, und wer daran eine Lampe oder
+ * eine Anzeige hängt, hätte sie für immer an.
+ *
+ * Deshalb dieselbe Folge, die auch Grafana benutzt: erst `firing` (das wird
+ * zugestellt), dann `resolved` (das räumt den Zustand auf). Die Entwarnung
+ * wird vom Adapter nur weitergeleitet, wenn man das ausdrücklich eingestellt
+ * hat — sonst kommt genau eine Nachricht an.
+ */
+export const EREIGNIS_AUFRAEUMEN = true;
+
+/** Derselbe Inhalt als Fliesstext — für Telegram und E-Mail. */
+export function baueEreignisText(standort: string, e: Ereignis): string {
+  return (
+    `AskSin-Analyzer (${standort})\n\n` +
+    `${e.schlecht ? '⚠' : '✓'} ${e.name}\n` +
+    `${e.summary}\n\n` +
+    e.description
+  );
+}

@@ -197,6 +197,15 @@ export interface Zeitplan {
   minute: number;
   /** Nach dem Lauf neu starten, wenn das System es verlangt? */
   neustarten: boolean;
+  /**
+   * Nach jedem beendeten Lauf eine Nachricht schicken?
+   *
+   * Gehört hierher und nicht in den Zeitplan im engeren Sinn: Der Satz
+   * beschreibt, was die Systemaktualisierung von sich aus tut — planen,
+   * neu starten, melden. Sie gilt auch für Läufe von Hand, denn ein
+   * Fehlschlag ist dort genauso wichtig.
+   */
+  melden: boolean;
 }
 
 /**
@@ -215,6 +224,7 @@ export const ZEITPLAN_VORGABE: Zeitplan = {
   stunde: 3,
   minute: 0,
   neustarten: false,
+  melden: false,
 };
 
 /**
@@ -270,6 +280,7 @@ export function pruefeZeitplan(teil: Partial<Zeitplan> | undefined): Zeitplan {
     stunde: begrenze(teil?.stunde, 0, 23, ZEITPLAN_VORGABE.stunde),
     minute: begrenze(teil?.minute, 0, 59, ZEITPLAN_VORGABE.minute),
     neustarten: teil?.neustarten === true,
+    melden: teil?.melden === true,
   };
 }
 
@@ -460,5 +471,58 @@ export function leseTimerJson(stdout: string): TimerBefund {
     // Mikrosekunden seit der Epoche. 0 heisst „kein Termin bekannt".
     naechster: roh > 0 ? Math.round(roh / 1000) : null,
     startet: typeof e.activates === 'string' ? e.activates : null,
+  };
+}
+
+/**
+ * Der Text der Benachrichtigung nach einem Lauf.
+ *
+ * Rein und getestet, weil hier die Auskunft entsteht, die am Ende auf dem
+ * Telefon steht. Sie muss drei Fragen beantworten, ohne dass jemand die
+ * Oberfläche öffnet: Welches Gerät? Hat es geklappt? Muss ich etwas tun?
+ *
+ * @param status Der abgeschlossene Lauf.
+ * @param standort Anzeigename dieses Analyzers.
+ */
+export function baueUpdateEreignis(
+  status: SystemupdateStatus,
+  standort: string,
+): { name: string; summary: string; description: string; schlecht: boolean } {
+  const dauer = Math.max(0, Math.round((status.updatedAt - status.startedAt) / 1000));
+  const dauerText = dauer < 90 ? `${dauer} Sekunden` : `${Math.round(dauer / 60)} Minuten`;
+
+  if (status.ok !== true) {
+    return {
+      name: 'Systemaktualisierung fehlgeschlagen',
+      summary: `Die Systemaktualisierung auf ${standort} ist fehlgeschlagen.`,
+      description:
+        (status.fehler ?? 'Kein Grund vermerkt.')
+        + ' Einzelheiten stehen in der Weboberfläche unter Wartung und auf dem '
+        + 'Gerät in /var/lib/asksin-analyzer/systemupdate.log.',
+      schlecht: true,
+    };
+  }
+
+  // Null Pakete ist eine gute Nachricht und keine leere: Das System war
+  // bereits aktuell. Das zu verschweigen liesse den Empfaenger raten, ob die
+  // Meldung nur unvollstaendig ist.
+  const pakete =
+    status.pakete === null
+      ? 'Die Paketliste liess sich nicht auslesen'
+      : status.pakete === 0
+        ? 'Es war nichts nachzuholen — das System war bereits aktuell'
+        : `${status.pakete} ${status.pakete === 1 ? 'Paket wurde' : 'Pakete wurden'} aufgerüstet`;
+
+  return {
+    name: 'Systemaktualisierung durchgeführt',
+    summary: `${standort}: ${pakete}.`,
+    description:
+      `Der Lauf dauerte ${dauerText}. `
+      + (status.neustartNoetig
+        ? 'Das System verlangt einen Neustart — vermutlich kam ein neuer Kernel. '
+          + 'Bis dahin läuft alles weiter; der Neustart lässt sich in der '
+          + 'Weboberfläche unter Wartung auslösen.'
+        : 'Ein Neustart ist nicht nötig.'),
+    schlecht: false,
   };
 }

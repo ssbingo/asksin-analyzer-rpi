@@ -139,6 +139,37 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.7.0 — 24.08.2026
+
+**Der Analyzer meldet, wenn eine Systemaktualisierung durchgelaufen ist.**
+
+Auf Wunsch — dritter Schalter im selben Feld. Zugestellt über **dasselbe Ziel,
+das schon für die Alarme eingerichtet ist**: ioBroker-Adapter, E-Mail oder
+Telegram. Ist dort nichts eingerichtet oder der Versand aus, bleibt der Schalter
+ausgegraut, mit dem Hinweis wo man das ändert; ein Schalter, der sich umlegen
+lässt und nichts bewirkt, wäre schlimmer als keiner.
+
+- **Der Adapter braucht keine Änderung.** Die Meldung geht im
+  Grafana-Webhook-Format hinaus, also in genau der Form, die er für die Alarme
+  ohnehin versteht.
+- **Erfolg und Fehlschlag** werden gemeldet. Der Fehlschlag ist der wichtigere
+  Fall: Ein Gerät, das seit Wochen vergeblich aktualisiert, sieht von außen aus
+  wie eines, das brav aktualisiert.
+- Die Nachricht nennt Standort, Paketanzahl, Dauer und ob ein Neustart nötig
+  ist. War nichts nachzuholen, steht das ausdrücklich da — „0 Pakete" allein
+  liesse den Empfänger raten, ob die Meldung abgeschnitten ist.
+- **Eine Entwarnung folgt sofort nach.** Sonst bliebe `alarm.aktiv` im Adapter
+  dauerhaft auf *wahr*, denn eine abgeschlossene Aktualisierung ist ein Ereignis
+  und kein andauernder Zustand. Weitergeleitet wird die Entwarnung nur, wenn man
+  das ausdrücklich eingestellt hat — es kommt also genau eine Nachricht an.
+- **Übersteht den Neustart des Dienstes mitten im Lauf:** apt rüstet auch
+  Pakete auf, die den Analyzer mitnehmen. Welcher Lauf schon gemeldet wurde,
+  steht auf der Platte; geprüft wird beim Start und alle 30 Sekunden.
+- Handbuch 15.4 zeigt die Nachricht im Wortlaut und erklärt die Entwarnung.
+
+**Grenze:** Alarmziele werden nur auf dem Master eingerichtet — heute meldet
+sich deshalb auch nur der Master. Die Clients laufen still.
+
 ### v1.6.1 — 24.08.2026
 
 **Die Bestätigung durch systemd blieb leer — die Zweitmeinung hat sich selbst gefunden.**

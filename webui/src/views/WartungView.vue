@@ -169,10 +169,17 @@ const plan = reactive<Zeitplan>({
   stunde: 3,
   minute: 0,
   neustarten: false,
+  melden: false,
 });
 /** Nicht überschreiben, während jemand daran arbeitet. */
 const planBearbeitet = ref(false);
 const planGespeichert = ref(false);
+
+const MELDEWEG: Record<string, string> = {
+  iobroker: 'ioBroker-Adapter',
+  email: 'E-Mail',
+  telegram: 'Telegram',
+};
 
 const WOCHENTAGE = [
   { wert: 1, text: 'Montag' }, { wert: 2, text: 'Dienstag' },
@@ -486,6 +493,33 @@ nutzeTakt(async () => {
           />
         </div>
       </template>
+
+      <!-- Steht ausserhalb von v-if="plan.aktiv": Eine Aktualisierung von
+           Hand soll sich genauso melden koennen, und ein Fehlschlag ist dort
+           genauso wichtig. -->
+      <div style="margin-top: 0.7rem">
+        <Schiebeschalter
+          v-model="plan.melden"
+          name="Nach der Aktualisierung benachrichtigen"
+          zweck="Schickt eine Nachricht, sobald ein Lauf beendet ist —
+                 mit Anzahl der Pakete, Dauer und ob ein Neustart nötig ist.
+                 Ein Fehlschlag wird ebenso gemeldet."
+          :gesperrt="sysupdBeschaeftigt || sysupd.meldeziel?.aktiv !== true"
+          @update:model-value="planBearbeitet = true"
+        />
+        <p class="fussnote" v-if="sysupd.meldeziel?.aktiv !== true" style="margin: 0.3rem 0 0">
+          Dafür muss unter <em>Einstellungen → Alarme: wohin melden?</em> ein
+          Ziel eingerichtet und eingeschaltet sein — ioBroker-Adapter, E-Mail
+          oder Telegram. Ohne Ziel gäbe es keinen Weg für die Nachricht,
+          deshalb ist der Schalter ausgegraut.
+        </p>
+        <p class="fussnote" v-else style="margin: 0.3rem 0 0">
+          Geht über den eingerichteten Weg:
+          <strong>{{ MELDEWEG[sysupd.meldeziel.kanal] ?? sysupd.meldeziel.kanal }}</strong>.
+          Beim ioBroker-Adapter kommt die Meldung im Kanal <code>alarm</code>
+          an und wird von dort wie ein Alarm weitergereicht.
+        </p>
+      </div>
 
       <div style="margin-top: 0.8rem">
         <button

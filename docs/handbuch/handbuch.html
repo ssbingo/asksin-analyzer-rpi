@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.6.1</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.7.0</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.6.1 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.7.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2549,6 +2549,55 @@ sagt es auch: <em>„ein geplanter Lauf scheint ausgefallen zu sein"</em> statt
 <em>„bitte bald nachholen"</em>. Die zwei Tage Luft fangen die Streuung und
 einen Abend ohne Strom ab.</p>
 
+<h3 class="umbruch" id="benachrichtigung-nach-dem-lauf">Benachrichtigung nach dem Lauf</h3>
+
+<p>Ein Lauf um drei Uhr nachts sieht niemand. Der dritte Schalter im Feld
+schickt deshalb auf Wunsch eine Nachricht, sobald eine Aktualisierung beendet
+ist — <strong>bei Erfolg und bei Fehlschlag</strong>. Der Fehlschlag ist dabei
+der wichtigere Fall: Ein Gerät, das seit Wochen vergeblich aktualisiert, sieht
+von außen aus wie eines, das brav aktualisiert.</p>
+
+<p>Zugestellt wird über <strong>dasselbe Ziel, das schon für die Alarme
+eingerichtet ist</strong> (Kapitel 19.9): ioBroker-Adapter, E-Mail oder
+Telegram. Ist dort nichts eingerichtet oder ist der Versand abgeschaltet, bleibt
+der Schalter ausgegraut — mit dem Hinweis, wo man das ändert. Ein Schalter, der
+sich umlegen lässt und nichts bewirkt, wäre schlimmer als keiner.</p>
+
+<p>So sieht die Nachricht aus:</p>
+
+<pre>AskSin-Analyzer (Keller Büro)
+
+✓ Systemaktualisierung durchgeführt
+Keller Büro: 39 Pakete wurden aufgerüstet.
+
+Der Lauf dauerte 59 Sekunden. Ein Neustart ist nicht nötig.</pre>
+
+<p>War nichts nachzuholen, steht das ausdrücklich da — <em>„Es war nichts
+nachzuholen, das System war bereits aktuell"</em>. „0 Pakete" allein liesse den
+Empfänger raten, ob die Meldung abgeschnitten ist.</p>
+
+<div class="hinweis box"><span class="titel">Warum der Adapter dafür nicht
+angepasst werden muss</span>
+Der Analyzer schickt die Meldung im <strong>Grafana-Webhook-Format</strong> —
+also in genau der Form, die der Adapter für die Alarme ohnehin versteht. Sie
+landet im Kanal <code>alarm</code> und wird von dort wie ein Alarm
+weitergereicht, an Telegram, Signal, Pushover oder E-Mail.<br /><br />
+Unmittelbar danach schickt der Analyzer eine <strong>Entwarnung</strong>
+hinterher. Das klingt umständlich, ist aber der Grund, warum
+<code>alarm.aktiv</code> nicht dauerhaft auf <em>wahr</em> stehen bleibt: Eine
+abgeschlossene Aktualisierung ist ein Ereignis und kein andauernder Zustand.
+Wer an <code>alarm.aktiv</code> eine Lampe hängt, hätte sie sonst für immer
+an. Weitergeleitet wird die Entwarnung nur, wenn man das im Adapter
+ausdrücklich eingestellt hat — es kommt also genau <strong>eine</strong>
+Nachricht an.</div>
+
+<p class="klein">Die Meldung kommt <strong>vom Gerät selbst</strong>, nicht von
+Grafana — sie funktioniert also auch dann, wenn gerade niemand ein Dashboard
+offen hat, und sie überlebt einen Neustart des Dienstes mitten im Lauf: Welcher
+Lauf schon gemeldet wurde, steht auf der Platte. Da die Alarmziele nur auf dem
+Master eingerichtet werden, meldet sich heute auch nur der Master; die Clients
+laufen still.</p>
+
 <!-- ==================================================== KAPITEL 16 -->
 <h1 class="kapitel" id="k16"><span class="knr">16</span>Netzwerkeinstellungen mit Aussperr-Schutz</h1>
 <div class="kapitelband"></div>
@@ -4250,7 +4299,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.6.1 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.7.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

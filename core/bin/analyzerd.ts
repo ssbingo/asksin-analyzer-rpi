@@ -75,10 +75,16 @@ import {
 } from '../src/langzeit/alarmziel.ts';
 import type { Alarmkanal, Alarmziel } from '../src/langzeit/alarmziel.ts';
 import {
+  baueEreignisMeldung,
+  baueEreignisText,
+} from '../src/langzeit/alarmziel.ts';
+import type { Ereignis } from '../src/langzeit/alarmziel.ts';
+import {
   SYSTEMUPDATE_WARNUNG_TAGE,
   ZEITPLAN_STREUUNG_S,
   ausfallmonate,
   baueTimer,
+  baueUpdateEreignis,
   beschreibeZeitplan,
   bewerteAlter,
   kalenderAusdruck,
@@ -105,7 +111,9 @@ import {
   baueVersionsbefund,
 } from '../src/langzeit/kompatibilitaet.ts';
 import type { Versionsbefund } from '../src/langzeit/kompatibilitaet.ts';
-import { deuteSmtpFehler, netzLeitung, smtpTestlauf } from '../src/langzeit/smtp.ts';
+import {
+  baueMail, deuteSmtpFehler, netzLeitung, smtpTestlauf,
+} from '../src/langzeit/smtp.ts';
 import type { InfluxDaten, InfluxKonfig } from '../src/influx/schreiber.ts';
 import { Protokoll, istStufe } from '../src/log/protokoll.ts';
 import type { Stufe } from '../src/log/protokoll.ts';
@@ -2248,6 +2256,13 @@ const systemupdateHooks = {
       planAusfallmonate: plan.rhythmus === 'monatlich' ? ausfallmonate(plan.monatstag) : [],
       streuungMinuten: Math.round(ZEITPLAN_STREUUNG_S / 60),
       naechsterLauf: naechsterLauf(plan, jetzt),
+      // Wohin eine Benachrichtigung ginge — ohne Geheimnisse, nur ob und
+      // wohin. Die Oberflaeche braucht das, um zu sagen, WARUM der Schalter
+      // nichts bewirkt, statt ihn wirkungslos anzubieten.
+      meldeziel: (() => {
+        const z = leseAlarmziel();
+        return { aktiv: z.aktiv, kanal: z.kanal };
+      })(),
       // Die zweite Meinung — siehe timerLautSystemd().
       timerAktiv: systemd.aktiv,
       naechsterLaufLautSystemd: systemd.naechster,
@@ -2300,6 +2315,15 @@ const systemupdateHooks = {
       rmSync(neustartErlaubtMarke, { force: true });
     }
 
+    // Beim EINSCHALTEN den letzten Lauf als erledigt markieren: Sonst
+    // berichtete der naechste Takt rueckwirkend ueber eine Aktualisierung,
+    // die Tage zurueckliegt — und die erste Nachricht waere gleich eine
+    // verwirrende.
+    if (plan.melden) {
+      const s = leseSystemupdateStatus();
+      if (s !== null && !s.running) merkeGemeldet(s.startedAt);
+    }
+
     writeFileSync(zeitplanTrigger, `${new Date().toISOString()}\n`);
     log(
       plan.aktiv
@@ -2322,6 +2346,156 @@ const systemupdateHooks = {
     log('Neustart des Rechners angefordert (Trigger-Datei für die Path-Unit)');
   },
 };
+
+// ---- Benachrichtigung nach der Systemaktualisierung (M17.2) --------------
+//
+// „Kann man bei Bedarf ueber den ioBroker-Adapter, insoweit vorhanden und
+// aktiv, eine Benachrichtigung senden, wenn das Update erfolgt ist?"
+//
+// Ja — und zwar ueber denselben Weg, der schon fuer die Alarme eingerichtet
+// ist. Der Adapter nimmt das Grafana-Webhook-Format entgegen (siehe
+// adapter/lib/alarm.js), also braucht er keine Aenderung. Wer stattdessen
+// E-Mail oder Telegram eingestellt hat, bekommt die Meldung dort.
+
+const meldungsMarke = join(datenDir, 'systemupdate-gemeldet.json');
+
+function leseGemeldet(): number {
+  try {
+    const roh = JSON.parse(readFileSync(meldungsMarke, 'utf8')) as { startedAt?: number };
+    return Number.isFinite(roh.startedAt) ? Number(roh.startedAt) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+function merkeGemeldet(startedAt: number): void {
+  writeFileSync(meldungsMarke, JSON.stringify({ startedAt }) + '\n', { mode: 0o644 });
+}
+
+/**
+ * Stellt ein Ereignis ueber das eingerichtete Alarmziel zu.
+ *
+ * Nur wenn dort ueberhaupt etwas eingerichtet UND eingeschaltet ist — genau
+ * das meinte die Frage mit „insoweit vorhanden und aktiv". Ohne Ziel passiert
+ * nichts, und das ist kein Fehler.
+ *
+ * Wirft nicht: Eine gescheiterte Zustellung darf den Dienst nicht stoeren. Sie
+ * steht im Protokoll, und die Aktualisierung selbst ist ja gelaufen.
+ */
+async function sendeEreignis(e: Ereignis): Promise<boolean> {
+  const ziel = leseAlarmziel();
+  if (!ziel.aktiv) return false;
+  const jetzt = new Date();
+
+  try {
+    if (ziel.kanal === 'iobroker') {
+      if (!/^https?:\/\/\S+$/.test(ziel.iobroker.url)) return false;
+      const kopf = {
+        'content-type': 'application/json',
+        ...(ziel.iobroker.token === ''
+          ? {}
+          : { authorization: `Bearer ${ziel.iobroker.token}` }),
+      };
+      const antwort = await holen(ziel.iobroker.url, {
+        method: 'POST',
+        headers: kopf,
+        body: JSON.stringify(baueEreignisMeldung(standort, e, jetzt)),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!antwort.ok) {
+        log(`Benachrichtigung an den Adapter abgewiesen: ${antwort.status} ${alsText(antwort)}`);
+        return false;
+      }
+      // Und gleich die Entwarnung hinterher — Begruendung bei
+      // EREIGNIS_AUFRAEUMEN in alarmziel.ts. Scheitert sie, ist die Nachricht
+      // trotzdem angekommen; nur der Zustand im Adapter bleibt stehen.
+      try {
+        await holen(ziel.iobroker.url, {
+          method: 'POST',
+          headers: kopf,
+          body: JSON.stringify(baueEreignisMeldung(standort, e, jetzt, 'resolved')),
+          signal: AbortSignal.timeout(10_000),
+        });
+      } catch {
+        log('Entwarnung an den Adapter nicht zugestellt — alarm.aktiv bleibt gesetzt.');
+      }
+      return true;
+    }
+
+    if (ziel.kanal === 'telegram') {
+      if (ziel.telegram.botToken === '' || ziel.telegram.chatId === '') return false;
+      const antwort = await holen(
+        `https://api.telegram.org/bot${ziel.telegram.botToken}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: ziel.telegram.chatId,
+            text: baueEreignisText(standort, e),
+          }),
+          signal: AbortSignal.timeout(10_000),
+        },
+      );
+      return antwort.ok;
+    }
+
+    // E-Mail
+    const m = ziel.email;
+    if (!m.empfaenger.includes('@') || m.smtpHost.trim() === '') return false;
+    const leitung = await netzLeitung(m.smtpHost, m.smtpPort);
+    try {
+      const auftrag = {
+        host: m.smtpHost, port: m.smtpPort, benutzer: m.benutzer,
+        passwort: m.passwort, absender: m.absender, empfaenger: m.empfaenger,
+        standort,
+      };
+      await smtpTestlauf(leitung, {
+        ...auftrag,
+        nachricht: baueMail(
+          auftrag,
+          `AskSin-Analyzer (${standort}): ${e.name}`,
+          `${e.summary}\n\n${e.description}\n\n-- \nAskSin-Analyzer`,
+          jetzt,
+        ),
+      }, jetzt);
+    } finally {
+      leitung.schliesse();
+    }
+    return true;
+  } catch (fehler) {
+    log(`Benachrichtigung nicht zugestellt: ${String(fehler)}`);
+    return false;
+  }
+}
+
+/**
+ * Ist ein Lauf zu Ende gegangen, ueber den noch nicht berichtet wurde?
+ *
+ * Laeuft im Takt und einmal beim Start. Das Beim-Start ist keine Zugabe: apt
+ * ruestet auch Pakete auf, die diesen Dienst neu starten — der Lauf kann also
+ * ausgerechnet dann enden, wenn niemand hinsieht.
+ *
+ * Der Zeitpunkt des berichteten Laufs steht auf der Platte. Ohne ihn schickte
+ * jeder Dienststart dieselbe Nachricht noch einmal.
+ */
+async function pruefeSystemupdateMeldung(): Promise<void> {
+  const status = leseSystemupdateStatus();
+  if (status === null || status.running || status.ok === null) return;
+  if (status.startedAt === leseGemeldet()) return;
+
+  // Erst merken, dann senden: Bleibt der Versand haengen und der Dienst wird
+  // abgeschossen, kaeme die Nachricht sonst beim naechsten Start erneut.
+  merkeGemeldet(status.startedAt);
+
+  if (!leseZeitplan().melden) return;
+  const e = baueUpdateEreignis(status, standort);
+  const zugestellt = await sendeEreignis(e);
+  log(
+    zugestellt
+      ? `Benachrichtigung verschickt: ${e.name}`
+      : `Benachrichtigung nicht verschickt (kein aktives Alarmziel): ${e.name}`,
+  );
+}
 
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
 // Die Handbücher liegen im Projekt, nicht im Web-UI-Verzeichnis; ausgeliefert
@@ -3061,6 +3235,15 @@ void diagnoseSchreiben(true);
 const systemlogTakt = setInterval(() => void systemzeilenUebernehmen(), 60_000);
 systemlogTakt.unref();
 void vorherigenStartBewerten().then(() => systemzeilenUebernehmen());
+
+// Nach einem beendeten Systemupdate benachrichtigen (M17.2). Der Takt ist
+// grob — ein Lauf dauert Minuten, und die Nachricht darf eine halbe Minute
+// spaeter kommen. Der Aufruf beim Start ist der wichtigere: apt ruestet auch
+// Pakete auf, die diesen Dienst neu starten, der Lauf kann also ausgerechnet
+// dann enden, wenn niemand hinsieht.
+const meldungsTakt = setInterval(() => void pruefeSystemupdateMeldung(), 30_000);
+meldungsTakt.unref();
+void pruefeSystemupdateMeldung();
 
 // ---- Unerwartetes Ende festhalten ---------------------------------------
 // Ohne diese Haken endet der Prozess bei einem Programmierfehler wortlos —
