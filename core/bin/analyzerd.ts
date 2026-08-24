@@ -83,6 +83,7 @@ import {
   bewerteAlter,
   kalenderAusdruck,
   laeuftNoch,
+  leseTimerJson,
   naechsterLauf,
   pruefeZeitplan,
   warnschwelleTage,
@@ -90,6 +91,7 @@ import {
 import type {
   SystemupdateErfolg,
   SystemupdateStatus,
+  TimerBefund,
   Zeitplan,
 } from '../src/update/systemupdate.ts';
 import {
@@ -2213,23 +2215,18 @@ function leseZeitplan(): Zeitplan {
  * Gehen beide auseinander, ist der Plan nicht angekommen — und genau das
  * merkte man sonst erst, wenn wochenlang nichts passiert.
  */
-async function timerLautSystemd(): Promise<{ aktiv: boolean; naechster: number | null }> {
+async function timerLautSystemd(): Promise<TimerBefund> {
   try {
     const { stdout } = await execFileAsync(
       'systemctl',
-      ['show', 'asksin-analyzer-systemupdate.timer',
-        '-p', 'NextElapseUSecRealtime', '-p', 'ActiveState', '--no-pager'],
+      ['list-timers', 'asksin-analyzer-systemupdate.timer', '--output=json', '--no-pager'],
       { timeout: 5000 },
     );
-    const aktiv = /ActiveState=active/.test(stdout);
-    // systemd meldet Mikrosekunden seit der Epoche — oder gar nichts.
-    const roh = /NextElapseUSecRealtime=(\d+)/.exec(stdout);
-    const naechster = roh === null ? null : Math.round(Number(roh[1]) / 1000);
-    return { aktiv, naechster: naechster !== null && naechster > 0 ? naechster : null };
+    return leseTimerJson(stdout);
   } catch {
     // Kein systemctl (Entwicklungsrechner) oder Unit unbekannt: keine zweite
     // Meinung. Das ist eine fehlende Auskunft, keine Behauptung.
-    return { aktiv: false, naechster: null };
+    return { aktiv: false, naechster: null, startet: null };
   }
 }
 
@@ -2254,6 +2251,10 @@ const systemupdateHooks = {
       // Die zweite Meinung — siehe timerLautSystemd().
       timerAktiv: systemd.aktiv,
       naechsterLaufLautSystemd: systemd.naechster,
+      // Welche Unit der Timer wirklich startet — muss die geplante sein.
+      // Steht in der Antwort, damit eine falsche Verdrahtung nachweisbar ist
+      // und nicht nur vermutet werden muss.
+      timerStartet: systemd.startet,
       // Nach einem Kernel-Update verlangt Debian einen Neustart. Die Auskunft
       // kommt aus der letzten Statusdatei UND aus der Gegenwart: Die Datei
       // /var/run/reboot-required kann auch ein Paket angelegt haben, das

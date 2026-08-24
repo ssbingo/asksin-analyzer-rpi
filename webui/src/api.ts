@@ -1045,6 +1045,8 @@ export interface SystemupdateZustand {
   /** Was systemd wirklich vorhat — die zweite Meinung. */
   timerAktiv: boolean;
   naechsterLaufLautSystemd: number | null;
+  /** Welche Unit der Timer startet — muss die geplante sein. */
+  timerStartet?: string | null;
 }
 
 export const holeSystemupdate = (): Promise<SystemupdateZustand> =>

@@ -412,3 +412,53 @@ export function baueTimer(plan: Zeitplan): string {
     '',
   ].join('\n');
 }
+
+/** Was systemd über den Timer sagt. */
+export interface TimerBefund {
+  aktiv: boolean;
+  /** Nächste Zündung in Millisekunden, oder null. */
+  naechster: number | null;
+  /** Welche Unit der Timer startet — muss die geplante sein. */
+  startet: string | null;
+}
+
+/**
+ * Liest `systemctl list-timers --output=json`.
+ *
+ * ## Warum nicht `systemctl show -p NextElapseUSecRealtime`
+ *
+ * Weil das trotz des Namens **keine Mikrosekunden** liefert, sondern einen
+ * formatierten Zeitstempel:
+ *
+ *     NextElapseUSecRealtime=Mon 2026-08-31 03:09:45 CEST
+ *
+ * Mein erster Versuch suchte dort nach Ziffern und fand nie welche — die
+ * Anzeige blieb still leer, obwohl der Timer lief. Genau die Sorte Fehler, für
+ * die diese Zweitmeinung überhaupt da ist; sie hat sich damit gleich selbst
+ * gefunden. `--timestamp=unix` hilft hier nicht, es wirkt auf andere Ausgaben.
+ *
+ * `list-timers --output=json` gibt `next` als Zahl (Mikrosekunden) und nennt
+ * zusätzlich, welche Unit gestartet wird — womit sich auch belegen lässt, dass
+ * der Timer die *geplante* Unit meint und nicht die manuelle.
+ *
+ * Ohne `--all` listet systemd nur aktive Timer. Eine leere Liste heisst also
+ * „nicht aktiv" und ist kein Fehler.
+ */
+export function leseTimerJson(stdout: string): TimerBefund {
+  const leer: TimerBefund = { aktiv: false, naechster: null, startet: null };
+  let liste: unknown;
+  try {
+    liste = JSON.parse(stdout);
+  } catch {
+    return leer;
+  }
+  if (!Array.isArray(liste) || liste.length === 0) return leer;
+  const e = liste[0] as { next?: unknown; activates?: unknown };
+  const roh = typeof e.next === 'number' ? e.next : 0;
+  return {
+    aktiv: true,
+    // Mikrosekunden seit der Epoche. 0 heisst „kein Termin bekannt".
+    naechster: roh > 0 ? Math.round(roh / 1000) : null,
+    startet: typeof e.activates === 'string' ? e.activates : null,
+  };
+}

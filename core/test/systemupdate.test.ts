@@ -12,6 +12,7 @@ import {
   bewerteAlter,
   kalenderAusdruck,
   laeuftNoch,
+  leseTimerJson,
   naechsterLauf,
   pruefeZeitplan,
   warnschwelleTage,
@@ -263,4 +264,45 @@ test('die geplante Unit und der Timer meinen dieselbe Datei', () => {
   const text = baueTimer({ ...ZEITPLAN_VORGABE, aktiv: true });
   const genannt = /Unit=(\S+)/.exec(text)![1];
   assert.equal(genannt, 'asksin-analyzer-systemupdate-geplant.service');
+});
+
+test('Timer-Auskunft von systemd wird richtig gelesen', () => {
+  // Woertlich das, was `systemctl list-timers --output=json` auf Analyzer 04
+  // ausgegeben hat (systemd 257) — nicht nachgetippt, sondern kopiert.
+  const echt = '[{"next":1788138585126294,"left":1788138585126294,"last":0,'
+    + '"passed":0,"unit":"asksin-analyzer-systemupdate.timer",'
+    + '"activates":"asksin-analyzer-systemupdate-geplant.service"}]';
+  const b = leseTimerJson(echt);
+  assert.equal(b.aktiv, true);
+  // Mikrosekunden -> Millisekunden. Der Faktor ist die Stelle, an der man
+  // sich um drei Nullen vertut und dann das Jahr 58000 anzeigt.
+  assert.equal(b.naechster, 1788138585126);
+  assert.equal(new Date(b.naechster!).getFullYear(), 2026);
+  assert.equal(b.startet, 'asksin-analyzer-systemupdate-geplant.service');
+
+  // Ohne --all listet systemd nur AKTIVE Timer. Leer heisst "aus", nicht
+  // "kaputt" — und darf keine Behauptung ueber einen naechsten Lauf erzeugen.
+  assert.deepEqual(leseTimerJson('[]'), { aktiv: false, naechster: null, startet: null });
+  assert.equal(leseTimerJson('kein JSON').aktiv, false);
+  assert.equal(leseTimerJson('').aktiv, false);
+  // Aktiver Timer ohne bekannten Termin: aktiv ja, Termin nein.
+  const ohne = leseTimerJson('[{"next":0,"unit":"x","activates":"y"}]');
+  assert.equal(ohne.aktiv, true);
+  assert.equal(ohne.naechster, null);
+});
+
+test('die Zweitmeinung liest NICHT das formatierte Feld von systemctl show', () => {
+  // Der Fehler, der diese Pruefung ausgeloest hat: `systemctl show -p
+  // NextElapseUSecRealtime` liefert trotz des Namens KEINE Mikrosekunden,
+  // sondern "Mon 2026-08-31 03:09:45 CEST". Ein Muster, das dort nach Ziffern
+  // sucht, findet nie welche — die Anzeige blieb still leer, obwohl der Timer
+  // lief. Genau der Fall, fuer den die Zweitmeinung da ist.
+  const daemon = readFileSync(
+    resolve(import.meta.dirname, '../bin/analyzerd.ts'), 'utf8',
+  );
+  assert.ok(
+    !daemon.includes('NextElapseUSecRealtime'),
+    'die formatierte Auskunft ist als Zahlenquelle unbrauchbar',
+  );
+  assert.ok(daemon.includes('--output=json'), 'stattdessen die JSON-Ausgabe');
 });

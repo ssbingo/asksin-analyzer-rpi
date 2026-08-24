@@ -139,6 +139,29 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.6.1 — 24.08.2026
+
+**Die Bestätigung durch systemd blieb leer — die Zweitmeinung hat sich selbst gefunden.**
+
+Der Zeitplan lief korrekt, aber die Zeile „von systemd bestätigt" erschien nie.
+Grund: `systemctl show -p NextElapseUSecRealtime` liefert **trotz des Namens
+keine Mikrosekunden**, sondern einen formatierten Zeitstempel —
+`Mon 2026-08-31 03:09:45 CEST`. Mein Muster suchte dort nach Ziffern und fand
+nie welche.
+
+- Gelesen wird jetzt `systemctl list-timers --output=json`: `next` als Zahl,
+  dazu die gestartete Unit. Damit ist auch belegbar, dass der Timer die
+  *geplante* Unit meint und nicht die manuelle.
+- Das Parsen liegt in der getesteten Schicht und wird gegen die **wörtlich
+  kopierte** Ausgabe von Analyzer 04 geprüft — nicht gegen eine nachgetippte
+  Variante. Genau diese Unterscheidung hat hier schon einmal 20 Stunden
+  gekostet.
+- Ein Test hält fest, dass das formatierte Feld nicht wieder als Zahlenquelle
+  auftaucht.
+
+Nebenbei bestätigt: Die Streuung arbeitet. `list-timers` meldet 03:09:45 für
+einen Plan auf 03:00.
+
 ### v1.6.0 — 24.08.2026
 
 **Die Systemaktualisierung läuft auf Wunsch nach Zeitplan.**
