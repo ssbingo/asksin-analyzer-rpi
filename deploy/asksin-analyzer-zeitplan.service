@@ -1,0 +1,9 @@
+# Kopiert die Timer-Unit nach /etc/systemd/system und schaltet sie ein bzw. aus.
+[Unit]
+Description=AskSin-Analyzer: Zeitplan anwenden
+
+[Service]
+Type=oneshot
+TimeoutStartSec=120
+ExecStart=/bin/bash /opt/asksin-analyzer/deploy/zeitplan-anwenden.sh
+ExecStopPost=/bin/rm -f /var/lib/asksin-analyzer/zeitplan-anstoss

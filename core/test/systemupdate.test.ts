@@ -6,8 +6,15 @@ import { resolve } from 'node:path';
 import {
   SYSTEMUPDATE_STECKEN_MS,
   SYSTEMUPDATE_WARNUNG_TAGE,
+  ZEITPLAN_VORGABE,
+  ausfallmonate,
+  baueTimer,
   bewerteAlter,
+  kalenderAusdruck,
   laeuftNoch,
+  naechsterLauf,
+  pruefeZeitplan,
+  warnschwelleTage,
   zaehleAufgeruestet,
 } from '../src/update/systemupdate.ts';
 import type { SystemupdateStatus } from '../src/update/systemupdate.ts';
@@ -115,4 +122,145 @@ test('das Helferskript und der Core reden von denselben Dateien', () => {
       `Skript meldet den Schritt ${schritt} nicht`,
     );
   }
+});
+
+// ---- Zeitplan (M17.1) ------------------------------------------------------
+
+test('Kalenderausdruck: die drei Rhythmen', () => {
+  const p = { ...ZEITPLAN_VORGABE, aktiv: true, stunde: 3, minute: 5 };
+  assert.equal(kalenderAusdruck({ ...p, rhythmus: 'taeglich' }), '*-*-* 03:05:00');
+  assert.equal(
+    kalenderAusdruck({ ...p, rhythmus: 'woechentlich', wochentag: 6 }),
+    'Sat *-*-* 03:05:00',
+  );
+  assert.equal(
+    kalenderAusdruck({ ...p, rhythmus: 'monatlich', monatstag: 1 }),
+    '*-*-01 03:05:00',
+  );
+  // Sonntag ist in ISO die 7 und bei systemd "Sun" — nicht die 0.
+  assert.equal(
+    kalenderAusdruck({ ...p, rhythmus: 'woechentlich', wochentag: 7 }),
+    'Sun *-*-* 03:05:00',
+  );
+});
+
+test('Ausfallmonate: der 31. faellt in fuenf Monaten aus', () => {
+  // Gemessen an systemd 257: *-*-31 springt vom 31.08. auf den 31.10., dann
+  // den 31.12. September und November fallen ersatzlos aus, ohne Meldung.
+  assert.deepEqual(ausfallmonate(28), []);
+  assert.deepEqual(ausfallmonate(30), ['Februar']);
+  assert.equal(ausfallmonate(29).length, 1);
+  assert.match(ausfallmonate(29)[0]!, /Schaltjahr/);
+  assert.deepEqual(
+    ausfallmonate(31),
+    ['Februar', 'April', 'Juni', 'September', 'November'],
+  );
+});
+
+test('Naechster Lauf: taeglich springt erst nach der Uhrzeit auf morgen', () => {
+  const plan = { ...ZEITPLAN_VORGABE, aktiv: true, rhythmus: 'taeglich' as const,
+    stunde: 3, minute: 0 };
+  // 02:00 Ortszeit — der Lauf steht heute noch bevor.
+  const frueh = new Date(2026, 7, 24, 2, 0).getTime();
+  assert.equal(new Date(naechsterLauf(plan, frueh)!).getDate(), 24);
+  // 04:00 — heute ist er durch, also morgen.
+  const spaet = new Date(2026, 7, 24, 4, 0).getTime();
+  assert.equal(new Date(naechsterLauf(plan, spaet)!).getDate(), 25);
+  assert.equal(naechsterLauf({ ...plan, aktiv: false }, frueh), null);
+});
+
+test('Naechster Lauf: woechentlich trifft den richtigen Tag', () => {
+  // 24.08.2026 ist ein Montag.
+  const montag = new Date(2026, 7, 24, 12, 0).getTime();
+  const plan = { ...ZEITPLAN_VORGABE, aktiv: true, rhythmus: 'woechentlich' as const,
+    stunde: 3, minute: 0 };
+  const samstag = new Date(naechsterLauf({ ...plan, wochentag: 6 }, montag)!);
+  assert.equal(samstag.getDay(), 6, 'Samstag');
+  assert.equal(samstag.getDate(), 29);
+  // Derselbe Wochentag, aber die Uhrzeit ist schon vorbei: erst naechste Woche.
+  const naechsterMontag = new Date(naechsterLauf({ ...plan, wochentag: 1 }, montag)!);
+  assert.equal(naechsterMontag.getDate(), 31, 'eine Woche weiter');
+  // Sonntag = 7 im Plan, 0 in getDay(). Genau hier vertut man sich.
+  assert.equal(new Date(naechsterLauf({ ...plan, wochentag: 7 }, montag)!).getDay(), 0);
+});
+
+test('Naechster Lauf: der 31. ueberspringt die kurzen Monate', () => {
+  const plan = { ...ZEITPLAN_VORGABE, aktiv: true, rhythmus: 'monatlich' as const,
+    monatstag: 31, stunde: 3, minute: 0 };
+  // Vom 01.09.2026 aus: September hat keinen 31., also der 31. Oktober.
+  const september = new Date(2026, 8, 1, 12, 0).getTime();
+  const naechster = new Date(naechsterLauf(plan, september)!);
+  assert.equal(naechster.getMonth(), 9, 'Oktober');
+  assert.equal(naechster.getDate(), 31);
+  // Der 29. Februar ist erst 2028 wieder da — die Suche darf nicht aufgeben.
+  const feb = { ...plan, monatstag: 29 };
+  const nach = new Date(naechsterLauf(feb, new Date(2027, 1, 1, 12, 0).getTime())!);
+  assert.equal(nach.getDate(), 29);
+  assert.equal(nach.getMonth(), 2, 'kein 29. Februar 2027 — also der 29. Maerz');
+});
+
+test('Warnschwelle folgt dem Rhythmus', () => {
+  // Ohne Plan die festen sieben Tage.
+  assert.equal(warnschwelleTage(null), SYSTEMUPDATE_WARNUNG_TAGE);
+  assert.equal(warnschwelleTage({ ...ZEITPLAN_VORGABE, aktiv: false }), 7);
+  assert.equal(warnschwelleTage({ ...ZEITPLAN_VORGABE, aktiv: true, rhythmus: 'taeglich' }), 3);
+  assert.equal(warnschwelleTage({ ...ZEITPLAN_VORGABE, aktiv: true }), 9, 'woechentlich');
+  assert.equal(
+    warnschwelleTage({ ...ZEITPLAN_VORGABE, aktiv: true, rhythmus: 'monatlich' }),
+    33,
+  );
+  // Der Punkt der ganzen Uebung: Bei "monatlich" darf nach 20 Tagen keine
+  // Warnung stehen — sonst leuchtete sie drei Wochen im Monat, obwohl alles
+  // nach Plan laeuft, und niemand naehme sie mehr ernst.
+  const monatlich = warnschwelleTage({ ...ZEITPLAN_VORGABE, aktiv: true, rhythmus: 'monatlich' });
+  assert.equal(bewerteAlter(JETZT - 20 * TAG, JETZT, monatlich).stufe, 'frisch');
+  assert.equal(bewerteAlter(JETZT - 20 * TAG, JETZT).stufe, 'ueberfaellig', 'ohne Plan schon');
+  // Ausgefallener Lauf: anderer Text als beim schlichten Vergessen.
+  assert.match(bewerteAlter(JETZT - 40 * TAG, JETZT, monatlich).text, /ausgefallen/);
+  assert.match(bewerteAlter(JETZT - 40 * TAG, JETZT).text, /nachholen/);
+});
+
+test('Plan wird geprueft, nicht geglaubt', () => {
+  const kaputt = pruefeZeitplan({
+    aktiv: true, rhythmus: 'jaehrlich', wochentag: 99, monatstag: 0,
+    stunde: 25, minute: -3,
+  } as never);
+  assert.equal(kaputt.rhythmus, 'woechentlich', 'unbekannter Rhythmus -> Vorgabe');
+  assert.equal(kaputt.wochentag, ZEITPLAN_VORGABE.wochentag);
+  assert.equal(kaputt.monatstag, ZEITPLAN_VORGABE.monatstag);
+  assert.equal(kaputt.stunde, ZEITPLAN_VORGABE.stunde);
+  assert.equal(kaputt.minute, ZEITPLAN_VORGABE.minute);
+  assert.equal(pruefeZeitplan(undefined).aktiv, false);
+  // Gueltige Randwerte muessen durchkommen.
+  const rand = pruefeZeitplan({ aktiv: true, monatstag: 31, stunde: 23, minute: 59,
+    wochentag: 7, rhythmus: 'monatlich' });
+  assert.equal(rand.monatstag, 31);
+  assert.equal(rand.stunde, 23);
+  assert.equal(rand.minute, 59);
+  assert.equal(rand.wochentag, 7);
+});
+
+test('Timer-Unit traegt Streuung, Nachholen und die richtige Ziel-Unit', () => {
+  const text = baueTimer({ ...ZEITPLAN_VORGABE, aktiv: true });
+  assert.match(text, /OnCalendar=Sat \*-\*-\* 03:00:00/);
+  assert.match(text, /RandomizedDelaySec=1800/);
+  assert.match(text, /Persistent=true/);
+  // Der Timer startet die GEPLANTE Unit, nicht die manuelle: Nur dort darf ein
+  // automatischer Neustart herauskommen.
+  assert.match(text, /Unit=asksin-analyzer-systemupdate-geplant\.service/);
+  assert.match(text, /WantedBy=timers\.target/);
+});
+
+test('die geplante Unit und der Timer meinen dieselbe Datei', () => {
+  // Zwei Seiten, eine Annahme: Heisst die Unit im Timer anders als die Datei
+  // in deploy/, laedt systemd nichts und meldet nichts — der Plan stuende in
+  // der Oberflaeche und liefe nie.
+  const unit = readFileSync(
+    resolve(import.meta.dirname, '../../deploy/asksin-analyzer-systemupdate-geplant.service'),
+    'utf8',
+  );
+  assert.match(unit, /--geplant/, 'die geplante Unit muss sich als solche melden');
+  const text = baueTimer({ ...ZEITPLAN_VORGABE, aktiv: true });
+  const genannt = /Unit=(\S+)/.exec(text)![1];
+  assert.equal(genannt, 'asksin-analyzer-systemupdate-geplant.service');
 });

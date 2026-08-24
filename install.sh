@@ -635,6 +635,9 @@ install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmschalter.path" /etc/sy
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmschalter.service" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-systemupdate.path" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-systemupdate.service" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-systemupdate-geplant.service" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-zeitplan.path" /etc/systemd/system/
+install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-zeitplan.service" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmziel.path" /etc/systemd/system/
 install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmziel.service" /etc/systemd/system/
 systemctl daemon-reload
@@ -645,6 +648,7 @@ systemctl enable --now asksin-analyzer-langzeit.path >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-zigbee-firmware.path >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-alarmschalter.path >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-systemupdate.path >/dev/null 2>&1 || true
+systemctl enable --now asksin-analyzer-zeitplan.path >/dev/null 2>&1 || true
 systemctl enable --now asksin-analyzer-alarmziel.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-netz.path >/dev/null 2>&1 || true
 systemctl restart asksin-analyzer.service

@@ -245,7 +245,10 @@ table.daten th.num {
 label.feld { display: block; margin-bottom: 0.8rem; }
 label.feld .name { display: block; color: var(--muted); font-size: 0.8rem; margin-bottom: 0.25rem; }
 
-input[type='text'], input[type='password'], input[type='search'] {
+/* time gehoert mit dazu: Ohne diese Zeile zeichnet der Browser sein eigenes
+   helles Eingabefeld mitten in die dunkle Oberflaeche — auffaellig genau dort,
+   wo der Anwender eine Uhrzeit einstellen soll. */
+input[type='text'], input[type='password'], input[type='search'], input[type='time'] {
   width: 100%;
   max-width: 26rem;
   padding: 0.45rem 0.6rem;
@@ -256,6 +259,9 @@ input[type='text'], input[type='password'], input[type='search'] {
   font: inherit;
 }
 input:focus { outline: 1px solid var(--akzent); }
+/* Die Uhrzeit braucht keine 26 rem, und das Zeigersymbol soll zur Schrift
+   passen statt schwarz auf dunkel zu stehen. */
+input[type='time'] { max-width: 8rem; color-scheme: dark light; }
 
 button, a.knopf {
   display: inline-block;

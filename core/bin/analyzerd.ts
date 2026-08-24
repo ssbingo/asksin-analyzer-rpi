@@ -76,12 +76,21 @@ import {
 import type { Alarmkanal, Alarmziel } from '../src/langzeit/alarmziel.ts';
 import {
   SYSTEMUPDATE_WARNUNG_TAGE,
+  ZEITPLAN_STREUUNG_S,
+  ausfallmonate,
+  baueTimer,
+  beschreibeZeitplan,
   bewerteAlter,
+  kalenderAusdruck,
   laeuftNoch,
+  naechsterLauf,
+  pruefeZeitplan,
+  warnschwelleTage,
 } from '../src/update/systemupdate.ts';
 import type {
   SystemupdateErfolg,
   SystemupdateStatus,
+  Zeitplan,
 } from '../src/update/systemupdate.ts';
 import {
   ALARMREGELN,
@@ -2172,17 +2181,79 @@ function systemupdateAusgabe(): string {
   }
 }
 
+// --- Zeitplan (M17.1) ------------------------------------------------------
+//
+// Ausgefuehrt wird er von einem systemd-Timer. Der Core rendert nur die
+// Unit-Datei; ein Root-Helfer legt sie ab und schaltet sie ein. Ein eigener
+// Zeitplaner im Dienst waere eine stille Luecke: War das Geraet zur faelligen
+// Zeit aus, fiele der Lauf ersatzlos aus. systemd holt ihn nach.
+
+const zeitplanDatei = join(datenDir, 'systemupdate-plan.json');
+const zeitplanTimer = join(datenDir, 'systemupdate.timer');
+const zeitplanTrigger = join(datenDir, 'zeitplan-anstoss');
+/** Anwesenheit erlaubt dem Helfer den Neustart nach einem geplanten Lauf. */
+const neustartErlaubtMarke = join(datenDir, 'systemupdate-neustart-erlaubt');
+
+function leseZeitplan(): Zeitplan {
+  try {
+    return pruefeZeitplan(
+      JSON.parse(readFileSync(zeitplanDatei, 'utf8')) as Partial<Zeitplan>,
+    );
+  } catch {
+    return pruefeZeitplan(undefined);
+  }
+}
+
+/**
+ * Was systemd tatsaechlich vorhat.
+ *
+ * Die Oberflaeche rechnet den naechsten Lauf selbst aus — das geht schon beim
+ * Bearbeiten, bevor irgendetwas gespeichert ist. Diese Auskunft hier ist die
+ * ZWEITE Meinung: Sie kommt von der Stelle, die den Lauf wirklich startet.
+ * Gehen beide auseinander, ist der Plan nicht angekommen — und genau das
+ * merkte man sonst erst, wenn wochenlang nichts passiert.
+ */
+async function timerLautSystemd(): Promise<{ aktiv: boolean; naechster: number | null }> {
+  try {
+    const { stdout } = await execFileAsync(
+      'systemctl',
+      ['show', 'asksin-analyzer-systemupdate.timer',
+        '-p', 'NextElapseUSecRealtime', '-p', 'ActiveState', '--no-pager'],
+      { timeout: 5000 },
+    );
+    const aktiv = /ActiveState=active/.test(stdout);
+    // systemd meldet Mikrosekunden seit der Epoche — oder gar nichts.
+    const roh = /NextElapseUSecRealtime=(\d+)/.exec(stdout);
+    const naechster = roh === null ? null : Math.round(Number(roh[1]) / 1000);
+    return { aktiv, naechster: naechster !== null && naechster > 0 ? naechster : null };
+  } catch {
+    // Kein systemctl (Entwicklungsrechner) oder Unit unbekannt: keine zweite
+    // Meinung. Das ist eine fehlende Auskunft, keine Behauptung.
+    return { aktiv: false, naechster: null };
+  }
+}
+
 const systemupdateHooks = {
-  zustand: (): unknown => {
+  zustand: async (): Promise<unknown> => {
     const status = leseSystemupdateStatus();
     const erfolg = leseSystemupdateErfolg();
+    const plan = leseZeitplan();
     const jetzt = Date.now();
+    const systemd = await timerLautSystemd();
     return {
       laeuft: laeuftNoch(status, jetzt),
       status,
       letzterErfolg: erfolg,
-      befund: bewerteAlter(erfolg?.zeit ?? null, jetzt),
-      warnungAbTagen: SYSTEMUPDATE_WARNUNG_TAGE,
+      befund: bewerteAlter(erfolg?.zeit ?? null, jetzt, warnschwelleTage(plan)),
+      warnungAbTagen: warnschwelleTage(plan),
+      plan,
+      planText: beschreibeZeitplan(plan),
+      planAusfallmonate: plan.rhythmus === 'monatlich' ? ausfallmonate(plan.monatstag) : [],
+      streuungMinuten: Math.round(ZEITPLAN_STREUUNG_S / 60),
+      naechsterLauf: naechsterLauf(plan, jetzt),
+      // Die zweite Meinung — siehe timerLautSystemd().
+      timerAktiv: systemd.aktiv,
+      naechsterLaufLautSystemd: systemd.naechster,
       // Nach einem Kernel-Update verlangt Debian einen Neustart. Die Auskunft
       // kommt aus der letzten Statusdatei UND aus der Gegenwart: Die Datei
       // /var/run/reboot-required kann auch ein Paket angelegt haben, das
@@ -2206,6 +2277,36 @@ const systemupdateHooks = {
     writeFileSync(systemupdateTrigger, `${new Date().toISOString()}\n`);
     log('Systemaktualisierung angestoßen (Trigger-Datei für die systemd-Path-Unit)');
     return true;
+  },
+  /**
+   * Zeitplan speichern und an systemd uebergeben.
+   *
+   * Bei abgeschaltetem Plan wird die Timer-Datei GELOESCHT — daran erkennt der
+   * Root-Helfer, dass er stilllegen soll. So muss er kein JSON lesen.
+   */
+  planSetzen: (auftrag: Record<string, unknown>): unknown => {
+    const plan = pruefeZeitplan(auftrag as Partial<Zeitplan>);
+    writeFileSync(zeitplanDatei, JSON.stringify(plan, null, 2) + '\n', { mode: 0o644 });
+
+    if (plan.aktiv) writeFileSync(zeitplanTimer, baueTimer(plan), { mode: 0o644 });
+    else rmSync(zeitplanTimer, { force: true });
+
+    // Die Neustart-Marke haengt am Plan, nicht am einzelnen Lauf: Sie gilt nur
+    // fuer geplante Laeufe, und der Helfer prueft sie dort.
+    if (plan.aktiv && plan.neustarten) {
+      writeFileSync(neustartErlaubtMarke, `${new Date().toISOString()}\n`, { mode: 0o644 });
+    } else {
+      rmSync(neustartErlaubtMarke, { force: true });
+    }
+
+    writeFileSync(zeitplanTrigger, `${new Date().toISOString()}\n`);
+    log(
+      plan.aktiv
+        ? `Zeitplan gesetzt: ${kalenderAusdruck(plan)}`
+          + ` (Neustart: ${plan.neustarten ? 'ja' : 'nein'})`
+        : 'Zeitplan abgeschaltet',
+    );
+    return { plan, naechsterLauf: naechsterLauf(plan, Date.now()) };
   },
   /**
    * Startet den RECHNER neu, nicht den Dienst.

@@ -278,9 +278,11 @@ export interface ApiServerOptions {
    * spricht.
    */
   systemupdate?: {
-    zustand(): unknown;
+    zustand(): unknown | Promise<unknown>;
     /** false = läuft schon; wirft mit Klartext, wenn es gerade nicht geht. */
     starten(): boolean;
+    /** Zeitplan speichern und an systemd übergeben (M17.1). */
+    planSetzen(auftrag: Record<string, unknown>): unknown;
     /** Startet den Rechner neu — nach einem Kernel-Update nötig. */
     neustart(): void;
   };
@@ -666,7 +668,7 @@ export class ApiServer {
           // nur wann zuletzt aktualisiert wurde und was apt dazu sagte.
           const hooks = this.#opts.systemupdate;
           if (hooks === undefined) return this.#text(res, 501, 'Keine Systemaktualisierung');
-          return this.#json(res, 200, hooks.zustand());
+          return this.#json(res, 200, await hooks.zustand());
         }
         case '/api/alarme': {
           // Ohne Token, anders als /api/alarmziel: Hier steht kein Geheimnis,
@@ -936,6 +938,9 @@ export class ApiServer {
           if (auftrag['aktion'] === 'neustart') {
             hooks.neustart();
             return this.#text(res, 202, 'Neustart angefordert — das Gerät ist gleich weg.');
+          }
+          if (auftrag['aktion'] === 'plan') {
+            return this.#json(res, 200, hooks.planSetzen(auftrag));
           }
           try {
             if (!hooks.starten()) return this.#text(res, 409, 'Läuft bereits');

@@ -1,0 +1,16 @@
+# Der GEPLANTE Lauf — gestartet vom Timer, nicht von Hand.
+#
+# Eigene Unit und nicht dieselbe wie beim Knopfdruck, weil sich die beiden in
+# einem Punkt unterscheiden duerfen muessen: Nur hier darf am Ende ein
+# automatischer Neustart stehen. Wer den Knopf drueckt, sitzt davor und will
+# nicht ueberrascht werden; wer den Plan einschaltet, hat das ausdruecklich
+# erlaubt.
+#
+# In `systemctl list-timers` steht dadurch auch lesbar, was der Timer startet.
+[Unit]
+Description=AskSin-Analyzer: geplante Systemaktualisierung
+
+[Service]
+Type=oneshot
+TimeoutStartSec=3600
+ExecStart=/bin/bash /opt/asksin-analyzer/deploy/systemupdate.sh --geplant

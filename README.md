@@ -139,6 +139,40 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.6.0 — 24.08.2026
+
+**Die Systemaktualisierung läuft auf Wunsch nach Zeitplan.**
+
+Täglich, wöchentlich oder monatlich, jeweils mit Uhrzeit — bei wöchentlich dazu
+der Wochentag, bei monatlich der Tag. Ausgeführt von einem systemd-Timer, den
+der Core aus der Einstellung rendert; ein eigener Zeitplaner im Dienst wäre eine
+stille Lücke, denn er liefe nur, solange der Dienst läuft.
+
+- **Klartext-Vorschau unter der Auswahl:** „Läuft jeden Samstag um 03:00 Uhr
+  (± bis zu 30 Minuten). Nächster Lauf: Sa, 29.08.2026 — von systemd bestätigt."
+  Der Zusatz kommt von der Stelle, die den Lauf wirklich startet, nicht aus der
+  Eingabemaske. Fehlt er, ist der Plan nicht angekommen.
+- **Der 31. wird benannt statt verboten.** Gemessen an systemd 257: `*-*-31`
+  springt von August auf Oktober auf Dezember — September und November fallen
+  ersatzlos aus, ohne Meldung. Ab Tag 29 erscheint deshalb ein gelber Hinweis
+  mit den betroffenen Monaten. Die Wahl bleibt frei.
+- **Streuung bis 30 min** (`RandomizedDelaySec`), damit nicht alle Analyzer
+  eines Verbunds zur selben Sekunde losfahren; **Nachholen** (`Persistent`),
+  falls das Gerät zur fälligen Zeit aus war.
+- **„Danach neu starten, falls nötig"** — nur bei geplanten Läufen, nur bei
+  verlangtem Neustart, ab Werk aus. Ein Klick auf *Jetzt aktualisieren* startet
+  nie von selbst neu.
+- **Die Warnschwelle folgt dem Rhythmus** (3 / 9 / 33 Tage statt fester 7).
+  Sonst stünde bei „monatlich" drei Wochen im Monat eine Warnung, obwohl alles
+  nach Plan läuft — und wer sie gewohnheitsmäßig übersieht, übersieht auch die,
+  die zählt. Der Text unterscheidet die Fälle: „ein geplanter Lauf scheint
+  ausgefallen zu sein" statt „bitte bald nachholen".
+- Der geplante Lauf hat eine **eigene Unit** (`…-systemupdate-geplant.service`),
+  damit nur dort ein automatischer Neustart herauskommen kann; ein `flock` im
+  Helfer verhindert, dass Timer und Knopfdruck sich überschneiden.
+- Handbuch 15.4 erklärt Rhythmen, den 31., Streuung, Nachholen und die
+  Warnschwellen-Tabelle.
+
 ### v1.5.0 — 24.08.2026
 
 **Das Betriebssystem lässt sich aus der Weboberfläche aktualisieren.**

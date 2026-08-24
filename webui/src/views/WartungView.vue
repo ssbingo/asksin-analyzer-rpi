@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { onUnmounted, reactive, ref } from 'vue';
+import { computed, onUnmounted, reactive, ref } from 'vue';
 
 import HandbuchFuss from '../components/HandbuchFuss.vue';
+import Schiebeschalter from '../components/Schiebeschalter.vue';
 
 import {
   holeSystemupdate,
   starteSystemupdate,
   starteNeustart,
+  sendeZeitplan,
   holeMitschnitt,
   holeProtokoll,
   mitschnittDateiUrl,
@@ -16,6 +18,7 @@ import {
 } from '../api.ts';
 import type {
   SystemupdateZustand,
+  Zeitplan,
   MitschnittZustand,
   ProtokollStufe,
   ProtokollZustand,
@@ -97,6 +100,7 @@ async function sysupdLaden(): Promise<void> {
   try {
     const z = await holeSystemupdate();
     sysupd.value = z;
+    planUebernehmen(z);
     // Waehrend eines Laufs haeufiger nachfragen. Ohne das stuende die
     // Fortschrittsanzeige bis zu 15 Sekunden still, und der Anwender haelt
     // einen laufenden Vorgang fuer haengengeblieben.
@@ -147,6 +151,92 @@ async function sysupdNeustart(): Promise<void> {
   try {
     await starteNeustart();
     meldung.value = { art: 'ok', text: 'Neustart angefordert — bis gleich.' };
+  } catch (err) {
+    meldung.value = { art: 'fehler', text: err instanceof Error ? err.message : String(err) };
+  } finally {
+    sysupdBeschaeftigt.value = false;
+  }
+}
+
+// --- Zeitplan (M17.1) ------------------------------------------------------
+
+/** Der Stand in der Maske; wird beim Laden aus dem Gerät gefüllt. */
+const plan = reactive<Zeitplan>({
+  aktiv: false,
+  rhythmus: 'woechentlich',
+  wochentag: 6,
+  monatstag: 1,
+  stunde: 3,
+  minute: 0,
+  neustarten: false,
+});
+/** Nicht überschreiben, während jemand daran arbeitet. */
+const planBearbeitet = ref(false);
+const planGespeichert = ref(false);
+
+const WOCHENTAGE = [
+  { wert: 1, text: 'Montag' }, { wert: 2, text: 'Dienstag' },
+  { wert: 3, text: 'Mittwoch' }, { wert: 4, text: 'Donnerstag' },
+  { wert: 5, text: 'Freitag' }, { wert: 6, text: 'Samstag' },
+  { wert: 7, text: 'Sonntag' },
+];
+
+/** Uhrzeit als „03:00" für das <input type="time"> und zurück. */
+const uhrzeit = computed({
+  get: () =>
+    `${String(plan.stunde).padStart(2, '0')}:${String(plan.minute).padStart(2, '0')}`,
+  set: (wert: string) => {
+    const [h, m] = wert.split(':');
+    plan.stunde = Number(h ?? 3);
+    plan.minute = Number(m ?? 0);
+    planBearbeitet.value = true;
+  },
+});
+
+/**
+ * In welchen Monaten der gewählte Tag fehlt.
+ *
+ * Gerechnet auch hier, nicht nur im Core: Der Hinweis soll beim Tippen
+ * erscheinen und nicht erst nach dem Speichern — sonst erführe man vom
+ * Ausfall genau dann, wenn er schon eingestellt ist.
+ */
+const ausfall = computed<string[]>(() => {
+  if (plan.rhythmus !== 'monatlich' || plan.monatstag <= 28) return [];
+  if (plan.monatstag === 29) return ['Februar (außer in Schaltjahren)'];
+  if (plan.monatstag === 30) return ['Februar'];
+  return ['Februar', 'April', 'Juni', 'September', 'November'];
+});
+
+/** Der Plan in einem Satz — dieselbe Formulierung wie im Core. */
+const planText = computed(() => {
+  const u = uhrzeit.value;
+  if (plan.rhythmus === 'taeglich') return `Läuft täglich um ${u} Uhr`;
+  if (plan.rhythmus === 'woechentlich') {
+    const tag = WOCHENTAGE.find((w) => w.wert === plan.wochentag)?.text ?? '';
+    return `Läuft jeden ${tag} um ${u} Uhr`;
+  }
+  return `Läuft am ${plan.monatstag}. jedes Monats um ${u} Uhr`;
+});
+
+function planUebernehmen(z: SystemupdateZustand): void {
+  if (planBearbeitet.value) return;
+  Object.assign(plan, z.plan);
+}
+
+async function planSpeichern(): Promise<void> {
+  sysupdBeschaeftigt.value = true;
+  meldung.value = null;
+  try {
+    await sendeZeitplan({ ...plan });
+    planBearbeitet.value = false;
+    planGespeichert.value = true;
+    meldung.value = {
+      art: 'ok',
+      text: plan.aktiv
+        ? 'Zeitplan gespeichert und an systemd übergeben.'
+        : 'Zeitplan abgeschaltet.',
+    };
+    await sysupdLaden();
   } catch (err) {
     meldung.value = { art: 'fehler', text: err instanceof Error ? err.message : String(err) };
   } finally {
@@ -306,6 +396,110 @@ nutzeTakt(async () => {
         </button>
       </div>
     </div>
+
+    <!-- Zeitplan. Steht unter dem Knopf, weil man ihn einmal einstellt und
+         danach nie wieder ansieht — der Knopf dagegen wird benutzt. -->
+    <fieldset class="schalterfeld" style="margin-bottom: 0.9rem">
+      <legend>Automatisch aktualisieren</legend>
+      <Schiebeschalter
+        v-model="plan.aktiv"
+        name="Nach Zeitplan aktualisieren"
+        zweck="Ein systemd-Timer stößt die Aktualisierung selbsttätig an — auch
+               dann, wenn niemand die Weboberfläche öffnet."
+        :gesperrt="sysupdBeschaeftigt"
+        @update:model-value="planBearbeitet = true"
+      />
+
+      <template v-if="plan.aktiv">
+        <div class="zeile" style="margin: 0.7rem 0 0; flex-wrap: wrap; align-items: flex-end">
+          <label class="feld" style="width: 11rem">
+            <span class="name">Rhythmus</span>
+            <select v-model="plan.rhythmus" @change="planBearbeitet = true">
+              <option value="taeglich">täglich</option>
+              <option value="woechentlich">wöchentlich</option>
+              <option value="monatlich">monatlich</option>
+            </select>
+          </label>
+
+          <label class="feld" style="width: 11rem" v-if="plan.rhythmus === 'woechentlich'">
+            <span class="name">Wochentag</span>
+            <select v-model.number="plan.wochentag" @change="planBearbeitet = true">
+              <option v-for="w in WOCHENTAGE" :key="w.wert" :value="w.wert">
+                {{ w.text }}
+              </option>
+            </select>
+          </label>
+
+          <label class="feld" style="width: 8rem" v-if="plan.rhythmus === 'monatlich'">
+            <span class="name">Tag im Monat</span>
+            <select v-model.number="plan.monatstag" @change="planBearbeitet = true">
+              <option v-for="n in 31" :key="n" :value="n">{{ n }}.</option>
+            </select>
+          </label>
+
+          <label class="feld" style="width: 8rem">
+            <span class="name">Uhrzeit</span>
+            <input type="time" v-model="uhrzeit" />
+          </label>
+        </div>
+
+        <!-- Der wichtigste Zusatz: was eingestellt ist, in einem Satz, plus
+             der nächste Termin. Ohne ihn bleibt bei „monatlich, 31." genau
+             die Unsicherheit, die der Hinweis darunter benennt. -->
+        <div class="meldung neutral" style="margin: 0.7rem 0 0">
+          <strong>{{ planText }}</strong>
+          <template v-if="sysupd.streuungMinuten > 0">
+            (± bis zu {{ sysupd.streuungMinuten }} Minuten)</template>.
+          <template v-if="sysupd.naechsterLauf !== null && !planBearbeitet">
+            <br />
+            Nächster Lauf: {{ datumZeit(sysupd.naechsterLauf) }}
+            <template v-if="sysupd.timerAktiv">— von systemd bestätigt.</template>
+            <template v-else>
+              <br />
+              <span style="color: var(--warn)">Der Timer ist bei systemd noch
+              nicht aktiv. Einmal speichern.</span>
+            </template>
+          </template>
+          <template v-else-if="planBearbeitet">
+            <br />Noch nicht gespeichert.
+          </template>
+        </div>
+
+        <!-- Die Ausfallmonate: Der 31. läuft nachweislich nur in 7 von 12
+             Monaten, und systemd meldet das nicht. Die Wahl bleibt frei, aber
+             sie wird benannt. -->
+        <div class="meldung warnung" v-if="ausfall.length > 0" style="margin: 0.5rem 0 0">
+          <strong>Den {{ plan.monatstag }}. gibt es nicht in jedem Monat.</strong>
+          Der Lauf fällt aus in: {{ ausfall.join(', ') }} — ersatzlos, ohne
+          Meldung. Bei 28 oder weniger passiert das nie.
+        </div>
+
+        <div style="margin-top: 0.7rem">
+          <Schiebeschalter
+            v-model="plan.neustarten"
+            name="Danach neu starten, falls nötig"
+            zweck="Nur bei geplanten Läufen und nur, wenn ein Kernel-Update es
+                   verlangt. Ein Klick auf „Jetzt aktualisieren“ startet nie von
+                   selbst neu — wer davorsitzt, soll nicht überrascht werden."
+            :gesperrt="sysupdBeschaeftigt"
+            @update:model-value="planBearbeitet = true"
+          />
+        </div>
+      </template>
+
+      <div style="margin-top: 0.8rem">
+        <button
+          class="primaer"
+          :disabled="sysupdBeschaeftigt || !planBearbeitet"
+          @click="planSpeichern"
+        >
+          Zeitplan speichern
+        </button>
+        <span class="chip" v-if="!planBearbeitet && planGespeichert" style="margin-left: 0.6rem">
+          gespeichert
+        </span>
+      </div>
+    </fieldset>
 
     <p class="fussnote">
       Der Hinweis wird farbig, sobald die letzte Aktualisierung

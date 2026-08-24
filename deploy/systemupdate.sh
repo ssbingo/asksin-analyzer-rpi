@@ -24,9 +24,29 @@ STATUS="$DATEN_DIR/systemupdate-status.json"
 ERFOLG="$DATEN_DIR/systemupdate-erfolg.json"
 LOG="$DATEN_DIR/systemupdate.log"
 ANSTOSS="$DATEN_DIR/systemupdate-anstoss"
+SPERRE="$DATEN_DIR/systemupdate.lock"
+# Marke, die der Core setzt, wenn im Zeitplan "auch neu starten" gewaehlt ist.
+# Eine blosse Datei und kein JSON-Feld: Der Helfer soll nichts parsen muessen.
+NEUSTART_ERLAUBT="$DATEN_DIR/systemupdate-neustart-erlaubt"
+
+# --geplant kommt vom Timer, nicht vom Knopf. Nur dann darf am Ende ein
+# automatischer Neustart stehen: Wer den Knopf drueckt, sitzt davor und will
+# nicht ueberrascht werden.
+GEPLANT="nein"
+[ "${1:-}" = "--geplant" ] && GEPLANT="ja"
 
 [ "$(id -u)" -eq 0 ] || { echo "Bitte mit sudo starten." >&2; exit 1; }
 mkdir -p "$DATEN_DIR"
+
+# Nie zwei apt-Laeufe gleichzeitig. Der Dienst lehnt einen zweiten Knopfdruck
+# ab, aber der Timer fragt ihn nicht — feuert er waehrend eines Laufs von Hand,
+# stuenden hier sonst zwei Skripte nebeneinander und schrieben abwechselnd in
+# dieselbe Statusdatei.
+exec 9>"$SPERRE"
+if ! flock -n 9; then
+    echo "Es laeuft bereits eine Systemaktualisierung — dieser Lauf entfaellt." >&2
+    exit 0
+fi
 
 # Der Ausloeser wird ZUERST entfernt: Bliebe er liegen und das Skript stuerzte
 # ab, feuerte die Path-Unit sofort wieder — eine Schleife aus apt-Laeufen.
@@ -138,4 +158,15 @@ printf '{"zeit":%s,"pakete":%s,"neustartNoetig":%s}\n' \
 schreibe_status false fertig true
 trap - EXIT
 echo "===== fertig: $PAKETE Paket(e), Neustart noetig: $NEUSTART =====" | protokoll
+
+# --- 5. Neu starten, falls gewuenscht und noetig -----------------------------
+# Drei Bedingungen, alle drei muessen zutreffen: Das System verlangt es, der
+# Betreiber hat es im Zeitplan erlaubt, und dieser Lauf kam vom Timer.
+if [ "$NEUSTART" = "true" ] && [ "$GEPLANT" = "ja" ] && [ -f "$NEUSTART_ERLAUBT" ]; then
+    echo "Neustart ist erlaubt und noetig — in 60 Sekunden." | protokoll
+    # Mit Vorlauf: So kann der Analyzer seine Daten noch wegschreiben, und wer
+    # gerade in der Oberflaeche steht, sieht die Meldung noch.
+    shutdown -r +1 "AskSin-Analyzer: Neustart nach der geplanten Systemaktualisierung" \
+        2>&1 | protokoll || systemctl reboot
+fi
 exit 0

@@ -87,12 +87,16 @@ installiere_dateien() {
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmschalter.service" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-systemupdate.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-systemupdate.service" /etc/systemd/system/ 2>/dev/null || true
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-systemupdate-geplant.service" /etc/systemd/system/ 2>/dev/null || true
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-zeitplan.path" /etc/systemd/system/ 2>/dev/null || true
+    install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-zeitplan.service" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmziel.path" /etc/systemd/system/ 2>/dev/null || true
     install -m 0644 "$INSTALL_DIR/deploy/asksin-analyzer-alarmziel.service" /etc/systemd/system/ 2>/dev/null || true
     systemctl enable asksin-analyzer-langzeit.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-zigbee-firmware.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-alarmschalter.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-systemupdate.path >/dev/null 2>&1 || true
+    systemctl enable --now asksin-analyzer-zeitplan.path >/dev/null 2>&1 || true
     systemctl enable --now asksin-analyzer-alarmziel.path >/dev/null 2>&1 || true
     install -m 0755 "$INSTALL_DIR/deploy/asksin-analyzer" /usr/local/bin/asksin-analyzer
     # udev-Regeln nachziehen. Sie fehlten hier bis zum 18.08.2026 — und damit

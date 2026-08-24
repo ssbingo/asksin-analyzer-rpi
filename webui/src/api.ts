@@ -1005,6 +1005,17 @@ export interface SystemupdateBefund {
   text: string;
 }
 
+export interface Zeitplan {
+  aktiv: boolean;
+  rhythmus: 'taeglich' | 'woechentlich' | 'monatlich';
+  /** 1 = Montag … 7 = Sonntag (ISO). */
+  wochentag: number;
+  monatstag: number;
+  stunde: number;
+  minute: number;
+  neustarten: boolean;
+}
+
 export interface SystemupdateZustand {
   laeuft: boolean;
   status: {
@@ -1023,6 +1034,17 @@ export interface SystemupdateZustand {
   neustartNoetig: boolean;
   /** Die letzten Zeilen der apt-Ausgabe — wörtlich. */
   ausgabe: string;
+  plan: Zeitplan;
+  /** Der Plan in einem Satz, vom Gerät formuliert. */
+  planText: string;
+  /** Monate ohne den gewählten Monatstag — leer bei 1.–28. */
+  planAusfallmonate: string[];
+  streuungMinuten: number;
+  /** Vom Core berechnet; null bei abgeschaltetem Plan. */
+  naechsterLauf: number | null;
+  /** Was systemd wirklich vorhat — die zweite Meinung. */
+  timerAktiv: boolean;
+  naechsterLaufLautSystemd: number | null;
 }
 
 export const holeSystemupdate = (): Promise<SystemupdateZustand> =>
@@ -1034,6 +1056,19 @@ export async function starteSystemupdate(): Promise<void> {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...authKopf() },
     body: '{}',
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+}
+
+/** Speichert den Zeitplan; der Core übergibt ihn an systemd. */
+export async function sendeZeitplan(plan: Zeitplan): Promise<void> {
+  const res = await fetch('/api/systemupdate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify({ aktion: 'plan', ...plan }),
   });
   if (res.status === 401) {
     throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');

@@ -1,0 +1,16 @@
+# Beobachtet die Datei, die die Weboberflaeche beim Speichern des Zeitplans
+# anlegt.
+#
+# Dasselbe Muster wie beim Alarmziel: Der Analyzer laeuft unprivilegiert und
+# darf nicht nach /etc/systemd/system schreiben. Er legt die fertige
+# Timer-Unit im Datenverzeichnis ab, ein eng begrenzter Root-Helfer kopiert
+# und aktiviert sie.
+[Unit]
+Description=AskSin-Analyzer: Ausloeser fuer den Aktualisierungs-Zeitplan
+
+[Path]
+PathExists=/var/lib/asksin-analyzer/zeitplan-anstoss
+Unit=asksin-analyzer-zeitplan.service
+
+[Install]
+WantedBy=multi-user.target

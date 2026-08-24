@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.5.0</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.6.0</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.5.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.6.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2468,6 +2468,87 @@ Falle.<br /><br />
 abgelehnt — auch <code>update.sh</code> installiert Pakete, und zwei
 apt-Läufe behindern einander an derselben Sperre.</div>
 
+<h3 class="umbruch" id="automatisch-nach-zeitplan">Automatisch nach Zeitplan</h3>
+
+<p>Wer nicht daran denken will, stellt einen Zeitplan ein — im selben Feld,
+gleich unter dem Knopf. Drei Rhythmen stehen zur Wahl:</p>
+
+<table>
+<tr><th>Rhythmus</th><th>Einzustellen</th><th>Passt, wenn …</th></tr>
+<tr><td>täglich</td><td>Uhrzeit</td><td>… es nie mehr als einen Tag Rückstand geben soll. Für ein Haushaltsgerät meist mehr Bewegung als nötig.</td></tr>
+<tr><td>wöchentlich</td><td>Wochentag und Uhrzeit</td><td>… die Vorgabe. Samstagnacht — dann ist man am nächsten Tag eher zu Hause, falls doch etwas klemmt.</td></tr>
+<tr><td>monatlich</td><td>Tag im Monat und Uhrzeit</td><td>… das Gerät selten erreichbar ist. Sicherheitslücken bleiben dann bis zu einem Monat offen.</td></tr>
+</table>
+
+<p><strong>Unter der Auswahl steht immer ein Satz in Klartext</strong> — was
+eingestellt ist und wann der nächste Lauf fällig wird, etwa <em>„Läuft jeden
+Samstag um 03:00 Uhr (± bis zu 30 Minuten). Nächster Lauf: Sa, 29.08.2026,
+03:00 Uhr — von systemd bestätigt."</em> Der Zusatz <em>von systemd
+bestätigt</em> ist kein Zierrat: Er kommt von der Stelle, die den Lauf
+wirklich startet, und nicht aus der Eingabemaske. Fehlt er, ist der Plan nicht
+angekommen.</p>
+
+<div class="hinweis box"><span class="titel">Der 31. läuft nur in sieben von
+zwölf Monaten</span>
+Gemessen an systemd 257 auf einem der Analyzer: Ein Plan auf den 31. springt
+vom 31. August auf den 31. Oktober, dann auf den 31. Dezember. <strong>September
+und November fallen ersatzlos aus</strong>, ohne jede Meldung — dasselbe gilt
+abgeschwächt für den 29. und den 30.<br /><br />
+Die Wahl bleibt trotzdem frei; wer den 31. will, bekommt ihn. Aber die
+Oberfläche benennt es: Sobald ein Tag ab 29 gewählt ist, erscheint ein gelber
+Hinweis mit den Monaten, in denen der Lauf ausfällt. <strong>Bei 28 oder
+weniger passiert das nie.</strong></div>
+
+<h3 id="streuung-und-nachholen">Streuung und Nachholen</h3>
+
+<p>Zwei Dinge erledigt systemd, und sie sind der Grund, warum der Zeitplan dort
+liegt und nicht im Analyzer-Dienst:</p>
+
+<ul>
+<li><strong>Streuung</strong> (<code>RandomizedDelaySec</code>): Der Lauf
+beginnt bis zu 30 Minuten nach der eingestellten Zeit. Ohne sie fragten alle
+Analyzer eines Verbunds zur selben Sekunde denselben Debian-Spiegel und wären
+— bei einem Kernel-Update mit Neustart — gleichzeitig weg. Die Vorschauzeile
+weist die Streuung aus, damit niemand die Verspätung für einen Fehler hält.</li>
+<li><strong>Nachholen</strong> (<code>Persistent=true</code>): War das Gerät
+zur fälligen Zeit aus, läuft die Aktualisierung beim nächsten Start nach. Ein
+Zeitplaner, der nur läuft, solange der Dienst läuft, wäre eine stille Lücke:
+Der Lauf fiele aus, und die Anzeige sagte trotzdem „Plan aktiv".</li>
+</ul>
+
+<h3 id="danach-neu-starten">„Danach neu starten, falls nötig"</h3>
+
+<p>Der zweite Schalter im Feld. Er wirkt <strong>nur bei geplanten Läufen</strong>
+und nur dann, wenn ein Kernel-Update tatsächlich einen Neustart verlangt. Ein
+Klick auf <em>Jetzt aktualisieren</em> startet <strong>nie</strong> von selbst
+neu — wer davorsitzt, soll nicht überrascht werden.</p>
+
+<p>Ab Werk ist der Schalter <strong>aus</strong>. Ein Neustart ist der Moment,
+in dem sich Schäden an der SD-Karte zeigen, und unbeaufsichtigt um drei Uhr
+nachts ist das ein schlechter Zeitpunkt dafür. Wer sein Gerät von SSD bootet
+oder die Ausfallzeit nicht scheut, schaltet ihn ein — dann bleibt kein neuer
+Kernel wochenlang ungenutzt liegen.</p>
+
+<h3 id="die-warnschwelle-folgt-dem-rhythmus">Die Warnschwelle folgt dem Rhythmus</h3>
+
+<p>Ohne Zeitplan wird der Hinweis nach sieben Tagen gelb (siehe oben). Mit Plan
+richtet sich die Schwelle nach dem Rhythmus, plus zwei Tage Luft:</p>
+
+<table>
+<tr><th>Rhythmus</th><th>Warnung ab</th></tr>
+<tr><td>kein Plan</td><td>7 Tagen</td></tr>
+<tr><td>täglich</td><td>3 Tagen</td></tr>
+<tr><td>wöchentlich</td><td>9 Tagen</td></tr>
+<tr><td>monatlich</td><td>33 Tagen</td></tr>
+</table>
+
+<p>Ohne diese Kopplung stünde bei „monatlich" drei Wochen im Monat eine gelbe
+Warnung, obwohl alles nach Plan läuft. Eine Warnung, die man gewohnheitsmäßig
+übersieht, warnt niemanden mehr — deshalb bedeutet sie hier etwas Anderes und
+sagt es auch: <em>„ein geplanter Lauf scheint ausgefallen zu sein"</em> statt
+<em>„bitte bald nachholen"</em>. Die zwei Tage Luft fangen die Streuung und
+einen Abend ohne Strom ab.</p>
+
 <!-- ==================================================== KAPITEL 16 -->
 <h1 class="kapitel" id="k16"><span class="knr">16</span>Netzwerkeinstellungen mit Aussperr-Schutz</h1>
 <div class="kapitelband"></div>
@@ -4169,7 +4250,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.5.0 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.6.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>
