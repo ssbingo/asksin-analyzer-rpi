@@ -283,6 +283,8 @@ export interface ApiServerOptions {
     starten(): boolean;
     /** Zeitplan speichern und an systemd übergeben (M17.1). */
     planSetzen(auftrag: Record<string, unknown>): unknown;
+    /** Der Master hat eine Client-Meldung zugestellt — abhaken (M17.3). */
+    gemeldet(startedAt: number): void;
     /** Startet den Rechner neu — nach einem Kernel-Update nötig. */
     neustart(): void;
   };
@@ -929,6 +931,18 @@ export class ApiServer {
           if (!this.#autorisiert(req, res)) return;
           const hooks = this.#opts.systemupdate;
           if (hooks === undefined) return this.#text(res, 501, 'Keine Systemaktualisierung');
+          // Der Master haakt eine weitergeleitete Meldung ohne Rumpf ab —
+          // er benutzt denselben schmalen POST-Helfer wie fuer die uebrigen
+          // Verbund-Kommandos. Deshalb steht die Aktion hier in der
+          // Abfragezeichenkette und nicht im Rumpf.
+          if (url.searchParams.get('aktion') === 'gemeldet') {
+            const startedAt = Number(url.searchParams.get('startedAt') ?? 0);
+            if (!Number.isFinite(startedAt) || startedAt <= 0) {
+              return this.#text(res, 400, 'startedAt fehlt');
+            }
+            hooks.gemeldet(startedAt);
+            return this.#text(res, 200, 'OK');
+          }
           let auftrag: Record<string, unknown> = {};
           try {
             auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;

@@ -24,6 +24,7 @@ import type {
   ProtokollZustand,
 } from '../api.ts';
 import { nutzeTakt } from '../takt.ts';
+import { rolle } from '../zustand.ts';
 import { datumZeit } from '../format.ts';
 
 const zustand = ref<ProtokollZustand | null>(null);
@@ -504,20 +505,37 @@ nutzeTakt(async () => {
           zweck="Schickt eine Nachricht, sobald ein Lauf beendet ist —
                  mit Anzahl der Pakete, Dauer und ob ein Neustart nötig ist.
                  Ein Fehlschlag wird ebenso gemeldet."
-          :gesperrt="sysupdBeschaeftigt || sysupd.meldeziel?.aktiv !== true"
+          :gesperrt="sysupdBeschaeftigt || (sysupd.meldeziel?.aktiv !== true && rolle !== 'client')"
           @update:model-value="planBearbeitet = true"
         />
-        <p class="fussnote" v-if="sysupd.meldeziel?.aktiv !== true" style="margin: 0.3rem 0 0">
+        <p class="fussnote" v-if="sysupd.meldeziel?.aktiv === true" style="margin: 0.3rem 0 0">
+          Geht über den eingerichteten Weg:
+          <strong>{{ MELDEWEG[sysupd.meldeziel.kanal] ?? sysupd.meldeziel.kanal }}</strong>.
+          Beim ioBroker-Adapter kommt die Meldung im Kanal <code>alarm</code>
+          an und wird von dort wie ein Alarm weitergereicht.
+        </p>
+        <!-- Clients haben kein eigenes Ziel — eingerichtet wird es nur auf dem
+             Master. Der holt ihre Meldungen ab und stellt sie zu; der Schalter
+             ist hier also nicht wirkungslos, sondern nimmt einen Umweg. -->
+        <p class="fussnote" v-else-if="rolle === 'client'" style="margin: 0.3rem 0 0">
+          Dieser Analyzer ist ein <strong>Client</strong> und hat kein eigenes
+          Ziel — er braucht auch keins. Der <strong>Master</strong> fragt jede
+          Minute nach offenen Meldungen und stellt sie über seinen Weg zu, mit
+          diesem Standort in der Nachricht. Dafür muss dort unter
+          <em>Einstellungen → Alarme: wohin melden?</em> ein Ziel eingerichtet
+          und eingeschaltet sein.
+          <br />
+          Ist der Master gerade weg, bleibt die Meldung liegen und geht beim
+          nächsten Umlauf hinaus — sie geht nicht verloren.
+        </p>
+        <p class="fussnote" v-else style="margin: 0.3rem 0 0">
           Dafür muss unter <em>Einstellungen → Alarme: wohin melden?</em> ein
           Ziel eingerichtet und eingeschaltet sein — ioBroker-Adapter, E-Mail
           oder Telegram. Ohne Ziel gäbe es keinen Weg für die Nachricht,
           deshalb ist der Schalter ausgegraut.
         </p>
-        <p class="fussnote" v-else style="margin: 0.3rem 0 0">
-          Geht über den eingerichteten Weg:
-          <strong>{{ MELDEWEG[sysupd.meldeziel.kanal] ?? sysupd.meldeziel.kanal }}</strong>.
-          Beim ioBroker-Adapter kommt die Meldung im Kanal <code>alarm</code>
-          an und wird von dort wie ein Alarm weitergereicht.
+        <p class="fussnote" v-if="sysupd.meldungOffen != null" style="margin: 0.3rem 0 0">
+          <span class="chip">eine Meldung wartet auf Zustellung</span>
         </p>
       </div>
 

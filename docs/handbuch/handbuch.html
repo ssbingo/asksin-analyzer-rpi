@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.7.0</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.7.1</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.7.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.7.1 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2594,9 +2594,36 @@ Nachricht an.</div>
 <p class="klein">Die Meldung kommt <strong>vom Gerät selbst</strong>, nicht von
 Grafana — sie funktioniert also auch dann, wenn gerade niemand ein Dashboard
 offen hat, und sie überlebt einen Neustart des Dienstes mitten im Lauf: Welcher
-Lauf schon gemeldet wurde, steht auf der Platte. Da die Alarmziele nur auf dem
-Master eingerichtet werden, meldet sich heute auch nur der Master; die Clients
-laufen still.</p>
+Lauf schon gemeldet wurde, steht auf der Platte.</p>
+
+<h3 id="clients-melden-ueber-den-master">Clients melden über den Master</h3>
+
+<p>Alarmziele werden nur auf dem Master eingerichtet — ein Client hat also
+keinen eigenen Weg nach draußen. Er braucht auch keinen: <strong>Der Master
+fragt jede Minute bei jedem Client nach offenen Meldungen</strong> und stellt
+sie über seinen Weg zu. In der Nachricht steht der Standort des
+<em>Clients</em>, nicht der des Masters — es ist die Meldung des Clients, der
+Master ist nur der Postbote.</p>
+
+<div class="hinweis box"><span class="titel">Warum der Master holt, statt dass
+die Clients senden</span>
+Das folgt der Richtung, die der Verbund ohnehin hat: <strong>Der Master kennt
+jeden Client samt Zugangstoken, die Clients kennen den Master nicht.</strong>
+Ein Push wäre der kürzere Gedanke, bräuchte aber auf jedem Client die Adresse
+und ein Geheimnis des Masters — also neue Einstellungen, die jemand pflegen
+muss, und einen zweiten Weg, auf dem etwas falsch stehen kann. So kommt die
+Weiterleitung <strong>ohne eine einzige neue Einstellung</strong> aus.</div>
+
+<p><strong>Nichts geht verloren.</strong> Der Client hakt eine Meldung erst ab,
+wenn der Master ihre Zustellung bestätigt hat. Ist der Master gerade aus,
+bleibt sie liegen und geht beim nächsten Umlauf hinaus — deshalb steht in der
+Nachricht auch das Datum des Laufs und nicht nur seine Dauer. Angestaut wird
+dabei nichts: Es gibt immer nur den letzten Lauf, und der ist die eine Meldung,
+die bereitliegt.</p>
+
+<p class="klein">In der Wartungsansicht des Clients steht währenddessen
+<em>„eine Meldung wartet auf Zustellung"</em>. Scheitert die Weiterleitung, kommt
+die Meldung beim nächsten Umlauf erneut — doppelt ist besser als verschwunden.</p>
 
 <!-- ==================================================== KAPITEL 16 -->
 <h1 class="kapitel" id="k16"><span class="knr">16</span>Netzwerkeinstellungen mit Aussperr-Schutz</h1>
@@ -4299,7 +4326,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.7.0 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.7.1 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

@@ -1051,6 +1051,8 @@ export interface SystemupdateZustand {
   timerStartet?: string | null;
   /** Wohin eine Benachrichtigung ginge — ohne Zugangsdaten. */
   meldeziel?: { aktiv: boolean; kanal: 'iobroker' | 'email' | 'telegram' };
+  /** Ein beendeter Lauf, über den noch nicht berichtet wurde (M17.3). */
+  meldungOffen?: { startedAt: number; standort: string } | null;
 }
 
 export const holeSystemupdate = (): Promise<SystemupdateZustand> =>

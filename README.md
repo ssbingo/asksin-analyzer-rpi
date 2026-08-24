@@ -139,6 +139,31 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.7.1 — 24.08.2026
+
+**Die Clients melden jetzt über den Master.**
+
+Damit fällt die Grenze aus v1.7.0: Bisher meldete sich nur der Master, weil nur
+dort ein Alarmziel eingerichtet wird.
+
+- **Der Master holt ab, die Clients senden nicht.** Das folgt der Richtung, die
+  der Verbund ohnehin hat: Der Master kennt jeden Client samt Token, die Clients
+  kennen den Master nicht. Ein Push bräuchte auf jedem Client Adresse und
+  Geheimnis des Masters — neue Einstellungen, die jemand pflegen muss. So kommt
+  die Weiterleitung **ohne eine einzige neue Einstellung** aus.
+- **In der Nachricht steht der Standort des Clients**, nicht der des Masters.
+  Der Master reicht den Text weiter, den der Client selbst gebaut hat.
+- **Nichts geht verloren:** Der Client hakt eine Meldung erst ab, wenn der
+  Master die Zustellung bestätigt hat. Ist der Master aus, bleibt sie liegen und
+  geht beim nächsten Umlauf hinaus. Angestaut wird nichts — es gibt immer nur
+  den letzten Lauf.
+- **Die Nachricht nennt jetzt das Datum des Laufs**, nicht nur die Dauer: Eine
+  verspätete Weiterleitung läse sich sonst so, als sei es eben erst passiert.
+- Zwei Tests halten den Vertrag fest: dass beide Seiten die Abhak-Schnittstelle
+  gleich verstehen (`httpPost` schickt bewusst keinen Rumpf, die Aktion steht
+  in der Abfragezeichenkette), und dass der Master **erst zustellt und dann
+  abhakt**. Beides gegengeprüft.
+
 ### v1.7.0 — 24.08.2026
 
 **Der Analyzer meldet, wenn eine Systemaktualisierung durchgelaufen ist.**

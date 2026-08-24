@@ -386,3 +386,59 @@ test('Ereignis geht im Grafana-Format an den Adapter', () => {
   assert.equal(auf.alerts[0]!.status, 'resolved');
   assert.ok(auf.alerts[0]!.endsAt !== undefined, 'Grafana setzt endsAt beim Abklingen');
 });
+
+// ---- Client-Meldungen ueber den Master (M17.3) ----------------------------
+
+test('Die Nachricht nennt den Zeitpunkt — sie kann verspaetet ankommen', () => {
+  // Seit die Clients ueber den Master melden, kann zwischen Lauf und
+  // Zustellung ein Tag liegen: Ist der Master weg, bleibt die Meldung liegen.
+  // Ohne Datum laese sie sich dann so, als sei es eben erst passiert.
+  const e = baueUpdateEreignis(FERTIG, 'Gartenhaus');
+  assert.match(e.description, /Abgeschlossen am \d\d\.\d\d\.\d{4} um \d\d:\d\d Uhr/);
+  const kaputt = baueUpdateEreignis({ ...FERTIG, ok: false, fehler: 'x' }, 'Gartenhaus');
+  assert.match(kaputt.description, /Abgeschlossen am/, 'auch beim Fehlschlag');
+});
+
+test('Master und Client meinen dieselbe Abhak-Schnittstelle', () => {
+  // Zwei Seiten, eine Annahme: Der Master haakt mit httpPost ab, und der
+  // schickt KEINEN Rumpf. Läse der Client die Aktion aus dem Rumpf, käme sie
+  // nie an — der Client bliebe still, der Master wiederholte die Meldung im
+  // Minutentakt, und niemand meldete einen Fehler.
+  const daemon = readFileSync(
+    resolve(import.meta.dirname, '../bin/analyzerd.ts'), 'utf8',
+  );
+  const server = readFileSync(
+    resolve(import.meta.dirname, '../src/api/server.ts'), 'utf8',
+  );
+  const verbund = readFileSync(
+    resolve(import.meta.dirname, '../src/verbund/verbund.ts'), 'utf8',
+  );
+
+  assert.match(daemon, /aktion=gemeldet&startedAt=/, 'der Master ruft mit Abfragezeichenkette');
+  assert.match(
+    server,
+    /url\.searchParams\.get\('aktion'\) === 'gemeldet'/,
+    'der Client liest sie auch von dort',
+  );
+  // httpPost darf keinen Rumpf mitschicken — sonst waere die Annahme oben
+  // zwar erfuellt, aber aus dem falschen Grund.
+  const post = /export const httpPost[\s\S]*?\n\};/.exec(verbund)?.[0] ?? '';
+  assert.ok(post !== '', 'httpPost gefunden');
+  assert.ok(!post.includes('body:'), 'httpPost schickt bewusst keinen Rumpf');
+});
+
+test('Der Client haakt erst nach der Zustellung ab', () => {
+  // Die Reihenfolge im Master ist der ganze Punkt: senden, pruefen, DANN
+  // abhaken. Wer zuerst abhakt, verliert die Meldung, sobald die Zustellung
+  // scheitert — und niemand erfuehre davon.
+  const daemon = readFileSync(
+    resolve(import.meta.dirname, '../bin/analyzerd.ts'), 'utf8',
+  );
+  const block = /async function holeClientMeldungen[\s\S]*?\n}/.exec(daemon)?.[0] ?? '';
+  assert.ok(block !== '', 'holeClientMeldungen gefunden');
+  const senden = block.indexOf('sendeEreignis');
+  const abhaken = block.indexOf('aktion=gemeldet');
+  assert.ok(senden !== -1 && abhaken !== -1);
+  assert.ok(senden < abhaken, 'erst zustellen, dann abhaken');
+  assert.match(block, /if \(!zugestellt\)/, 'ein Fehlschlag laesst die Meldung liegen');
+});

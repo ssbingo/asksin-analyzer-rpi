@@ -484,6 +484,20 @@ export function leseTimerJson(stdout: string): TimerBefund {
  * @param status Der abgeschlossene Lauf.
  * @param standort Anzeigename dieses Analyzers.
  */
+/**
+ * Zeitpunkt für die Nachricht — Ortszeit, kurz.
+ *
+ * Muss mit hinein, seit Client-Meldungen über den Master laufen: Ist der
+ * Master gerade nicht erreichbar, kommt die Nachricht später — und ohne Datum
+ * läse sie sich dann so, als sei die Aktualisierung eben erst gelaufen.
+ */
+function zeitpunkt(ms: number): string {
+  const d = new Date(ms);
+  const zwei = (n: number): string => String(n).padStart(2, '0');
+  return `${zwei(d.getDate())}.${zwei(d.getMonth() + 1)}.${d.getFullYear()}`
+    + ` um ${zwei(d.getHours())}:${zwei(d.getMinutes())} Uhr`;
+}
+
 export function baueUpdateEreignis(
   status: SystemupdateStatus,
   standort: string,
@@ -496,7 +510,8 @@ export function baueUpdateEreignis(
       name: 'Systemaktualisierung fehlgeschlagen',
       summary: `Die Systemaktualisierung auf ${standort} ist fehlgeschlagen.`,
       description:
-        (status.fehler ?? 'Kein Grund vermerkt.')
+        `Abgeschlossen am ${zeitpunkt(status.updatedAt)}. `
+        + (status.fehler ?? 'Kein Grund vermerkt.')
         + ' Einzelheiten stehen in der Weboberfläche unter Wartung und auf dem '
         + 'Gerät in /var/lib/asksin-analyzer/systemupdate.log.',
       schlecht: true,
@@ -517,7 +532,7 @@ export function baueUpdateEreignis(
     name: 'Systemaktualisierung durchgeführt',
     summary: `${standort}: ${pakete}.`,
     description:
-      `Der Lauf dauerte ${dauerText}. `
+      `Abgeschlossen am ${zeitpunkt(status.updatedAt)}, Dauer ${dauerText}. `
       + (status.neustartNoetig
         ? 'Das System verlangt einen Neustart — vermutlich kam ein neuer Kernel. '
           + 'Bis dahin läuft alles weiter; der Neustart lässt sich in der '

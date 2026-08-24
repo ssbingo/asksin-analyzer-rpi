@@ -35,7 +35,7 @@ import { promisify } from 'node:util';
 import { ApiServer } from '../src/api/server.ts';
 import type { ZigbeeHooks } from '../src/api/server.ts';
 import type { NetzwerkHooks, UpdateHooks } from '../src/api/server.ts';
-import { VerbundDienst } from '../src/verbund/verbund.ts';
+import { VerbundDienst, httpFetchJson, httpPost } from '../src/verbund/verbund.ts';
 import type { PeerKonfig } from '../src/verbund/verbund.ts';
 import { demoDevListFetch, demoPortOpener } from '../src/demo/port.ts';
 import { DEFAULT_BAUD, DEFAULT_DEVICE, sttyPortOpener } from '../src/ingest/sttyPort.ts';
@@ -2256,6 +2256,10 @@ const systemupdateHooks = {
       planAusfallmonate: plan.rhythmus === 'monatlich' ? ausfallmonate(plan.monatstag) : [],
       streuungMinuten: Math.round(ZEITPLAN_STREUUNG_S / 60),
       naechsterLauf: naechsterLauf(plan, jetzt),
+      // Ein beendeter Lauf, ueber den noch nicht berichtet wurde. Auf einem
+      // Client holt der Master ihn hier ab (M17.3); auf dem Master selbst
+      // steht hier nie etwas, weil sein Waechter schneller ist.
+      meldungOffen: offeneMeldung(),
       // Wohin eine Benachrichtigung ginge — ohne Geheimnisse, nur ob und
       // wohin. Die Oberflaeche braucht das, um zu sagen, WARUM der Schalter
       // nichts bewirkt, statt ihn wirkungslos anzubieten.
@@ -2334,6 +2338,17 @@ const systemupdateHooks = {
     return { plan, naechsterLauf: naechsterLauf(plan, Date.now()) };
   },
   /**
+   * Haakt eine Meldung ab, die der Master zugestellt hat (M17.3).
+   *
+   * Der Client faellt damit erst NACH erfolgreicher Zustellung still. Haakte
+   * er schon beim Ausliefern ab, ginge die Meldung verloren, sobald der
+   * Master sie nicht mehr loswird — und niemand erfuehre davon.
+   */
+  gemeldet: (startedAt: number): void => {
+    merkeGemeldet(startedAt);
+    log(`Meldung als zugestellt abgehakt (Lauf ${new Date(startedAt).toISOString()})`);
+  },
+  /**
    * Startet den RECHNER neu, nicht den Dienst.
    *
    * Musste mit dazu: Nach einem Kernel-Update sagt die Oberflaeche "Neustart
@@ -2382,7 +2397,7 @@ function merkeGemeldet(startedAt: number): void {
  * Wirft nicht: Eine gescheiterte Zustellung darf den Dienst nicht stoeren. Sie
  * steht im Protokoll, und die Aktualisierung selbst ist ja gelaufen.
  */
-async function sendeEreignis(e: Ereignis): Promise<boolean> {
+async function sendeEreignis(e: Ereignis, ursprung = standort): Promise<boolean> {
   const ziel = leseAlarmziel();
   if (!ziel.aktiv) return false;
   const jetzt = new Date();
@@ -2399,7 +2414,7 @@ async function sendeEreignis(e: Ereignis): Promise<boolean> {
       const antwort = await holen(ziel.iobroker.url, {
         method: 'POST',
         headers: kopf,
-        body: JSON.stringify(baueEreignisMeldung(standort, e, jetzt)),
+        body: JSON.stringify(baueEreignisMeldung(ursprung, e, jetzt)),
         signal: AbortSignal.timeout(10_000),
       });
       if (!antwort.ok) {
@@ -2413,7 +2428,7 @@ async function sendeEreignis(e: Ereignis): Promise<boolean> {
         await holen(ziel.iobroker.url, {
           method: 'POST',
           headers: kopf,
-          body: JSON.stringify(baueEreignisMeldung(standort, e, jetzt, 'resolved')),
+          body: JSON.stringify(baueEreignisMeldung(ursprung, e, jetzt, 'resolved')),
           signal: AbortSignal.timeout(10_000),
         });
       } catch {
@@ -2431,7 +2446,7 @@ async function sendeEreignis(e: Ereignis): Promise<boolean> {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             chat_id: ziel.telegram.chatId,
-            text: baueEreignisText(standort, e),
+            text: baueEreignisText(ursprung, e),
           }),
           signal: AbortSignal.timeout(10_000),
         },
@@ -2453,7 +2468,7 @@ async function sendeEreignis(e: Ereignis): Promise<boolean> {
         ...auftrag,
         nachricht: baueMail(
           auftrag,
-          `AskSin-Analyzer (${standort}): ${e.name}`,
+          `AskSin-Analyzer (${ursprung}): ${e.name}`,
           `${e.summary}\n\n${e.description}\n\n-- \nAskSin-Analyzer`,
           jetzt,
         ),
@@ -2479,22 +2494,107 @@ async function sendeEreignis(e: Ereignis): Promise<boolean> {
  * jeder Dienststart dieselbe Nachricht noch einmal.
  */
 async function pruefeSystemupdateMeldung(): Promise<void> {
-  const status = leseSystemupdateStatus();
-  if (status === null || status.running || status.ok === null) return;
-  if (status.startedAt === leseGemeldet()) return;
+  const offen = offeneMeldung();
+  if (offen === null) return;
 
-  // Erst merken, dann senden: Bleibt der Versand haengen und der Dienst wird
-  // abgeschossen, kaeme die Nachricht sonst beim naechsten Start erneut.
-  merkeGemeldet(status.startedAt);
+  // Kein eigenes Alarmziel? Dann liegen lassen — der Master holt es beim
+  // naechsten Umlauf ab (holeClientMeldungen). Genau deshalb wird hier NICHT
+  // vorab abgehakt: Ein abgehakter Lauf waere fuer den Master unsichtbar, und
+  // die Meldung verschwaende lautlos.
+  if (!leseAlarmziel().aktiv) return;
 
-  if (!leseZeitplan().melden) return;
-  const e = baueUpdateEreignis(status, standort);
-  const zugestellt = await sendeEreignis(e);
+  // Mit eigenem Ziel dagegen: erst merken, dann senden. Bleibt der Versand
+  // haengen und der Dienst wird abgeschossen, kaeme die Nachricht sonst beim
+  // naechsten Start erneut.
+  merkeGemeldet(offen.startedAt);
+  const zugestellt = await sendeEreignis(offen.ereignis);
   log(
     zugestellt
-      ? `Benachrichtigung verschickt: ${e.name}`
-      : `Benachrichtigung nicht verschickt (kein aktives Alarmziel): ${e.name}`,
+      ? `Benachrichtigung verschickt: ${offen.ereignis.name}`
+      : `Benachrichtigung nicht zugestellt: ${offen.ereignis.name}`,
   );
+}
+
+/**
+ * Ein beendeter Lauf, ueber den noch nicht berichtet wurde.
+ *
+ * Abgeleitet und nicht aufgestaut: Es gibt immer nur den letzten Lauf. Bleibt
+ * der Master eine Woche weg, waechst hier nichts an — es liegt genau eine
+ * Meldung bereit, und die ist die aktuelle.
+ */
+function offeneMeldung(): {
+  startedAt: number;
+  standort: string;
+  ereignis: Ereignis;
+} | null {
+  const status = leseSystemupdateStatus();
+  if (status === null || status.running || status.ok === null) return null;
+  if (status.startedAt === leseGemeldet()) return null;
+
+  // Schalter aus: als erledigt abhaken. Sonst berichtete ein spaeteres
+  // Einschalten rueckwirkend ueber einen Lauf von vorgestern.
+  if (!leseZeitplan().melden) {
+    merkeGemeldet(status.startedAt);
+    return null;
+  }
+  return {
+    startedAt: status.startedAt,
+    standort,
+    ereignis: baueUpdateEreignis(status, standort),
+  };
+}
+
+// ---- Client-Meldungen ueber den Master (M17.3) ---------------------------
+//
+// Die Clients haben kein eigenes Alarmziel — eingerichtet wird es nur auf dem
+// Master. Also stellt der Master ihre Meldungen zu.
+//
+// Der Master HOLT sie ab, statt dass die Clients senden. Das folgt der
+// Richtung, die der Verbund ohnehin hat: Der Master kennt jeden Client samt
+// Token, die Clients kennen den Master nicht. Ein Push waere der kuerzere
+// Gedanke, braeuchte aber auf jedem Client die Adresse und ein Geheimnis des
+// Masters — also neue Einstellungen, die jemand pflegen muss, und einen
+// zweiten Weg, auf dem etwas falsch stehen kann.
+
+/** Wie oft der Master bei den Clients nachfragt. */
+const CLIENT_MELDUNG_TAKT_MS = 60_000;
+
+async function holeClientMeldungen(): Promise<void> {
+  if (aktuelleRolle().rolle !== 'master') return;
+  if (!leseAlarmziel().aktiv) return;
+
+  const eigene = `http://127.0.0.1:${konfig.http.port}`;
+  for (const peer of allePeers()) {
+    if (peer.url === eigene) continue;   // sich selbst holt niemand ab
+    try {
+      const zustand = (await httpFetchJson(
+        `${peer.url}/api/systemupdate`,
+        peer.token,
+      )) as { meldungOffen?: { startedAt: number; standort: string; ereignis: Ereignis } };
+      const offen = zustand.meldungOffen;
+      if (offen === undefined || offen === null) continue;
+
+      // Der Client hat seinen Text selbst gebaut — mit seinem Standort. Der
+      // Master reicht ihn weiter und faelscht ihn nicht um: Es ist die
+      // Meldung des Clients, nicht seine eigene.
+      const zugestellt = await sendeEreignis(offen.ereignis, offen.standort);
+      if (!zugestellt) {
+        log(`Meldung von ${offen.standort} nicht zugestellt — bleibt liegen.`);
+        continue;
+      }
+      // Erst nach erfolgreicher Zustellung abhaken. Scheitert dieser Aufruf,
+      // kommt die Meldung beim naechsten Umlauf noch einmal — doppelt ist
+      // besser als verschwunden.
+      await httpPost(
+        `${peer.url}/api/systemupdate?aktion=gemeldet&startedAt=${offen.startedAt}`,
+        peer.token,
+      );
+      log(`Meldung von ${offen.standort} weitergeleitet: ${offen.ereignis.name}`);
+    } catch {
+      // Client gerade nicht erreichbar — beim naechsten Umlauf erneut.
+      // Kein Protokolleintrag: Das passiert im Alltag und ist kein Befund.
+    }
+  }
 }
 
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
@@ -3244,6 +3344,14 @@ void vorherigenStartBewerten().then(() => systemzeilenUebernehmen());
 const meldungsTakt = setInterval(() => void pruefeSystemupdateMeldung(), 30_000);
 meldungsTakt.unref();
 void pruefeSystemupdateMeldung();
+
+// Der Master holt die Meldungen der Clients ab (M17.3). Eigener, langsamerer
+// Takt: Es sind Netzaufrufe zu anderen Geraeten, und eine Minute Verzug bei
+// einer Meldung ueber eine abgeschlossene Aktualisierung faellt niemandem auf.
+const clientMeldungsTakt = setInterval(
+  () => void holeClientMeldungen(), CLIENT_MELDUNG_TAKT_MS,
+);
+clientMeldungsTakt.unref();
 
 // ---- Unerwartetes Ende festhalten ---------------------------------------
 // Ohne diese Haken endet der Prozess bei einem Programmierfehler wortlos —
