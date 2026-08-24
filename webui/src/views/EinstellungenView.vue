@@ -883,10 +883,6 @@ const demoUmschalten = (): Promise<void> | undefined => {
           <option value="ws2812-pwm">PWM / GPIO18 — Pi 3/4, Schalter SW1 auf PWM</option>
         </select>
       </label>
-      <label v-if="anzeige.led">
-        <input type="checkbox" v-model="anzeige.blitz" />
-        Blitz bei jedem Telegramm
-      </label>
       <label><input type="checkbox" v-model="anzeige.oled" /> OLED-Anzeige</label>
       <label class="zeile" style="gap: 0.4rem">
         Helligkeit
@@ -894,12 +890,33 @@ const demoUmschalten = (): Promise<void> | undefined => {
         <span class="gedimmt">{{ anzeige.helligkeit }} %</span>
       </label>
     </div>
+    <!-- Eigener Schalter statt eines Häkchens in der Reihe oben: Das hier ist
+         keine Einstellung der Hardware, sondern eine Entscheidung darüber, was
+         die LED zeigen soll — und die trifft der Anwender, nicht das Gerät.
+         Bewusst auch dann sichtbar, wenn die LED aus ist: Ein Schalter, den man
+         nur findet, wenn man vorher etwas anderes eingeschaltet hat, ist keiner. -->
+    <fieldset class="schalterfeld" style="margin-bottom: 0.9rem">
+      <legend>Was die LED zusätzlich zeigt</legend>
+      <Schiebeschalter
+        v-model="anzeige.blitz"
+        name="Telegramme optisch anzeigen"
+        zweck="Bei jedem empfangenen Telegramm blitzt die LED kurz magenta auf.
+               So sieht man von außen, dass Funkverkehr ankommt — ohne die
+               Weboberfläche zu öffnen."
+        :gesperrt="beschaeftigt || !anzeige.led"
+      />
+      <p class="fussnote" v-if="!anzeige.led" style="margin: 0.3rem 0 0">
+        Ohne eingeschaltete Status-LED gibt es nichts zu blitzen — deshalb ist
+        der Schalter ausgegraut.
+      </p>
+      <p class="fussnote" v-else style="margin: 0.3rem 0 0">
+        Wirkt nach <em>Speichern</em>, dann sofort — einfach an die LED sehen.
+      </p>
+    </fieldset>
     <div class="fussnote" v-if="anzeige.led" style="margin-bottom: 0.8rem">
-      <strong>Der Blitz</strong> lässt die LED bei jedem empfangenen Telegramm
-      kurz <span style="color: #f0f">magenta</span> aufleuchten — dieselbe
-      Auskunft, die die kleine rote LED <code>D1</code> auf der Platine gibt,
-      nur von außen sichtbar. Dafür ist keine Leitung nötig: Jedes Telegramm
-      kommt ohnehin über die serielle Verbindung beim Raspberry an.
+      Es ist dieselbe Auskunft, die die kleine rote LED <code>D1</code> auf der
+      Platine gibt, nur von außen sichtbar. Dafür ist keine Leitung nötig: Jedes
+      Telegramm kommt ohnehin über die serielle Verbindung beim Raspberry an.
       <br />
       Magenta ist keiner Zustandsfarbe zugeteilt, und zwischen zwei Blitzen
       liegt immer eine Pause — bei viel Funkverkehr bleibt die Grundfarbe
@@ -1021,7 +1038,7 @@ const demoUmschalten = (): Promise<void> | undefined => {
     <!-- Welche Alarme? Einzeln schaltbar, weil sie verschieden nuetzlich sind:
          „Analyzer offline" will man immer wissen, „Geraet seit 24 Stunden
          stumm" nicht unbedingt bei Geraeten, die man selten benutzt. -->
-    <fieldset class="alarmwahl" v-if="schalterZustand !== null">
+    <fieldset class="schalterfeld" v-if="schalterZustand !== null">
       <legend>Welche Alarme sollen melden?</legend>
       <p class="fussnote" style="margin: 0 0 0.3rem">
         Ein ausgeschalteter Alarm wird in Grafana <em>pausiert</em> — die Regel

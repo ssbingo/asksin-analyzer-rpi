@@ -439,18 +439,18 @@ table.daten { overflow-wrap: normal; }
   select { min-height: 44px; }
 }
 
-/* Sammelfeld der Alarmschalter (M14.3).
+/* Sammelfeld fuer eine Gruppe Schiebeschalter (M14.3, M11.2).
    Ein echtes <fieldset>: Die Schalter gehoeren zusammen, und Vorlesehilfen
    sagen dann „Welche Alarme sollen melden? — Analyzer offline, an". Ein <div>
    mit Ueberschrift saehe gleich aus und sagte das nicht. */
-.alarmwahl {
+.schalterfeld {
   margin: 0 0 0.9rem;
   padding: 0.6rem 0.9rem 0.8rem;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--panel2);
 }
-.alarmwahl legend {
+.schalterfeld legend {
   padding: 0 0.4rem;
   font-size: 0.9rem;
   font-weight: 600;

@@ -139,6 +139,22 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.4.1 — 24.08.2026
+
+**Der Schalter für den Telegramm-Blitz ist jetzt auch zu finden.**
+
+Er kam mit v1.4.0, war aber ein schlichtes Häkchen zwischen den anderen — und
+verschwand ganz, solange die Status-LED abgeschaltet war. Ein Schalter, den man
+nur findet, wenn man vorher etwas anderes eingeschaltet hat, ist keiner.
+
+- Eigener Schiebeschalter *Telegramme optisch anzeigen* im Feld „Was die LED
+  zusätzlich zeigt", unter *Einstellungen → Status-LED & OLED*.
+- **Immer sichtbar**, bei abgeschalteter LED ausgegraut mit dem Hinweis warum.
+- Dasselbe Bauteil wie bei den Alarmschaltern; die CSS-Klasse heißt jetzt
+  neutral `.schalterfeld` statt `.alarmwahl`.
+- Am Gerät gegengeprüft: aus → 250 von 250 Abtastungen grün, kein einziges
+  Magenta; wieder an → der Blitz kommt zurück.
+
 ### v1.4.0 — 24.08.2026
 
 **Die Status-LED blitzt bei jedem Telegramm magenta.**
