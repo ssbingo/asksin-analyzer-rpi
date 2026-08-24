@@ -139,6 +139,33 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.4.0 — 24.08.2026
+
+**Die Status-LED blitzt bei jedem Telegramm magenta.**
+
+Anlass: „Auf unserer Platine signalisiert die LED ein eingehendes Telegramm.
+Könnte man diesen Impuls parallel an unsere WS2812 senden?" — Ja, aber ohne
+Leitung. `D1` hängt an PD4 des ATmega und geht nirgends auf den Pi-Stecker; ein
+Abgreifen wäre ein Eingriff an einer Platine in Produktion, und die WS2812 will
+ohnehin keinen Pegel, sondern einen auf 800 kHz getakteten Datenstrom. Nötig ist
+das auch nicht: Jedes Telegramm, das `D1` blinken lässt, schickt die Firmware im
+selben Atemzug über die serielle Leitung zum Pi. Der Impuls ist längst da, nur
+als Textzeile.
+
+- Magenta, 90 ms, mit mindestens 210 ms Abstand zum nächsten Blitz. Damit
+  leuchtet er höchstens 43 % der Zeit und die Grundfarbe geht auch bei viel
+  Verkehr nicht unter — gerade ein Gerät mit Duty-Cycle-Alarm sendet viel, und
+  dann muss die LED rot bleiben.
+- Magenta ist die einzige Farbe, die in der Prioritätsleiter nicht vorkommt:
+  Die anderen sagen etwas über den *Zustand*, der Blitz über den *Verkehr*. Ein
+  Test hält fest, dass keine Zustandsfarbe je magenta wird.
+- Abschaltbar unter *Einstellungen → Status-LED & OLED*; ab Werk an.
+- Die LED-Schleife läuft dafür mit 40 statt 250 ms, die Grundfarbe wird aber
+  weiterhin nur alle 250 ms nachgerechnet. Ohne diese Trennung baute `daten()`
+  fünfundzwanzigmal je Sekunde die ganze Geräteliste samt CCU-Abgleich neu auf
+  — der Test misst die Aufrufrate mit, gegengeprüft.
+- Handbuch 18.2 erklärt Farbe, Timing und warum keine Leitung nötig ist.
+
 ### v1.3.1 — 23.08.2026
 
 **Neue systemd-Units kamen erst beim übernächsten Update an.**

@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.3.1</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.4.0</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.3.1 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.4.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2588,9 +2588,56 @@ Falsches auf die Leitung zu schreiben.</p></div>
 <tr><td>🟡 gelb, langsam blinkend</td><td>Persistenz-Fehler (Datenbank prüfen)</td></tr>
 <tr><td>🔴 rot, ruhig</td><td>Sniffer getrennt — keine Daten von der Platine</td></tr>
 <tr><td>🔴 rot, schnell blinkend</td><td><strong>Duty-Cycle-Alarm</strong>: ein Gerät verbraucht ≥ 80 % seines Sendekontingents</td></tr>
+<tr><td>🟣 magenta, kurzer Blitz</td><td>ein Telegramm ist eingegangen — siehe unten</td></tr>
 </table>
 <p class="klein">Die Reihenfolge ist eine Prioritätsleiter — es leuchtet immer
-der wichtigste Zustand.</p>
+der wichtigste Zustand. Der Blitz steht außerhalb dieser Leiter: Er sagt nichts
+über den Zustand, sondern über den Funkverkehr.</p>
+
+<h3 id="der-telegramm-blitz">Der Telegramm-Blitz</h3>
+
+<p>Auf der Platine sitzt eine kleine rote LED, <code>D1</code>. Sie blinkt bei
+jedem empfangenen Telegramm — nur sieht das niemand, denn sie sitzt
+<em>auf</em> der Platine, und die steckt im Schrank. Die WS2812 an der
+Gehäusefront kann dieselbe Auskunft geben: Sie blitzt bei jedem Telegramm
+kurz magenta auf.</p>
+
+<div class="hinweis box"><span class="titel">Es braucht keine zusätzliche
+Leitung — und sie würde auch nichts nützen</span>
+<code>D1</code> hängt an <strong>PD4</strong> des ATmega (über R1). Dieser Pin
+geht nirgends auf den Pi-Stecker; ihn abzugreifen wäre ein Eingriff an einer
+Platine, die längst in Produktion ist. Und selbst dann brächte es nichts: Die
+WS2812 will keinen Ein/Aus-Pegel, sondern einen auf 800 kHz getakteten
+Datenstrom — sie hört ausschließlich auf den Raspberry.<br /><br />
+Nötig ist der Umweg auch nicht. <strong>Jedes</strong> Telegramm, das
+<code>D1</code> blinken lässt, schickt die Firmware im selben Atemzug über die
+serielle Leitung zum Pi — das ist der ganze Zweck des Geräts. Der Impuls ist
+also längst da, nur als Textzeile statt als Spannung.</div>
+
+<p><strong>Warum ausgerechnet Magenta.</strong> Es ist die einzige Farbe, die in
+der Tabelle oben nicht vorkommt. Grün, Blau, Orange, Gelb und Rot sagen etwas
+über den <em>Zustand</em> des Geräts; der Blitz sagt etwas über den
+<em>Verkehr</em>. Zwei Aussagen, die man nicht verwechseln können soll — also
+bekommen sie keine gemeinsame Farbe.</p>
+
+<p><strong>Bei viel Funkverkehr geht die Grundfarbe nicht unter.</strong> Ein
+Blitz dauert 90 ms, und zwischen zwei Blitzen liegen mindestens 210 ms. Damit
+leuchtet Magenta höchstens 43 % der Zeit; dazwischen steht die Grundfarbe immer
+wieder sichtbar da. Das ist Absicht: Gerade ein Gerät mit Duty-Cycle-Alarm
+erzeugt viel Verkehr, und dann muss die LED rot bleiben und darf nicht in
+Magenta ertrinken.</p>
+
+<p>Ein- und ausschalten lässt sich der Blitz unter <em>Einstellungen →
+Status-LED &amp; OLED → Blitz bei jedem Telegramm</em>. Ab Werk ist er
+<strong>an</strong>. Wem die Front zu unruhig wird — die LED zuckt bei
+normalem Betrieb etwa alle zwei Sekunden —, schaltet ihn dort ab; die
+Farbsprache bleibt davon unberührt.</p>
+
+<p class="klein">Nebenbei ist der Blitz die einfachste Antwort auf die Frage
+„empfängt das Gerät überhaupt noch etwas?". Eine ruhig grüne LED sagt nur, dass
+der Dienst zufrieden ist; erst der Blitz zeigt, dass tatsächlich Telegramme
+hereinkommen. Im Demo-Modus blitzt sie ebenfalls — dort sind die Telegramme
+erfunden, die Anzeige ist es nicht.</p>
 
 <h2 id="k18-3">18.3 Die OLED-Seiten</h2>
 <figure class="rahmen"><img src="img/oled-seiten.png" alt="Die OLED-Seiten">
@@ -4041,7 +4088,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.3.1 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.4.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

@@ -13,9 +13,13 @@ export { ZEICHEN_BREITE, ZEICHEN_HOEHE, glyphe } from './font.ts';
 export { SPI_HZ, kodiereWs2812 } from './ws2812.ts';
 export type { Farbe } from './ws2812.ts';
 export {
+  BLITZ_FARBE,
+  BLITZ_MS,
+  BLITZ_TAKT_MS,
   SEITEN_ANZAHL,
   blinkPhase,
   ledMuster,
+  telegrammBlitz,
   zeichneSeite,
 } from './zustand.ts';
 export type { Blinken, LedMuster, StatusDaten } from './zustand.ts';

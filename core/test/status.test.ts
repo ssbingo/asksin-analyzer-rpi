@@ -10,7 +10,10 @@ import {
 import {
   SEITEN_ANZAHL,
   blinkPhase,
+  BLITZ_FARBE,
+  BLITZ_MS,
   ledMuster,
+  telegrammBlitz,
   passeWertAn,
   zeichneSeite,
 } from '../src/status/zustand.ts';
@@ -780,4 +783,118 @@ test('istPi5Modell trifft die RP1-Generation und sonst nichts', () => {
   // Unbekannt heisst nicht "Pi 5": Auf einem fremden Rechner darf die
   // Erkennung nichts behaupten, sonst stellt sie stillschweigend um.
   assert.equal(istPi5Modell(''), false, 'kein Geraetebaum');
+});
+
+// ---- Telegramm-Blitz (M11.2) ---------------------------------------------
+
+test('Telegramm-Blitz: magenta nur waehrend der Blitzdauer', () => {
+  const t = 5_000_000;
+  assert.equal(telegrammBlitz(null, t), null, 'ohne Telegramm kein Blitz');
+  assert.deepEqual(telegrammBlitz(t, t)?.farbe, BLITZ_FARBE, 'im Augenblick des Empfangs');
+  assert.deepEqual(telegrammBlitz(t - (BLITZ_MS - 1), t)?.farbe, BLITZ_FARBE, 'kurz davor');
+  assert.equal(telegrammBlitz(t - BLITZ_MS, t), null, 'genau am Ende schon vorbei');
+  assert.equal(telegrammBlitz(t - 10_000, t), null, 'laengst vorbei');
+  // Ein Zeitstempel aus der Zukunft entsteht, wenn NTP die Uhr zurueckstellt.
+  // Ohne die Pruefung bliebe die LED bis zum Einholen dauerhaft magenta.
+  assert.equal(telegrammBlitz(t + 60_000, t), null, 'Zeitstempel aus der Zukunft');
+});
+
+test('Telegramm-Blitz: der Blitz sagt nichts ueber den Zustand', () => {
+  // Der Grund muss ihn vom Zustand unterscheiden — sonst stuende in der
+  // Weboberflaeche „Telegramm empfangen", wo „Duty-Cycle-Alarm" gehoert.
+  const t = 5_000_000;
+  assert.match(telegrammBlitz(t, t)!.grund, /Telegramm/);
+  assert.equal(telegrammBlitz(t, t)!.blinken, 'aus');
+  // Magenta kommt in der Prioritaetsleiter nicht vor: eine Farbe, eine
+  // Bedeutung. Sonst hiesse Rot einmal Alarm und einmal Verkehr.
+  const zustandsfarben = [
+    ledMuster(DATEN).farbe,
+    ledMuster({ ...DATEN, connected: false }).farbe,
+    ledMuster({ ...DATEN, persistErrors: 1 }).farbe,
+    ledMuster({ ...DATEN, demo: true }).farbe,
+    ledMuster({ ...DATEN, updateVerfuegbar: true }).farbe,
+    ledMuster({ ...DATEN, maxDutyCycle: { name: 'x', percent: 99 } }).farbe,
+  ];
+  for (const f of zustandsfarben) {
+    assert.notDeepEqual(f, BLITZ_FARBE, 'Magenta ist dem Blitz vorbehalten');
+  }
+});
+
+test('StatusAnzeige: Blitz uebersteuert die Grundfarbe und gibt sie wieder frei', async () => {
+  const time = new FakeTime();
+  const geschrieben: Array<[string, Uint8Array]> = [];
+  let letztes: number | null = null;
+  let datenAufrufe = 0;
+
+  const anzeige = new StatusAnzeige({
+    led: 'ws2812-pwm',
+    oled: false,
+    helligkeit: 100,
+    pwmDatei: '/tmp/led-blitz-test',
+    blitz: true,
+    letztesTelegramm: () => letztes,
+    daten: () => {
+      datenAufrufe++;
+      return { ...DATEN };
+    },
+    time,
+    runner: () => Promise.resolve({ code: 0, output: '' }),
+    schreibeGeraet: (pfad, bytes) => {
+      geschrieben.push([pfad, bytes]);
+      return Promise.resolve();
+    },
+  });
+
+  await anzeige.start();
+  const text = (): string => new TextDecoder().decode(geschrieben.at(-1)![1]);
+
+  await time.advance(300);
+  assert.equal(text(), '0,255,40\n', 'ohne Telegramm die Grundfarbe gruen');
+
+  // Ein Telegramm kommt an.
+  letztes = time.now();
+  await time.advance(50);
+  assert.equal(text(), '255,0,255\n', 'magenta waehrend des Blitzes');
+
+  // Nach der Blitzdauer steht die Grundfarbe wieder da.
+  await time.advance(BLITZ_MS);
+  assert.equal(text(), '0,255,40\n', 'danach wieder gruen');
+
+  // Der teure Aufruf bleibt selten: Die Schleife laeuft mit 40 ms, die
+  // Grundfarbe wird nur alle 250 ms nachgerechnet. Ohne diese Trennung baute
+  // daten() fuenfundzwanzigmal je Sekunde die ganze Geraeteliste neu auf.
+  const vorher = datenAufrufe;
+  await time.advance(1000);
+  const proSekunde = datenAufrufe - vorher;
+  assert.ok(proSekunde <= 6, `daten() ${proSekunde}x je Sekunde — zu oft`);
+
+  await anzeige.stop();
+});
+
+test('StatusAnzeige: ohne Blitz-Einstellung bleibt die LED bei der Grundfarbe', async () => {
+  const time = new FakeTime();
+  const geschrieben: Array<[string, Uint8Array]> = [];
+
+  const anzeige = new StatusAnzeige({
+    led: 'ws2812-pwm',
+    oled: false,
+    helligkeit: 100,
+    pwmDatei: '/tmp/led-ohne-blitz',
+    // blitz fehlt = aus. Wer die Funktion nicht kennt, bekommt sie nicht
+    // untergeschoben; die Vorgabe „an" setzt der Dienst, nicht die Anzeige.
+    letztesTelegramm: () => time.now(),
+    daten: () => ({ ...DATEN }),
+    time,
+    runner: () => Promise.resolve({ code: 0, output: '' }),
+    schreibeGeraet: (pfad, bytes) => {
+      geschrieben.push([pfad, bytes]);
+      return Promise.resolve();
+    },
+  });
+
+  await anzeige.start();
+  await time.advance(500);
+  const text = new TextDecoder().decode(geschrieben.at(-1)![1]);
+  assert.equal(text, '0,255,40\n', 'gruen trotz laufender Telegramme');
+  await anzeige.stop();
 });

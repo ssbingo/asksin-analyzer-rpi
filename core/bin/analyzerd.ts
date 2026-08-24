@@ -97,6 +97,7 @@ import type { OledHoehe } from '../src/status/ssd1306.ts';
 import {
   DUTY_ALARM_PROZENT,
   SEITEN_ANZAHL,
+  BLITZ_TAKT_MS,
   ledMuster,
   zeichneSeite,
 } from '../src/status/zustand.ts';
@@ -173,6 +174,8 @@ interface Konfiguration {
     helligkeit?: number;
     /** Bauhöhe des OLED: 32 (Adafruit PiOLED, Vorgabe) oder 64. */
     oledHoehe?: 32 | 64;
+    /** Blitzt die LED bei jedem Telegramm kurz magenta? Vorgabe: ja. */
+    blitz?: boolean;
   };
   /**
    * Mitschnitt des rohen Zeilenstroms (Phase F1) — die Grundlinie, gegen die
@@ -485,6 +488,16 @@ const mitschnittHooks = {
   },
 };
 
+/**
+ * Wann kam zuletzt ein Telegramm — für den Blitz auf der Status-LED.
+ *
+ * Auf der Platine zeigt D1 jedes Telegramm an, sitzt aber im Schrank. Die
+ * WS2812 an der Front kann dasselbe zeigen, und dafür braucht es keine
+ * Leitung: Die Firmware schickt jedes Telegramm ohnehin über die serielle
+ * Verbindung hierher. Der Impuls ist längst da, nur als Zeile.
+ */
+let letztesTelegrammMs: number | null = null;
+
 const analyzer = new Analyzer({
   openPort: demoAktiv
     ? demoPortOpener()
@@ -493,6 +506,17 @@ const analyzer = new Analyzer({
   // sich der Mitschnitt im laufenden Betrieb einschalten. Ist er aus, kostet
   // der Aufruf einen null-Vergleich je Zeile.
   onRawLine: (z: string, ts: number) => mitschnitt?.zeile(z, ts),
+  // Nur der Zeitstempel, und der auch nur gedrosselt: Bei einem Schwall
+  // bliebe die LED sonst durchgehend magenta, und die Grundfarbe — die den
+  // Zustand des Geraets zeigt — waere nie zu sehen. Die Drosselung gehoert
+  // hierher und nicht in die Anzeige: Hier kostet sie einen Vergleich je
+  // Telegramm, dort muesste die Schleife sich merken, was sie schon blitzte.
+  onLine: (line) => {
+    if (line.kind !== 'telegram') return;
+    const jetzt = Date.now();
+    if (letztesTelegrammMs !== null && jetzt - letztesTelegrammMs < BLITZ_TAKT_MS) return;
+    letztesTelegrammMs = jetzt;
+  },
   db,
   ...(devList === undefined ? {} : { devList }),
   retention: demoAktiv
@@ -1203,6 +1227,8 @@ interface StatusKonfig {
   helligkeit: number;
   /** Bauhöhe des Panels: 32 (Adafruit PiOLED, Vorgabe) oder 64. */
   oledHoehe: OledHoehe;
+  /** Blitzt die LED bei jedem Telegramm kurz magenta? */
+  blitz: boolean;
 }
 
 /**
@@ -1217,6 +1243,11 @@ function statusKonfigLesen(): StatusKonfig {
     oled: konfig.statusanzeige?.oled === true,
     helligkeit: konfig.statusanzeige?.helligkeit ?? 40,
     oledHoehe: konfig.statusanzeige?.oledHoehe === 64 ? 64 : OLED_HOEHE_VORGABE,
+    // Vorgabe an: Wer eine LED an der Front hat, will sehen, dass etwas
+    // ankommt. Wem es zu unruhig ist, schaltet es in den Einstellungen ab —
+    // das ist die richtige Richtung, denn die andere verschweigt eine
+    // Funktion, von der man nie erfaehrt, dass es sie gibt.
+    blitz: konfig.statusanzeige?.blitz !== false,
   };
   try {
     const ui = JSON.parse(readFileSync(statusKonfigDatei, 'utf8')) as Partial<StatusKonfig>;
@@ -1228,6 +1259,7 @@ function statusKonfigLesen(): StatusKonfig {
       oled: typeof ui.oled === 'boolean' ? ui.oled : basis.oled,
       helligkeit: typeof ui.helligkeit === 'number' ? ui.helligkeit : basis.helligkeit,
       oledHoehe: ui.oledHoehe === 32 || ui.oledHoehe === 64 ? ui.oledHoehe : basis.oledHoehe,
+      blitz: typeof ui.blitz === 'boolean' ? ui.blitz : basis.blitz,
     };
   } catch {
     /* keine UI-Datei — config.json/Vorgaben gelten */
@@ -1268,6 +1300,8 @@ async function statusAnzeigeAufbauen(): Promise<void> {
     oled: k.oled,
     helligkeit: k.helligkeit,
     oledHoehe: k.oledHoehe,
+    blitz: k.blitz,
+    letztesTelegramm: () => letztesTelegrammMs,
     // Im PWM-Modus schreibt der Core nur die Farbe hierhin; der Root-Dienst
     // asksin-analyzer-led liest sie und treibt GPIO18.
     pwmDatei: join(laufzeitDir, 'led-farbe'),
@@ -1345,17 +1379,21 @@ const statusAnzeigeHooks = {
     const hoeheRoh = auftrag['oledHoehe'];
     const oledHoehe: OledHoehe =
       hoeheRoh === 32 || hoeheRoh === 64 ? hoeheRoh : statusKonfigLesen().oledHoehe;
+    // Fehlt die Angabe, bleibt der bisherige Wert stehen — eine aeltere
+    // Oberflaeche schaltet den Blitz sonst beim Speichern der Helligkeit ab.
+    const blitzRoh = auftrag['blitz'];
     const neu: StatusKonfig = {
       led,
       oled: auftrag['oled'] === true,
       helligkeit: Math.round(helligkeit),
       oledHoehe,
+      blitz: typeof blitzRoh === 'boolean' ? blitzRoh : statusKonfigLesen().blitz,
     };
     writeFileSync(statusKonfigDatei, JSON.stringify(neu, null, 2));
     await statusAnzeigeAufbauen();
     log(
       `Statusanzeige umkonfiguriert (LED: ${neu.led}, OLED: ${neu.oled}` +
-        `, Panel 128x${neu.oledHoehe})`,
+        `, Panel 128x${neu.oledHoehe}, Telegramm-Blitz: ${neu.blitz ? 'an' : 'aus'})`,
     );
   },
   seiteWeiter: (): void => {

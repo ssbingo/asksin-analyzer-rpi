@@ -91,6 +91,75 @@ export function ledMuster(s: StatusDaten): LedMuster {
 }
 
 /**
+ * Telegramm-Blitz: Farbe, Dauer und Mindestabstand.
+ *
+ * ## Wozu
+ *
+ * Auf der Platine zeigt D1 (an PD4 des ATmega, über R1) jedes empfangene
+ * Telegramm. Die LED sitzt aber **auf** der Platine — im geschlossenen
+ * Schrank sieht sie niemand. Die WS2812 steckt an der Gehäusefront und ist
+ * genau dafür da: von außen zu zeigen, was drinnen los ist.
+ *
+ * ## Warum das keine Leitung braucht
+ *
+ * PD4 geht nirgends an den Pi-Stecker; ein elektrisches Abgreifen wäre ein
+ * Eingriff an einer Platine, die in Produktion ist — und brächte nichts, denn
+ * die WS2812 will keinen Pegel, sondern einen auf 800 kHz getakteten
+ * Datenstrom. Sie hört ohnehin nur auf den Pi.
+ *
+ * Nötig ist der Umweg auch nicht: **Jedes** Telegramm, das D1 blinken lässt,
+ * schickt die Firmware im selben Atemzug über die serielle Leitung zum Pi.
+ * Der Impuls ist also längst da, nur eben als Zeile statt als Spannung.
+ *
+ * ## Magenta
+ *
+ * Die einzige Farbe, die in der Prioritätsleiter oben nicht vorkommt. Grün,
+ * Rot, Orange, Blau und Gelb sagen etwas über den *Zustand* des Geräts; der
+ * Blitz sagt etwas über den *Verkehr*. Zwei Aussagen, die man nicht
+ * verwechseln können soll — also auch keine zwei Bedeutungen für eine Farbe.
+ */
+export const BLITZ_FARBE: Farbe = [255, 0, 255];
+
+/**
+ * Wie lange ein Blitz leuchtet.
+ *
+ * Unter etwa 30 ms nimmt das Auge im Vorbeigehen nichts mehr wahr, ab etwa
+ * 150 ms wirkt es nicht mehr wie ein Blitz, sondern wie ein Farbwechsel.
+ * 90 ms liegt dazwischen und ist auch bei hellem Umgebungslicht noch sicher
+ * zu sehen.
+ */
+export const BLITZ_MS = 90;
+
+/**
+ * Kürzester Abstand zwischen zwei Blitzen.
+ *
+ * Ohne ihn wäre die LED bei einem Schwall durchgehend magenta — und die
+ * Grundfarbe, die den *Zustand* des Geräts zeigt, nie zu sehen. Genau dann
+ * wäre sie am wichtigsten: Ein Gerät, das seinen Duty-Cycle ausreizt, erzeugt
+ * viele Telegramme, und die LED soll dabei rot bleiben und nicht in Magenta
+ * ertrinken.
+ *
+ * Mit 210 ms leuchtet der Blitz höchstens 43 % der Zeit; dazwischen steht die
+ * Grundfarbe immer wieder sichtbar da.
+ */
+export const BLITZ_TAKT_MS = 210;
+
+/**
+ * Läuft gerade ein Blitz?
+ *
+ * @param letztesMs Zeitpunkt des letzten gemeldeten Telegramms, oder null.
+ * @param jetzt Wanduhr.
+ */
+export function telegrammBlitz(letztesMs: number | null, jetzt: number): LedMuster | null {
+  if (letztesMs === null) return null;
+  const alter = jetzt - letztesMs;
+  // Ein Zeitstempel aus der Zukunft (Uhrsprung nach NTP) darf die LED nicht
+  // dauerhaft magenta stellen — dann lieber kein Blitz.
+  if (alter < 0 || alter >= BLITZ_MS) return null;
+  return { farbe: BLITZ_FARBE, blinken: 'aus', grund: 'Telegramm empfangen' };
+}
+
+/**
  * Ist die LED in dieser Blinkphase an, und mit welchem Helligkeitsfaktor?
  * `t` in ms — die Muster leben von der Wanduhr, nicht von Zählern.
  */

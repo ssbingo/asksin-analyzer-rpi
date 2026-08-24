@@ -290,7 +290,13 @@ export const starteCoreUpdate = (): Promise<Response> =>
 export type LedMethode = 'ws2812-spi' | 'ws2812-pwm';
 
 export interface StatusAnzeigeZustand {
-  konfig: { led: LedMethode | 'aus'; oled: boolean; helligkeit: number };
+  konfig: {
+    led: LedMethode | 'aus';
+    oled: boolean;
+    helligkeit: number;
+    /** Blitzt die LED bei jedem Telegramm kurz magenta? */
+    blitz?: boolean;
+  };
   aktiv: { led: boolean; oled: boolean };
   seite: number;
   /** Gesamtzahl der Displayseiten — kommt vom Core, nicht fest verdrahtet. */
@@ -322,6 +328,8 @@ export async function sendeStatusAnzeige(auftrag: {
   led: LedMethode | 'aus';
   oled: boolean;
   helligkeit: number;
+  /** Blitz bei jedem Telegramm; weggelassen lässt der Core den Wert stehen. */
+  blitz?: boolean;
 }): Promise<void> {
   const res = await fetch('/api/statusanzeige', {
     method: 'POST',

@@ -24,8 +24,10 @@ import { standardRunner } from '../update/firmware.ts';
 import type { OledHoehe } from './ssd1306.ts';
 import { SPI_HZ, kodiereWs2812 } from './ws2812.ts';
 import type { Farbe } from './ws2812.ts';
-import { SEITEN_ANZAHL, blinkPhase, ledMuster } from './zustand.ts';
-import type { StatusDaten } from './zustand.ts';
+import {
+  SEITEN_ANZAHL, blinkPhase, ledMuster, telegrammBlitz,
+} from './zustand.ts';
+import type { LedMuster, StatusDaten } from './zustand.ts';
 
 export interface StatusAnzeigeOptions {
   /**
@@ -66,6 +68,16 @@ export interface StatusAnzeigeOptions {
   tasterGpio?: number;
   gpioChip?: string;
   daten: () => StatusDaten;
+  /**
+   * Wann kam zuletzt ein Telegramm? Für den Blitz auf der WS2812.
+   *
+   * Bewusst getrennt von `daten()`: Der Blitz wird 25-mal je Sekunde
+   * abgefragt, `daten()` baut dafür jedes Mal die vollständige Geräteliste
+   * samt CCU-Abgleich auf. Diese Auskunft ist ein Zahlenwert.
+   */
+  letztesTelegramm?: () => number | null;
+  /** Blitzt die LED bei jedem Telegramm magenta auf? Vorgabe: nein. */
+  blitz?: boolean;
   time?: TimeSource;
   runner?: KommandoRunner;
   /** Für Tests: überschreibt die Modellerkennung. */
@@ -183,6 +195,23 @@ export function spiHelferOeffnen(geraet: string, hz: number): Promise<SpiSchreib
 }
 
 const MAX_FEHLER = 3;
+
+/**
+ * Takt der LED-Schleife.
+ *
+ * 40 ms, damit ein 90 ms langer Telegramm-Blitz sicher erwischt wird — bei
+ * 250 ms wäre er meistens schon vorbei, bevor jemand nachsieht.
+ *
+ * Der Takt kostet nichts: Geschrieben wird nur, wenn sich Farbe oder
+ * Helligkeit ändern, und die Grundfarbe wird weiterhin nur alle 250 ms
+ * nachgerechnet (`LED_GRUNDFARBE_MS`). Wer das zusammenlegt, ruft `daten()`
+ * fünfundzwanzigmal je Sekunde auf — und das baut jedes Mal die ganze
+ * Geräteliste samt CCU-Abgleich neu auf.
+ */
+const LED_TAKT_MS = 40;
+
+/** Wie oft die Grundfarbe (Zustand des Geräts) nachgerechnet wird. */
+const LED_GRUNDFARBE_MS = 250;
 
 /** Wie oft nachgesehen wird, ob der PWM-Hilfsdienst läuft. */
 const PWM_PRUEFUNG_MS = 60_000;
@@ -485,16 +514,32 @@ export class StatusAnzeige {
   }
 
   async #ledTakt(signal: AbortSignal, geraet: string): Promise<void> {
+    /** Zuletzt berechnete Grundfarbe und wann — siehe LED_GRUNDFARBE_MS. */
+    let grundfarbe: LedMuster | null = null;
+    let grundfarbeAlter = 0;
+
     for (;;) {
       try {
-        await this.#time.delay(250, signal);
+        await this.#time.delay(LED_TAKT_MS, signal);
       } catch {
         return;
       }
       await this.#pwmHelferPruefen();
       if (this.#ledFehler >= MAX_FEHLER) continue;
-      const muster = ledMuster(this.#o.daten());
-      const faktor = blinkPhase(muster.blinken, this.#time.now());
+      const jetzt = this.#time.now();
+      if (grundfarbe === null || jetzt - grundfarbeAlter >= LED_GRUNDFARBE_MS) {
+        grundfarbe = ledMuster(this.#o.daten());
+        grundfarbeAlter = jetzt;
+      }
+      // Der Blitz gewinnt, solange er läuft — er dauert 90 ms, danach steht
+      // die Grundfarbe wieder da. Umgekehrt (Zustand gewinnt) sähe man auf
+      // einem Gerät mit Alarm nie, ob überhaupt noch Telegramme ankommen —
+      // und genau das ist dort die erste Frage.
+      const muster =
+        (this.#o.blitz === true
+          ? telegrammBlitz(this.#o.letztesTelegramm?.() ?? null, jetzt)
+          : null) ?? grundfarbe;
+      const faktor = blinkPhase(muster.blinken, jetzt);
       const schluessel = `${muster.farbe.join(',')}:${faktor.toFixed(2)}`;
       if (schluessel === this.#letzterLedSchluessel) continue;
       this.#letzterLedSchluessel = schluessel;

@@ -185,6 +185,7 @@ const anzeige = reactive({
   methode: 'ws2812-spi' as LedMethode,
   oled: false,
   helligkeit: 40,
+  blitz: true,
 });
 const anzeigeVerfuegbar = ref(false);
 
@@ -195,6 +196,9 @@ async function anzeigeLaden(): Promise<void> {
     if (z.konfig.led !== 'aus') anzeige.methode = z.konfig.led;
     anzeige.oled = z.konfig.oled;
     anzeige.helligkeit = z.konfig.helligkeit;
+    // Ältere Core-Fassungen kennen das Feld nicht — dann bleibt die Vorgabe
+    // stehen, statt den Blitz beim ersten Speichern abzuschalten.
+    if (typeof z.konfig.blitz === 'boolean') anzeige.blitz = z.konfig.blitz;
     anzeigeVerfuegbar.value = true;
   } catch {
     /* ältere Core-Version */
@@ -207,6 +211,7 @@ const anzeigeSpeichern = (): Promise<void> =>
       led: anzeige.led ? anzeige.methode : 'aus',
       oled: anzeige.oled,
       helligkeit: Number(anzeige.helligkeit),
+      blitz: anzeige.blitz,
     }));
 
 // ---- Alarmziele (M14.2) --------------------------------------------------
@@ -878,12 +883,27 @@ const demoUmschalten = (): Promise<void> | undefined => {
           <option value="ws2812-pwm">PWM / GPIO18 — Pi 3/4, Schalter SW1 auf PWM</option>
         </select>
       </label>
+      <label v-if="anzeige.led">
+        <input type="checkbox" v-model="anzeige.blitz" />
+        Blitz bei jedem Telegramm
+      </label>
       <label><input type="checkbox" v-model="anzeige.oled" /> OLED-Anzeige</label>
       <label class="zeile" style="gap: 0.4rem">
         Helligkeit
         <input type="range" min="5" max="100" v-model.number="anzeige.helligkeit" />
         <span class="gedimmt">{{ anzeige.helligkeit }} %</span>
       </label>
+    </div>
+    <div class="fussnote" v-if="anzeige.led" style="margin-bottom: 0.8rem">
+      <strong>Der Blitz</strong> lässt die LED bei jedem empfangenen Telegramm
+      kurz <span style="color: #f0f">magenta</span> aufleuchten — dieselbe
+      Auskunft, die die kleine rote LED <code>D1</code> auf der Platine gibt,
+      nur von außen sichtbar. Dafür ist keine Leitung nötig: Jedes Telegramm
+      kommt ohnehin über die serielle Verbindung beim Raspberry an.
+      <br />
+      Magenta ist keiner Zustandsfarbe zugeteilt, und zwischen zwei Blitzen
+      liegt immer eine Pause — bei viel Funkverkehr bleibt die Grundfarbe
+      (grün, rot, …) also sichtbar und geht nicht unter.
     </div>
     <button class="primaer" :disabled="beschaeftigt" @click="anzeigeSpeichern">Speichern</button>
     <div class="fussnote">
