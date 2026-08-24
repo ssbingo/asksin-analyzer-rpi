@@ -139,6 +139,43 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.5.0 — 24.08.2026
+
+**Das Betriebssystem lässt sich aus der Weboberfläche aktualisieren.**
+
+Unter *Wartung → Systemaktualisierung*: ein Knopf, der `apt-get update` und
+`apt-get full-upgrade` ausführt. Der Analyzer läuft dauerhaft, hängt am Netz und
+trägt einen Webserver — ein Gerät mit diesen drei Eigenschaften muss seine
+Sicherheitsaktualisierungen bekommen, und der Weg dorthin darf nicht die Konsole
+sein.
+
+- **Man sieht, was läuft:** Paketlisten holen → aufrüsten → aufräumen, dazu die
+  Ausgabe von apt wörtlich. Während eines Laufs fragt die Seite alle zwei
+  Sekunden nach statt alle fünfzehn.
+- **Zeitstempel des letzten Erfolgs** darunter; ab **7 Tagen** wird der Hinweis
+  gelb. „Noch nie aktualisiert" ist eine eigene Stufe — bei einem frisch
+  aufgesetzten Gerät ist das der Normalzustand und kein Versäumnis.
+- Der Erfolgszeitpunkt liegt in einer **eigenen Datei**: Ein späterer
+  Fehlversuch überschreibt ihn nicht, sonst stünde nach einem Netzausfall
+  plötzlich „noch nie" da.
+- **Ohne Rückfragen, ohne Konfigurationsverlust:** `DEBIAN_FRONTEND=noninteractive`
+  plus `--force-confold`. Ein Gerät im Schrank kann die Frage nach der
+  Paketbetreuer-Version niemandem stellen — es bliebe stehen, bis das Zeitlimit
+  zuschlägt.
+- **Wartet auf die apt-Sperre** (bis 10 min), statt mit „Could not get lock"
+  abzubrechen; **lehnt den Start ab**, solange ein Analyzer-Update läuft; **gibt
+  nach einer Stunde ohne Lebenszeichen wieder frei**, damit ein Stromausfall
+  keine dauerhafte Sperre hinterlässt.
+- **Neustart nach Kernel-Update:** Wird einer verlangt, sagt die Seite es und
+  bietet den Knopf dazu. Bis jetzt führte der einzige Weg dorthin über einen
+  fünf Sekunden langen Druck auf den Taster am Gerät — wer keinen angelötet hat,
+  hätte die Konsole gebraucht.
+- Handbuch 15.4 erklärt Ablauf, Farbschwelle und was bei Störungen passiert.
+
+**Noch nicht dabei:** die Option „automatisch alle x Tage". Sie ist
+vorbehalten — die Mechanik dafür steht bereits, ein systemd-Timer müsste nur
+die Auslöserdatei ablegen.
+
 ### v1.4.1 — 24.08.2026
 
 **Der Schalter für den Telegramm-Blitz ist jetzt auch zu finden.**

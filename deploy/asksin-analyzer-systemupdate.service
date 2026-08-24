@@ -1,0 +1,16 @@
+# Fuehrt apt-get update und apt-get full-upgrade aus.
+#
+# TimeoutStartSec bewusst hoch: Nach laengerem Rueckstand laedt und entpackt
+# apt auf einem Pi 3 mit SD-Karte durchaus eine halbe Stunde. Ein zu knappes
+# Zeitlimit wuerde mitten im Entpacken abbrechen — und ein halb aufgeruestetes
+# System ist deutlich schlimmer als ein langsames.
+#
+# Kein Neustart bei Fehlschlag: Wenn apt scheitert, hilft ein zweiter Versuch
+# in aller Regel nicht, und die Meldung soll stehen bleiben.
+[Unit]
+Description=AskSin-Analyzer: Systemaktualisierung ausfuehren
+
+[Service]
+Type=oneshot
+TimeoutStartSec=3600
+ExecStart=/bin/bash /opt/asksin-analyzer/deploy/systemupdate.sh

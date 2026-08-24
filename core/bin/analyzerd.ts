@@ -75,6 +75,15 @@ import {
 } from '../src/langzeit/alarmziel.ts';
 import type { Alarmkanal, Alarmziel } from '../src/langzeit/alarmziel.ts';
 import {
+  SYSTEMUPDATE_WARNUNG_TAGE,
+  bewerteAlter,
+  laeuftNoch,
+} from '../src/update/systemupdate.ts';
+import type {
+  SystemupdateErfolg,
+  SystemupdateStatus,
+} from '../src/update/systemupdate.ts';
+import {
   ALARMREGELN,
   mitSchaltern,
   vollstaendig,
@@ -2106,6 +2115,112 @@ const alarmschalterHooks = {
   },
 };
 
+// ---- Systemaktualisierung (M17) ------------------------------------------
+//
+// apt-get update und apt-get full-upgrade aus der Weboberflaeche.
+//
+// Der Analyzer laeuft dauerhaft, haengt am Netz und traegt einen Webserver.
+// Ein Geraet mit diesen drei Eigenschaften muss seine
+// Sicherheitsaktualisierungen bekommen. Der uebliche Weg dorthin ist die
+// Konsole — und genau die soll dieses Projekt niemandem zumuten.
+//
+// Ausgefuehrt wird in deploy/systemupdate.sh; hier steht nur, was der Dienst
+// ohne Wurzelrechte tun darf: den Ausloeser legen und den Fortschritt lesen.
+
+const systemupdateTrigger = join(datenDir, 'systemupdate-anstoss');
+const systemupdateStatusDatei = join(datenDir, 'systemupdate-status.json');
+const systemupdateErfolgDatei = join(datenDir, 'systemupdate-erfolg.json');
+const systemupdateLog = join(datenDir, 'systemupdate.log');
+/** Derselbe Ausloeser, den ein langer Tastendruck am Geraet benutzt. */
+const neustartTrigger = join(datenDir, 'neustart-anstoss');
+
+/** Wie viele Zeilen des Protokolls die Oberflaeche mitbekommt. */
+const SYSTEMUPDATE_ZEILEN = 40;
+
+function leseSystemupdateStatus(): SystemupdateStatus | null {
+  try {
+    return JSON.parse(readFileSync(systemupdateStatusDatei, 'utf8')) as SystemupdateStatus;
+  } catch {
+    return null;
+  }
+}
+
+function leseSystemupdateErfolg(): SystemupdateErfolg | null {
+  try {
+    const roh = JSON.parse(readFileSync(systemupdateErfolgDatei, 'utf8')) as SystemupdateErfolg;
+    return Number.isFinite(roh.zeit) ? roh : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Die letzten Zeilen der Ausgabe.
+ *
+ * Damit sieht man in der Oberflaeche, WAS gerade passiert, und nicht nur, DASS
+ * etwas passiert. Bei einem Fehlschlag steht die Meldung von apt darin —
+ * woertlich, denn sie ist die eigentliche Auskunft.
+ */
+function systemupdateAusgabe(): string {
+  try {
+    // Die Datei bleibt klein (ein Lauf), aber nicht winzig: nur den Schwanz
+    // lesen, damit ein langer Lauf die Antwort nicht aufblaeht.
+    const alles = readFileSync(systemupdateLog, 'utf8');
+    return alles.split('\n').slice(-SYSTEMUPDATE_ZEILEN).join('\n').trimEnd();
+  } catch {
+    return '';
+  }
+}
+
+const systemupdateHooks = {
+  zustand: (): unknown => {
+    const status = leseSystemupdateStatus();
+    const erfolg = leseSystemupdateErfolg();
+    const jetzt = Date.now();
+    return {
+      laeuft: laeuftNoch(status, jetzt),
+      status,
+      letzterErfolg: erfolg,
+      befund: bewerteAlter(erfolg?.zeit ?? null, jetzt),
+      warnungAbTagen: SYSTEMUPDATE_WARNUNG_TAGE,
+      // Nach einem Kernel-Update verlangt Debian einen Neustart. Die Auskunft
+      // kommt aus der letzten Statusdatei UND aus der Gegenwart: Die Datei
+      // /var/run/reboot-required kann auch ein Paket angelegt haben, das
+      // ausserhalb dieser Oberflaeche eingespielt wurde.
+      neustartNoetig: existsSync('/var/run/reboot-required') || (erfolg?.neustartNoetig === true),
+      ausgabe: systemupdateAusgabe(),
+    };
+  },
+  starten: (): boolean => {
+    if (laeuftNoch(leseSystemupdateStatus(), Date.now())) return false;
+    // Nicht neben dem Core-Update: update.sh installiert selbst Pakete
+    // (jq, i2c-tools). Zwei apt-Laeufe gleichzeitig blockieren einander an der
+    // Sperre, und der zweite liefe zehn Minuten ins Leere.
+    const core = leseUpdateStatus();
+    if (core !== null && core['running'] === true) {
+      throw new Error(
+        'Es läuft gerade eine Aktualisierung des Analyzers. Erst die abwarten — '
+        + 'zwei apt-Läufe behindern einander.',
+      );
+    }
+    writeFileSync(systemupdateTrigger, `${new Date().toISOString()}\n`);
+    log('Systemaktualisierung angestoßen (Trigger-Datei für die systemd-Path-Unit)');
+    return true;
+  },
+  /**
+   * Startet den RECHNER neu, nicht den Dienst.
+   *
+   * Musste mit dazu: Nach einem Kernel-Update sagt die Oberflaeche "Neustart
+   * noetig" — und bis eben war der einzige Weg dorthin ein fuenf Sekunden
+   * langer Druck auf den Taster am Geraet. Wer keinen angeloetet hat, haette
+   * die Konsole gebraucht, und die soll niemand brauchen.
+   */
+  neustart: (): void => {
+    writeFileSync(neustartTrigger, `${new Date().toISOString()}\n`);
+    log('Neustart des Rechners angefordert (Trigger-Datei für die Path-Unit)');
+  },
+};
+
 const uiDir = resolve(import.meta.dirname, '../../webui/dist');
 // Die Handbücher liegen im Projekt, nicht im Web-UI-Verzeichnis; ausgeliefert
 // werden sie über eigene Routen, damit sie auch ohne Internet erreichbar sind.
@@ -2629,6 +2744,7 @@ const api = new ApiServer({
   langzeit: langzeitHooks,
   alarmziel: alarmzielHooks,
   alarmschalter: alarmschalterHooks,
+  systemupdate: systemupdateHooks,
   protokoll: protokollHooks,
   mitschnitt: mitschnittHooks,
   // Der Test läuft vom Analyzer aus, nicht aus dem Browser: Erreichen muss

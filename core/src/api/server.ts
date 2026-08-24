@@ -269,6 +269,21 @@ export interface ApiServerOptions {
     zustand(): unknown;
     einstellen(auftrag: Record<string, unknown>): void | Promise<void>;
   };
+  /**
+   * Systemaktualisierung (M17): apt-get update und full-upgrade.
+   *
+   * Getrennt von `update` (das ist der Analyzer selbst): Zwei verschiedene
+   * Dinge, die verschieden lange dauern und verschieden ausgehen können —
+   * zusammengelegt wüsste die Oberfläche im Fehlerfall nicht, wovon sie
+   * spricht.
+   */
+  systemupdate?: {
+    zustand(): unknown;
+    /** false = läuft schon; wirft mit Klartext, wenn es gerade nicht geht. */
+    starten(): boolean;
+    /** Startet den Rechner neu — nach einem Kernel-Update nötig. */
+    neustart(): void;
+  };
   /** Protokoll (M13): Stufe und Aufbewahrung einstellen, Dateien herunterladen. */
   protokoll?: {
     zustand(): unknown;
@@ -646,6 +661,13 @@ export class ApiServer {
           if (hooks === undefined) return this.#text(res, 501, 'Keine Alarmziele');
           return this.#json(res, 200, hooks.zustand());
         }
+        case '/api/systemupdate': {
+          // Ohne Token wie die uebrigen Leserouten: Hier steht kein Geheimnis,
+          // nur wann zuletzt aktualisiert wurde und was apt dazu sagte.
+          const hooks = this.#opts.systemupdate;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Systemaktualisierung');
+          return this.#json(res, 200, hooks.zustand());
+        }
         case '/api/alarme': {
           // Ohne Token, anders als /api/alarmziel: Hier steht kein Geheimnis,
           // nur welcher der vier Alarme laeuft. Die Oberflaeche zeigt die
@@ -900,6 +922,31 @@ export class ApiServer {
             // davorzuschreiben verdeckt sie nur.
             return this.#text(res, 400, e instanceof Error ? e.message : String(e));
           }
+        }
+        case '/api/systemupdate': {
+          if (!this.#autorisiert(req, res)) return;
+          const hooks = this.#opts.systemupdate;
+          if (hooks === undefined) return this.#text(res, 501, 'Keine Systemaktualisierung');
+          let auftrag: Record<string, unknown> = {};
+          try {
+            auftrag = JSON.parse(await this.#leseBody(req)) as Record<string, unknown>;
+          } catch {
+            /* leerer Body = starten */
+          }
+          if (auftrag['aktion'] === 'neustart') {
+            hooks.neustart();
+            return this.#text(res, 202, 'Neustart angefordert — das Gerät ist gleich weg.');
+          }
+          try {
+            if (!hooks.starten()) return this.#text(res, 409, 'Läuft bereits');
+          } catch (e) {
+            // 409 statt 500: Ein "geht gerade nicht" ist eine Auskunft ueber
+            // den Zeitpunkt, kein Serverfehler.
+            return this.#text(res, 409, e instanceof Error ? e.message : String(e));
+          }
+          res.writeHead(202, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('Aktualisierung angestoßen — Fortschritt unter /api/systemupdate');
+          return;
         }
         case '/api/alarme':
         case '/api/alarmziel':

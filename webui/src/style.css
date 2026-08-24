@@ -282,6 +282,10 @@ button:disabled { opacity: 0.5; cursor: default; }
 /* Weder gut noch schlecht: eine Feststellung. Rot waere hier eine Luege —
    "es laeuft die Originalfirmware" ist kein Fehler, sondern eine Auskunft. */
 .meldung.neutral { background: color-mix(in srgb, var(--muted) 14%, transparent); color: var(--muted); }
+/* Noch kein Fehler, aber es wird Zeit: eine ueberfaellige Systemaktualisierung
+   ist kein Defekt — sie zu uebersehen wird aber einer. Gelb ist die Stufe
+   dazwischen, und die fehlte bisher. */
+.meldung.warnung { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
 
 .fussnote { color: var(--muted); font-size: 0.8rem; margin-top: 0.5rem; }
 
@@ -455,4 +459,22 @@ table.daten { overflow-wrap: normal; }
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--muted);
+}
+
+/* Woertliche apt-Ausgabe in der Wartung (M17).
+   Feste Hoehe mit eigenem Rollbalken: Ein Lauf erzeugt Dutzende Zeilen, und
+   der Rest der Seite soll dabei stehen bleiben, wo er ist. */
+.apt-ausgabe {
+  margin: 0;
+  padding: 0.6rem 0.8rem;
+  max-height: 14rem;
+  overflow: auto;
+  background: var(--panel2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

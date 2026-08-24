@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { onUnmounted, reactive, ref } from 'vue';
 
 import HandbuchFuss from '../components/HandbuchFuss.vue';
 
 import {
+  holeSystemupdate,
+  starteSystemupdate,
+  starteNeustart,
   holeMitschnitt,
   holeProtokoll,
   mitschnittDateiUrl,
@@ -12,11 +15,13 @@ import {
   sendeProtokoll,
 } from '../api.ts';
 import type {
+  SystemupdateZustand,
   MitschnittZustand,
   ProtokollStufe,
   ProtokollZustand,
 } from '../api.ts';
 import { nutzeTakt } from '../takt.ts';
+import { datumZeit } from '../format.ts';
 
 const zustand = ref<ProtokollZustand | null>(null);
 const meldung = ref<{ art: 'ok' | 'fehler'; text: string } | null>(null);
@@ -65,6 +70,88 @@ function groesse(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} kB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+// --- Systemaktualisierung (M17) -------------------------------------------
+//
+// Der Analyzer laeuft dauerhaft, haengt am Netz und traegt einen Webserver.
+// Ein Geraet mit diesen drei Eigenschaften braucht seine
+// Sicherheitsaktualisierungen — und den Weg dorthin ueber die Konsole soll
+// niemand gehen muessen.
+
+const sysupd = ref<SystemupdateZustand | null>(null);
+const sysupdBeschaeftigt = ref(false);
+/** Schneller Takt, solange etwas laeuft — der 15-Sekunden-Takt waere zaeh. */
+let sysupdTakt: ReturnType<typeof setInterval> | null = null;
+
+const SCHRITTE: Record<string, string> = {
+  start: 'wird gestartet …',
+  paketlisten: 'Paketlisten werden geholt …',
+  aufruesten: 'Pakete werden aufgerüstet — das kann dauern …',
+  aufraeumen: 'Alte Pakete werden aufgeräumt …',
+  fertig: 'fertig',
+  abgebrochen: 'abgebrochen',
+};
+
+async function sysupdLaden(): Promise<void> {
+  try {
+    const z = await holeSystemupdate();
+    sysupd.value = z;
+    // Waehrend eines Laufs haeufiger nachfragen. Ohne das stuende die
+    // Fortschrittsanzeige bis zu 15 Sekunden still, und der Anwender haelt
+    // einen laufenden Vorgang fuer haengengeblieben.
+    if (z.laeuft && sysupdTakt === null) {
+      sysupdTakt = setInterval(() => void sysupdLaden(), 2000);
+    } else if (!z.laeuft && sysupdTakt !== null) {
+      clearInterval(sysupdTakt);
+      sysupdTakt = null;
+    }
+  } catch {
+    /* aeltere Core-Fassung — der Abschnitt bleibt dann ausgeblendet */
+  }
+}
+
+onUnmounted(() => {
+  if (sysupdTakt !== null) clearInterval(sysupdTakt);
+});
+
+async function sysupdStarten(): Promise<void> {
+  sysupdBeschaeftigt.value = true;
+  meldung.value = null;
+  try {
+    await starteSystemupdate();
+    meldung.value = {
+      art: 'ok',
+      text: 'Aktualisierung läuft. Sie können die Seite verlassen — '
+        + 'der Vorgang läuft auf dem Gerät weiter.',
+    };
+    await sysupdLaden();
+  } catch (err) {
+    meldung.value = { art: 'fehler', text: err instanceof Error ? err.message : String(err) };
+  } finally {
+    sysupdBeschaeftigt.value = false;
+  }
+}
+
+async function sysupdNeustart(): Promise<void> {
+  if (
+    !window.confirm(
+      'Den Rechner jetzt neu starten?\n\n'
+        + 'Der Analyzer ist für etwa eine Minute nicht erreichbar und '
+        + 'zeichnet in dieser Zeit keine Telegramme auf.',
+    )
+  ) {
+    return;
+  }
+  sysupdBeschaeftigt.value = true;
+  try {
+    await starteNeustart();
+    meldung.value = { art: 'ok', text: 'Neustart angefordert — bis gleich.' };
+  } catch (err) {
+    meldung.value = { art: 'fehler', text: err instanceof Error ? err.message : String(err) };
+  } finally {
+    sysupdBeschaeftigt.value = false;
+  }
 }
 
 // --- Mitschnitt ----------------------------------------------------------
@@ -132,6 +219,7 @@ async function mitschnittLeeren(): Promise<void> {
 nutzeTakt(async () => {
   await laden();
   await mitschnittLaden();
+  await sysupdLaden();
 }, 15_000);
 </script>
 
@@ -143,6 +231,90 @@ nutzeTakt(async () => {
     v-if="meldung !== null"
     :class="meldung.art"
   >{{ meldung.text }}</div>
+
+  <!-- Zuoberst, noch vor dem Protokoll: Das ist die Sache, die man in dieser
+       Ansicht regelmäßig tun soll — alles andere sieht man sich nur an, wenn
+       etwas nicht stimmt. -->
+  <div class="panel" v-if="sysupd !== null">
+    <h3>Systemaktualisierung</h3>
+    <p class="gedimmt">
+      Holt die Paketlisten und spielt alle verfügbaren Aktualisierungen des
+      Betriebssystems ein — <code>apt-get update</code> und
+      <code>apt-get full-upgrade</code>, ohne Rückfragen und ohne Konsole.
+      Geänderte Konfigurationsdateien bleiben dabei unangetastet. Der Analyzer
+      zeichnet währenddessen weiter auf.
+    </p>
+
+    <!-- Der Befund steht ganz oben und ist farbig, wenn es Zeit wird. Er ist
+         der Grund, warum jemand diese Ansicht überhaupt öffnet. -->
+    <div
+      class="meldung"
+      :class="sysupd.befund.stufe === 'frisch' ? 'ok' : 'warnung'"
+    >
+      <strong>{{ sysupd.befund.text }}</strong>
+      <template v-if="sysupd.letzterErfolg !== null">
+        <br />
+        Zuletzt erfolgreich: {{ datumZeit(sysupd.letzterErfolg.zeit) }}<template
+          v-if="sysupd.letzterErfolg.pakete !== null"
+        >, {{ sysupd.letzterErfolg.pakete }}
+          {{ sysupd.letzterErfolg.pakete === 1 ? 'Paket' : 'Pakete' }}
+          aufgerüstet</template>.
+      </template>
+      <template v-else-if="sysupd.befund.stufe === 'nie'">
+        <br />
+        Das ist bei einem neu aufgesetzten Gerät normal — einmal auf
+        <em>Jetzt aktualisieren</em>, dann steht hier ein Datum.
+      </template>
+    </div>
+
+    <div class="zeile" style="margin-bottom: 0.6rem; align-items: center">
+      <button
+        class="primaer"
+        :disabled="sysupdBeschaeftigt || sysupd.laeuft"
+        @click="sysupdStarten"
+      >
+        Jetzt aktualisieren
+      </button>
+      <span class="chip" v-if="sysupd.laeuft">
+        {{ SCHRITTE[sysupd.status?.schritt ?? ''] ?? 'läuft …' }}
+      </span>
+      <span
+        class="chip"
+        v-else-if="sysupd.status?.ok === true"
+      >abgeschlossen</span>
+    </div>
+
+    <!-- Was gerade passiert, wörtlich. „Es läuft" allein hält niemand zehn
+         Minuten lang aus — und im Fehlerfall ist apts eigene Meldung die
+         eigentliche Auskunft, nicht unsere Deutung davon. -->
+    <div v-if="sysupd.ausgabe !== ''" class="scrollbar" style="margin-bottom: 0.6rem">
+      <pre class="apt-ausgabe">{{ sysupd.ausgabe }}</pre>
+    </div>
+
+    <div class="meldung fehler" v-if="sysupd.status?.ok === false">
+      <strong>Die Aktualisierung ist fehlgeschlagen.</strong>
+      {{ sysupd.status.fehler }}
+    </div>
+
+    <div class="meldung warnung" v-if="sysupd.neustartNoetig">
+      <strong>Das System verlangt einen Neustart.</strong>
+      Meist wurde ein neuer Kernel eingespielt — er wird erst nach dem Neustart
+      benutzt. Bis dahin läuft alles normal weiter.
+      <div style="margin-top: 0.5rem">
+        <button :disabled="sysupdBeschaeftigt" @click="sysupdNeustart">
+          Rechner jetzt neu starten
+        </button>
+      </div>
+    </div>
+
+    <p class="fussnote">
+      Der Hinweis wird farbig, sobald die letzte Aktualisierung
+      {{ sysupd.warnungAbTagen }} Tage her ist. Ausgeführt wird sie von einem
+      eng begrenzten Hilfsdienst mit Wurzelrechten; der Analyzer selbst legt
+      nur den Auftrag ab. Die vollständige Ausgabe steht auf dem Gerät in
+      <code>/var/lib/asksin-analyzer/systemupdate.log</code>.
+    </p>
+  </div>
 
   <div class="panel">
     <h3>Protokoll</h3>

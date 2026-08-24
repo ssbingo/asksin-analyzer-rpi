@@ -1,0 +1,15 @@
+# Beobachtet die Datei, die die Weboberflaeche fuer eine Systemaktualisierung
+# anlegt.
+#
+# Dasselbe Muster wie beim Core-Update: Der Analyzer laeuft unprivilegiert und
+# darf kein apt starten. Er legt einen Ausloeser im Datenverzeichnis ab, ein
+# eng begrenzter Root-Helfer fuehrt ihn aus.
+[Unit]
+Description=AskSin-Analyzer: Ausloeser fuer die Systemaktualisierung
+
+[Path]
+PathExists=/var/lib/asksin-analyzer/systemupdate-anstoss
+Unit=asksin-analyzer-systemupdate.service
+
+[Install]
+WantedBy=multi-user.target

@@ -997,6 +997,63 @@ export async function sendeAlarmschalter(
   if (!res.ok) throw new Error(await res.text());
 }
 
+// ---- Systemaktualisierung (M17) ------------------------------------------
+
+export interface SystemupdateBefund {
+  stufe: 'nie' | 'frisch' | 'ueberfaellig';
+  alterTage: number | null;
+  text: string;
+}
+
+export interface SystemupdateZustand {
+  laeuft: boolean;
+  status: {
+    running: boolean;
+    schritt: 'start' | 'paketlisten' | 'aufruesten' | 'aufraeumen' | 'fertig' | string;
+    ok: boolean | null;
+    startedAt: number;
+    updatedAt: number;
+    pakete: number | null;
+    neustartNoetig: boolean;
+    fehler: string | null;
+  } | null;
+  letzterErfolg: { zeit: number; pakete: number | null; neustartNoetig: boolean } | null;
+  befund: SystemupdateBefund;
+  warnungAbTagen: number;
+  neustartNoetig: boolean;
+  /** Die letzten Zeilen der apt-Ausgabe — wörtlich. */
+  ausgabe: string;
+}
+
+export const holeSystemupdate = (): Promise<SystemupdateZustand> =>
+  hole('/api/systemupdate');
+
+/** Stößt die Aktualisierung an; der Fortschritt kommt über holeSystemupdate. */
+export async function starteSystemupdate(): Promise<void> {
+  const res = await fetch('/api/systemupdate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: '{}',
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+}
+
+/** Startet den Rechner neu — nach einem Kernel-Update nötig. */
+export async function starteNeustart(): Promise<void> {
+  const res = await fetch('/api/systemupdate', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...authKopf() },
+    body: JSON.stringify({ aktion: 'neustart' }),
+  });
+  if (res.status === 401) {
+    throw new Error('Nicht erlaubt — Auth-Token in den Einstellungen hinterlegen.');
+  }
+  if (!res.ok) throw new Error(await res.text());
+}
+
 // --- CCU-Verbindungstest --------------------------------------------------
 
 export interface CcuTestErgebnis {

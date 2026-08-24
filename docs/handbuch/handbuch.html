@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.4.1</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.5.0</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.4.1 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.5.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2394,6 +2394,80 @@ verändern. Fürs Update legt er nur eine Auftragsdatei ab; eine
 systemd-Überwachung startet daraufhin das eigentliche Update-Skript mit
 Root-Rechten. Dasselbe Muster nutzen Netzwerkänderungen (Kapitel 16).</div>
 
+<h2 class="umbruch" id="k15-4">15.4 Das Betriebssystem aktualisieren</h2>
+
+<p>Kapitel 15.1 bis 15.3 handeln vom <strong>Analyzer</strong>. Darunter liegt
+aber ein zweites Stück Software, das genauso gepflegt werden will: Debian
+selbst. Der Analyzer läuft dauerhaft, hängt am Netz und trägt einen Webserver
+— ein Gerät mit diesen drei Eigenschaften muss seine
+Sicherheitsaktualisierungen bekommen.</p>
+
+<p>Der übliche Weg dorthin ist die Konsole. Genau die soll dieses Projekt
+niemandem zumuten, also steht er unter <em>Wartung →
+Systemaktualisierung</em>:</p>
+
+<ol class="schritte">
+<li><strong>Jetzt aktualisieren</strong> drücken. Der Analyzer legt einen
+Auftrag ab, ein Hilfsdienst mit Wurzelrechten führt ihn aus — dasselbe Muster
+wie beim Software-Update und bei den Netzwerkeinstellungen.</li>
+<li>Die Seite zeigt, was gerade passiert: <em>Paketlisten werden geholt →
+Pakete werden aufgerüstet → Alte Pakete werden aufgeräumt</em>, dazu die
+Ausgabe von <code>apt</code> wörtlich. Sie dürfen die Seite verlassen; der
+Vorgang läuft auf dem Gerät weiter.</li>
+<li>Am Ende steht <em>abgeschlossen</em> und darunter das Datum des letzten
+erfolgreichen Laufs.</li>
+</ol>
+
+<p>Ausgeführt werden <code>apt-get update</code> und
+<code>apt-get full-upgrade</code>, anschließend <code>apt-get autoremove</code>
+— letzteres hält die Karte frei, denn alte Kernel sind darauf der größte
+Posten, und eine volle Karte ist auf diesem Gerät ein realer Ausfallgrund. Der
+Analyzer zeichnet die ganze Zeit weiter auf.</p>
+
+<div class="hinweis box"><span class="titel">Ohne Rückfragen — mit Absicht</span>
+Ein Gerät, das im Schrank steht, kann die Frage „Geänderte
+Konfigurationsdatei: Paketbetreuer-Version installieren?" niemandem stellen.
+Es bliebe stehen, bis das Zeitlimit zuschlägt. Deshalb läuft apt hier
+ausdrücklich nicht-interaktiv, und <strong>geänderte Konfigurationsdateien
+bleiben unangetastet</strong> — was Sie eingestellt haben, bleibt, wie es
+ist.</div>
+
+<h3 id="wann-der-hinweis-farbig-wird">Wann der Hinweis farbig wird</h3>
+
+<p>Unter dem Knopf steht, wann zuletzt erfolgreich aktualisiert wurde. Ist das
+<strong>sieben Tage oder länger</strong> her, wird der Hinweis gelb und bittet
+darum, es bald nachzuholen. Das ist keine Sicherheitsgrenze, sondern eine
+Gedächtnisstütze: Debian veröffentlicht Sicherheitsaktualisierungen laufend,
+und eine Woche ist der Abstand, in dem man ohne schlechtes Gewissen nicht
+hinsehen muss.</p>
+
+<p class="klein">„Noch nie aktualisiert" ist etwas anderes als „lange her" und
+steht auch anders da: Bei einem frisch aufgesetzten Gerät ist das der
+Normalzustand und kein Versäumnis. Der Zeitpunkt des letzten Erfolgs liegt in
+einer eigenen Datei — ein späterer <em>Fehl</em>versuch überschreibt ihn nicht,
+sonst stünde nach einem Netzausfall plötzlich „noch nie" da.</p>
+
+<h3 id="neustart-nach-einem-kernel-update">Neustart nach einem Kernel-Update</h3>
+
+<p>Kommt ein neuer Kernel, benutzt Debian ihn erst nach einem Neustart. Die
+Seite sagt das dann — und bietet gleich einen Knopf dafür, mit Rückfrage. Bis
+dahin läuft alles normal weiter; es eilt nicht, aber vergessen sollte man es
+nicht.</p>
+
+<div class="hinweis box"><span class="titel">Was währenddessen schiefgehen
+kann — und was dann passiert</span>
+<strong>apt ist gerade gesperrt</strong> (der tägliche Debian-Timer läuft):
+Das Skript wartet bis zu zehn Minuten auf die Sperre, statt sofort mit „Could
+not get lock" abzubrechen — das klänge nach einem Defekt und wäre doch nur
+schlechtes Timing.<br /><br />
+<strong>Der Strom fällt mitten im Lauf aus:</strong> Beim nächsten Aufruf gibt
+die Anzeige nach einer Stunde ohne Lebenszeichen wieder frei. Eine Sperre, aus
+der nur der Erfolgsfall herausführt, wäre keine Sperre, sondern eine
+Falle.<br /><br />
+<strong>Ein Analyzer-Update läuft schon:</strong> Der Start wird mit Begründung
+abgelehnt — auch <code>update.sh</code> installiert Pakete, und zwei
+apt-Läufe behindern einander an derselben Sperre.</div>
+
 <!-- ==================================================== KAPITEL 16 -->
 <h1 class="kapitel" id="k16"><span class="knr">16</span>Netzwerkeinstellungen mit Aussperr-Schutz</h1>
 <div class="kapitelband"></div>
@@ -4095,7 +4169,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.4.1 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.5.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>
