@@ -873,8 +873,14 @@ export interface LangzeitZustand {
   influxAktiv: boolean;
   /** Liegt diese Datenbank auf demselben Gerät? */
   influxLokal: boolean;
-  /** Wie viele Standorte tatsächlich in der Datenbank stehen; null = unbekannt. */
-  standorte: number | null;
+  /**
+   * Wer gerade in die Langzeitdatenbank liefert; null = noch keine Auskunft.
+   *
+   * Gezählt werden die Analyzer, nicht die Datenbank — der Analyzer hat seit
+   * der Trennung der InfluxDB-Token keinen Lesezugriff mehr. Einzelheiten in
+   * core/src/influx/sammlung.ts.
+   */
+  sammlung: { liefern: string[]; stumm: string[] } | null;
   /** Eingestellter Alarmweg; null, wenn keiner aktiv ist. */
   alarmierung: 'iobroker' | 'email' | 'telegram' | null;
   /** Fortschritt des Einrichtungsskripts; null, solange nie eines lief. */

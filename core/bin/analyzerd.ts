@@ -36,6 +36,8 @@ import { ApiServer } from '../src/api/server.ts';
 import type { ZigbeeHooks } from '../src/api/server.ts';
 import type { NetzwerkHooks, UpdateHooks } from '../src/api/server.ts';
 import { VerbundDienst, httpFetchJson, httpPost } from '../src/verbund/verbund.ts';
+import { zaehleSammlung } from '../src/influx/sammlung.ts';
+import type { Sammlung, SammlungBericht } from '../src/influx/sammlung.ts';
 import type { PeerKonfig } from '../src/verbund/verbund.ts';
 import { demoDevListFetch, demoPortOpener } from '../src/demo/port.ts';
 import { DEFAULT_BAUD, DEFAULT_DEVICE, sttyPortOpener } from '../src/ingest/sttyPort.ts';
@@ -1718,55 +1720,58 @@ function leseLangzeitStatus(): Record<string, unknown> | null {
 }
 
 /**
- * Wie viele Standorte liegen in der Datenbank?
+ * Wie viele Standorte liefern gerade in die Langzeitdatenbank?
  *
- * Nicht geraten aus der Peer-Liste, sondern gefragt: Ein Standort zaehlt,
- * wenn er auch wirklich schreibt. Ein eingetragener, aber ausgefallener Peer
- * darf hier nicht mitzaehlen — sonst behauptet die Uebersicht eine
- * Vollstaendigkeit, die nicht besteht.
+ * Gefragt werden die Analyzer, nicht die Datenbank — warum, steht ausführlich
+ * in src/influx/sammlung.ts. Kurz: Seit Grafana einen Lese- und die Analyzer
+ * einen Schreib-Token haben, sieht ein Analyzer den Bucket nicht mehr, und die
+ * frühere Abfrage lief in ein stilles 404.
  *
- * Das Ergebnis wird eine Minute lang behalten: Die Uebersichtsseite fragt im
- * Sekundentakt, und diese Zahl aendert sich hoechstens beim Aufbau.
+ * Das Ergebnis wird eine Minute lang behalten: Die Übersichtsseite fragt im
+ * Sekundentakt, und diese Zahl ändert sich höchstens beim Aufbau. Ohne den
+ * Puffer stünde hinter jedem Seitenaufruf eine Runde Netzabfragen an alle
+ * Standorte.
  */
-let standorteCache: { zahl: number | null; bis: number } = { zahl: null, bis: 0 };
+let sammlungCache: { wert: Sammlung | null; bis: number } = { wert: null, bis: 0 };
 
-async function zaehleStandorte(): Promise<number | null> {
-  if (Date.now() < standorteCache.bis) return standorteCache.zahl;
-  const k = influxKonfigLesen();
-  if (!k.aktiv || k.url === '') {
-    standorteCache = { zahl: null, bis: Date.now() + 60_000 };
-    return null;
-  }
-  try {
-    const res = await holen(
-      `${k.url.replace(/\/+$/, '')}/api/v2/query?org=${encodeURIComponent(k.org)}`,
-      {
-        method: 'POST',
-        headers: {
-          authorization: `Token ${k.token}`,
-          'content-type': 'application/vnd.flux',
-          accept: 'application/csv',
-        },
-        body:
-          'import "influxdata/influxdb/schema"\n' +
-          `schema.tagValues(bucket: "${k.bucket}", tag: "standort")`,
-        signal: AbortSignal.timeout(4000),
-      },
-    );
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    // CSV: eine Kopfzeile, danach je Standort eine Zeile.
-    const zeilen = alsText(res)
-      .split('\n')
-      .filter((z) => z.trim() !== '' && !z.startsWith('#') && !z.includes(',_value'));
-    const zahl = zeilen.length;
-    standorteCache = { zahl, bis: Date.now() + 60_000 };
-    return zahl;
-  } catch {
-    // Kein Wert statt einer Null: "0 Standorte" waere eine Aussage, "nicht
-    // ermittelbar" ist die Wahrheit.
-    standorteCache = { zahl: null, bis: Date.now() + 60_000 };
-    return null;
-  }
+async function ermittleSammlung(): Promise<Sammlung | null> {
+  if (Date.now() < sammlungCache.bis) return sammlungCache.wert;
+
+  const berichte: SammlungBericht[] = [];
+  await Promise.all(
+    allePeers().map(async (peer) => {
+      try {
+        // Ohne Token: /api/langzeitdaten ist eine reine Zustandsauskunft und
+        // traegt keine Geheimnisse. Ein Peer aus einer aelteren Fassung
+        // liefert die Felder nicht — dann fehlt er in der Zaehlung, statt mit
+        // erfundenen Werten mitgezaehlt zu werden.
+        const z = (await httpFetchJson(`${peer.url}/api/langzeitdaten`)) as {
+          standort?: unknown;
+          influxAktiv?: unknown;
+          influxLetzterErfolg?: unknown;
+          influxIntervallSekunden?: unknown;
+        };
+        if (typeof z.standort !== 'string') return;
+        berichte.push({
+          standort: z.standort,
+          influxAktiv: z.influxAktiv === true,
+          letzterErfolg:
+            typeof z.influxLetzterErfolg === 'number' ? z.influxLetzterErfolg : null,
+          intervallSekunden:
+            typeof z.influxIntervallSekunden === 'number' ? z.influxIntervallSekunden : 60,
+        });
+      } catch {
+        // Nicht erreichbar — zaehlt nicht mit. Genau so soll es sein: Ein
+        // ausgefallener Standort darf keine Vollstaendigkeit vortaeuschen.
+      }
+    }),
+  );
+
+  // Gar keine Auskunft von niemandem: Dann ist die Zahl unbekannt und nicht
+  // null. „0 Standorte" waere eine Behauptung.
+  const wert = berichte.length === 0 ? null : zaehleSammlung(berichte, Date.now());
+  sammlungCache = { wert, bis: Date.now() + 60_000 };
+  return wert;
 }
 
 const langzeitHooks = {
@@ -1780,7 +1785,15 @@ const langzeitHooks = {
       // braucht diese Route auch keinen Token.
       influxAktiv: influx.aktiv && influx.url !== '',
       influxLokal: influx.url.includes('127.0.0.1') || influx.url.includes('localhost'),
-      standorte: await zaehleStandorte(),
+      // Diese drei braucht der Master, um die „Sammlung" zu zaehlen — jeder
+      // Analyzer beantwortet sie ueber sich selbst. Keine Geheimnisse, daher
+      // weiterhin ohne Token abrufbar.
+      standort,
+      influxLetzterErfolg: influxSchreiber?.status.letzterErfolg ?? null,
+      influxIntervallSekunden: influx.intervallSekunden,
+      // Nur der Master zaehlt: Ein Client fragte sonst seinerseits alle Peers
+      // ab, und jede Uebersichtsseite loeste ein Netz von Kreuzabfragen aus.
+      sammlung: r.rolle === 'master' ? await ermittleSammlung() : null,
       alarmierung: ziel.aktiv ? ziel.kanal : null,
       hardware: {
         modell: hardware.modell === '' ? 'unbekannt' : hardware.modell,

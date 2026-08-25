@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.7.1</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.7.2</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.7.1 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.7.2 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -3253,6 +3253,45 @@ Damit ist sie die ehrlichste Erfolgskontrolle, die es hier gibt.</p>
 vor allem der <em>Verbund-Vergleich</em> mit der Empfangsmatrix und das
 <em>Gerätedetail</em> mit einer Linie je Standort.</p>
 
+<h3 id="die-kachel-langzeitdaten">Die Kachel „Langzeitdaten" auf der Übersicht</h3>
+
+<p>Sobald der Master steht, erscheint auf der Übersichtsseite eine Kachel mit
+vier Zeilen. Sie beantwortet im Vorbeigehen, was sonst vier Klicks in den
+Einstellungen kostet:</p>
+
+<table>
+<tr><th>Zeile</th><th>Was sie sagt</th></tr>
+<tr><td>Influx</td><td><em>aktiv (lokal)</em> — die Datenbank läuft auf diesem Gerät. <em>aktiv (extern)</em> — sie steht woanders im Netz.</td></tr>
+<tr><td>Grafana</td><td>Ist die Auswertung installiert?</td></tr>
+<tr><td><strong>Sammlung</strong></td><td><strong>Wie viele Standorte gerade wirklich liefern</strong> — bei drei Analyzern also <em>3 Standorte</em>.</td></tr>
+<tr><td>Alarmierung</td><td>Über welchen Weg gemeldet wird — ioBroker, E-Mail, Telegram oder <em>keine</em>.</td></tr>
+</table>
+
+<p><strong>Ein Standort zählt nur, wenn er auch wirklich schreibt.</strong> Ein
+eingetragener, aber ausgefallener Analyzer soll keine Vollständigkeit
+vortäuschen. Fehlt einer, steht dort <em>2 von 3 Standorten</em>, und wer fehlt,
+zeigt der Mauszeiger über der Zahl.</p>
+
+<p>Ein Standort gilt als still, wenn seit <strong>drei Schreibtakten</strong>
+nichts mehr durchging, mindestens aber fünf Minuten lang. Einer kann immer
+danebengehen — Netz kurz weg, Datenbank startet neu —, und eine Anzeige, die
+man flackern sieht, glaubt man danach nicht mehr.</p>
+
+<div class="hinweis box"><span class="titel">Warum hier nicht die Datenbank
+gefragt wird</span>
+Naheliegend wäre, InfluxDB nach den vorhandenen Standort-Namen zu fragen. Genau
+das tat der Analyzer bis zum 25.08.2026 — und es lief ins Leere, seit die
+Zugangsschlüssel getrennt wurden: Grafana bekam einen <strong>Lese</strong>-,
+die Analyzer einen <strong>Schreib</strong>-Schlüssel. Damit sieht ein Analyzer
+den Datentopf nicht mehr, und InfluxDB antwortet nicht etwa „verboten", sondern
+<em>„Datentopf nicht gefunden"</em>. Die Anzeige verschluckte das und zeigte
+einen Strich.<br /><br />
+Die Trennung selbst ist richtig: Ein Analyzer im Gartenhaus soll die Datenbank
+füttern und nicht auslesen können. Falsch war, eine Anzeige an einen Zugriff zu
+hängen, den das Gerät gar nicht mehr haben soll. Gezählt werden deshalb die
+<strong>Analyzer</strong>: Jeder weiß über sich selbst, ob und wann sein letzter
+Schreibvorgang geglückt ist, und der Master fragt der Reihe nach alle ab.</div>
+
 <h2 class="umbruch" id="k19-7">19.7 Das erste Anmelden in Grafana</h2>
 
 <p>Grafana läuft jetzt auf demselben Gerät, aber unter einer eigenen Adresse:
@@ -4326,7 +4365,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.7.1 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.7.2 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

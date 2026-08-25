@@ -82,6 +82,9 @@ lauf "Alarmabfragen: wide series statt long" \
 lauf "Alarmschalter: keine rohe Kopie der Regeldatei" \
     python3 tools/pruefe-alarmschalter.py
 
+lauf "Core liest nicht aus InfluxDB (Schreib-Token)" \
+    bash tools/pruefe-influx-lesezugriff.sh
+
 lauf "Keine Spuren echter Netze und Rechner" \
     bash tools/pruefe-keine-echtdaten.sh
 

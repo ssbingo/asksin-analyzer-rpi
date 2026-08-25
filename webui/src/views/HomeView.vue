@@ -45,6 +45,35 @@ function anpassen(): void {
 const status = ref<StatusAnzeigeZustand | null>(null);
 const langzeit = ref<LangzeitZustand | null>(null);
 
+/**
+ * Die Zeile „Sammlung": Wer liefert gerade in die Langzeitdatenbank?
+ *
+ * Der Strich stand hier monatelang, ohne zu sagen warum — die Abfrage lief
+ * seit der Trennung der InfluxDB-Token ins Leere und wurde stillschweigend
+ * verschluckt. Jetzt gibt es drei Fälle, und jeder benennt sich.
+ */
+const sammlungText = computed<string>(() => {
+  const s = langzeit.value?.sammlung ?? null;
+  if (s === null) return '—';
+  const zahl = s.liefern.length;
+  const gesamt = zahl + s.stumm.length;
+  const wort = (n: number): string => (n === 1 ? '1 Standort' : `${n} Standorte`);
+  // „2 von 3" nur, wenn wirklich etwas fehlt. Sonst stünde bei gesundem
+  // Verbund dauerhaft eine Bruchzahl da, und die liest sich wie ein Mangel.
+  return s.stumm.length === 0 ? wort(zahl) : `${zahl} von ${gesamt} Standorten`;
+});
+
+const sammlungTitel = computed<string>(() => {
+  const s = langzeit.value?.sammlung ?? null;
+  if (s === null) {
+    return 'Noch keine Auskunft — kein Analyzer hat auf die Nachfrage geantwortet.';
+  }
+  const liefern = s.liefern.length === 0 ? 'keiner' : s.liefern.join(', ');
+  return s.stumm.length === 0
+    ? `Liefern in die Datenbank: ${liefern}`
+    : `Liefern: ${liefern}\nSeit Längerem still: ${s.stumm.join(', ')}`;
+});
+
 // ---- Zigbee-Kachelreihe (M16) -------------------------------------------
 //
 // Zweite Reihe unter den vier BidCoS-Kacheln, und nur wenn der Mithörer
@@ -441,13 +470,13 @@ nutzeTakt(async () => {
                 {{ langzeit.installiert.grafana ? 'aktiv' : 'inaktiv' }}
               </span></td>
             </tr>
+            <!-- „Sammlung" beantwortet die Frage, die man sich im
+                 Vorbeigehen stellt: Liefern alle meine Analyzer? Deshalb steht
+                 hier nicht nur eine Zahl, sondern bei Lücken auch „von wie
+                 vielen" — und wer fehlt, steht im Tooltip. -->
             <tr>
               <td class="gedimmt">Sammlung</td>
-              <td class="num">
-                {{ langzeit.standorte === null ? '—'
-                   : langzeit.standorte === 1 ? '1 Standort'
-                   : `${langzeit.standorte} Standorte` }}
-              </td>
+              <td class="num" :title="sammlungTitel">{{ sammlungText }}</td>
             </tr>
             <tr>
               <td class="gedimmt">Alarmierung</td>

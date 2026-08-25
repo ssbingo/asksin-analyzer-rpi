@@ -139,6 +139,35 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.7.2 — 25.08.2026
+
+**„Sammlung" zeigt wieder, wie viele Standorte liefern — statt eines Strichs.**
+
+Gemeldet: „Was sollte eigentlich bei dem Punkt *Sammlung* stehen? Dort ist
+bisher nur ein Strich zu finden." Antwort: **3 Standorte**. Dass dort nichts
+stand, war ein stiller Fehler aus unserer eigenen Token-Trennung.
+
+Die Zeile zählte die Standorte mit einer Flux-Abfrage. Die lief — bis Grafana
+einen **Lese**- und die Analyzer einen **Schreib**-Token bekamen. Seither sieht
+ein Analyzer den Bucket nicht mehr, und InfluxDB antwortet nicht mit „verboten",
+sondern mit `HTTP 404 could not find bucket`. Der `catch` machte daraus ein
+stilles „nicht ermittelbar".
+
+- **Gezählt werden jetzt die Analyzer, nicht die Datenbank.** Jeder weiß über
+  sich selbst, ob und wann sein letzter Schreibvorgang geglückt ist; der Master
+  fragt der Reihe nach alle ab. Kein Lesezugriff nötig — die Token-Trennung
+  bleibt, wie sie ist.
+- Der ursprüngliche Anspruch bleibt: **Ein Standort zählt nur, wenn er wirklich
+  schreibt.** Fehlt einer, steht dort *2 von 3 Standorten*; wer fehlt, zeigt der
+  Mauszeiger.
+- Ein Standort gilt erst nach **drei Schreibtakten** ohne Erfolg als still,
+  mindestens aber nach fünf Minuten — ein einzelner Aussetzer darf die Anzeige
+  nicht flackern lassen.
+- `tools/pruefe-influx-lesezugriff.sh` hält fest, dass der Core nicht wieder
+  anfängt zu lesen. Gegengeprüft.
+- Handbuch 19.6 erklärt die ganze Kachel und warum nicht die Datenbank gefragt
+  wird.
+
 ### v1.7.1 — 24.08.2026
 
 **Die Clients melden jetzt über den Master.**
