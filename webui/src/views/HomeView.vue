@@ -71,7 +71,10 @@ const sammlungTitel = computed<string>(() => {
   const liefern = s.liefern.length === 0 ? 'keiner' : s.liefern.join(', ');
   return s.stumm.length === 0
     ? `Liefern in die Datenbank: ${liefern}`
-    : `Liefern: ${liefern}\nSeit Längerem still: ${s.stumm.join(', ')}`;
+    // „Liefert gerade nicht" und nicht „still": Direkt nach einem Neustart
+    // steht hier für ein paar Sekunden auch ein völlig gesunder Analyzer, der
+    // seinen ersten Schreibvorgang noch vor sich hat.
+    : `Liefern: ${liefern}\nLiefert gerade nicht: ${s.stumm.join(', ')}`;
 });
 
 // ---- Zigbee-Kachelreihe (M16) -------------------------------------------

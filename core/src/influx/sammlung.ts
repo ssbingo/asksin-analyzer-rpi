@@ -69,9 +69,15 @@ export interface Sammlung {
   /** Standorte, die gerade liefern — alphabetisch, ohne Dubletten. */
   liefern: string[];
   /**
-   * Standorte, die eingeschaltet sind, aber seit Langem nichts geschrieben
-   * haben. Sie werden **nicht** mitgezählt, aber benannt: „2 von 3" mit
-   * Namen ist eine Auskunft, „2" allein wäre eine halbe.
+   * Standorte, die eingeschaltet sind, aber gerade nicht liefern. Sie werden
+   * **nicht** mitgezählt, aber benannt: „2 von 3" mit Namen ist eine
+   * Auskunft, „2" allein wäre eine halbe.
+   *
+   * Bewusst nicht „seit Langem still": Hier landet auch ein Analyzer, der
+   * gerade erst neu gestartet ist und seinen ersten Schreibvorgang noch vor
+   * sich hat. Das ist für eine Handvoll Sekunden nach jeder Aktualisierung der
+   * Fall — „liefert gerade nicht" stimmt dann, „seit Langem still" wäre eine
+   * Übertreibung, und eine Anzeige, die übertreibt, glaubt man später nicht.
    */
   stumm: string[];
 }

@@ -139,6 +139,24 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.7.3 — 25.08.2026
+
+**Nachtrag zur „Sammlung": Der Master fragte sich selbst über HTTP.**
+
+In v1.7.2 lief der Master beim Zählen über *alle* Peers — und die Liste enthält
+ihn selbst. Sein Aufruf von `/api/langzeitdaten` rief also wieder die Zählung
+auf, die wieder sich selbst aufrief. Das endet erst in Zeitüberschreitungen, und
+die Kachel zeigte danach wieder einen Strich — aus dem genau umgekehrten Grund
+als vorher.
+
+- Der eigene Standort wird jetzt **direkt** genommen, ohne HTTP; nur die
+  entfernten Peers werden gefragt.
+- Ein Test hält es fest, gegengeprüft.
+- Nebenbei die Wortwahl berichtigt: Ein Analyzer ohne Schreibvorgang heißt
+  „liefert gerade nicht" statt „seit Längerem still". Direkt nach jeder
+  Aktualisierung steht dort für einen Schreibtakt lang auch ein völlig gesundes
+  Gerät — beobachtet an Dachboden unmittelbar nach dem Rollout.
+
 ### v1.7.2 — 25.08.2026
 
 **„Sammlung" zeigt wieder, wie viele Standorte liefern — statt eines Strichs.**

@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
 import {
   SAMMLUNG_FRIST_MIN_MS,
@@ -107,4 +109,33 @@ test('eine vorlaufende Uhr ist kein Beleg fuer Stille', () => {
 
 test('leere Namen werden nicht gezaehlt', () => {
   assert.deepEqual(zaehleSammlung([bericht({ standort: '   ' })], JETZT).liefern, []);
+});
+
+test('ein frisch gestarteter Analyzer heisst nicht "seit Langem still"', () => {
+  // Nach jeder Aktualisierung steht ein voellig gesunder Analyzer fuer die
+  // Dauer eines Schreibtakts ohne letzterErfolg da. Er zaehlt zu Recht noch
+  // nicht mit — aber die Anzeige darf ihn nicht als Stoerfall ausgeben.
+  // Beobachtet am 25.08.2026 an Dachboden, unmittelbar nach dem Rollout.
+  const frisch = bericht({ standort: 'Dachboden', letzterErfolg: null });
+  const s = zaehleSammlung([bericht({ standort: 'Keller Büro' }), frisch], JETZT);
+  assert.deepEqual(s.liefern, ['Keller Büro']);
+  assert.deepEqual(s.stumm, ['Dachboden'], 'genannt, aber nicht mitgezaehlt');
+});
+
+test('der Master fragt sich nicht selbst ueber HTTP', () => {
+  // Sonst ruft /api/langzeitdaten sich selbst auf, dieser Aufruf ruft wieder
+  // ermittleSammlung(), und das endet erst in Zeitueberschreitungen — die
+  // Kachel zeigte danach wieder einen Strich, diesmal aus dem umgekehrten
+  // Grund. Am 25.08.2026 genau so erlebt.
+  const daemon = readFileSync(
+    resolve(import.meta.dirname, '../bin/analyzerd.ts'), 'utf8',
+  );
+  const block = /async function ermittleSammlung[\s\S]*?\n}/.exec(daemon)?.[0] ?? '';
+  assert.ok(block !== '', 'ermittleSammlung gefunden');
+  assert.match(block, /allePeers\(\)\.filter/, 'die eigene Adresse wird ausgenommen');
+  assert.match(block, /const eigene = /, 'und dafuer auch bestimmt');
+  // Der eigene Bericht muss trotzdem drin sein — sonst zaehlte sich der
+  // Master selbst nicht mit, und aus drei Standorten wuerden zwei.
+  const vorFilter = block.slice(0, block.indexOf('allePeers()'));
+  assert.match(vorFilter, /standort,/, 'der eigene Standort kommt direkt hinein');
 });

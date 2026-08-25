@@ -1737,9 +1737,26 @@ let sammlungCache: { wert: Sammlung | null; bis: number } = { wert: null, bis: 0
 async function ermittleSammlung(): Promise<Sammlung | null> {
   if (Date.now() < sammlungCache.bis) return sammlungCache.wert;
 
-  const berichte: SammlungBericht[] = [];
+  const influx = influxKonfigLesen();
+  // Der eigene Standort wird DIREKT genommen, nicht ueber HTTP.
+  //
+  // Sonst ruft /api/langzeitdaten sich selbst auf, und dieser Aufruf ruft
+  // wieder ermittleSammlung() — eine Schleife, die erst in vier Sekunden
+  // Zeitueberschreitung endet und dabei bei jedem Durchgang eine weitere
+  // aufmacht. Am 25.08.2026 genau so passiert: Die Kachel zeigte danach
+  // wieder einen Strich, diesmal aus dem umgekehrten Grund.
+  const berichte: SammlungBericht[] = [
+    {
+      standort,
+      influxAktiv: influx.aktiv && influx.url !== '',
+      letzterErfolg: influxSchreiber?.status.letzterErfolg ?? null,
+      intervallSekunden: influx.intervallSekunden,
+    },
+  ];
+  const eigene = `http://127.0.0.1:${konfig.http.port}`;
+
   await Promise.all(
-    allePeers().map(async (peer) => {
+    allePeers().filter((p) => p.url !== eigene).map(async (peer) => {
       try {
         // Ohne Token: /api/langzeitdaten ist eine reine Zustandsauskunft und
         // traegt keine Geheimnisse. Ein Peer aus einer aelteren Fassung
@@ -1767,8 +1784,9 @@ async function ermittleSammlung(): Promise<Sammlung | null> {
     }),
   );
 
-  // Gar keine Auskunft von niemandem: Dann ist die Zahl unbekannt und nicht
-  // null. „0 Standorte" waere eine Behauptung.
+  // Der eigene Bericht ist immer dabei, die Liste also nie leer. Der Fall
+  // bleibt trotzdem stehen: „0 Standorte" waere eine Behauptung, „unbekannt"
+  // die Wahrheit, falls hier je nichts mehr ankaeme.
   const wert = berichte.length === 0 ? null : zaehleSammlung(berichte, Date.now());
   sammlungCache = { wert, bis: Date.now() + 60_000 };
   return wert;
