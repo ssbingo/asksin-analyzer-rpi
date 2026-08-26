@@ -251,7 +251,7 @@
 <div class="fusssteg">
   <span class="links">© 2026 S. Sternitzke · CC BY-NC-SA 4.0</span>
   <span class="mitte"><a href="#inhalt">↑ Inhaltsverzeichnis</a></span>
-  <span class="rechts">Handbuch Ausgabe 2 · Software 1.7.3</span>
+  <span class="rechts">Handbuch Ausgabe 2 · Software 1.8.0</span>
 </div>
 
 
@@ -267,7 +267,7 @@
     <img class="held" src="img/deckblatt.png" alt="Die Analyzer-Platine v0.2.0 in der Ansicht von schräg oben">
     <div class="fuss">
       <span>Ausgabe 2 · Juli 2026 · deutsch</span>
-      <span>Hardware 0.2.0 · Software 1.7.3 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
+      <span>Hardware 0.2.0 · Software 1.8.0 · CC&nbsp;BY-NC-SA&nbsp;4.0</span>
     </div>
   </div>
 </div>
@@ -2293,7 +2293,89 @@ mithörst.</p>
 als fremd gekennzeichnet. Ein Verdacht ohne Grundlage wäre schlimmer als
 keine Kennzeichnung, weil man ihm glaubt.</p>
 
-<h2 id="k13-4">13.4 Einstellungen</h2>
+<h2 class="umbruch" id="k13-4">13.4 Funklast — wer verbraucht die Sendezeit?</h2>
+
+<p>Die Telegrammliste zeigt, <em>was</em> gefunkt wurde. Diese Seite zeigt,
+<strong>was es kostet</strong> — und vor allem, wie viel davon umsonst war.
+Sie ist die Antwort auf die Frage, die nach jedem Duty-Cycle-Alarm kommt:
+warum eigentlich?</p>
+
+<p>Die Spalten stehen in der Reihenfolge der Ursachen, und genau so liest man
+sie von links nach rechts:</p>
+
+<table>
+<tr><th>Spalte</th><th>Was sie sagt</th></tr>
+<tr><td><strong>% je Stunde</strong></td><td>Verbrauch am gesetzlichen 1-%-Kontingent. Ab 40 % gelb, ab 80 % rot.</td></tr>
+<tr><td><strong>Sendezeit</strong></td><td>Die eigentliche Größe. <strong>Nicht</strong> die Zahl der Telegramme — die kann gleich bleiben, während die Sendezeit sich versechsfacht.</td></tr>
+<tr><td><strong>Vorgänge</strong></td><td>Befehle und Meldungen. Mehrere Sendungen mit demselben Zähler sind <em>ein</em> Vorgang.</td></tr>
+<tr><td><strong>Sendungen</strong></td><td>Wie oft tatsächlich gesendet wurde. In Klammern die Wiederholungen. Normal ist 1,0 je Vorgang.</td></tr>
+<tr><td><strong>Bursts</strong></td><td>360 ms Dauerträger statt rund 10 ms. <strong>Ein Burst kostet einen vollen Prozentpunkt.</strong></td></tr>
+<tr><td><strong>vergeblich</strong></td><td>Wiederholungen, obwohl der Analyzer die Antwort <strong>schon gehört hatte</strong>.</td></tr>
+</table>
+
+<div class="hinweis box"><span class="titel">Die letzte Spalte kann nur ein
+Mithörer füllen</span>
+Eine Zentrale sieht nur, dass sie wiederholen muss. Ob das Gerät geantwortet
+hat und die Antwort unterwegs verloren ging, kann sie nicht wissen — sie hat
+sie ja nicht bekommen. Ein Mithörer hört <strong>beide Seiten</strong>. Steht
+unter <em>vergeblich</em> eine hohe Zahl, ist nicht der Empfänger stumm,
+sondern der <strong>Rückweg zum Absender</strong> kommt nicht durch. Man sucht
+dann am Absender — Antenne, Aufstellort — und nicht am Gerät.</div>
+
+<h3 id="ein-fall-zum-mitlesen">Ein Fall zum Mitlesen</h3>
+
+<p>Am 26.08.2026 meldete die CCU für ein LAN-Gateway einen Duty-Cycle von über
+100 %. Die Seite zeigte:</p>
+
+<pre>Absender    %/h   Sendezeit  Vorg. Send. Burst vergebl.  Gruppen
+27508B    30,1      65,1s      84   158    83       23        2
+44AFFD     4,4       9,5s     356   377     0        1        1</pre>
+
+<p>Der Absender <code>27508B</code> ist die Zentrale. Auffällig ist nicht die
+Telegrammzahl — der Aktor darunter sendet mehr als doppelt so viele Vorgänge —,
+sondern die <strong>Sendezeit</strong>: 65 Sekunden gegen 9. Ursache: 83
+Bursts. Und 23 davon waren <em>vergeblich</em>.</p>
+
+<p>Ein Klick auf die Zeile zeigt, wohin:</p>
+
+<pre>54192C   52 Vorg.  126 Send. = 2,4/Vorgang,  78 Bursts,  23 vergeblich, Antwort −76 dBm
+2918CA   12 Vorg.   12 Send. = 1,0/Vorgang,   0 Bursts,   0 vergeblich, Antwort −72 dBm
+5BC7F4    9 Vorg.    9 Send. = 1,0/Vorgang,   0 Bursts,   0 vergeblich, Antwort −82 dBm</pre>
+
+<p><strong>Ein einziger Empfänger</strong> verbraucht alles. Jeder Befehl an ihn
+muss 2,4-mal raus, alle anderen gehen beim ersten Versuch durch. Und das Gerät
+<em>antwortet</em> ja — der Analyzer hört es mit −76 dBm, besser als manches
+Gerät, das anstandslos funktioniert. Die Antwort erreicht nur den Absender
+nicht.</p>
+
+<h3 id="mehrere-sender-unter-einer-adresse">Mehrere Sender unter einer Adresse</h3>
+
+<p>Beim Aufklappen stand außerdem eine Warnung: <em>2 verschiedene Sender unter
+dieser Adresse</em>.</p>
+
+<pre>  −44 dBm   1043 Sendungen    78 Bursts   49,9s
+  −74 dBm    573 Sendungen     3 Bursts   12,8s</pre>
+
+<p>Das ist der Fund, der den Fall entschieden hat. <strong>Alle LAN-Gateways
+einer CCU senden mit der Adresse der Zentrale</strong> — in der Telegrammliste
+sind sie nicht auseinanderzuhalten. Die Empfangsstärke trennt sie doch: Hier
+zwei Gipfel, 30 dB auseinander, und <strong>78 von 81 Bursts</strong> kommen
+aus dem lauten. Damit war klar, <em>welches</em> Gateway das Kontingent
+verbraucht — dasselbe, das die CCU meldete, nur unabhängig gemessen.</p>
+
+<p class="klein">Steht dort nur eine Gruppe, ist das der Normalfall und die
+Aufteilung wird gar nicht erst angezeigt. Sie entsteht erst, wenn sich die
+Empfangsstärken um mehr als 8 dB in getrennte Häufungen teilen und jede
+mindestens 5 % der Sendungen trägt — aus Rauschen wird so keine Gruppe
+erfunden.</p>
+
+<p><strong>Zur Genauigkeit:</strong> Die Sendezeit ist aus Längenbyte und
+Datenrate <em>gerechnet</em>, nicht gemessen — dieselbe Schätzung, auf der auch
+die Duty-Cycle-Anzeige und der Alarm beruhen. Für „wer verbraucht das
+Kontingent" ist sie belastbar; als Absolutwert gehört sie gegen die Anzeige der
+Zentrale gehalten.</p>
+
+<h2 id="k13-5">13.5 Einstellungen</h2>
 <figure class="rahmen"><img src="img/ui-einstellungen.png" alt="Die Einstellungen">
 <figcaption>Alle Verwaltung an einem Ort — Konsole nicht nötig.</figcaption></figure>
 <p>Jedes Panel dieser Seite hat sein eigenes Kapitel; hier der Überblick:</p>
@@ -2311,7 +2393,7 @@ keine Kennzeichnung, weil man ihm glaubt.</p>
 <p>Alle Änderungen wirken sofort (nur der Demo-Schalter startet den Dienst
 kontrolliert neu) und überleben Neustarts wie Updates.</p>
 
-<h2 id="k13-5">13.5 Info</h2>
+<h2 id="k13-6">13.6 Info</h2>
 <figure class="rahmen"><img src="img/ui-info.png" alt="Die Info-Seite">
 <figcaption>Version, Laufzeit, Empfangszähler — und die Update-Verwaltung.</figcaption></figure>
 <p>Kacheln mit Core-Version, Laufzeit, Datenbankgröße und Host-Daten; darunter
@@ -4365,7 +4447,7 @@ höchstens die letzten Sekunden.</p>
 unter gleichen Bedingungen).</p>
 
 <p class="klein" style="margin-top:10mm; text-align:center">
-AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.7.3 · erzeugt aus
+AskSin-Analyzer · Handbuch Ausgabe 2 · Juli 2026 · Software 1.8.0 · erzeugt aus
 <code>docs/handbuch/handbuch.html</code></p>
 
 </body>

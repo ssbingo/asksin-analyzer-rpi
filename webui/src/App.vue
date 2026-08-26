@@ -94,6 +94,10 @@ nutzeTakt(async () => {
     <nav class="haupt">
       <RouterLink to="/home">Übersicht</RouterLink>
       <RouterLink to="/list"><span class="oben">Telegramme</span><span class="unten">BidCoS</span></RouterLink>
+      <!-- Neben den Telegrammen, nicht bei der Wartung: Die Liste zeigt, WAS
+           gefunkt wurde, die Funklast, WAS ES KOSTET. Beides sieht man sich
+           nacheinander an, wenn ein Duty-Cycle-Alarm kommt. -->
+      <RouterLink to="/funklast">Funklast</RouterLink>
       <!-- Nur wenn ein Mithörer läuft: Vier von fünf Analyzern haben keinen,
            und ein toter Menüpunkt ist schlechter als keiner. -->
       <RouterLink v-if="zigbeeAktiv" to="/zigbee"><span class="oben">Meldungen</span><span class="unten">Zigbee</span></RouterLink>

@@ -1003,6 +1003,59 @@ export async function sendeAlarmschalter(
   if (!res.ok) throw new Error(await res.text());
 }
 
+// ---- Funklast (M18) -------------------------------------------------------
+
+export interface FunklastPaar {
+  an: number;
+  address: string;
+  name: string;
+  vorgaenge: number;
+  sendungen: number;
+  wiederholungen: number;
+  /** Wiederholungen, obwohl die Antwort bereits zu hören war. */
+  vergeblich: number;
+  ohneAntwort: number;
+  bursts: number;
+  sendezeitMs: number;
+  rssiAntwort: number | null;
+}
+
+export interface FunklastGruppe {
+  rssi: number;
+  sendungen: number;
+  bursts: number;
+  sendezeitMs: number;
+}
+
+export interface FunklastAbsender {
+  addr: number;
+  address: string;
+  name: string;
+  vorgaenge: number;
+  sendungen: number;
+  wiederholungen: number;
+  vergeblich: number;
+  ohneAntwort: number;
+  bursts: number;
+  sendezeitMs: number;
+  anteilWiederholung: number;
+  prozentJeStunde: number;
+  /** Mehr als eine = mehrere Geräte senden unter dieser Adresse. */
+  gruppen: FunklastGruppe[];
+  paare: FunklastPaar[];
+}
+
+export interface FunklastZustand {
+  vonMs: number;
+  bisMs: number;
+  stunden: number;
+  zeilen: number;
+  absender: FunklastAbsender[];
+}
+
+export const holeFunklast = (stunden: number): Promise<FunklastZustand> =>
+  hole(`/api/funklast?stunden=${stunden}`);
+
 // ---- Systemaktualisierung (M17) ------------------------------------------
 
 export interface SystemupdateBefund {

@@ -4,6 +4,7 @@ import { NUR_MASTER, istMaster } from './zustand.ts';
 
 import HomeView from './views/HomeView.vue';
 import ListeView from './views/ListeView.vue';
+import FunklastView from './views/FunklastView.vue';
 import VerbundView from './views/VerbundView.vue';
 import ZigbeeView from './views/ZigbeeView.vue';
 import VerbundZigbeeView from './views/VerbundZigbeeView.vue';
@@ -20,6 +21,7 @@ export const router = createRouter({
     { path: '/', redirect: '/home' },
     { path: '/home', component: HomeView },
     { path: '/list', component: ListeView },
+    { path: '/funklast', component: FunklastView },
     { path: '/verbund', component: VerbundView },
     { path: '/zigbee', component: ZigbeeView },
     { path: '/verbund-zigbee', component: VerbundZigbeeView },

@@ -139,6 +139,39 @@ ebenfalls ein eigenes Repository mit eigenständiger Versionierung.
 
 ## Changelog
 
+### v1.8.0 — 26.08.2026
+
+**Neue Ansicht „Funklast": Wer verbraucht die Sendezeit — und wie viel davon war umsonst?**
+
+Entstanden aus einem echten Fall: Die CCU meldete für ein LAN-Gateway einen
+Duty-Cycle über 100 %, und die Ursache zu finden kostete eine Stunde Handarbeit
+an der Datenbank. Dieselbe Kette läuft jetzt automatisch — an denselben Daten
+gemessen in **53 ms**.
+
+- Die Spalten stehen in der Reihenfolge der Ursachen: **Sendezeit → Bursts →
+  Wiederholungen → vergebliche Wiederholungen.** Ein Absender fällt durch
+  Sendezeit auf, nicht durch die Zahl der Telegramme; im Fall stieg die Zahl von
+  219 auf 345, die Sendezeit aber von 4,6 s auf 30 s.
+- **„Vergeblich" kann nur ein Mithörer füllen:** Wiederholungen, obwohl der
+  Analyzer die Antwort bereits gehört hatte. Eine Zentrale sieht nur, dass sie
+  wiederholen muss — nicht, ob die Antwort unterwegs verloren ging. Steht dort
+  eine hohe Zahl, ist der Rückweg das Nadelöhr, und man sucht am Absender statt
+  am Gerät.
+- **Mehrere Sender unter einer Adresse werden getrennt.** Alle LAN-Gateways
+  einer CCU senden mit deren Adresse; auseinanderhalten lässt sie nur die
+  Empfangsstärke. Im Fall: zwei Gipfel, 30 dB auseinander, und 78 von 81 Bursts
+  aus dem lauten — damit war das schuldige Gateway benannt, unabhängig von der
+  CCU-Anzeige.
+- Aufklappen zeigt je Gegenstelle die Sendungen je Vorgang, die Bursts, die
+  vergeblichen Wiederholungen und wie laut der Analyzer die **Antworten** hört.
+  Dazu ein Satz, was zu tun ist — nicht nur, was gemessen wurde.
+- Zehn Tests, darunter der komplette Fall als Durchlauf. Zwei Fehler fanden sie
+  beim Schreiben: HmIP beginnt bei Typ 0x80 (mein Testwert 0x5E war das
+  Leistungstelegramm eines Schaltaktors und prüfte nichts), und ein Gerät, das
+  in einem Fenster **nur quittiert**, fiel ganz aus der Liste — seine Sendezeit
+  belegt das Band trotzdem.
+- Handbuch 13.4 liest den Fall Zeile für Zeile mit; 13.5 und 13.6 rücken auf.
+
 ### v1.7.3 — 25.08.2026
 
 **Nachtrag zur „Sammlung": Der Master fragte sich selbst über HTTP.**

@@ -20,6 +20,8 @@
 
 import { readFileSync } from 'node:fs';
 import { balkenAusLqi, balkenAusStoerabstand, median } from '../analytics/balken.ts';
+import { werteFunklastAus } from '../analytics/funklast.ts';
+import type { FunkZeile } from '../analytics/funklast.ts';
 import { createServer } from 'node:http';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -513,6 +515,8 @@ export class ApiServer {
           return this.#apiTelegrams(url, res);
         case '/api/noise':
           return this.#apiNoise(url, res);
+        case '/api/funklast':
+          return this.#apiFunklast(url, res);
         case '/api/update/versions': {
           if (!this.#autorisiert(req, res)) return;
           const hooks = this.#opts.update;
@@ -1110,6 +1114,56 @@ export class ApiServer {
    * Flags/Typen und `id` (rowid) für inkrementelles Nachladen. Ohne `afterId`
    * kommen die neuesten `limit` Zeilen, mit `afterId` alles Neuere daran.
    */
+  /**
+   * Funklast: Wer verbraucht die Sendezeit, und wie viel davon ist vergeblich?
+   *
+   * Die Auswertung läuft **hier** und nicht im Browser: Ein Fenster von sechs
+   * Stunden sind je nach Anlage einige zehntausend Zeilen. Die durchs Netz zu
+   * schicken, damit der Browser sie zusammenzählt, wäre die falsche Seite —
+   * zumal das Gerät die Daten ohnehin schon hat.
+   */
+  #apiFunklast(url: URL, res: ServerResponse): void {
+    const stunden = Math.min(
+      48,
+      Math.max(1, Number(url.searchParams.get('stunden') ?? 6) || 6),
+    );
+    const bis = this.#time.now();
+    const von = bis - stunden * 3_600_000;
+    const rows = this.#opts.db
+      .prepare(
+        'SELECT ts, from_addr, to_addr, cnt, type, flags, len, rssi '
+        + 'FROM telegrams WHERE ts >= ? ORDER BY ts',
+      )
+      .all(von) as unknown as Array<{
+        ts: number; from_addr: number; to_addr: number; cnt: number;
+        type: number; flags: number; len: number; rssi: number;
+      }>;
+    const zeilen: FunkZeile[] = rows.map((r) => ({
+      ts: r.ts, from: r.from_addr, to: r.to_addr, cnt: r.cnt,
+      type: r.type, flags: r.flags, len: r.len, rssi: r.rssi,
+    }));
+    const ergebnis = werteFunklastAus(zeilen, von, bis);
+
+    // Namen erst hier dazu: Die Auswertung selbst kennt nur Adressen und ist
+    // damit ohne Geräteliste prüfbar.
+    const name = (a: number): string =>
+      this.#opts.devList?.nameOf(a) ?? a.toString(16).toUpperCase().padStart(6, '0');
+    return this.#json(res, 200, {
+      ...ergebnis,
+      stunden,
+      absender: ergebnis.absender.map((s) => ({
+        ...s,
+        address: s.addr.toString(16).toUpperCase().padStart(6, '0'),
+        name: name(s.addr),
+        paare: s.paare.map((p) => ({
+          ...p,
+          address: p.an.toString(16).toUpperCase().padStart(6, '0'),
+          name: name(p.an),
+        })),
+      })),
+    });
+  }
+
   #apiTelegrams(url: URL, res: ServerResponse): void {
     const afterRoh = url.searchParams.get('afterId');
     // Fehlender Parameter ≠ afterId=0: ohne Parameter die neuesten Zeilen,
